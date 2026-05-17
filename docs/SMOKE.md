@@ -20,12 +20,13 @@ mcp-smoke=ok
 mcp-stdio-isolation=ok
 state-schema-versioning=ok
 release-notes=ok
+marketplace-source=ok
 team-dry-run=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
 
-The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, marketplace release-note coverage, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
+The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, marketplace release-note coverage, hosted marketplace source coverage, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
 
 
 ## Local `lfg` symlink install smoke
@@ -56,6 +57,33 @@ Expected terminal evidence:
 
 ```text
 lfg-launch-smoke=ok
+```
+
+## Focused marketplace source smoke
+
+Run the local marketplace metadata/source gate:
+
+```sh
+scripts/verify-marketplace-source.sh
+```
+
+Expected terminal evidence:
+
+```text
+marketplace-source=ok
+```
+
+For remote raw GitHub evidence on the current preview branch, run:
+
+```sh
+scripts/verify-marketplace-source.sh --remote p1
+```
+
+Expected terminal evidence:
+
+```text
+marketplace-remote-source=ok branch=p1
+marketplace-source=ok
 ```
 
 ## Focused marketplace release notes smoke

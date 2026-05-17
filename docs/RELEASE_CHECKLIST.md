@@ -12,6 +12,7 @@ lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 - [ ] MCP stdio isolation smoke passes with `mcp-stdio-isolation=ok`.
 - [ ] State schema/versioning smoke passes with `state-schema-versioning=ok`.
 - [ ] Marketplace release notes smoke passes with `release-notes=ok`.
+- [ ] Marketplace source smoke passes with `marketplace-source=ok` and preview remote smoke passes with `marketplace-remote-source=ok branch=p1`.
 - [ ] Remote GitHub Actions smoke passes with `remote-smoke=ok` for the latest pushed commit.
 - [ ] Roadmap coverage guard confirms `roadmap=27/27` non-harness skill surfaces.
 - [ ] Feature-doc coverage guard confirms `feature_docs=27/27` non-harness skill surfaces.
@@ -28,6 +29,8 @@ scripts/verify-team-tmux-lifecycle.sh
 scripts/verify-mcp-stdio-isolation.sh
 scripts/verify-state-schema.sh
 scripts/verify-release-notes.sh
+scripts/verify-marketplace-source.sh
+scripts/verify-marketplace-source.sh --remote p1
 plugins/grok-harnessing/bin/grok-install-smoke.sh
 scripts/verify-remote-smoke.sh p1
 ```

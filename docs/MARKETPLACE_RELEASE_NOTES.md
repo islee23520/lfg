@@ -4,6 +4,8 @@
 
 Package: `linalab-io-framework/grok-build`
 Marketplace source: `https://github.com/islee23520/lfg.git`
+Stable marketplace URL: `https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json`
+Preview marketplace URL: `https://raw.githubusercontent.com/islee23520/lfg/p1/.grok/plugins/marketplace.json`
 Plugin path: `plugins/grok-harnessing`
 Reference model: [Yeachan-Heo/oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex)
 

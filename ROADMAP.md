@@ -118,8 +118,8 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 ### M3 — Marketplace-first install
 
-- [ ] Publish/host marketplace metadata so users can add it from Grok `/plugins`.
-- [ ] Document exact marketplace source URL.
+- [x] Publish/host marketplace metadata so users can add it from Grok `/plugins`.
+- [x] Document exact marketplace source URL.
 - [ ] Verify install from Grok UI/TUI marketplace flow.
 - [ ] Remove local-dev install from primary docs once marketplace flow is stable.
 
@@ -186,6 +186,8 @@ Each OMX-like feature should land with:
 5. Grok install/inspect verification when plugin metadata changes.
 
 Current feature coverage:
+
+Behavioral smoke gates now include hosted marketplace source evidence: `marketplace-source=ok` and remote raw GitHub evidence `marketplace-remote-source=ok`.
 
 Behavioral smoke gates now include marketplace release-note evidence: `release-notes=ok`.
 
