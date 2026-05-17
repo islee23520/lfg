@@ -2,6 +2,8 @@
 
 ## grok-build 0.3.0 — p1 hardening preview
 
+Preview release tag: `grok-build-v0.3.0-p1`
+
 Package: `linalab-io-framework/grok-build`
 Marketplace source: `https://github.com/islee23520/lfg.git`
 Stable marketplace URL: `https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json`

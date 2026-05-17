@@ -147,7 +147,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [ ] Hook event evidence from real Grok sessions.
 - [x] MCP stderr isolation.
 - [x] State migration/versioning.
-- [ ] Release tags.
+- [x] Release tags.
 - [x] Marketplace release notes.
 
 ## Team backend design
@@ -186,6 +186,8 @@ Each OMX-like feature should land with:
 5. Grok install/inspect verification when plugin metadata changes.
 
 Current feature coverage:
+
+Behavioral smoke gates now include release tag evidence: `release-tag=ok` and `release-tag-remote=ok`.
 
 Behavioral smoke gates now include hosted marketplace source evidence: `marketplace-source=ok` and remote raw GitHub evidence `marketplace-remote-source=ok`.
 

@@ -62,6 +62,8 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("- [x] Publish/host marketplace metadata", roadmap)
         self.assertIn("- [x] Document exact marketplace source URL.", roadmap)
         self.assertIn("marketplace-source=ok", roadmap)
+        self.assertIn("- [x] Release tags.", roadmap)
+        self.assertIn("release-tag=ok", roadmap)
         self.assertIn("release-notes=ok", roadmap)
         self.assertIn("state-schema-versioning=ok", roadmap)
         self.assertIn("mcp-stdio-isolation=ok", roadmap)
@@ -178,6 +180,13 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("team status", team_lifecycle_script)
         self.assertIn("team resume", team_lifecycle_script)
         self.assertIn("team shutdown", team_lifecycle_script)
+        release_tag = REPO / "scripts" / "verify-release-tag.sh"
+        self.assertTrue(os.access(release_tag, os.X_OK))
+        release_tag_script = release_tag.read_text(encoding="utf-8")
+        self.assertIn("release-tag=ok", release_tag_script)
+        self.assertIn("release-tag-remote=ok", release_tag_script)
+        release_tag_doc = (REPO / "docs" / "RELEASE_TAGS.md").read_text(encoding="utf-8")
+        self.assertIn("grok-build-v0.3.0-p1", release_tag_doc)
         hook_discovery = REPO / "scripts" / "verify-grok-hook-discovery.sh"
         self.assertTrue(os.access(hook_discovery, os.X_OK))
         hook_discovery_script = hook_discovery.read_text(encoding="utf-8")

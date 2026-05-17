@@ -22,12 +22,13 @@ state-schema-versioning=ok
 release-notes=ok
 marketplace-source=ok
 grok-hook-discovery=ok
+release-tag=ok
 team-dry-run=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
 
-The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, marketplace release-note coverage, hosted marketplace source coverage, Grok hook discovery/replay coverage, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
+The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, marketplace release-note coverage, hosted marketplace source coverage, Grok hook discovery/replay coverage, release tag coverage, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
 
 
 ## Local `lfg` symlink install smoke
@@ -58,6 +59,22 @@ Expected terminal evidence:
 
 ```text
 lfg-launch-smoke=ok
+```
+
+## Focused release tag smoke
+
+After creating/pushing a release tag, run:
+
+```sh
+scripts/verify-release-tag.sh grok-build-v0.3.0-p1
+scripts/verify-release-tag.sh --remote grok-build-v0.3.0-p1
+```
+
+Expected terminal evidence:
+
+```text
+release-tag=ok tag=grok-build-v0.3.0-p1
+release-tag-remote=ok tag=grok-build-v0.3.0-p1
 ```
 
 ## Focused Grok hook discovery smoke

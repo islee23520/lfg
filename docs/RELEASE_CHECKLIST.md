@@ -14,6 +14,7 @@ lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 - [ ] Marketplace release notes smoke passes with `release-notes=ok`.
 - [ ] Marketplace source smoke passes with `marketplace-source=ok` and preview remote smoke passes with `marketplace-remote-source=ok branch=p1`.
 - [ ] Grok hook discovery/replay smoke passes with `grok-hook-discovery=ok`, `hook-event-replay=ok`, and `grok-headless-session=ok`.
+- [ ] Release tag smoke passes with `release-tag=ok` and `release-tag-remote=ok`.
 - [ ] Remote GitHub Actions smoke passes with `remote-smoke=ok` for the latest pushed commit.
 - [ ] Roadmap coverage guard confirms `roadmap=27/27` non-harness skill surfaces.
 - [ ] Feature-doc coverage guard confirms `feature_docs=27/27` non-harness skill surfaces.
@@ -33,6 +34,8 @@ scripts/verify-release-notes.sh
 scripts/verify-marketplace-source.sh
 scripts/verify-marketplace-source.sh --remote p1
 scripts/verify-grok-hook-discovery.sh
+scripts/verify-release-tag.sh grok-build-v0.3.0-p1
+scripts/verify-release-tag.sh --remote grok-build-v0.3.0-p1
 plugins/grok-harnessing/bin/grok-install-smoke.sh
 scripts/verify-remote-smoke.sh p1
 ```
