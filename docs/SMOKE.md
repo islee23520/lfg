@@ -306,6 +306,23 @@ grok-install-smoke=ok skills=28 key_skills_present
 
 The script syncs `plugins/grok-harnessing/` into `~/.grok/plugins/grok-build/`, runs `grok --cwd /tmp inspect --json`, and asserts the installed plugin exposes 28 skills including the team, ultrawork, autopilot, ralplan, visual-ralph, performance-goal, autoresearch-goal, omx-setup, doctor, and wiki surfaces.
 
+
+## Aggregated remote release-readiness smoke
+
+After pushing and force-updating the preview tag, verify the remote CI run and remote tag together:
+
+```sh
+scripts/verify-release-readiness-remote.sh p1 grok-build-v0.3.0-p1
+```
+
+Expected terminal evidence:
+
+```text
+release-readiness-remote=ok
+```
+
+This wraps `scripts/verify-remote-smoke.sh p1` and `scripts/verify-release-tag.sh --remote grok-build-v0.3.0-p1`.
+
 ## GitHub Actions smoke
 
 The workflow lives at:
