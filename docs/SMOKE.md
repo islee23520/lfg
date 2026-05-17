@@ -19,12 +19,13 @@ hook-smoke=ok
 mcp-smoke=ok
 mcp-stdio-isolation=ok
 state-schema-versioning=ok
+release-notes=ok
 team-dry-run=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
 
-The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
+The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, marketplace release-note coverage, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
 
 
 ## Local `lfg` symlink install smoke
@@ -56,6 +57,22 @@ Expected terminal evidence:
 ```text
 lfg-launch-smoke=ok
 ```
+
+## Focused marketplace release notes smoke
+
+Run the release-note coverage gate:
+
+```sh
+scripts/verify-release-notes.sh
+```
+
+Expected terminal evidence:
+
+```text
+release-notes=ok
+```
+
+The script asserts the release notes mention the plugin version, package name, marketplace source, plugin path, oh-my-codex reference, `/plugins` install path, and all required release evidence strings.
 
 ## Focused state schema/versioning smoke
 

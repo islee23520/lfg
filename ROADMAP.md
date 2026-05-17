@@ -148,7 +148,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [x] MCP stderr isolation.
 - [x] State migration/versioning.
 - [ ] Release tags.
-- [ ] Marketplace release notes.
+- [x] Marketplace release notes.
 
 ## Team backend design
 
@@ -186,6 +186,8 @@ Each OMX-like feature should land with:
 5. Grok install/inspect verification when plugin metadata changes.
 
 Current feature coverage:
+
+Behavioral smoke gates now include marketplace release-note evidence: `release-notes=ok`.
 
 Behavioral smoke gates now include state schema/versioning evidence: `state-schema-file=ok`, `state-schema-doctor=ok`, and `state-schema-versioning=ok`.
 

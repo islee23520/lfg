@@ -58,6 +58,8 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("- [x] Add behavioral smoke tests per workflow.", roadmap)
         self.assertIn("- [x] MCP stderr isolation.", roadmap)
         self.assertIn("- [x] State migration/versioning.", roadmap)
+        self.assertIn("- [x] Marketplace release notes.", roadmap)
+        self.assertIn("release-notes=ok", roadmap)
         self.assertIn("state-schema-versioning=ok", roadmap)
         self.assertIn("mcp-stdio-isolation=ok", roadmap)
         self.assertIn("team-tmux-lifecycle=ok", roadmap)
@@ -173,6 +175,14 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("team status", team_lifecycle_script)
         self.assertIn("team resume", team_lifecycle_script)
         self.assertIn("team shutdown", team_lifecycle_script)
+        release_notes = REPO / "scripts" / "verify-release-notes.sh"
+        self.assertTrue(os.access(release_notes, os.X_OK))
+        release_notes_script = release_notes.read_text(encoding="utf-8")
+        self.assertIn("release-notes=ok", release_notes_script)
+        release_notes_doc = (REPO / "docs" / "MARKETPLACE_RELEASE_NOTES.md").read_text(encoding="utf-8")
+        self.assertIn("linalab-io-framework/grok-build", release_notes_doc)
+        self.assertIn("grok-build 0.3.0", release_notes_doc)
+        self.assertIn("/plugins", release_notes_doc)
         state_schema = REPO / "scripts" / "verify-state-schema.sh"
         self.assertTrue(os.access(state_schema, os.X_OK))
         state_schema_script = state_schema.read_text(encoding="utf-8")
