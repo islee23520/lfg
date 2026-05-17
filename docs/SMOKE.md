@@ -53,7 +53,7 @@ lfg-installed-symlink-surface=ok
 lfg-inside-tmux-attach=ok
 ```
 
-The script creates symlinks for both `lfg` and its sibling `grok-build.py` target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status` and `lfg --json doctor`. `scripts/verify-installed-lfg-symlink-surface.sh` additionally proves both installed symlink locations point at the repo runtime and that launching installed `lfg` creates the `lfg-backend` tmux session and that installed `lfg --json slash '/team providers'` returns the provider matrix and installed `lfg --json slash '/team preflight'` verifies tmux/provider readiness. `scripts/verify-lfg-inside-tmux-attach.sh` launches `lfg` from inside a real tmux pane and verifies it opens a split-window attach pane instead of stealing the current client.
+The script creates symlinks for both `lfg` and its sibling `grok-build.py` target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status` and `lfg --json doctor`. `scripts/verify-installed-lfg-symlink-surface.sh` additionally proves both installed symlink locations point at the repo runtime and that launching installed `lfg` creates the `lfg-backend` tmux session and that installed `lfg --json slash '/team providers'` returns the provider matrix and installed `lfg --json slash '/team preflight'` verifies tmux/provider readiness and includes actionable next commands. `scripts/verify-lfg-inside-tmux-attach.sh` launches `lfg` from inside a real tmux pane and verifies it opens a split-window attach pane instead of stealing the current client.
 
 For a focused default-launch check, run:
 

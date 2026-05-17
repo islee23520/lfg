@@ -39,6 +39,9 @@ obj=json.load(open('/tmp/lfg-installed-team-preflight.json'))
 assert obj['ok'], obj
 assert obj['backend']['status']=='running', obj
 assert obj['summary']['smokeSafe']=='noop', obj
+assert obj['commands']['providers']=='lfg team providers', obj
+assert obj['commands']['backendAttach'].startswith('tmux attach -t '), obj
+assert '--providers noop' in obj['commands']['createNoopSmoke'], obj
 PY
   tmux kill-session -t lfg-installed-preflight >/dev/null 2>&1 || true
 done
@@ -48,7 +51,7 @@ for bin in "$HOME/.local/bin/grok-build.py" "$HOME/.grok/bin/grok-build.py"; do
   test "$target" = "$REPO_ROOT/plugins/grok-harnessing/bin/grok-build.py"
 done
 if tmux has-session -t lfg-backend 2>/dev/null; then
-  echo "lfg-installed-symlink-surface=ok backend=lfg-backend slash=/team-providers,/team-preflight"
+  echo "lfg-installed-symlink-surface=ok backend=lfg-backend slash=/team-providers,/team-preflight commands=ok"
 else
   echo "lfg-installed-symlink-surface=missing-backend" >&2
   exit 1
