@@ -329,6 +329,20 @@ TOOLS = [
             "additionalProperties": False
         },
     },
+
+    {
+        "name": "grok_build_omx_setup",
+        "description": "Check/show/plan Grok Build setup state for OMX-like plugin installation.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["check", "install-plan", "show"]},
+                "marketplace": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
     {
         "name": "grok_build_skill",
         "description": "List/search the Grok Build OMX-like skill catalog.",
@@ -845,6 +859,22 @@ def handle_tool(name, arguments=None):
             cmd += ["show"]
             if arguments.get("id"):
                 cmd += ["--id", arguments["id"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+
+    if name == "grok_build_omx_setup":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "omx-setup"]
+        if action == "check":
+            cmd += ["check"]
+        elif action == "install-plan":
+            cmd += ["install-plan"]
+            if arguments.get("marketplace"):
+                cmd += ["--marketplace", arguments["marketplace"]]
+        elif action == "show":
+            cmd += ["show"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

@@ -1094,6 +1094,55 @@ def ralplan_show(args: argparse.Namespace) -> dict[str, Any]:
     record["path"] = str(ralplan_path(ref))
     return record
 
+
+def omx_setup_path() -> pathlib.Path:
+    return STATE_DIR / "omx-setup.json"
+
+
+def omx_setup_check(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    checks = {
+        "pluginRootExists": ROOT.exists(),
+        "manifestExists": (ROOT / ".grok-plugin" / "plugin.json").exists(),
+        "skillsDirExists": (ROOT / "skills").exists(),
+        "mcpExists": (ROOT / "bin" / "grok-build-mcp.py").exists(),
+        "hookExists": (ROOT / "hooks").exists(),
+        "dataDirExists": DATA.exists(),
+    }
+    record = {
+        "status": "ok" if all(checks.values()) else "needs-action",
+        "updatedAt": now(),
+        "pluginRoot": str(ROOT),
+        "pluginData": str(DATA),
+        "checks": checks,
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+    }
+    write_json(omx_setup_path(), record)
+    return record
+
+
+def omx_setup_plan(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    steps = [
+        "add marketplace source in Grok /plugins",
+        "install linalab-io-framework/grok-build",
+        "enable plugin skills, hooks, and MCP server",
+        "run /omx-setup check",
+        "run runtime self-test and Grok inspect smoke",
+    ]
+    record = {
+        "status": "planned",
+        "updatedAt": now(),
+        "marketplace": args.marketplace or "linalab-io-framework/grok-build",
+        "steps": [{"id": i + 1, "status": "pending", "text": step} for i, step in enumerate(steps)],
+    }
+    write_json(omx_setup_path(), record)
+    return record
+
+
+def omx_setup_show(args: argparse.Namespace) -> dict[str, Any]:
+    return read_json(omx_setup_path(), {"omxSetup": []})
+
 def skill_list(args: argparse.Namespace) -> dict[str, Any]:
     data = read_json(CATALOG_PATH, {"skills": []})
     skills = data.get("skills", [])
@@ -1839,6 +1888,17 @@ def main(argv: list[str] | None = None) -> int:
     args = argsub.add_parser("show")
     args.add_argument("--id")
     args.set_defaults(fn=autoresearch_goal_show)
+
+
+    omxs = sub.add_parser("omx-setup")
+    omxsub = omxs.add_subparsers(dest="omx_setup_cmd", required=True)
+    omxc = omxsub.add_parser("check")
+    omxc.set_defaults(fn=omx_setup_check)
+    omxp = omxsub.add_parser("install-plan")
+    omxp.add_argument("--marketplace")
+    omxp.set_defaults(fn=omx_setup_plan)
+    omxsh = omxsub.add_parser("show")
+    omxsh.set_defaults(fn=omx_setup_show)
 
     skp = sub.add_parser("skill")
     sksub = skp.add_subparsers(dest="skill_cmd", required=True)

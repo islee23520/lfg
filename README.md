@@ -88,6 +88,8 @@ plugins/grok-harnessing/bin/grok-build.py status
 plugins/grok-harnessing/bin/grok-build.py catalog
 plugins/grok-harnessing/bin/grok-build.py doctor
 plugins/grok-harnessing/bin/grok-build.py hud --text
+plugins/grok-harnessing/bin/grok-build.py omx-setup check
+plugins/grok-harnessing/bin/grok-build.py omx-setup install-plan --marketplace linalab-io-framework/grok-build
 plugins/grok-harnessing/bin/grok-build.py skill search ultraqa
 plugins/grok-harnessing/bin/grok-build.py pipeline create "ship feature" --stages "plan;build;verify"
 plugins/grok-harnessing/bin/grok-build.py autopilot create "ship strict loop"

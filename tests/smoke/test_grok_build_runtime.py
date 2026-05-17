@@ -596,6 +596,41 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"id": "mcp-arg"', create_payload["stdout"])
         self.assertIn('"gate": "pass"', critique_payload["stdout"])
 
+
+    def test_omx_setup_check_plan_show(self) -> None:
+        check = self.run_lfg("omx-setup", "check")
+        self.assertEqual(check["status"], "ok")
+        self.assertTrue(check["checks"]["manifestExists"])
+        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "linalab-io-framework/grok-build")
+        self.assertEqual(plan["status"], "planned")
+        shown = self.run_lfg("omx-setup", "show")
+        self.assertEqual(shown["marketplace"], "linalab-io-framework/grok-build")
+
+    def test_mcp_omx_setup_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "install-plan", "marketplace": "linalab-io-framework/grok-build"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "show"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        plan_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        show_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(plan_payload["returncode"], 0)
+        self.assertEqual(show_payload["returncode"], 0)
+        self.assertIn('"status": "planned"', plan_payload["stdout"])
+        self.assertIn('linalab-io-framework/grok-build', show_payload["stdout"])
+
     def test_skill_list_search_catalog(self) -> None:
         listed = self.run_lfg("skill", "list")
         self.assertGreaterEqual(listed["count"], 28)

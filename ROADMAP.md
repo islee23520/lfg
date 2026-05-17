@@ -139,6 +139,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [x] Implement Grok-native `ultrawork` batch task-state foundation.
 - [x] Implement Grok-native `wiki` storage/search.
 - [x] Implement `doctor` diagnostics.
+- [x] Implement `omx-setup` setup-state diagnostics.
 - [ ] Add behavioral smoke tests per workflow.
 
 ### M5 — Hardening
@@ -213,6 +214,7 @@ Current feature coverage:
 | `/ralph` loop state | `docs/features/ralph-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/ultrawork` batch task state | `docs/features/ultrawork-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/doctor` diagnostics | `docs/features/doctor-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/omx-setup` setup state | `docs/features/omx-setup-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/wiki` durable notes | `docs/features/wiki-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 
 ## Definition of done
