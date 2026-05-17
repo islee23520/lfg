@@ -133,6 +133,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [x] Implement Grok-native `ralph` loop-state foundation.
 - [x] Implement Grok-native `autopilot` strict loop-state foundation.
 - [x] Implement Grok-native `performance-goal` evaluator-state foundation.
+- [x] Implement Grok-native `visual-ralph` visual loop-state foundation.
 - [x] Implement Grok-native `ultrawork` batch task-state foundation.
 - [x] Implement Grok-native `wiki` storage/search.
 - [x] Implement `doctor` diagnostics.
@@ -195,6 +196,7 @@ Current feature coverage:
 | `/pipeline` staged workflow | `docs/features/pipeline-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/autopilot` strict workflow state | `docs/features/autopilot-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/performance-goal` evaluator state | `docs/features/performance-goal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/visual-ralph` visual loop state | `docs/features/visual-ralph-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/code-review` lightweight report | `docs/features/code-review-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/analyze` lightweight repo analysis | `docs/features/analyze-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/ask` advisor request log | `docs/features/ask-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |

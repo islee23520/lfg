@@ -94,6 +94,8 @@ plugins/grok-harnessing/bin/grok-build.py autopilot create "ship strict loop"
 plugins/grok-harnessing/bin/grok-build.py autopilot advance --phase 1 --status complete --evidence "plan ok"
 plugins/grok-harnessing/bin/grok-build.py performance-goal create "reduce latency" --metrics "latency"
 plugins/grok-harnessing/bin/grok-build.py performance-goal measure --metric latency --baseline 120 --current 80 --target 100 --evidence "bench ok"
+plugins/grok-harnessing/bin/grok-build.py visual-ralph create "http://localhost:3000" --reference design.png --threshold 0.9
+plugins/grok-harnessing/bin/grok-build.py visual-ralph verdict --score 0.91 --status pass --evidence "pixel diff ok"
 plugins/grok-harnessing/bin/grok-build.py code-review create "review current changes"
 plugins/grok-harnessing/bin/grok-build.py analyze create --focus "plugin surface"
 plugins/grok-harnessing/bin/grok-build.py ask create "review this architecture" --provider codex --dry-run

@@ -901,6 +901,75 @@ def performance_show(args: argparse.Namespace) -> dict[str, Any]:
     record["path"] = str(performance_path(ref))
     return record
 
+
+def visual_ralph_dir() -> pathlib.Path:
+    return RUNS_DIR / "visual-ralph"
+
+
+def visual_ralph_path(vid: str) -> pathlib.Path:
+    return visual_ralph_dir() / f"{vid}.json"
+
+
+def visual_ralph_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    vid = args.id or f"visual-ralph-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    record = {
+        "id": vid,
+        "target": args.target,
+        "reference": args.reference or "",
+        "status": "active",
+        "iteration": 0,
+        "threshold": args.threshold,
+        "createdAt": now(),
+        "updatedAt": now(),
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+        "verdicts": [],
+    }
+    write_json(visual_ralph_path(vid), record)
+    write_json(STATE_DIR / "current-visual-ralph.json", {"id": vid, "path": str(visual_ralph_path(vid)), "updatedAt": now()})
+    record["path"] = str(visual_ralph_path(vid))
+    return record
+
+
+def visual_ralph_verdict(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-visual-ralph.json", {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no visual-ralph id and no current visual ralph run")
+    record = read_json(visual_ralph_path(ref))
+    if not record:
+        raise SystemExit(f"visual-ralph run not found: {ref}")
+    record["iteration"] = int(record.get("iteration", 0)) + 1
+    verdict = {
+        "ts": now(),
+        "iteration": record["iteration"],
+        "score": args.score,
+        "threshold": record.get("threshold"),
+        "status": args.status,
+        "evidence": args.evidence or "",
+    }
+    record.setdefault("verdicts", []).append(verdict)
+    if args.status == "pass" or float(args.score) >= float(record.get("threshold", 0.95)):
+        record["status"] = "complete"
+    elif args.status == "blocked":
+        record["status"] = "blocked"
+    else:
+        record["status"] = "active"
+    record["updatedAt"] = now()
+    write_json(visual_ralph_path(ref), record)
+    record["path"] = str(visual_ralph_path(ref))
+    return record
+
+
+def visual_ralph_show(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-visual-ralph.json", {}) or {}).get("id")
+    if not ref:
+        return {"visualRalph": []}
+    record = read_json(visual_ralph_path(ref))
+    if not record:
+        raise SystemExit(f"visual-ralph run not found: {ref}")
+    record["path"] = str(visual_ralph_path(ref))
+    return record
+
 def skill_list(args: argparse.Namespace) -> dict[str, Any]:
     data = read_json(CATALOG_PATH, {"skills": []})
     skills = data.get("skills", [])
@@ -1609,6 +1678,25 @@ def main(argv: list[str] | None = None) -> int:
     perfs = perfsub.add_parser("show")
     perfs.add_argument("--id")
     perfs.set_defaults(fn=performance_show)
+
+
+    vr = sub.add_parser("visual-ralph")
+    vrsub = vr.add_subparsers(dest="visual_ralph_cmd", required=True)
+    vrc = vrsub.add_parser("create")
+    vrc.add_argument("target")
+    vrc.add_argument("--id")
+    vrc.add_argument("--reference")
+    vrc.add_argument("--threshold", type=float, default=0.95)
+    vrc.set_defaults(fn=visual_ralph_create)
+    vrv = vrsub.add_parser("verdict")
+    vrv.add_argument("--id")
+    vrv.add_argument("--score", type=float, required=True)
+    vrv.add_argument("--status", choices=["pass", "fail", "blocked"], required=True)
+    vrv.add_argument("--evidence", default="")
+    vrv.set_defaults(fn=visual_ralph_verdict)
+    vrs = vrsub.add_parser("show")
+    vrs.add_argument("--id")
+    vrs.set_defaults(fn=visual_ralph_show)
 
     skp = sub.add_parser("skill")
     sksub = skp.add_subparsers(dest="skill_cmd", required=True)

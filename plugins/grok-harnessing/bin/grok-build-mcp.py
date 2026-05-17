@@ -290,6 +290,26 @@ TOOLS = [
             "additionalProperties": False
         },
     },
+
+    {
+        "name": "grok_build_visual_ralph",
+        "description": "Create/show/verdict durable visual Ralph UI matching loop state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "verdict", "show"]},
+                "id": {"type": "string"},
+                "target": {"type": "string"},
+                "reference": {"type": "string"},
+                "threshold": {"type": "number"},
+                "score": {"type": "number"},
+                "status": {"type": "string", "enum": ["pass", "fail", "blocked"]},
+                "evidence": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
     {
         "name": "grok_build_skill",
         "description": "List/search the Grok Build OMX-like skill catalog.",
@@ -729,6 +749,32 @@ def handle_tool(name, arguments=None):
             for key in ["baseline", "current", "target"]:
                 if arguments.get(key) is not None:
                     cmd += [f"--{key}", str(arguments[key])]
+            if arguments.get("evidence"):
+                cmd += ["--evidence", arguments["evidence"]]
+        elif action == "show":
+            cmd += ["show"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+
+    if name == "grok_build_visual_ralph":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "visual-ralph"]
+        if action == "create":
+            cmd += ["create", arguments.get("target") or "visual target"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("reference"):
+                cmd += ["--reference", arguments["reference"]]
+            if arguments.get("threshold") is not None:
+                cmd += ["--threshold", str(arguments["threshold"])]
+        elif action == "verdict":
+            cmd += ["verdict", "--score", str(arguments.get("score") if arguments.get("score") is not None else 0), "--status", arguments.get("status") or "fail"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
         elif action == "show":
