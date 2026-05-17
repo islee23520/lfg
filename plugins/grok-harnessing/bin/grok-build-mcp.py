@@ -269,6 +269,27 @@ TOOLS = [
             "additionalProperties": False
         },
     },
+
+    {
+        "name": "grok_build_performance_goal",
+        "description": "Create/show/measure evaluator-gated performance goal state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "measure", "show"]},
+                "id": {"type": "string"},
+                "objective": {"type": "string"},
+                "metrics": {"type": "string"},
+                "metric": {"type": "string"},
+                "baseline": {"type": "number"},
+                "current": {"type": "number"},
+                "target": {"type": "number"},
+                "evidence": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
     {
         "name": "grok_build_skill",
         "description": "List/search the Grok Build OMX-like skill catalog.",
@@ -681,6 +702,33 @@ def handle_tool(name, arguments=None):
             cmd += ["advance", "--phase", str(arguments.get("phase") or 1), "--status", arguments.get("status") or "active"]
             if arguments.get("id"):
                 cmd += ["--id", arguments["id"]]
+            if arguments.get("evidence"):
+                cmd += ["--evidence", arguments["evidence"]]
+        elif action == "show":
+            cmd += ["show"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+
+    if name == "grok_build_performance_goal":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "performance-goal"]
+        if action == "create":
+            cmd += ["create", arguments.get("objective") or "Performance objective"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("metrics"):
+                cmd += ["--metrics", arguments["metrics"]]
+        elif action == "measure":
+            cmd += ["measure", "--metric", arguments.get("metric") or "latency"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            for key in ["baseline", "current", "target"]:
+                if arguments.get(key) is not None:
+                    cmd += [f"--{key}", str(arguments[key])]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
         elif action == "show":

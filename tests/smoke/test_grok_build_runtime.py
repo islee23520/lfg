@@ -453,6 +453,41 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"goals": 1', payload["stdout"])
         self.assertIn('"text": "grok-build', payload["stdout"])
 
+
+    def test_performance_goal_create_measure_show(self) -> None:
+        goal = self.run_lfg("performance-goal", "create", "reduce latency", "--id", "smoke-perf", "--metrics", "latency")
+        self.assertEqual(goal["gate"], "needs-baseline")
+        measured = self.run_lfg("performance-goal", "measure", "--id", "smoke-perf", "--metric", "latency", "--baseline", "120", "--current", "80", "--target", "100", "--evidence", "bench ok")
+        self.assertEqual(measured["gate"], "pass")
+        self.assertEqual(measured["metrics"][0]["status"], "pass")
+        shown = self.run_lfg("performance-goal", "show", "--id", "smoke-perf")
+        self.assertEqual(shown["measurements"][0]["evidence"], "bench ok")
+
+    def test_mcp_performance_goal_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_performance_goal", "arguments": {"action": "create", "id": "mcp-perf", "objective": "MCP perf", "metrics": "latency"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_performance_goal", "arguments": {"action": "measure", "id": "mcp-perf", "metric": "latency", "baseline": 120, "current": 80, "target": 100, "evidence": "ok"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        measure_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(measure_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-perf"', create_payload["stdout"])
+        self.assertIn('"gate": "pass"', measure_payload["stdout"])
+
     def test_skill_list_search_catalog(self) -> None:
         listed = self.run_lfg("skill", "list")
         self.assertGreaterEqual(listed["count"], 28)

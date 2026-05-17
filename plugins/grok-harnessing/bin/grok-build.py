@@ -817,6 +817,90 @@ def autopilot_show(args: argparse.Namespace) -> dict[str, Any]:
     record["path"] = str(autopilot_path(ref))
     return record
 
+
+def performance_dir() -> pathlib.Path:
+    return RUNS_DIR / "performance-goal"
+
+
+def performance_path(pid: str) -> pathlib.Path:
+    return performance_dir() / f"{pid}.json"
+
+
+def performance_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    pid = args.id or f"performance-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    metrics = [m.strip() for m in re.split(r"\n|;", args.metrics or "") if m.strip()] or ["latency", "throughput", "error-rate"]
+    record = {
+        "id": pid,
+        "objective": args.objective,
+        "status": "active",
+        "gate": "needs-baseline",
+        "createdAt": now(),
+        "updatedAt": now(),
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+        "metrics": [{"name": name, "baseline": None, "current": None, "target": None, "status": "pending"} for name in metrics],
+        "measurements": [],
+    }
+    write_json(performance_path(pid), record)
+    write_json(STATE_DIR / "current-performance-goal.json", {"id": pid, "path": str(performance_path(pid)), "updatedAt": now()})
+    record["path"] = str(performance_path(pid))
+    return record
+
+
+def performance_measure(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-performance-goal.json", {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no performance-goal id and no current performance goal")
+    record = read_json(performance_path(ref))
+    if not record:
+        raise SystemExit(f"performance-goal not found: {ref}")
+    matched = None
+    for metric in record.get("metrics", []):
+        if metric.get("name") == args.metric:
+            matched = metric
+            break
+    if matched is None:
+        matched = {"name": args.metric, "baseline": None, "current": None, "target": None, "status": "pending"}
+        record.setdefault("metrics", []).append(matched)
+    if args.baseline is not None:
+        matched["baseline"] = args.baseline
+    if args.current is not None:
+        matched["current"] = args.current
+    if args.target is not None:
+        matched["target"] = args.target
+    if matched.get("current") is None or matched.get("target") is None:
+        matched["status"] = "pending"
+    elif float(matched["current"]) <= float(matched["target"]):
+        matched["status"] = "pass"
+    else:
+        matched["status"] = "fail"
+    record.setdefault("measurements", []).append({"ts": now(), "metric": args.metric, "baseline": args.baseline, "current": args.current, "target": args.target, "evidence": args.evidence or ""})
+    statuses = [m.get("status") for m in record.get("metrics", [])]
+    if statuses and all(st == "pass" for st in statuses):
+        record["status"] = "complete"
+        record["gate"] = "pass"
+    elif any(st == "fail" for st in statuses):
+        record["status"] = "active"
+        record["gate"] = "fail"
+    else:
+        record["status"] = "active"
+        record["gate"] = "needs-measurement"
+    record["updatedAt"] = now()
+    write_json(performance_path(ref), record)
+    record["path"] = str(performance_path(ref))
+    return record
+
+
+def performance_show(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-performance-goal.json", {}) or {}).get("id")
+    if not ref:
+        return {"performanceGoals": []}
+    record = read_json(performance_path(ref))
+    if not record:
+        raise SystemExit(f"performance-goal not found: {ref}")
+    record["path"] = str(performance_path(ref))
+    return record
+
 def skill_list(args: argparse.Namespace) -> dict[str, Any]:
     data = read_json(CATALOG_PATH, {"skills": []})
     skills = data.get("skills", [])
@@ -1505,6 +1589,26 @@ def main(argv: list[str] | None = None) -> int:
     autos = autosub.add_parser("show")
     autos.add_argument("--id")
     autos.set_defaults(fn=autopilot_show)
+
+
+    perf = sub.add_parser("performance-goal")
+    perfsub = perf.add_subparsers(dest="performance_goal_cmd", required=True)
+    perfc = perfsub.add_parser("create")
+    perfc.add_argument("objective")
+    perfc.add_argument("--id")
+    perfc.add_argument("--metrics")
+    perfc.set_defaults(fn=performance_create)
+    perfm = perfsub.add_parser("measure")
+    perfm.add_argument("--id")
+    perfm.add_argument("--metric", required=True)
+    perfm.add_argument("--baseline", type=float)
+    perfm.add_argument("--current", type=float)
+    perfm.add_argument("--target", type=float)
+    perfm.add_argument("--evidence", default="")
+    perfm.set_defaults(fn=performance_measure)
+    perfs = perfsub.add_parser("show")
+    perfs.add_argument("--id")
+    perfs.set_defaults(fn=performance_show)
 
     skp = sub.add_parser("skill")
     sksub = skp.add_subparsers(dest="skill_cmd", required=True)
