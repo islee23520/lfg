@@ -39,6 +39,11 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_doctor",
+        "description": "Run Grok Build doctor diagnostics.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
         "name": "grok_build_backend_start",
         "description": "Start the LFG tmux backend session used by /team.",
         "inputSchema": {
@@ -530,6 +535,10 @@ def handle_tool(name, arguments=None):
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_doctor":
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "doctor"]
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_backend_start":
         cmd = [str(ROOT / "bin" / "lfg"), "--json", "backend", "start"]

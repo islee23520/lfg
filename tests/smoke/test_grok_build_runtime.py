@@ -53,6 +53,85 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("team", names)
         self.assertIn("ultraqa", names)
 
+    def test_all_skill_surfaces_have_roadmap_and_feature_docs(self) -> None:
+        roadmap = (REPO / "ROADMAP.md").read_text(encoding="utf-8")
+        skill_names = sorted(
+            path.name
+            for path in (PLUGIN / "skills").iterdir()
+            if path.is_dir() and path.name != "grok-harnessing"
+        )
+        self.assertEqual(len(skill_names), 27)
+        missing_rows = [name for name in skill_names if f"| `/{name}` " not in roadmap]
+        self.assertEqual(missing_rows, [])
+        missing_docs = [
+            name
+            for name in skill_names
+            if not (PLUGIN / "docs" / "features" / f"{name}-runtime.md").exists()
+        ]
+        self.assertEqual(missing_docs, [])
+
+    def test_mcp_exposes_runtime_tools_for_skill_surface(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        for msg in [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+        ]:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in range(2)]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+
+        self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.3.0")
+        tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
+        expected = {
+            "grok_build_analyze",
+            "grok_build_ask",
+            "grok_build_autopilot",
+            "grok_build_autoresearch",
+            "grok_build_autoresearch_goal",
+            "grok_build_cancel",
+            "grok_build_catalog",
+            "grok_build_cleanup",
+            "grok_build_code_review",
+            "grok_build_deep_interview",
+            "grok_build_design",
+            "grok_build_doctor",
+            "grok_build_goal",
+            "grok_build_hud",
+            "grok_build_notifications",
+            "grok_build_omx_setup",
+            "grok_build_performance_goal",
+            "grok_build_pipeline",
+            "grok_build_plan",
+            "grok_build_ralph",
+            "grok_build_ralplan",
+            "grok_build_runtime",
+            "grok_build_skill",
+            "grok_build_slash",
+            "grok_build_team",
+            "grok_build_ultraqa",
+            "grok_build_ultrawork",
+            "grok_build_visual_ralph",
+            "grok_build_wiki",
+            "grok_build_worker",
+        }
+        self.assertEqual(expected - tool_names, set())
+
     def test_team_slash_dry_run_maps_to_three_default_providers(self) -> None:
         team = self.run_lfg("slash", '/team 3:executor "fix tests"', "--dry-run")
         self.assertEqual(team["status"], "planned")
