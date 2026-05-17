@@ -23,6 +23,24 @@ runtime-smoke-coverage=100%
 
 The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, tmux-team dry-run planning, and the full Python smoke matrix under `tests/smoke/`.
 
+
+## Local `lfg` symlink install smoke
+
+Install the local `lfg` command into PATH with:
+
+```sh
+scripts/install-lfg-symlink.sh
+```
+
+Expected terminal evidence:
+
+```text
+lfg-status=ok version=0.3.0
+lfg-doctor=ok
+```
+
+The script creates symlinks for both `lfg` and its sibling `grok-build.py` target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status` and `lfg --json doctor`.
+
 ## Real Grok install/discovery smoke
 
 Run when the local Grok binary is available at `~/.grok/bin/grok`:
