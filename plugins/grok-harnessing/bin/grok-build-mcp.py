@@ -66,6 +66,20 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_ask",
+        "description": "Record an external advisor request; defaults to dry-run safety.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string"},
+                "provider": {"type": "string", "enum": ["hermes", "claude", "codex"]},
+                "dryRun": {"type": "boolean", "default": True}
+            },
+            "required": ["prompt"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_analyze",
         "description": "Create/list lightweight durable repo analysis reports.",
         "inputSchema": {
@@ -303,6 +317,16 @@ def handle_tool(name, arguments=None):
                 cmd += [arguments["team"]]
         else:
             raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_ask":
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "ask", "create", arguments["prompt"]]
+        if arguments.get("provider"):
+            cmd += ["--provider", arguments["provider"]]
+        if arguments.get("dryRun", True):
+            cmd += ["--dry-run"]
+        else:
+            cmd += ["--run"]
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_analyze":

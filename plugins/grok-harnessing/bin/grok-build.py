@@ -130,6 +130,57 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def asks_dir() -> pathlib.Path:
+    return RUNS_DIR / "ask"
+
+
+def ask(args: argparse.Namespace) -> dict[str, Any]:
+    """Record or run an external-advisor ask request; dry-run by default."""
+    ensure_dirs()
+    provider = args.provider or "hermes"
+    prompt = args.prompt
+    req_id = f"ask-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    commands = {
+        "hermes": ["hermes", "-z", prompt, "chat"],
+        "claude": ["claude", "-p", prompt],
+        "codex": ["codex", "exec", prompt],
+    }
+    cmd = commands.get(provider, [provider, prompt])
+    result = None
+    if not args.dry_run:
+        proc = subprocess.run(cmd, cwd=str(pathlib.Path(args.cwd).resolve()), text=True, capture_output=True, timeout=args.timeout)
+        result = {"returncode": proc.returncode, "stdoutTail": proc.stdout[-4000:], "stderrTail": proc.stderr[-4000:]}
+    record = {
+        "id": req_id,
+        "createdAt": now(),
+        "provider": provider,
+        "prompt": prompt,
+        "dryRun": args.dry_run,
+        "command": cmd,
+        "result": result,
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+    }
+    path = asks_dir() / f"{req_id}.json"
+    write_json(path, record)
+    write_json(STATE_DIR / "last-ask.json", {"id": req_id, "path": str(path), "updatedAt": now()})
+    record["path"] = str(path)
+    return record
+
+
+def ask_list(args: argparse.Namespace) -> dict[str, Any]:
+    items = []
+    for path in sorted(asks_dir().glob("*.json")) if asks_dir().exists() else []:
+        try:
+            item = read_json(path)
+            item["path"] = str(path)
+            items.append(item)
+        except Exception:
+            pass
+    if args.limit:
+        items = items[-args.limit:]
+    return {"count": len(items), "asks": items}
+
 def analyses_dir() -> pathlib.Path:
     return RUNS_DIR / "analyze"
 
@@ -804,6 +855,20 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    askp = sub.add_parser("ask")
+    asksub = askp.add_subparsers(dest="ask_cmd", required=True)
+    askc = asksub.add_parser("create")
+    askc.add_argument("prompt")
+    askc.add_argument("--provider", choices=["hermes", "claude", "codex"], default="hermes")
+    askc.add_argument("--dry-run", action="store_true", default=True)
+    askc.add_argument("--run", dest="dry_run", action="store_false")
+    askc.add_argument("--timeout", type=int, default=60)
+    askc.set_defaults(fn=ask)
+    askl = asksub.add_parser("list")
+    askl.add_argument("--limit", type=int)
+    askl.set_defaults(fn=ask_list)
 
     ap = sub.add_parser("analyze")
     asub = ap.add_subparsers(dest="analyze_cmd", required=True)

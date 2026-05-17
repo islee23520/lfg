@@ -620,6 +620,47 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"focus": "MCP analysis"', payload["stdout"])
         self.assertIn('"fileCount"', payload["stdout"])
 
+    def test_ask_dry_run_records_request(self) -> None:
+        req = self.run_lfg("ask", "create", "review architecture", "--provider", "codex", "--dry-run")
+        self.assertEqual(req["provider"], "codex")
+        self.assertTrue(req["dryRun"])
+        self.assertEqual(req["command"][:2], ["codex", "exec"])
+        pointer = pathlib.Path(self.tmp.name) / "state" / "last-ask.json"
+        self.assertTrue(pointer.exists())
+        listed = self.run_lfg("ask", "list")
+        self.assertEqual(listed["count"], 1)
+
+    def test_mcp_ask_tool(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ask", "arguments": {"prompt": "MCP ask", "provider": "claude", "dryRun": True}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+        payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        self.assertEqual(payload["returncode"], 0)
+        self.assertIn('"provider": "claude"', payload["stdout"])
+        self.assertIn('"dryRun": true', payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
