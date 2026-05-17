@@ -132,6 +132,20 @@ class RuntimeSmoke(unittest.TestCase):
         }
         self.assertEqual(expected - tool_names, set())
 
+
+    def test_marketplace_metadata_points_to_plugin_package(self) -> None:
+        for rel in [".grok/plugins/marketplace.json", ".agents/plugins/marketplace.json"]:
+            data = json.loads((REPO / rel).read_text(encoding="utf-8"))
+            self.assertEqual(data["name"], "linalab-io-framework")
+            self.assertEqual(len(data["plugins"]), 1)
+            plugin = data["plugins"][0]
+            self.assertEqual(plugin["name"], "grok-build")
+            self.assertEqual(plugin["source"]["source"], "git-subdir")
+            self.assertEqual(plugin["source"]["url"], "https://github.com/islee23520/lfg.git")
+            self.assertEqual(plugin["source"]["path"], "plugins/grok-harnessing")
+            self.assertEqual(plugin["metadata"]["packageName"], "linalab-io-framework/grok-build")
+            self.assertEqual(plugin["metadata"]["reference"], "https://github.com/Yeachan-Heo/oh-my-codex")
+
     def test_team_slash_dry_run_maps_to_three_default_providers(self) -> None:
         team = self.run_lfg("slash", '/team 3:executor "fix tests"', "--dry-run")
         self.assertEqual(team["status"], "planned")

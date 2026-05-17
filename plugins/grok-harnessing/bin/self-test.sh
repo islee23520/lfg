@@ -11,7 +11,18 @@ for rel in [".grok-plugin/plugin.json", ".claude-plugin/plugin.json", "hooks/hoo
     json.loads((root / rel).read_text())
 for rel in ["skills/grok-harnessing/SKILL.md", "agents/harness.toml", "hooks/scripts/grok-build-audit-hook.sh", "bin/grok-build-mcp.py"]:
     assert (root / rel).exists(), rel
+repo = root.parents[1]
+for rel in [".grok/plugins/marketplace.json", ".agents/plugins/marketplace.json"]:
+    data = json.loads((repo / rel).read_text())
+    plugins = data.get("plugins", [])
+    assert len(plugins) == 1, rel
+    plugin = plugins[0]
+    assert plugin["name"] == "grok-build", rel
+    assert plugin["source"]["path"] == "plugins/grok-harnessing", rel
+    assert plugin["metadata"]["packageName"] == "linalab-io-framework/grok-build", rel
+    assert plugin["metadata"]["reference"] == "https://github.com/Yeachan-Heo/oh-my-codex", rel
 print("manifest-and-file-checks=ok")
+print("marketplace-metadata=ok")
 PY
 
 printf '{"tool":"bash","args":"xai-SECRET ghp_SECRET"}' \
