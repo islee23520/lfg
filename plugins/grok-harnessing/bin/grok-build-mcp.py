@@ -253,6 +253,23 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_autopilot",
+        "description": "Create/show/advance strict ralplan -> ralph -> code-review autopilot workflow state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "advance", "show"]},
+                "id": {"type": "string"},
+                "objective": {"type": "string"},
+                "phase": {"type": "integer"},
+                "status": {"type": "string", "enum": ["pending", "active", "complete", "blocked"]},
+                "evidence": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_skill",
         "description": "List/search the Grok Build OMX-like skill catalog.",
         "inputSchema": {
@@ -649,6 +666,27 @@ def handle_tool(name, arguments=None):
                 cmd += ["--id", arguments["id"]]
             if arguments.get("note"):
                 cmd += ["--note", arguments["note"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_autopilot":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "autopilot"]
+        if action == "create":
+            cmd += ["create", arguments.get("objective") or "Autopilot objective"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+        elif action == "advance":
+            cmd += ["advance", "--phase", str(arguments.get("phase") or 1), "--status", arguments.get("status") or "active"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("evidence"):
+                cmd += ["--evidence", arguments["evidence"]]
+        elif action == "show":
+            cmd += ["show"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

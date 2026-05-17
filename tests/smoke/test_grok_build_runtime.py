@@ -537,6 +537,51 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"id": "mcp-pipeline"', create_payload["stdout"])
         self.assertIn('"status": "complete"', update_payload["stdout"])
 
+    def test_autopilot_create_advance_show(self) -> None:
+        run = self.run_lfg("autopilot", "create", "ship strict loop", "--id", "smoke-autopilot")
+        self.assertEqual(run["id"], "smoke-autopilot")
+        self.assertEqual([p["workflow"] for p in run["phases"]], ["ralplan", "ralph", "code-review"])
+        self.assertEqual(run["currentPhase"], "plan")
+        updated = self.run_lfg("autopilot", "advance", "--id", "smoke-autopilot", "--phase", "1", "--status", "complete", "--evidence", "plan ok")
+        self.assertEqual(updated["phases"][0]["status"], "complete")
+        self.assertEqual(updated["currentPhase"], "execute")
+        shown = self.run_lfg("autopilot", "show", "--id", "smoke-autopilot")
+        self.assertEqual(shown["phases"][0]["evidence"], "plan ok")
+
+    def test_mcp_autopilot_tool(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_autopilot", "arguments": {"action": "create", "id": "mcp-autopilot", "objective": "MCP autopilot"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_autopilot", "arguments": {"action": "advance", "id": "mcp-autopilot", "phase": 1, "status": "complete", "evidence": "ok"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        update_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(update_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-autopilot"', create_payload["stdout"])
+        self.assertIn('"currentPhase": "execute"', update_payload["stdout"])
+
     def test_code_review_create_list_persists_report(self) -> None:
         report = self.run_lfg("code-review", "create", "review smoke")
         self.assertEqual(report["objective"], "review smoke")

@@ -740,6 +740,83 @@ def pipeline_update(args: argparse.Namespace) -> dict[str, Any]:
     write_json(pipeline_path(ref), item)
     return item
 
+
+def autopilot_dir() -> pathlib.Path:
+    return RUNS_DIR / "autopilot"
+
+
+def autopilot_path(aid: str) -> pathlib.Path:
+    return autopilot_dir() / f"{aid}.json"
+
+
+def autopilot_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    aid = args.id or f"autopilot-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    phases = [
+        {"id": 1, "name": "plan", "workflow": "ralplan", "status": "pending", "evidence": ""},
+        {"id": 2, "name": "execute", "workflow": "ralph", "status": "pending", "evidence": ""},
+        {"id": 3, "name": "review", "workflow": "code-review", "status": "pending", "evidence": ""},
+    ]
+    record = {
+        "id": aid,
+        "objective": args.objective,
+        "status": "active",
+        "currentPhase": "plan",
+        "strictOrder": True,
+        "createdAt": now(),
+        "updatedAt": now(),
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+        "phases": phases,
+        "events": [{"ts": now(), "type": "created", "objective": args.objective}],
+    }
+    write_json(autopilot_path(aid), record)
+    write_json(STATE_DIR / "current-autopilot.json", {"id": aid, "path": str(autopilot_path(aid)), "updatedAt": now()})
+    record["path"] = str(autopilot_path(aid))
+    return record
+
+
+def autopilot_advance(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-autopilot.json", {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no autopilot id and no current autopilot run")
+    record = read_json(autopilot_path(ref))
+    if not record:
+        raise SystemExit(f"autopilot run not found: {ref}")
+    phases = record.get("phases", [])
+    idx = args.phase - 1
+    if idx < 0 or idx >= len(phases):
+        raise SystemExit(f"phase out of range: {args.phase}")
+    if args.status == "complete" and idx > 0 and phases[idx - 1].get("status") != "complete":
+        raise SystemExit(f"strict order violation: phase {args.phase - 1} is not complete")
+    phases[idx]["status"] = args.status
+    phases[idx]["evidence"] = args.evidence or ""
+    if all(p.get("status") == "complete" for p in phases):
+        record["status"] = "complete"
+        record["currentPhase"] = "done"
+    elif any(p.get("status") == "blocked" for p in phases):
+        record["status"] = "blocked"
+        record["currentPhase"] = phases[idx]["name"]
+    else:
+        record["status"] = "active"
+        pending = next((p for p in phases if p.get("status") != "complete"), phases[-1])
+        record["currentPhase"] = pending["name"]
+    record["updatedAt"] = now()
+    record.setdefault("events", []).append({"ts": now(), "type": "advance", "phase": args.phase, "status": args.status, "evidence": args.evidence or ""})
+    write_json(autopilot_path(ref), record)
+    record["path"] = str(autopilot_path(ref))
+    return record
+
+
+def autopilot_show(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-autopilot.json", {}) or {}).get("id")
+    if not ref:
+        return {"autopilot": []}
+    record = read_json(autopilot_path(ref))
+    if not record:
+        raise SystemExit(f"autopilot run not found: {ref}")
+    record["path"] = str(autopilot_path(ref))
+    return record
+
 def skill_list(args: argparse.Namespace) -> dict[str, Any]:
     data = read_json(CATALOG_PATH, {"skills": []})
     skills = data.get("skills", [])
@@ -1412,6 +1489,22 @@ def main(argv: list[str] | None = None) -> int:
     pu.add_argument("--status", choices=["pending", "active", "complete", "blocked"], required=True)
     pu.add_argument("--note")
     pu.set_defaults(fn=pipeline_update)
+
+    autop = sub.add_parser("autopilot")
+    autosub = autop.add_subparsers(dest="autopilot_cmd", required=True)
+    autoc = autosub.add_parser("create")
+    autoc.add_argument("objective")
+    autoc.add_argument("--id")
+    autoc.set_defaults(fn=autopilot_create)
+    autoa = autosub.add_parser("advance")
+    autoa.add_argument("--id")
+    autoa.add_argument("--phase", type=int, required=True)
+    autoa.add_argument("--status", choices=["pending", "active", "complete", "blocked"], required=True)
+    autoa.add_argument("--evidence", default="")
+    autoa.set_defaults(fn=autopilot_advance)
+    autos = autosub.add_parser("show")
+    autos.add_argument("--id")
+    autos.set_defaults(fn=autopilot_show)
 
     skp = sub.add_parser("skill")
     sksub = skp.add_subparsers(dest="skill_cmd", required=True)

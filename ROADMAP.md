@@ -131,6 +131,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [x] Implement MVP tmux backend for `team create/status/resume/shutdown`.
 - [x] Wire `/team` arguments directly to the `lfg team` backend through `lfg slash` and MCP `grok_build_slash`.
 - [x] Implement Grok-native `ralph` loop-state foundation.
+- [x] Implement Grok-native `autopilot` strict loop-state foundation.
 - [x] Implement Grok-native `ultrawork` batch task-state foundation.
 - [x] Implement Grok-native `wiki` storage/search.
 - [x] Implement `doctor` diagnostics.
@@ -191,6 +192,7 @@ Current feature coverage:
 | `/hud` status summary | `docs/features/hud-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/skill` catalog search | `docs/features/skill-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/pipeline` staged workflow | `docs/features/pipeline-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/autopilot` strict workflow state | `docs/features/autopilot-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/code-review` lightweight report | `docs/features/code-review-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/analyze` lightweight repo analysis | `docs/features/analyze-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/ask` advisor request log | `docs/features/ask-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
