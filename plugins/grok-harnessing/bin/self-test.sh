@@ -30,9 +30,13 @@ assert (repo / "scripts/install-lfg-symlink.sh").stat().st_mode & 0o111, "script
 workflow = (repo / ".github/workflows/smoke.yml").read_text()
 assert "plugins/grok-harnessing/bin/self-test.sh" in workflow
 assert "sudo apt-get install -y tmux" in workflow
+assert "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24" in workflow
 smoke_doc = (repo / "docs/SMOKE.md").read_text()
 for required in ["plugins/grok-harnessing/bin/self-test.sh", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "scripts/verify-remote-smoke.sh p1", "runtime-smoke-coverage=100%", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "lfg-launch-smoke=ok", "team-tmux-lifecycle=ok", "grok-install-smoke=ok skills=28", "remote-smoke=ok"]:
     assert required in smoke_doc, required
+roadmap = (repo / "ROADMAP.md").read_text()
+assert "- [x] Add behavioral smoke tests per workflow." in roadmap
+assert "team-tmux-lifecycle=ok" in roadmap
 release_doc = (repo / "docs/RELEASE_CHECKLIST.md").read_text()
 for required in ["runtime-smoke-coverage=100%", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "team-tmux-lifecycle=ok", "grok-install-smoke=ok skills=28 key_skills_present", "remote-smoke=ok", "roadmap=27/27", "feature_docs=27/27", "linalab-io-framework/grok-build", "grok_marketplace", "agents_marketplace"]:
     assert required in release_doc, required

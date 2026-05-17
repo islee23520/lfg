@@ -55,6 +55,8 @@ class RuntimeSmoke(unittest.TestCase):
 
     def test_all_skill_surfaces_have_roadmap_and_feature_docs(self) -> None:
         roadmap = (REPO / "ROADMAP.md").read_text(encoding="utf-8")
+        self.assertIn("- [x] Add behavioral smoke tests per workflow.", roadmap)
+        self.assertIn("team-tmux-lifecycle=ok", roadmap)
         skill_names = sorted(
             path.name
             for path in (PLUGIN / "skills").iterdir()
@@ -138,6 +140,7 @@ class RuntimeSmoke(unittest.TestCase):
         workflow = (REPO / ".github/workflows/smoke.yml").read_text(encoding="utf-8")
         self.assertIn("plugins/grok-harnessing/bin/self-test.sh", workflow)
         self.assertIn("sudo apt-get install -y tmux", workflow)
+        self.assertIn("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24", workflow)
         install_smoke = PLUGIN / "bin" / "grok-install-smoke.sh"
         self.assertTrue(os.access(install_smoke, os.X_OK))
         script = install_smoke.read_text(encoding="utf-8")

@@ -140,7 +140,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [x] Implement Grok-native `wiki` storage/search.
 - [x] Implement `doctor` diagnostics.
 - [x] Implement `omx-setup` setup-state diagnostics.
-- [ ] Add behavioral smoke tests per workflow.
+- [x] Add behavioral smoke tests per workflow.
 
 ### M5 — Hardening
 
@@ -186,6 +186,9 @@ Each OMX-like feature should land with:
 5. Grok install/inspect verification when plugin metadata changes.
 
 Current feature coverage:
+
+Behavioral smoke gates now include real tmux lifecycle evidence: `team-create=ok`, `team-status=ok`, `team-resume=ok`, `team-shutdown=ok`, and `team-tmux-lifecycle=ok`.
+
 
 | Feature | Design | Smoke tests | Coverage target | Status |
 | --- | --- | --- | --- | --- |
