@@ -139,6 +139,7 @@ class RuntimeSmoke(unittest.TestCase):
     def test_ci_and_install_smoke_contracts(self) -> None:
         workflow = (REPO / ".github/workflows/smoke.yml").read_text(encoding="utf-8")
         self.assertIn("plugins/grok-harnessing/bin/self-test.sh", workflow)
+        self.assertIn("actions/checkout@v5", workflow)
         self.assertIn("sudo apt-get install -y tmux", workflow)
         self.assertIn("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24", workflow)
         install_smoke = PLUGIN / "bin" / "grok-install-smoke.sh"

@@ -29,6 +29,7 @@ assert "lfg-doctor=ok" in install_lfg
 assert (repo / "scripts/install-lfg-symlink.sh").stat().st_mode & 0o111, "scripts/install-lfg-symlink.sh executable"
 workflow = (repo / ".github/workflows/smoke.yml").read_text()
 assert "plugins/grok-harnessing/bin/self-test.sh" in workflow
+assert "actions/checkout@v5" in workflow
 assert "sudo apt-get install -y tmux" in workflow
 assert "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24" in workflow
 smoke_doc = (repo / "docs/SMOKE.md").read_text()
