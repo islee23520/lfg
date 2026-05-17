@@ -236,6 +236,21 @@ team-shutdown=ok
 team-tmux-lifecycle=ok
 ```
 
+Provider command smoke:
+
+```sh
+scripts/verify-team-provider-commands.sh
+```
+
+Expected terminal evidence:
+
+```text
+team-provider-commands=ok
+team-provider-doctor=ok
+```
+
+This verifies the team provider command contract for `hermes -z`, `claude --permission-mode bypassPermissions`, `codex`, and the builtin `noop` provider used by tmux lifecycle smoke.
+
 The script uses a `noop` provider so it verifies tmux session/window lifecycle without requiring external agent CLIs.
 
 ## Real Grok install/discovery smoke

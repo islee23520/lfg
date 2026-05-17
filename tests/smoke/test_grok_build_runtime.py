@@ -94,6 +94,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("state-schema-versioning=ok", roadmap)
         self.assertIn("mcp-stdio-isolation=ok", roadmap)
         self.assertIn("team-tmux-lifecycle=ok", roadmap)
+        self.assertIn("team-provider-commands=ok", roadmap)
         skill_names = sorted(
             path.name
             for path in (PLUGIN / "skills").iterdir()
@@ -202,6 +203,11 @@ class RuntimeSmoke(unittest.TestCase):
         runtime = (PLUGIN / "bin" / "grok-build.py").read_text(encoding="utf-8")
         self.assertIn("def attach_backend_from_tmux_pane", runtime)
         self.assertIn("split-window", runtime)
+        team_provider = REPO / "scripts" / "verify-team-provider-commands.sh"
+        self.assertTrue(os.access(team_provider, os.X_OK))
+        team_provider_script = team_provider.read_text(encoding="utf-8")
+        self.assertIn("team-provider-commands=ok", team_provider_script)
+        self.assertIn("team-provider-doctor=ok", team_provider_script)
         team_lifecycle = REPO / "scripts" / "verify-team-tmux-lifecycle.sh"
         self.assertTrue(os.access(team_lifecycle, os.X_OK))
         team_lifecycle_script = team_lifecycle.read_text(encoding="utf-8")
@@ -472,12 +478,27 @@ class RuntimeSmoke(unittest.TestCase):
         report = self.run_lfg("doctor")
         self.assertTrue(report["ok"], report)
         check_names = {check["name"] for check in report["checks"]}
-        for required in {"grok_manifest", "mcp_config", "catalog", "skills", "grok_marketplace", "agents_marketplace", "exe:tmux", "plugin_data", "state_schema", "global_hook_bridge"}:
+        for required in {"grok_manifest", "mcp_config", "catalog", "skills", "grok_marketplace", "agents_marketplace", "exe:tmux", "plugin_data", "state_schema", "global_hook_bridge", "team_provider_commands"}:
             self.assertIn(required, check_names)
         bridge = next(check for check in report["checks"] if check["name"] == "global_hook_bridge")
         self.assertTrue(bridge["ok"])
         self.assertIn("installed=False", bridge["evidence"])
         self.assertEqual(report["failedRequired"], [])
+
+
+    def test_team_provider_commands_are_stable(self) -> None:
+        module = load_grok_build_module()
+        self.assertTrue(module.provider_command("hermes", "hello").startswith("hermes -z "))
+        self.assertTrue(module.provider_command("claude", "hello").startswith("claude --permission-mode bypassPermissions "))
+        self.assertTrue(module.provider_command("codex", "hello").startswith("codex "))
+        self.assertIn("noop provider ready", module.provider_command("noop", "hello"))
+        matrix = module.team_provider_matrix()
+        providers = {row["provider"] for row in matrix}
+        self.assertEqual({"hermes", "claude", "codex", "noop"}, providers)
+        self.assertTrue(next(row for row in matrix if row["provider"] == "noop")["available"])
+        team = self.run_lfg("team", "create", "4:executor", "provider smoke", "--providers", "hermes,claude,codex,noop", "--dry-run")
+        self.assertEqual([m["provider"] for m in team["members"]], ["hermes", "claude", "codex", "noop"])
+        self.assertIn("noop provider ready", team["members"][3]["command"])
 
     def test_hook_bridge_install_status_uses_home_hooks(self) -> None:
         status = self.run_lfg("hook-bridge", "status")

@@ -1439,6 +1439,9 @@ def parse_team_spec(spec: str) -> tuple[int, str]:
     return max(1, int(spec)), "executor"
 
 
+TEAM_PROVIDER_EXECUTABLES = {"hermes": "hermes", "claude": "claude", "codex": "codex", "noop": None}
+
+
 def provider_command(provider: str, prompt: str) -> str:
     q = shlex.quote(prompt)
     if provider == "hermes":
@@ -1447,8 +1450,23 @@ def provider_command(provider: str, prompt: str) -> str:
         return f"claude --permission-mode bypassPermissions {q}"
     if provider == "codex":
         return f"codex {q}"
-    return f"printf '%s\\n' 'unknown provider: {shlex.quote(provider)}'; exec $SHELL"
+    if provider == "noop":
+        return f"printf '%s\n' {shlex.quote('noop provider ready: ' + prompt)}; exec $SHELL"
+    return f"printf '%s\n' 'unknown provider: {shlex.quote(provider)}'; exec $SHELL"
 
+
+def team_provider_matrix() -> list[dict[str, Any]]:
+    rows = []
+    for provider, exe in TEAM_PROVIDER_EXECUTABLES.items():
+        available = True if exe is None else bool(shutil.which(exe))
+        rows.append({
+            "provider": provider,
+            "executable": exe or "builtin",
+            "available": available,
+            "required": False,
+            "commandPreview": provider_command(provider, "TEAM_PROVIDER_SMOKE")[:240],
+        })
+    return rows
 
 def team_create(args: argparse.Namespace) -> dict[str, Any]:
     ensure_dirs()
@@ -1659,6 +1677,9 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
     add("plugin_data", data_ok, str(DATA), required=True)
     schema = ensure_state_schema()
     add("state_schema", schema.get("version") == STATE_SCHEMA_VERSION and state_schema_path().exists(), f"{state_schema_path()} version={schema.get('version')}", required=True)
+    providers = team_provider_matrix()
+    available = [p["provider"] for p in providers if p["available"]]
+    add("team_provider_commands", True, f"available={','.join(available)} providers={','.join(p['provider'] for p in providers)}", required=False)
     bridge = hook_bridge_status(argparse.Namespace())
     add("global_hook_bridge", bridge["ok"], f"installed={bridge['installed']} valid={bridge['valid']} config={bridge['config']}", required=False)
     failed_required = [c for c in checks if c["required"] and not c["ok"]]
