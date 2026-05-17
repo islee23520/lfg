@@ -261,8 +261,9 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(os.access(installed_lfg, os.X_OK))
         installed_lfg_script = installed_lfg.read_text(encoding="utf-8")
         self.assertIn("lfg-installed-symlink-surface=ok", installed_lfg_script)
-        self.assertIn("slash=/team-providers", installed_lfg_script)
+        self.assertIn("slash=/team-providers,/team-preflight", installed_lfg_script)
         self.assertIn("/team providers", installed_lfg_script)
+        self.assertIn("/team preflight", installed_lfg_script)
         self.assertIn("tmux has-session -t lfg-backend", installed_lfg_script)
         inside_tmux = REPO / "scripts" / "verify-lfg-inside-tmux-attach.sh"
         self.assertTrue(os.access(inside_tmux, os.X_OK))
