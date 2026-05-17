@@ -16,6 +16,9 @@ repo = root.parents[1]
 workflow = (repo / ".github/workflows/smoke.yml").read_text()
 assert "plugins/grok-harnessing/bin/self-test.sh" in workflow
 assert "sudo apt-get install -y tmux" in workflow
+smoke_doc = (repo / "docs/SMOKE.md").read_text()
+for required in ["plugins/grok-harnessing/bin/self-test.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "runtime-smoke-coverage=100%", "grok-install-smoke=ok skills=28"]:
+    assert required in smoke_doc, required
 install_smoke = (root / "bin/grok-install-smoke.sh").read_text()
 assert "grok-install-smoke=ok skills=28" in install_smoke
 assert "rsync -a --delete" in install_smoke
