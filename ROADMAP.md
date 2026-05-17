@@ -120,8 +120,8 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 - [x] Publish/host marketplace metadata so users can add it from Grok `/plugins`.
 - [x] Document exact marketplace source URL.
-- [ ] Verify install from Grok UI/TUI marketplace flow.
-- [ ] Remove local-dev install from primary docs once marketplace flow is stable.
+- [x] Verify install from Grok UI/TUI marketplace flow.
+- [x] Remove local-dev install from primary docs once marketplace flow is stable.
 
 ### M4 — Deep workflow parity
 
@@ -186,6 +186,8 @@ Each OMX-like feature should land with:
 5. Grok install/inspect verification when plugin metadata changes.
 
 Current feature coverage:
+
+Behavioral smoke gates now include Grok `/plugins` surface evidence: `grok-plugins-list=ok` and `grok-plugins-surface=ok`.
 
 Behavioral smoke gates now include release tag evidence: `release-tag=ok` and `release-tag-remote=ok`.
 

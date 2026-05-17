@@ -42,6 +42,7 @@ Marketplace: linalab-io-framework
 Package:     linalab-io-framework/grok-build
 Plugin id:   grok-build
 Repository:  https://github.com/islee23520/lfg
+Marketplace source repo: https://github.com/islee23520/lfg.git
 Reference:   https://github.com/Yeachan-Heo/oh-my-codex
 ```
 
@@ -52,15 +53,7 @@ Marketplace source file:
 .agents/plugins/marketplace.json
 ```
 
-A developer can also install the plugin directly for smoke testing:
-
-```sh
-git clone https://github.com/islee23520/lfg.git
-cd lfg
-mkdir -p ~/.grok/plugins
-cp -R plugins/grok-harnessing ~/.grok/plugins/grok-build
-grok -p "/plugins enable grok-build" --cwd "$PWD" --max-turns 8 --output-format json
-```
+Developer smoke commands live in [`docs/SMOKE.md`](docs/SMOKE.md); the primary install path is the Grok `/plugins` marketplace flow above.
 
 ## Use
 

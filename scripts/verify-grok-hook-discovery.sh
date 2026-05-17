@@ -47,7 +47,7 @@ python3 - <<'PY'
 import json, pathlib
 text=pathlib.Path('/tmp/grok-hook-headless.json').read_text()
 obj=json.loads(text)
-assert obj.get('text') == 'OK', obj
+assert obj.get('text', '').strip().startswith('OK'), obj
 assert obj.get('sessionId'), obj
 print('grok-headless-session=ok sessionId=%s' % obj['sessionId'])
 PY

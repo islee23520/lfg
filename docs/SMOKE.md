@@ -23,12 +23,13 @@ release-notes=ok
 marketplace-source=ok
 grok-hook-discovery=ok
 release-tag=ok
+grok-plugins-surface=ok
 team-dry-run=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
 
-The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, marketplace release-note coverage, hosted marketplace source coverage, Grok hook discovery/replay coverage, release tag coverage, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
+The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, marketplace release-note coverage, hosted marketplace source coverage, Grok hook discovery/replay coverage, release tag coverage, Grok `/plugins` installed-surface coverage, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
 
 
 ## Local `lfg` symlink install smoke
@@ -60,6 +61,23 @@ Expected terminal evidence:
 ```text
 lfg-launch-smoke=ok
 ```
+
+## Focused Grok `/plugins` surface smoke
+
+Run the installed plugin slash-surface gate:
+
+```sh
+scripts/verify-grok-plugins-surface.sh
+```
+
+Expected terminal evidence:
+
+```text
+grok-plugins-list=ok
+grok-plugins-surface=ok
+```
+
+The script syncs the plugin into `~/.grok/plugins/grok-build`, runs a real Grok headless `/plugins list` slash command, and asserts Grok reports `grok-build v0.3.0 (user)` with `28 skills, hooks: active, 1 MCP servers`.
 
 ## Focused release tag smoke
 
