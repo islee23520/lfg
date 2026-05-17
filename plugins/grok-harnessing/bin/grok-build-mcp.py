@@ -30,7 +30,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "hud", "pipeline_list", "skill_list", "skill_search", "plan_list", "wiki_list", "wiki_search", "backend_status", "team_status"]},
+                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "hud", "pipeline_list", "skill_list", "skill_search", "plan_list", "wiki_list", "wiki_search", "backend_status", "team_status", "hook_bridge_status"]},
                 "team": {"type": "string"},
                 "query": {"type": "string"}
             },
@@ -42,6 +42,16 @@ TOOLS = [
         "name": "grok_build_doctor",
         "description": "Run Grok Build doctor diagnostics.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "grok_build_hook_bridge",
+        "description": "Status/install the optional global Grok hook bridge that delegates to the grok-build plugin audit hook.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"action": {"type": "string", "enum": ["status", "install"]}},
+            "required": ["action"],
+            "additionalProperties": False
+        },
     },
     {
         "name": "grok_build_backend_start",
@@ -532,12 +542,23 @@ def handle_tool(name, arguments=None):
             cmd += ["backend", "status"]
         elif action == "team_status":
             cmd += ["team", "status"] + ([arguments["team"]] if arguments.get("team") else [])
+        elif action == "hook_bridge_status":
+            cmd += ["hook-bridge", "status"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_doctor":
         cmd = [str(ROOT / "bin" / "lfg"), "--json", "doctor"]
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_hook_bridge":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "hook-bridge"]
+        if action in {"status", "install"}:
+            cmd += [action]
+        else:
+            raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_backend_start":

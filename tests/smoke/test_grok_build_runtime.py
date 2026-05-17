@@ -70,6 +70,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-plugin-hook-scope=not-observed", roadmap)
         self.assertIn("grok-global-hook-bridge=ok", roadmap)
         self.assertIn("lfg hook-bridge status/install", roadmap)
+        self.assertIn("MCP `grok_build_hook_bridge`", roadmap)
         self.assertIn("release-tag=ok", roadmap)
         self.assertIn("release-notes=ok", roadmap)
         self.assertIn("state-schema-versioning=ok", roadmap)
@@ -132,6 +133,7 @@ class RuntimeSmoke(unittest.TestCase):
             "grok_build_design",
             "grok_build_doctor",
             "grok_build_goal",
+            "grok_build_hook_bridge",
             "grok_build_hud",
             "grok_build_notifications",
             "grok_build_omx_setup",
@@ -223,8 +225,10 @@ class RuntimeSmoke(unittest.TestCase):
         hook_doc = (REPO / "docs" / "HOOK_EVIDENCE.md").read_text(encoding="utf-8")
         self.assertIn("scripts/grok-build-audit-hook.sh", hook_doc)
         self.assertIn("lfg hook-bridge install", hook_doc)
+        self.assertIn("grok_build_hook_bridge", hook_doc)
         smoke_doc = (REPO / "docs" / "SMOKE.md").read_text(encoding="utf-8")
         self.assertIn("lfg --json hook-bridge install", smoke_doc)
+        self.assertIn("lfg --json slash '/hook-bridge status'", smoke_doc)
         marketplace_source = REPO / "scripts" / "verify-marketplace-source.sh"
         self.assertTrue(os.access(marketplace_source, os.X_OK))
         marketplace_source_script = marketplace_source.read_text(encoding="utf-8")
@@ -335,7 +339,7 @@ class RuntimeSmoke(unittest.TestCase):
 
         self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.3.0")
         tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
-        for name in {"grok_build_catalog", "grok_build_runtime", "grok_build_team", "grok_build_slash"}:
+        for name in {"grok_build_catalog", "grok_build_runtime", "grok_build_team", "grok_build_slash", "grok_build_hook_bridge"}:
             self.assertIn(name, tool_names)
         payload = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(payload["returncode"], 0)
@@ -367,6 +371,42 @@ class RuntimeSmoke(unittest.TestCase):
         doctor = self.run_lfg("doctor")
         bridge = next(check for check in doctor["checks"] if check["name"] == "global_hook_bridge")
         self.assertIn("installed=True valid=True", bridge["evidence"])
+
+
+    def test_hook_bridge_slash_and_mcp_tool(self) -> None:
+        slash_status = self.run_lfg("slash", "/hook-bridge status")
+        self.assertTrue(slash_status["ok"])
+        self.assertFalse(slash_status["installed"])
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_runtime", "arguments": {"action": "hook_bridge_status"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_hook_bridge", "arguments": {"action": "install"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        status_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        install_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(status_payload["returncode"], 0)
+        self.assertIn('"installed": false', status_payload["stdout"])
+        self.assertEqual(install_payload["returncode"], 0)
+        self.assertIn('"valid": true', install_payload["stdout"])
 
     def test_mcp_doctor_runtime(self) -> None:
         proc = subprocess.Popen(

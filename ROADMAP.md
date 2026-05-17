@@ -144,7 +144,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 ### M5 — Hardening
 
-- [ ] Hook event evidence from real Grok sessions. **Blocked on Grok 0.1.211 plugin hook execution scope**: `grok-real-tool-session=ok` and `grok-global-hook-engine=ok` pass, but `grok-plugin-hook-scope=not-observed while-global-hooks-ok`; deterministic coverage remains `grok-hook-discovery=ok` + `hook-event-replay=ok`; workaround coverage is `grok-global-hook-bridge=ok` plus productized `lfg hook-bridge status/install` and `doctor` `global_hook_bridge` evidence.
+- [ ] Hook event evidence from real Grok sessions. **Blocked on Grok 0.1.211 plugin hook execution scope**: `grok-real-tool-session=ok` and `grok-global-hook-engine=ok` pass, but `grok-plugin-hook-scope=not-observed while-global-hooks-ok`; deterministic coverage remains `grok-hook-discovery=ok` + `hook-event-replay=ok`; workaround coverage is `grok-global-hook-bridge=ok` plus productized `lfg hook-bridge status/install`, `/hook-bridge`, MCP `grok_build_hook_bridge`, and `doctor` `global_hook_bridge` evidence.
 - [x] MCP stderr isolation.
 - [x] State migration/versioning.
 - [x] Release tags.
@@ -187,7 +187,7 @@ Each OMX-like feature should land with:
 
 Current feature coverage:
 
-Behavioral smoke gates now include global hook bridge workaround evidence: `grok-global-hook-bridge=ok`, plus runtime bridge management via `lfg hook-bridge status/install` and `doctor` `global_hook_bridge`.
+Behavioral smoke gates now include global hook bridge workaround evidence: `grok-global-hook-bridge=ok`, plus runtime bridge management via `lfg hook-bridge status/install`, `/hook-bridge`, MCP `grok_build_hook_bridge`, and `doctor` `global_hook_bridge`.
 
 Behavioral smoke gates now include Grok `/plugins` surface evidence: `grok-plugins-list=ok` and `grok-plugins-surface=ok`.
 

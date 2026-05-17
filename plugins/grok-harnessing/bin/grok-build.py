@@ -1735,9 +1735,16 @@ def slash(args: argparse.Namespace) -> dict[str, Any]:
     if not parts:
         raise SystemExit("empty slash command")
     name = parts[0][1:]
+    rest = parts[1:]
+    if name == "hook-bridge":
+        action = rest[0] if rest else "status"
+        if action == "status":
+            return hook_bridge_status(argparse.Namespace())
+        if action == "install":
+            return hook_bridge_install(argparse.Namespace())
+        raise SystemExit("usage: /hook-bridge [status|install]")
     if name != "team":
         raise SystemExit(f"unsupported slash command: /{name}")
-    rest = parts[1:]
     if not rest:
         return team_status(argparse.Namespace(name=None, cwd=args.cwd))
     verb = rest[0]

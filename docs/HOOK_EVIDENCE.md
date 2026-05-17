@@ -139,7 +139,8 @@ Runtime CLI support:
 ```sh
 lfg hook-bridge status
 lfg hook-bridge install
+lfg slash '/hook-bridge status'
 lfg doctor
 ```
 
-`doctor` reports `global_hook_bridge` as an optional check: absent is OK, installed+valid is OK, and an installed-but-invalid bridge becomes visible evidence without blocking core plugin startup.
+`doctor` reports `global_hook_bridge` as an optional check: absent is OK, installed+valid is OK, and an installed-but-invalid bridge becomes visible evidence without blocking core plugin startup. MCP exposes the same path through `grok_build_runtime(action=hook_bridge_status)` and `grok_build_hook_bridge(action=status|install)`.
