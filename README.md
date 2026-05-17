@@ -99,6 +99,7 @@ plugins/grok-harnessing/bin/grok-build.py deep-interview create "team mode requi
 plugins/grok-harnessing/bin/grok-build.py autoresearch create "How should team mode work?"
 plugins/grok-harnessing/bin/grok-build.py ai-slop-cleaner create --scope README.md --verification self-test
 plugins/grok-harnessing/bin/grok-build.py worker ack worker-1 "fix tests"
+plugins/grok-harnessing/bin/grok-build.py ralph create "iterate until tests pass" --max-iterations 3
 plugins/grok-harnessing/bin/grok-build.py wiki add "Decision" "Use tmux backend" --tags team
 plugins/grok-harnessing/bin/grok-build.py wiki search tmux
 plugins/grok-harnessing/bin/grok-build.py plan create "ship grok-build MVP"

@@ -859,6 +859,40 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"worker": "mcp-worker"', ack_payload["stdout"])
         self.assertIn('"status": "complete"', result_payload["stdout"])
 
+    def test_ralph_create_step_show(self) -> None:
+        rec = self.run_lfg("ralph", "create", "iterate until tests pass", "--id", "smoke-ralph", "--max-iterations", "2")
+        self.assertEqual(rec["iteration"], 0)
+        stepped = self.run_lfg("ralph", "step", "--id", "smoke-ralph", "--status", "complete", "--evidence", "tests pass")
+        self.assertEqual(stepped["iteration"], 1)
+        self.assertEqual(stepped["status"], "complete")
+        shown = self.run_lfg("ralph", "show", "--id", "smoke-ralph")
+        self.assertEqual(shown["events"][-1]["evidence"], "tests pass")
+
+    def test_mcp_ralph_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ralph", "arguments": {"action": "create", "id": "mcp-ralph", "objective": "MCP loop", "maxIterations": 2}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ralph", "arguments": {"action": "step", "id": "mcp-ralph", "status": "complete", "evidence": "ok"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        step_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(step_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-ralph"', create_payload["stdout"])
+        self.assertIn('"status": "complete"', step_payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

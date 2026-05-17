@@ -137,6 +137,64 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def ralph_dir() -> pathlib.Path:
+    return RUNS_DIR / "ralph"
+
+
+def ralph_path(rid: str) -> pathlib.Path:
+    return ralph_dir() / f"{rid}.json"
+
+
+def ralph_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    rid = args.id or f"ralph-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    record = {
+        "id": rid,
+        "objective": args.objective,
+        "status": "active",
+        "iteration": 0,
+        "maxIterations": args.max_iterations,
+        "stopCondition": args.stop_condition or "verification passes and no blockers remain",
+        "createdAt": now(),
+        "updatedAt": now(),
+        "events": [{"ts": now(), "type": "created", "objective": args.objective}],
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+    }
+    write_json(ralph_path(rid), record)
+    write_json(STATE_DIR / "current-ralph.json", {"id": rid, "path": str(ralph_path(rid)), "updatedAt": now()})
+    record["path"] = str(ralph_path(rid))
+    return record
+
+
+def ralph_step(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-ralph.json", {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no ralph id and no current ralph loop")
+    record = read_json(ralph_path(ref))
+    if not record:
+        raise SystemExit(f"ralph loop not found: {ref}")
+    record["iteration"] = int(record.get("iteration", 0)) + 1
+    record["status"] = args.status
+    record["updatedAt"] = now()
+    record.setdefault("events", []).append({"ts": now(), "type": "step", "iteration": record["iteration"], "status": args.status, "evidence": args.evidence})
+    if record["iteration"] >= int(record.get("maxIterations", 1)) and args.status != "complete":
+        record["status"] = "blocked"
+    write_json(ralph_path(ref), record)
+    record["path"] = str(ralph_path(ref))
+    return record
+
+
+def ralph_show(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-ralph.json", {}) or {}).get("id")
+    if not ref:
+        return {"ralph": []}
+    record = read_json(ralph_path(ref))
+    if not record:
+        raise SystemExit(f"ralph loop not found: {ref}")
+    record["path"] = str(ralph_path(ref))
+    return record
+
 def workers_dir() -> pathlib.Path:
     return STATE_DIR / "workers"
 
@@ -1131,6 +1189,24 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    rp = sub.add_parser("ralph")
+    rsub = rp.add_subparsers(dest="ralph_cmd", required=True)
+    rc = rsub.add_parser("create")
+    rc.add_argument("objective")
+    rc.add_argument("--id")
+    rc.add_argument("--max-iterations", type=int, default=3)
+    rc.add_argument("--stop-condition")
+    rc.set_defaults(fn=ralph_create)
+    rs = rsub.add_parser("step")
+    rs.add_argument("--id")
+    rs.add_argument("--status", choices=["active", "complete", "blocked"], default="active")
+    rs.add_argument("--evidence", default="")
+    rs.set_defaults(fn=ralph_step)
+    rsh = rsub.add_parser("show")
+    rsh.add_argument("--id")
+    rsh.set_defaults(fn=ralph_show)
 
     wp2 = sub.add_parser("worker")
     w2sub = wp2.add_subparsers(dest="worker_cmd", required=True)
