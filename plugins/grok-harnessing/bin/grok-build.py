@@ -1571,6 +1571,18 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
     skills_dir = ROOT / "skills"
     skill_count = len(list(skills_dir.glob("*/SKILL.md"))) if skills_dir.exists() else 0
     add("skills", skill_count >= 28, f"{skills_dir} skill_count={skill_count}")
+    repo_root = ROOT.parents[1] if len(ROOT.parents) > 1 else ROOT
+    for name, rel in [("grok_marketplace", ".grok/plugins/marketplace.json"), ("agents_marketplace", ".agents/plugins/marketplace.json")]:
+        path = repo_root / rel
+        data = read_json(path, {})
+        plugin = (data.get("plugins") or [{}])[0] if isinstance(data.get("plugins"), list) and data.get("plugins") else {}
+        ok = (
+            path.exists()
+            and plugin.get("name") == "grok-build"
+            and plugin.get("source", {}).get("path") == "plugins/grok-harnessing"
+            and plugin.get("metadata", {}).get("packageName") == "linalab-io-framework/grok-build"
+        )
+        add(name, ok, f"{path} package={plugin.get('metadata', {}).get('packageName')}")
     for exe, required in [("tmux", True), ("hermes", False), ("claude", False), ("codex", False), ("grok", False)]:
         path = shutil.which(exe)
         add(f"exe:{exe}", bool(path), path or "not found", required=required)

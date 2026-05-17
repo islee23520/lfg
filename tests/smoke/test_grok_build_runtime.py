@@ -210,7 +210,7 @@ class RuntimeSmoke(unittest.TestCase):
         report = self.run_lfg("doctor")
         self.assertTrue(report["ok"], report)
         check_names = {check["name"] for check in report["checks"]}
-        for required in {"grok_manifest", "mcp_config", "catalog", "skills", "exe:tmux", "plugin_data"}:
+        for required in {"grok_manifest", "mcp_config", "catalog", "skills", "grok_marketplace", "agents_marketplace", "exe:tmux", "plugin_data"}:
             self.assertIn(required, check_names)
         self.assertEqual(report["failedRequired"], [])
 
