@@ -91,3 +91,21 @@ grok-tui-hook-emission=not-observed grok=0.1.211
 ```
 
 This starts real `grok --no-leader --no-alt-screen` in a PTY, submits a prompt that reaches terminal-tool execution (`echo LFG_TUI_HOOK_SESSION`), then checks the plugin audit log. No audit log is emitted in this automated TUI path either.
+
+
+## Global-vs-plugin hook scope check
+
+Run:
+
+```sh
+scripts/verify-grok-plugin-hook-scope-limitation.sh
+```
+
+Observed on local Grok `0.1.211`:
+
+```text
+grok-global-hook-engine=ok events=5
+grok-plugin-hook-scope=not-observed while-global-hooks-ok
+```
+
+This proves Grok's hook engine fires for global hooks in the same headless/tool-use path, while plugin hook commands remain non-emitting even when the installed plugin hook command is temporarily changed to an absolute path. The remaining open blocker is therefore narrowed to plugin hook execution scope in Grok `0.1.211`, not the hook script, redaction logic, or generic hook engine.

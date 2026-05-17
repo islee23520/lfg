@@ -66,7 +66,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("- [x] Verify install from Grok UI/TUI marketplace flow.", roadmap)
         self.assertIn("- [x] Remove local-dev install from primary docs once marketplace flow is stable.", roadmap)
         self.assertIn("grok-plugins-surface=ok", roadmap)
-        self.assertIn("grok-headless-hook-emission=not-observed", roadmap)
+        self.assertIn("grok-plugin-hook-scope=not-observed", roadmap)
         self.assertIn("release-tag=ok", roadmap)
         self.assertIn("release-notes=ok", roadmap)
         self.assertIn("state-schema-versioning=ok", roadmap)

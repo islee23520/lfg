@@ -47,6 +47,10 @@ tui_limitation = (repo / "scripts/verify-grok-tui-hook-limitation.sh").read_text
 assert "grok-tui-hook-session=attempted" in tui_limitation
 assert "grok-tui-hook-emission=not-observed" in tui_limitation
 assert (repo / "scripts/verify-grok-tui-hook-limitation.sh").stat().st_mode & 0o111, "scripts/verify-grok-tui-hook-limitation.sh executable"
+scope_limitation = (repo / "scripts/verify-grok-plugin-hook-scope-limitation.sh").read_text()
+assert "grok-global-hook-engine=ok" in scope_limitation
+assert "grok-plugin-hook-scope=not-observed" in scope_limitation
+assert (repo / "scripts/verify-grok-plugin-hook-scope-limitation.sh").stat().st_mode & 0o111, "scripts/verify-grok-plugin-hook-scope-limitation.sh executable"
 marketplace_source = (repo / "scripts/verify-marketplace-source.sh").read_text()
 assert "marketplace-source=ok" in marketplace_source
 assert "marketplace-remote-source=ok" in marketplace_source
@@ -93,7 +97,7 @@ assert "- [x] Release tags." in roadmap
 assert "- [x] Verify install from Grok UI/TUI marketplace flow." in roadmap
 assert "- [x] Remove local-dev install from primary docs once marketplace flow is stable." in roadmap
 assert "grok-plugins-surface=ok" in roadmap
-assert "grok-headless-hook-emission=not-observed" in roadmap
+assert "grok-plugin-hook-scope=not-observed" in roadmap
 assert "release-tag=ok" in roadmap
 assert "release-notes=ok" in roadmap
 assert "state-schema-versioning=ok" in roadmap
