@@ -26,11 +26,11 @@ TOOLS = [
     },
     {
         "name": "grok_build_runtime",
-        "description": "Run a safe grok-build runtime query such as status, catalog, doctor, hud, plan_list, wiki_list, wiki_search, backend_status, or team_status.",
+        "description": "Run a safe grok-build runtime query such as status, catalog, doctor, hud, skill_list, skill_search, plan_list, wiki_list, wiki_search, backend_status, or team_status.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "hud", "plan_list", "wiki_list", "wiki_search", "backend_status", "team_status"]},
+                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "hud", "skill_list", "skill_search", "plan_list", "wiki_list", "wiki_search", "backend_status", "team_status"]},
                 "team": {"type": "string"},
                 "query": {"type": "string"}
             },
@@ -60,6 +60,19 @@ TOOLS = [
                 "query": {"type": "string"},
                 "providers": {"type": "string", "description": "comma list, default hermes,claude,codex"},
                 "dryRun": {"type": "boolean", "default": True}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_skill",
+        "description": "List/search the Grok Build OMX-like skill catalog.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["list", "search"]},
+                "query": {"type": "string"}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -201,6 +214,10 @@ def handle_tool(name, arguments=None):
             cmd += ["doctor"]
         elif action == "hud":
             cmd += ["hud"]
+        elif action == "skill_list":
+            cmd += ["skill", "list"]
+        elif action == "skill_search":
+            cmd += ["skill", "search", arguments.get("query") or ""]
         elif action == "plan_list":
             cmd += ["plan", "list"]
         elif action == "wiki_list":
@@ -238,6 +255,17 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_skill":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "skill"]
+        if action == "list":
+            cmd += ["list"]
+        elif action == "search":
+            cmd += ["search", arguments.get("query") or ""]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

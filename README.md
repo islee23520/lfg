@@ -88,6 +88,7 @@ plugins/grok-harnessing/bin/grok-build.py status
 plugins/grok-harnessing/bin/grok-build.py catalog
 plugins/grok-harnessing/bin/grok-build.py doctor
 plugins/grok-harnessing/bin/grok-build.py hud --text
+plugins/grok-harnessing/bin/grok-build.py skill search ultraqa
 plugins/grok-harnessing/bin/grok-build.py wiki add "Decision" "Use tmux backend" --tags team
 plugins/grok-harnessing/bin/grok-build.py wiki search tmux
 plugins/grok-harnessing/bin/grok-build.py plan create "ship grok-build MVP"

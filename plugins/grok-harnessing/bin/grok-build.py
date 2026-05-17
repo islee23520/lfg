@@ -126,6 +126,23 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def skill_list(args: argparse.Namespace) -> dict[str, Any]:
+    data = read_json(CATALOG_PATH, {"skills": []})
+    skills = data.get("skills", [])
+    return {"count": len(skills), "skills": skills}
+
+
+def skill_search(args: argparse.Namespace) -> dict[str, Any]:
+    q = args.query.lower()
+    data = read_json(CATALOG_PATH, {"skills": []})
+    matches = []
+    for skill in data.get("skills", []):
+        haystack = json.dumps(skill, ensure_ascii=False).lower()
+        if q in haystack:
+            matches.append(skill)
+    return {"query": args.query, "count": len(matches), "matches": matches}
+
 def list_plans() -> list[dict[str, Any]]:
     plans = []
     for path in sorted((STATE_DIR / "plans").glob("*.json")) if (STATE_DIR / "plans").exists() else []:
@@ -610,6 +627,15 @@ def main(argv: list[str] | None = None) -> int:
     cp.add_argument("--scope", default="all", help="comma list: goal,plan,team,ultraqa or all")
     cp.set_defaults(fn=cancel)
 
+
+
+    skp = sub.add_parser("skill")
+    sksub = skp.add_subparsers(dest="skill_cmd", required=True)
+    skl = sksub.add_parser("list")
+    skl.set_defaults(fn=skill_list)
+    sks = sksub.add_parser("search")
+    sks.add_argument("query")
+    sks.set_defaults(fn=skill_search)
 
     wp = sub.add_parser("wiki")
     wsub = wp.add_subparsers(dest="wiki_cmd", required=True)

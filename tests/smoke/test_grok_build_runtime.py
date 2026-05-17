@@ -453,6 +453,45 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"goals": 1', payload["stdout"])
         self.assertIn('"text": "grok-build', payload["stdout"])
 
+    def test_skill_list_search_catalog(self) -> None:
+        listed = self.run_lfg("skill", "list")
+        self.assertGreaterEqual(listed["count"], 28)
+        names = {skill["name"] for skill in listed["skills"]}
+        self.assertIn("ultraqa", names)
+        found = self.run_lfg("skill", "search", "ultraqa")
+        self.assertGreaterEqual(found["count"], 1)
+        self.assertIn("ultraqa", {skill["name"] for skill in found["matches"]})
+
+    def test_mcp_skill_tool(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_skill", "arguments": {"action": "search", "query": "ultraqa"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+        payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        self.assertEqual(payload["returncode"], 0)
+        self.assertIn('"name": "ultraqa"', payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

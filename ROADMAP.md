@@ -188,6 +188,7 @@ Current feature coverage:
 | `/ultraqa` adversarial smoke | `docs/features/ultraqa-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/cancel` pointer clear | `docs/features/cancel-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/hud` status summary | `docs/features/hud-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/skill` catalog search | `docs/features/skill-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/doctor` diagnostics | `docs/features/doctor-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/wiki` durable notes | `docs/features/wiki-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 
