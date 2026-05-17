@@ -262,6 +262,62 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(list_payload["returncode"], 0)
         self.assertIn('"title": "MCP plan"', list_payload["stdout"])
 
+    def test_goal_create_list_update_persists_state(self) -> None:
+        goal = self.run_lfg("goal", "create", "Ship goal", "--id", "smoke-goal", "--checklist", "design;test;verify")
+        self.assertEqual(goal["id"], "smoke-goal")
+        self.assertEqual(goal["checklist"], ["design", "test", "verify"])
+        current = pathlib.Path(self.tmp.name) / "state" / "current-goal.json"
+        self.assertTrue(current.exists())
+        listed = self.run_lfg("goal", "list")
+        self.assertEqual(len(listed["goals"]), 1)
+        updated = self.run_lfg("goal", "update", "--id", "smoke-goal", "--status", "complete", "--note", "verified")
+        self.assertEqual(updated["status"], "complete")
+        self.assertEqual(updated["events"][-1]["message"], "verified")
+
+    def test_mcp_goal_tool(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "grok_build_goal", "arguments": {"action": "create", "id": "mcp-goal", "objective": "MCP goal", "checklist": "design;test"}},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "grok_build_goal", "arguments": {"action": "update", "id": "mcp-goal", "status": "complete", "note": "done"}},
+            },
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        update_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(update_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-goal"', create_payload["stdout"])
+        self.assertIn('"status": "complete"', update_payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

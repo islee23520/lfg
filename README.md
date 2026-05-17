@@ -90,6 +90,7 @@ plugins/grok-harnessing/bin/grok-build.py doctor
 plugins/grok-harnessing/bin/grok-build.py wiki add "Decision" "Use tmux backend" --tags team
 plugins/grok-harnessing/bin/grok-build.py wiki search tmux
 plugins/grok-harnessing/bin/grok-build.py plan create "ship grok-build MVP"
+plugins/grok-harnessing/bin/grok-build.py goal create "ship durable goal" --checklist "design;test;verify"
 plugins/grok-harnessing/bin/grok-build.py ultraqa "verify plugin install and MCP smoke"
 plugins/grok-harnessing/bin/lfg slash '/team 3:executor "fix tests"' --dry-run
 ```

@@ -66,6 +66,23 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_goal",
+        "description": "Create/list/update durable LFG goal state under plugin data; foundation for /ultragoal.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "list", "update"]},
+                "objective": {"type": "string"},
+                "id": {"type": "string"},
+                "status": {"type": "string", "enum": ["active", "blocked", "complete", "cancelled"]},
+                "checklist": {"type": "string"},
+                "note": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_plan",
         "description": "Create or list durable LFG plan state under plugin data.",
         "inputSchema": {
@@ -187,6 +204,27 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_goal":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "goal"]
+        if action == "create":
+            cmd += ["create", arguments.get("objective") or "Untitled goal"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("checklist"):
+                cmd += ["--checklist", arguments["checklist"]]
+        elif action == "list":
+            cmd += ["list"]
+        elif action == "update":
+            cmd += ["update", "--status", arguments.get("status") or "active"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("note"):
+                cmd += ["--note", arguments["note"]]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
