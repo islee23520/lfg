@@ -16,6 +16,15 @@ assert obj['smokeSafe'] == 'noop', obj
 assert 'noop' in obj['summary']['available'], obj
 print('team-provider-matrix=ok providers=%s' % ','.join(providers))
 PY
+GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json slash '/team providers' >/tmp/team-provider-slash.json
+python3 - <<'PY'
+import json, pathlib
+obj=json.loads(pathlib.Path('/tmp/team-provider-slash.json').read_text())
+assert obj['ok'], obj
+assert [p['provider'] for p in obj['providers']] == ['hermes','claude','codex','noop'], obj
+assert obj['smokeSafe'] == 'noop', obj
+print('team-provider-slash=ok')
+PY
 GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json team create 4:executor "provider command smoke" --providers hermes,claude,codex,noop --dry-run >/tmp/team-provider-smoke.json
 python3 - <<'PY'
 import json, pathlib

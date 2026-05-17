@@ -1806,6 +1806,8 @@ def slash(args: argparse.Namespace) -> dict[str, Any]:
     if not rest:
         return team_status(argparse.Namespace(name=None, cwd=args.cwd))
     verb = rest[0]
+    if verb == "providers":
+        return team_providers(argparse.Namespace())
     if verb in {"status", "resume", "shutdown"}:
         target = rest[1] if len(rest) > 1 else None
         ns = argparse.Namespace(name=target, cwd=args.cwd)

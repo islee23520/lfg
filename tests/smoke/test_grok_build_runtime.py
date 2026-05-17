@@ -95,6 +95,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("mcp-stdio-isolation=ok", roadmap)
         self.assertIn("team-tmux-lifecycle=ok", roadmap)
         self.assertIn("team-provider-matrix=ok", roadmap)
+        self.assertIn("team-provider-slash=ok", roadmap)
         self.assertIn("team-provider-commands=ok", roadmap)
         skill_names = sorted(
             path.name
@@ -208,6 +209,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(os.access(team_provider, os.X_OK))
         team_provider_script = team_provider.read_text(encoding="utf-8")
         self.assertIn("team-provider-matrix=ok", team_provider_script)
+        self.assertIn("team-provider-slash=ok", team_provider_script)
         self.assertIn("team-provider-commands=ok", team_provider_script)
         self.assertIn("team-provider-doctor=ok", team_provider_script)
         team_lifecycle = REPO / "scripts" / "verify-team-tmux-lifecycle.sh"
@@ -513,6 +515,9 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(listed["ok"])
         self.assertEqual([row["provider"] for row in listed["providers"]], ["hermes", "claude", "codex", "noop"])
         self.assertEqual(listed["smokeSafe"], "noop")
+        slash_listed = self.run_lfg("slash", "/team providers")
+        self.assertEqual([row["provider"] for row in slash_listed["providers"]], ["hermes", "claude", "codex", "noop"])
+        self.assertEqual(slash_listed["smokeSafe"], "noop")
         team = self.run_lfg("team", "create", "4:executor", "provider smoke", "--providers", "hermes,claude,codex,noop", "--dry-run")
         self.assertEqual([m["provider"] for m in team["members"]], ["hermes", "claude", "codex", "noop"])
         self.assertIn("noop provider ready", team["members"][3]["command"])

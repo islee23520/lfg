@@ -187,7 +187,7 @@ Each OMX-like feature should land with:
 
 Current feature coverage:
 
-Behavioral smoke gates now include team provider matrix/command evidence: `team-provider-matrix=ok`, `team-provider-commands=ok`, `team-provider-doctor=ok`, and installed MCP team provider surface evidence via `grok-installed-mcp-surface=ok`.
+Behavioral smoke gates now include team provider matrix/command evidence: `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, `team-provider-doctor=ok`, and installed MCP team provider surface evidence via `grok-installed-mcp-surface=ok`.
 
 Behavioral smoke gates now include installed `lfg` symlink launch evidence: `lfg-installed-symlink-surface=ok`, plus inside-tmux attach evidence `lfg-inside-tmux-attach=ok`.
 
