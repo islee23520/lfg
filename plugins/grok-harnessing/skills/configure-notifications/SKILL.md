@@ -3,7 +3,7 @@ name: configure-notifications
 description: "Grok Build port of OMX `configure-notifications`: Configure OMX notifications - unified entry point for all platforms"
 user_invocable: true
 metadata:
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
   source: "oh-my-codex/plugins/oh-my-codex/skills/configure-notifications/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
   port_kind: "grok-skill-adapter"

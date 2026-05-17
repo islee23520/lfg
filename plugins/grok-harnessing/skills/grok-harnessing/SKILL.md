@@ -4,12 +4,12 @@ description: Stress-test and harden Grok Build-compatible plugin surfaces: skill
 user_invocable: true
 metadata:
   short-description: "Hammer Grok extension surfaces"
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
 ---
 
 # Grok Harnessing
 
-Use this skill when validating the `linalab-io-frakework/grok-build` plugin package.
+Use this skill when validating the `linalab-io-framework/grok-build` plugin package.
 
 ## Mission
 

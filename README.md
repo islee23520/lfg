@@ -1,4 +1,4 @@
-# linalab-io-frakework/grok-build
+# linalab-io-framework/grok-build
 
 **OMX-like workflow/plugins for Grok Build.**
 
@@ -38,8 +38,8 @@ The intended install path is inside Grok:
 Marketplace/package identity:
 
 ```text
-Marketplace: linalab-io-frakework
-Package:     linalab-io-frakework/grok-build
+Marketplace: linalab-io-framework
+Package:     linalab-io-framework/grok-build
 Plugin id:   grok-build
 Repository:  https://github.com/islee23520/lfg
 Reference:   https://github.com/Yeachan-Heo/oh-my-codex

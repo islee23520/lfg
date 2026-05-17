@@ -3,7 +3,7 @@ name: ai-slop-cleaner
 description: "Grok Build port of OMX `ai-slop-cleaner`: Run an anti-slop cleanup/refactor/deslop workflow"
 user_invocable: true
 metadata:
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
   source: "oh-my-codex/plugins/oh-my-codex/skills/ai-slop-cleaner/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
   port_kind: "grok-skill-adapter"

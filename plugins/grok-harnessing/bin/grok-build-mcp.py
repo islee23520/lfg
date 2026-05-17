@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal stdio MCP server for linalab-io-frakework/grok-build.
+"""Minimal stdio MCP server for linalab-io-framework/grok-build.
 
 Provides catalog/status tools for the Grok adaptation of oh-my-codex.
 """
@@ -16,7 +16,7 @@ DATA = pathlib.Path(os.environ.get("GROK_PLUGIN_DATA") or pathlib.Path.home() / 
 TOOLS = [
     {
         "name": "grok_build_catalog",
-        "description": "Return the OMX-to-Grok skill catalog for linalab-io-frakework/grok-build.",
+        "description": "Return the OMX-to-Grok skill catalog for linalab-io-framework/grok-build.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {

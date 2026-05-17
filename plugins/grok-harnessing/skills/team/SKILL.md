@@ -3,7 +3,7 @@ name: team
 description: "Create and manage an LFG tmux backend team for Grok Build, using hermes -z, Claude Code, and Codex workers."
 user_invocable: true
 metadata:
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
   source: "oh-my-codex/plugins/oh-my-codex/skills/team/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
   port_kind: "grok-tmux-backend"

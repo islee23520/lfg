@@ -1,16 +1,16 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "linalab-io-frakework",
+  "name": "linalab-io-framework",
   "description": "LinaLab Grok Build plugins, including OMX-like workflow/plugins for Grok Build.",
   "owner": {
-    "name": "linalab-io-frakework"
+    "name": "linalab-io-framework"
   },
   "plugins": [
     {
       "name": "grok-build",
       "description": "OMX-like workflow/plugins for Grok Build, inspired by oh-my-codex.",
       "author": {
-        "name": "linalab-io-frakework"
+        "name": "linalab-io-framework"
       },
       "category": "development",
       "source": {
@@ -21,7 +21,7 @@
       },
       "homepage": "https://github.com/islee23520/lfg",
       "metadata": {
-        "packageName": "linalab-io-frakework/grok-build",
+        "packageName": "linalab-io-framework/grok-build",
         "reference": "https://github.com/Yeachan-Heo/oh-my-codex"
       }
     }

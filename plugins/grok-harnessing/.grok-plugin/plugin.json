@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "description": "OMX-like workflow/plugins for Grok Build, inspired by oh-my-codex.",
   "author": {
-    "name": "linalab-io-frakework"
+    "name": "linalab-io-framework"
   },
   "homepage": "https://github.com/islee23520/lfg",
   "repository": "https://github.com/islee23520/lfg",
@@ -12,7 +12,7 @@
   "mcpServers": "./.mcp.json",
   "lspServers": "./.lsp.json",
   "metadata": {
-    "packageName": "linalab-io-frakework/grok-build",
+    "packageName": "linalab-io-framework/grok-build",
     "compatibility": [
       "grok",
       "claude-code",

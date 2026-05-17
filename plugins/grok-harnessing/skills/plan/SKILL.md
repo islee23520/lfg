@@ -3,7 +3,7 @@ name: plan
 description: "Grok Build port of OMX `plan`: Strategic planning with optional interview workflow"
 user_invocable: true
 metadata:
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
   source: "oh-my-codex/plugins/oh-my-codex/skills/plan/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
   port_kind: "grok-skill-adapter"

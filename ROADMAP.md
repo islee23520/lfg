@@ -1,4 +1,4 @@
-# Roadmap — `linalab-io-frakework/grok-build`
+# Roadmap — `linalab-io-framework/grok-build`
 
 ## North star
 
@@ -19,8 +19,8 @@ The primary install flow is Grok-native marketplace installation:
 Package identity:
 
 ```text
-Marketplace: linalab-io-frakework
-Package:     linalab-io-frakework/grok-build
+Marketplace: linalab-io-framework
+Package:     linalab-io-framework/grok-build
 Plugin id:   grok-build
 Repo:        https://github.com/islee23520/lfg
 Reference:   https://github.com/Yeachan-Heo/oh-my-codex
@@ -32,7 +32,7 @@ Local copy/symlink install exists only as a development smoke path until the mar
 
 ```text
 Grok Build
-  └─ Marketplace install: linalab-io-frakework/grok-build
+  └─ Marketplace install: linalab-io-framework/grok-build
       └─ grok-build plugin
           ├─ skills/*/SKILL.md              # slash workflow entrypoints
           ├─ hooks/hooks.json               # hook registration

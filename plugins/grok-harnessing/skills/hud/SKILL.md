@@ -3,7 +3,7 @@ name: hud
 description: "Grok Build port of OMX `hud`: Show or configure the OMX HUD (two-layer statusline)"
 user_invocable: true
 metadata:
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
   source: "oh-my-codex/plugins/oh-my-codex/skills/hud/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
   port_kind: "grok-skill-adapter"

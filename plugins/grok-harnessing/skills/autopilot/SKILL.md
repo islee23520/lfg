@@ -3,7 +3,7 @@ name: autopilot
 description: "Grok Build port of OMX `autopilot`: [OMX] Strict autonomous loop: $ralplan -> $ralph -> $code-review"
 user_invocable: true
 metadata:
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
   source: "oh-my-codex/plugins/oh-my-codex/skills/autopilot/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
   port_kind: "grok-skill-adapter"

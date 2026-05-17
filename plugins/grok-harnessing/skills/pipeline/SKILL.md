@@ -3,7 +3,7 @@ name: pipeline
 description: "Grok Build port of OMX `pipeline`: Configurable pipeline orchestrator for sequencing stages"
 user_invocable: true
 metadata:
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
   source: "oh-my-codex/plugins/oh-my-codex/skills/pipeline/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
   port_kind: "grok-skill-adapter"

@@ -3,7 +3,7 @@ name: autoresearch-goal
 description: "Grok Build port of OMX `autoresearch-goal`: Durable professor-critic research workflow over Codex goal mode without reviving deprecated omx autoresearch"
 user_invocable: true
 metadata:
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
   source: "oh-my-codex/plugins/oh-my-codex/skills/autoresearch-goal/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
   port_kind: "grok-skill-adapter"

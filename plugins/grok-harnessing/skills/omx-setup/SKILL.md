@@ -3,7 +3,7 @@ name: omx-setup
 description: "Grok Build port of OMX `omx-setup`: Setup and configure oh-my-codex using current CLI behavior"
 user_invocable: true
 metadata:
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
   source: "oh-my-codex/plugins/oh-my-codex/skills/omx-setup/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
   port_kind: "grok-skill-adapter"

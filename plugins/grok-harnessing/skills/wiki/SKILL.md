@@ -3,7 +3,7 @@ name: wiki
 description: "Grok Build port of OMX `wiki`: Persistent markdown project wiki stored under repository omx_wiki with keyword search and lifecycle capture"
 user_invocable: true
 metadata:
-  package: "linalab-io-frakework/grok-build"
+  package: "linalab-io-framework/grok-build"
   source: "oh-my-codex/plugins/oh-my-codex/skills/wiki/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
   port_kind: "grok-skill-adapter"
