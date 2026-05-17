@@ -512,6 +512,17 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("ultragoal team-ulw-ug", team["members"][0]["prompt"])
         self.assertIn("ulw ultragoal checkpoint --id team-ulw-ug", team["members"][0]["prompt"])
 
+    def test_ultragoal_spawn_creates_linked_ulw_team(self) -> None:
+        spawned = self.run_lfg("ultragoal", "spawn", "coordinate swarm", "--id", "spawn-ulw-ug", "--spec", "2:executor", "--providers", "noop", "--dry-run")
+        self.assertEqual(spawned["ultragoal"]["id"], "spawn-ulw-ug")
+        self.assertEqual(spawned["team"]["status"], "planned")
+        self.assertEqual(spawned["team"]["ultragoal"], "spawn-ulw-ug")
+        self.assertEqual(len(spawned["team"]["members"]), 2)
+        self.assertIn("ulw ultragoal checkpoint --id spawn-ulw-ug", spawned["team"]["members"][0]["prompt"])
+        slash = self.run_lfg("slash", '/ultragoal spawn 2:executor "slash swarm"', "--providers", "noop", "--dry-run")
+        self.assertEqual(slash["team"]["status"], "planned")
+        self.assertTrue(slash["team"]["ultragoal"].startswith("ultragoal-"))
+
     def test_mcp_exposes_runtime_and_team_tools(self) -> None:
         proc = subprocess.Popen(
             ["python3", str(MCP)],
@@ -1757,6 +1768,7 @@ class RuntimeSmoke(unittest.TestCase):
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "create", "id": "mcp-ultragoal", "objective": "MCP durable", "checklist": "design;verify"}}},
             {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "checkpoint", "id": "mcp-ultragoal", "status": "complete", "evidence": "forced smoke gate", "forceGate": True}}},
             {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "show", "id": "mcp-ultragoal"}}},
+            {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "spawn", "id": "mcp-spawn-ultragoal", "objective": "MCP swarm", "spec": "2:executor", "providers": "noop", "dryRun": True}}},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1771,12 +1783,15 @@ class RuntimeSmoke(unittest.TestCase):
         create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
         checkpoint_payload = json.loads(replies[2]["result"]["content"][0]["text"])
         show_payload = json.loads(replies[3]["result"]["content"][0]["text"])
+        spawn_payload = json.loads(replies[4]["result"]["content"][0]["text"])
         self.assertEqual(create_payload["returncode"], 0)
         self.assertEqual(checkpoint_payload["returncode"], 0)
         self.assertEqual(show_payload["returncode"], 0)
+        self.assertEqual(spawn_payload["returncode"], 0)
         self.assertIn('"id": "mcp-ultragoal"', create_payload["stdout"])
         self.assertIn('"status": "complete"', checkpoint_payload["stdout"])
         self.assertIn('"brief"', show_payload["stdout"])
+        self.assertIn('"ultragoal": "mcp-spawn-ultragoal"', spawn_payload["stdout"])
 
 
 if __name__ == "__main__":

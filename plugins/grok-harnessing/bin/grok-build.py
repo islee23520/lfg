@@ -2105,7 +2105,17 @@ def slash(args: argparse.Namespace) -> dict[str, Any]:
             while i < len(rest):
                 objective_parts.append(rest[i])
                 i += 1
-            return ultragoal_spawn(argparse.Namespace(objective=" ".join(objective_parts) or "swarm task", spec=spec, cwd=args.cwd))
+            return ultragoal_spawn(argparse.Namespace(
+                objective=" ".join(objective_parts) or "swarm task",
+                spec=spec,
+                cwd=args.cwd,
+                dry_run=args.dry_run,
+                providers=args.providers,
+                name=args.name,
+                id=None,
+                brief=None,
+                checklist=None,
+            ))
         if action in {"status", "show"}:
             target = rest[1] if len(rest) > 1 else None
             return ultragoal_show(argparse.Namespace(id=target))

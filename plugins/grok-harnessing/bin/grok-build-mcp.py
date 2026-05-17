@@ -104,12 +104,16 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["create", "status", "show", "checkpoint"]},
+                "action": {"type": "string", "enum": ["create", "status", "show", "checkpoint", "spawn"]},
                 "id": {"type": "string"},
                 "objective": {"type": "string"},
                 "checklist": {"type": "string"},
                 "brief": {"type": "string"},
                 "story": {"type": "string"},
+                "spec": {"type": "string", "description": "team spec for spawn, e.g. 3:executor"},
+                "providers": {"type": "string", "description": "comma list for spawned team"},
+                "team": {"type": "string", "description": "team name for spawn"},
+                "dryRun": {"type": "boolean", "default": True},
                 "status": {"type": "string", "enum": ["active", "blocked", "complete", "cancelled"]},
                 "evidence": {"type": "string"},
                 "forceGate": {"type": "boolean", "default": False}
@@ -446,11 +450,15 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["create", "status", "checkpoint", "show"]},
+                "action": {"type": "string", "enum": ["create", "status", "checkpoint", "show", "spawn"]},
                 "id": {"type": "string"},
                 "objective": {"type": "string"},
                 "brief": {"type": "string"},
                 "checklist": {"type": "string"},
+                "spec": {"type": "string", "description": "team spec for spawn, e.g. 3:executor"},
+                "providers": {"type": "string", "description": "comma list for spawned team"},
+                "team": {"type": "string", "description": "team name for spawn"},
+                "dryRun": {"type": "boolean", "default": True},
                 "status": {"type": "string", "enum": ["active", "complete", "blocked", "failed", "cancelled"]},
                 "evidence": {"type": "string"},
                 "story": {"type": "string"},
@@ -683,6 +691,20 @@ def handle_tool(name, arguments=None):
                 cmd += ["--evidence", arguments["evidence"]]
             if arguments.get("forceGate"):
                 cmd += ["--force-gate"]
+        elif action == "spawn":
+            cmd += ["spawn", arguments.get("objective") or "ultragoal swarm task"]
+            if arguments.get("spec"):
+                cmd += ["--spec", arguments["spec"]]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("brief"):
+                cmd += ["--brief", arguments["brief"]]
+            if arguments.get("providers"):
+                cmd += ["--providers", arguments["providers"]]
+            if arguments.get("team"):
+                cmd += ["--name", arguments["team"]]
+            if arguments.get("dryRun", True):
+                cmd += ["--dry-run"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
@@ -1069,6 +1091,18 @@ def handle_tool(name, arguments=None):
             cmd += ["show"]
             if arguments.get("id"):
                 cmd += ["--id", arguments["id"]]
+        elif action == "spawn":
+            cmd += ["spawn", arguments.get("objective") or "ultragoal swarm task"]
+            if arguments.get("spec"):
+                cmd += ["--spec", arguments["spec"]]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("providers"):
+                cmd += ["--providers", arguments["providers"]]
+            if arguments.get("team"):
+                cmd += ["--name", arguments["team"]]
+            if arguments.get("dryRun", True):
+                cmd += ["--dry-run"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

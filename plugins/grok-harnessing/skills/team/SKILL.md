@@ -18,6 +18,9 @@ Use this skill when the user wants durable team execution, especially commands l
 /team status <team-name>
 /team resume <team-name>
 /team shutdown <team-name>
+
+# Ultragoal-driven ulw swarm (preferred when you have an active durable goal)
+/ultragoal spawn 3:executor "complete the next story in parallel"
 ```
 
 ## Behavior
@@ -29,6 +32,7 @@ Use this skill when the user wants durable team execution, especially commands l
 - Claude workers are launched with `claude --permission-mode bypassPermissions <prompt>`.
 - Codex workers are launched with `codex <prompt>`.
 - Store team state under `~/.grok/plugin-data/grok-build/state/teams/`.
+- When a current ultragoal is active (or `/ultragoal spawn` is used), the team is automatically linked to the ultragoal ledger. Workers are instructed to report via `ulw ultragoal checkpoint --id <ugid>`. This makes classic OMX team mode behave like Grok-native sub-agent swarm spawning tied to a durable goal.
 - Do not use this as the default for simple tasks; use it when tmux/worktree/durable coordination is explicitly desired.
 
 ## Grok slash-command handling
@@ -42,6 +46,9 @@ Examples:
 /team status <team-name>
 /team resume <team-name>
 /team shutdown <team-name>
+
+# Ultragoal-driven ulw swarm (preferred when you have an active durable goal)
+/ultragoal spawn 3:executor "complete the next story in parallel"
 ```
 
 MCP equivalent:

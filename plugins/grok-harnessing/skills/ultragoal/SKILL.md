@@ -82,14 +82,23 @@ When the user invokes `/ultragoal` (or "create durable multi-goal plan", "comple
    - Use `lfg ultragoal show --id my-ug-1` for full brief + goals + ledger tail.
    - The ledger is the durable source of truth for the multi-goal run.
 
-6. **Team + Ultragoal**
+6. **Team + Ultragoal (ulw Swarm Spawning)**
    - Leader (the /ultragoal invoker) owns the ultragoal ledger.
-   - Launch `/team` / `lfg team create ...` for parallel workers.
-   - Workers report evidence back; leader does the `checkpoint` with fresh `lfg goal` snapshot in the evidence.
-   - Never let workers mutate the ultragoal goals/ledger directly.
+   - Launch `/team` / `lfg team create ...` for parallel workers, or use the native swarm form:
+     ```text
+     /ultragoal spawn 3:executor "implement the next story in parallel"
+     # or
+     lfg ultragoal spawn "..." --spec 3:executor
+     ```
+   - When an active ultragoal is detected, `team create` (and `spawn`) automatically:
+     - Links the tmux team to the ultragoal id.
+     - Brands the workers as "Grok sub-agents in an ultragoal-driven ulw swarm".
+     - Gives every worker the exact command to report progress: `ulw ultragoal checkpoint --id <ugid> ...`
+   - This makes the classic OMX "team mode" feel like Grok's native sub-agent swarm spawning, while keeping everything durable in the ultragoal ledger (the "single source of truth").
+   - Prefer `ulw` as the launcher binary for these swarms (it sets LFG_LAUNCHER=ulw and participates in the same runtime).
 
 7. **MCP / Grok Integration**
-   - Skills and the MCP server expose `grok_build_ultragoal` (actions: create/status/checkpoint/show).
+   - Skills and the MCP server expose `grok_build_ultragoal` (actions: create/status/checkpoint/show/spawn).
    - Grok can call the tool; the CLI underneath persists the same state.
    - `/ultragoal` in chat is the user-facing entry that triggers this SKILL.md flow.
 
