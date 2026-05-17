@@ -66,6 +66,15 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_cancel",
+        "description": "Clear current LFG workflow pointers without deleting durable history.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"scope": {"type": "string", "description": "comma list: goal,plan,team,ultraqa or all"}},
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_ultraqa",
         "description": "Create an adversarial QA smoke run and persist evidence under plugin data.",
         "inputSchema": {
@@ -220,6 +229,12 @@ def handle_tool(name, arguments=None):
                 cmd += [arguments["team"]]
         else:
             raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_cancel":
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "cancel"]
+        if arguments.get("scope"):
+            cmd += ["--scope", arguments["scope"]]
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_ultraqa":

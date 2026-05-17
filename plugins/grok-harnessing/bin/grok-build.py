@@ -395,6 +395,35 @@ def team_shutdown(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def cancel(args: argparse.Namespace) -> dict[str, Any]:
+    """Clear current workflow pointers without deleting durable run history."""
+    ensure_dirs()
+    targets = {
+        "goal": STATE_DIR / "current-goal.json",
+        "plan": STATE_DIR / "current-plan.json",
+        "team": STATE_DIR / "current-team.json",
+        "ultraqa": STATE_DIR / "last-ultraqa.json",
+    }
+    requested = [x.strip() for x in (args.scope or "all").split(",") if x.strip()]
+    if "all" in requested:
+        requested = list(targets)
+    cleared = []
+    missing = []
+    for key in requested:
+        path = targets.get(key)
+        if not path:
+            missing.append({"scope": key, "reason": "unknown"})
+            continue
+        if path.exists():
+            path.unlink()
+            cleared.append({"scope": key, "path": str(path)})
+        else:
+            missing.append({"scope": key, "path": str(path), "reason": "not_found"})
+    record = {"ts": now(), "scope": requested, "cleared": cleared, "missing": missing}
+    write_json(STATE_DIR / "last-cancel.json", record)
+    return {"ok": True, **record}
+
 def wiki_dir() -> pathlib.Path:
     return DATA / "wiki"
 
@@ -536,6 +565,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("catalog").set_defaults(fn=catalog)
     sub.add_parser("status").set_defaults(fn=status)
     sub.add_parser("doctor").set_defaults(fn=doctor)
+    cp = sub.add_parser("cancel")
+    cp.add_argument("--scope", default="all", help="comma list: goal,plan,team,ultraqa or all")
+    cp.set_defaults(fn=cancel)
 
 
     wp = sub.add_parser("wiki")

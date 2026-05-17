@@ -186,6 +186,7 @@ Current feature coverage:
 | `/plan` structured state | `docs/features/plan-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/ultragoal` goal foundation | `docs/features/goal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/ultraqa` adversarial smoke | `docs/features/ultraqa-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/cancel` pointer clear | `docs/features/cancel-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/doctor` diagnostics | `docs/features/doctor-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/wiki` durable notes | `docs/features/wiki-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 

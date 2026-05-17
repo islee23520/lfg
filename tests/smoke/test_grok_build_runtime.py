@@ -364,6 +364,51 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"verdict": "planned"', payload["stdout"])
         self.assertIn('"objective": "MCP ultraqa"', payload["stdout"])
 
+    def test_cancel_clears_current_pointers(self) -> None:
+        plan = self.run_lfg("plan", "create", "Cancel plan")
+        plan_path = pathlib.Path(self.tmp.name) / "state" / "plans" / f"{plan['id']}.json"
+        current_plan = pathlib.Path(self.tmp.name) / "state" / "current-plan.json"
+        self.assertTrue(plan_path.exists())
+        self.assertTrue(current_plan.exists())
+        result = self.run_lfg("cancel", "--scope", "plan")
+        self.assertTrue(result["ok"])
+        self.assertFalse(current_plan.exists())
+        self.assertTrue(plan_path.exists(), "durable plan history must remain")
+        self.assertTrue((pathlib.Path(self.tmp.name) / "state" / "last-cancel.json").exists())
+
+    def test_mcp_cancel_tool(self) -> None:
+        self.run_lfg("goal", "create", "Cancel goal", "--id", "cancel-goal")
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_cancel", "arguments": {"scope": "goal"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+        payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        self.assertEqual(payload["returncode"], 0)
+        self.assertIn('"scope": "goal"', payload["stdout"])
+        self.assertFalse((pathlib.Path(self.tmp.name) / "state" / "current-goal.json").exists())
+        self.assertTrue((pathlib.Path(self.tmp.name) / "state" / "goals" / "cancel-goal.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
