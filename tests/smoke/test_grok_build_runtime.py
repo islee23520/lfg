@@ -94,6 +94,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("state-schema-versioning=ok", roadmap)
         self.assertIn("mcp-stdio-isolation=ok", roadmap)
         self.assertIn("team-tmux-lifecycle=ok", roadmap)
+        self.assertIn("team-provider-matrix=ok", roadmap)
         self.assertIn("team-provider-commands=ok", roadmap)
         skill_names = sorted(
             path.name
@@ -206,6 +207,7 @@ class RuntimeSmoke(unittest.TestCase):
         team_provider = REPO / "scripts" / "verify-team-provider-commands.sh"
         self.assertTrue(os.access(team_provider, os.X_OK))
         team_provider_script = team_provider.read_text(encoding="utf-8")
+        self.assertIn("team-provider-matrix=ok", team_provider_script)
         self.assertIn("team-provider-commands=ok", team_provider_script)
         self.assertIn("team-provider-doctor=ok", team_provider_script)
         team_lifecycle = REPO / "scripts" / "verify-team-tmux-lifecycle.sh"
@@ -452,6 +454,12 @@ class RuntimeSmoke(unittest.TestCase):
                     "arguments": {"command": '/team 3:executor "fix tests"', "dryRun": True},
                 },
             },
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {"name": "grok_build_team", "arguments": {"action": "providers"}},
+            },
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -473,6 +481,9 @@ class RuntimeSmoke(unittest.TestCase):
         payload = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(payload["returncode"], 0)
         self.assertIn('"status": "planned"', payload["stdout"])
+        providers_payload = json.loads(replies[3]["result"]["content"][0]["text"])
+        self.assertEqual(providers_payload["returncode"], 0)
+        self.assertIn('"smokeSafe": "noop"', providers_payload["stdout"])
 
     def test_doctor_reports_required_checks(self) -> None:
         report = self.run_lfg("doctor")
@@ -496,6 +507,10 @@ class RuntimeSmoke(unittest.TestCase):
         providers = {row["provider"] for row in matrix}
         self.assertEqual({"hermes", "claude", "codex", "noop"}, providers)
         self.assertTrue(next(row for row in matrix if row["provider"] == "noop")["available"])
+        listed = self.run_lfg("team", "providers")
+        self.assertTrue(listed["ok"])
+        self.assertEqual([row["provider"] for row in listed["providers"]], ["hermes", "claude", "codex", "noop"])
+        self.assertEqual(listed["smokeSafe"], "noop")
         team = self.run_lfg("team", "create", "4:executor", "provider smoke", "--providers", "hermes,claude,codex,noop", "--dry-run")
         self.assertEqual([m["provider"] for m in team["members"]], ["hermes", "claude", "codex", "noop"])
         self.assertIn("noop provider ready", team["members"][3]["command"])

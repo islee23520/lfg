@@ -68,7 +68,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["create", "status", "resume", "shutdown"]},
+                "action": {"type": "string", "enum": ["create", "status", "resume", "shutdown", "providers"]},
                 "spec": {"type": "string", "description": "team spec like 3:executor"},
                 "objective": {"type": "string"},
                 "team": {"type": "string"},
@@ -570,7 +570,9 @@ def handle_tool(name, arguments=None):
     if name == "grok_build_team":
         action = arguments.get("action")
         cmd = [str(ROOT / "bin" / "lfg"), "--json", "team"]
-        if action == "create":
+        if action == "providers":
+            cmd += ["providers"]
+        elif action == "create":
             spec = arguments.get("spec") or "3:executor"
             objective = arguments.get("objective") or "coordinate Grok Build team work with verification"
             cmd += ["create", spec, objective]

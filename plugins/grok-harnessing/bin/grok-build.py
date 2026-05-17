@@ -1468,6 +1468,20 @@ def team_provider_matrix() -> list[dict[str, Any]]:
         })
     return rows
 
+
+def team_providers(args: argparse.Namespace) -> dict[str, Any]:
+    providers = team_provider_matrix()
+    return {
+        "ok": True,
+        "providers": providers,
+        "default": ["hermes", "claude", "codex"],
+        "smokeSafe": "noop",
+        "summary": {
+            "available": [p["provider"] for p in providers if p["available"]],
+            "missing": [p["provider"] for p in providers if not p["available"]],
+        },
+    }
+
 def team_create(args: argparse.Namespace) -> dict[str, Any]:
     ensure_dirs()
     cwd = pathlib.Path(args.cwd).resolve()
@@ -2186,6 +2200,8 @@ def main(argv: list[str] | None = None) -> int:
 
     tp = sub.add_parser("team")
     tsub = tp.add_subparsers(dest="team_cmd", required=True)
+    tprov = tsub.add_parser("providers")
+    tprov.set_defaults(fn=team_providers)
     tc = tsub.add_parser("create")
     tc.add_argument("spec", help="team spec like 3:executor")
     tc.add_argument("objective")
