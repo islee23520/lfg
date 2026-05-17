@@ -310,6 +310,25 @@ TOOLS = [
             "additionalProperties": False
         },
     },
+
+    {
+        "name": "grok_build_autoresearch_goal",
+        "description": "Create/show/critique durable professor-critic autoresearch goal state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "critique", "show"]},
+                "id": {"type": "string"},
+                "question": {"type": "string"},
+                "hypotheses": {"type": "string"},
+                "verdict": {"type": "string", "enum": ["pass", "revise", "blocked"]},
+                "critic": {"type": "string"},
+                "evidence": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
     {
         "name": "grok_build_skill",
         "description": "List/search the Grok Build OMX-like skill catalog.",
@@ -775,6 +794,32 @@ def handle_tool(name, arguments=None):
             cmd += ["verdict", "--score", str(arguments.get("score") if arguments.get("score") is not None else 0), "--status", arguments.get("status") or "fail"]
             if arguments.get("id"):
                 cmd += ["--id", arguments["id"]]
+            if arguments.get("evidence"):
+                cmd += ["--evidence", arguments["evidence"]]
+        elif action == "show":
+            cmd += ["show"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+
+    if name == "grok_build_autoresearch_goal":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "autoresearch-goal"]
+        if action == "create":
+            cmd += ["create", arguments.get("question") or "Research question"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("hypotheses"):
+                cmd += ["--hypotheses", arguments["hypotheses"]]
+        elif action == "critique":
+            cmd += ["critique", "--verdict", arguments.get("verdict") or "revise"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("critic"):
+                cmd += ["--critic", arguments["critic"]]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
         elif action == "show":

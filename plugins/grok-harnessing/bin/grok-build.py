@@ -970,6 +970,69 @@ def visual_ralph_show(args: argparse.Namespace) -> dict[str, Any]:
     record["path"] = str(visual_ralph_path(ref))
     return record
 
+
+def autoresearch_goal_dir() -> pathlib.Path:
+    return RUNS_DIR / "autoresearch-goal"
+
+
+def autoresearch_goal_path(rid: str) -> pathlib.Path:
+    return autoresearch_goal_dir() / f"{rid}.json"
+
+
+def autoresearch_goal_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    rid = args.id or f"autoresearch-goal-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    record = {
+        "id": rid,
+        "question": args.question,
+        "status": "active",
+        "gate": "needs-critique",
+        "createdAt": now(),
+        "updatedAt": now(),
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+        "hypotheses": [h.strip() for h in re.split(r"\n|;", args.hypotheses or "") if h.strip()],
+        "critiques": [],
+    }
+    write_json(autoresearch_goal_path(rid), record)
+    write_json(STATE_DIR / "current-autoresearch-goal.json", {"id": rid, "path": str(autoresearch_goal_path(rid)), "updatedAt": now()})
+    record["path"] = str(autoresearch_goal_path(rid))
+    return record
+
+
+def autoresearch_goal_critique(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-autoresearch-goal.json", {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no autoresearch-goal id and no current autoresearch goal")
+    record = read_json(autoresearch_goal_path(ref))
+    if not record:
+        raise SystemExit(f"autoresearch-goal not found: {ref}")
+    critique = {"ts": now(), "verdict": args.verdict, "critic": args.critic or "critic", "evidence": args.evidence or ""}
+    record.setdefault("critiques", []).append(critique)
+    if args.verdict == "pass":
+        record["status"] = "complete"
+        record["gate"] = "pass"
+    elif args.verdict == "blocked":
+        record["status"] = "blocked"
+        record["gate"] = "blocked"
+    else:
+        record["status"] = "active"
+        record["gate"] = "revise"
+    record["updatedAt"] = now()
+    write_json(autoresearch_goal_path(ref), record)
+    record["path"] = str(autoresearch_goal_path(ref))
+    return record
+
+
+def autoresearch_goal_show(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-autoresearch-goal.json", {}) or {}).get("id")
+    if not ref:
+        return {"autoresearchGoals": []}
+    record = read_json(autoresearch_goal_path(ref))
+    if not record:
+        raise SystemExit(f"autoresearch-goal not found: {ref}")
+    record["path"] = str(autoresearch_goal_path(ref))
+    return record
+
 def skill_list(args: argparse.Namespace) -> dict[str, Any]:
     data = read_json(CATALOG_PATH, {"skills": []})
     skills = data.get("skills", [])
@@ -1697,6 +1760,24 @@ def main(argv: list[str] | None = None) -> int:
     vrs = vrsub.add_parser("show")
     vrs.add_argument("--id")
     vrs.set_defaults(fn=visual_ralph_show)
+
+
+    argp = sub.add_parser("autoresearch-goal")
+    argsub = argp.add_subparsers(dest="autoresearch_goal_cmd", required=True)
+    argc = argsub.add_parser("create")
+    argc.add_argument("question")
+    argc.add_argument("--id")
+    argc.add_argument("--hypotheses")
+    argc.set_defaults(fn=autoresearch_goal_create)
+    argcr = argsub.add_parser("critique")
+    argcr.add_argument("--id")
+    argcr.add_argument("--verdict", choices=["pass", "revise", "blocked"], required=True)
+    argcr.add_argument("--critic", default="critic")
+    argcr.add_argument("--evidence", default="")
+    argcr.set_defaults(fn=autoresearch_goal_critique)
+    args = argsub.add_parser("show")
+    args.add_argument("--id")
+    args.set_defaults(fn=autoresearch_goal_show)
 
     skp = sub.add_parser("skill")
     sksub = skp.add_subparsers(dest="skill_cmd", required=True)

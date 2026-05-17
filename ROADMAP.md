@@ -134,6 +134,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [x] Implement Grok-native `autopilot` strict loop-state foundation.
 - [x] Implement Grok-native `performance-goal` evaluator-state foundation.
 - [x] Implement Grok-native `visual-ralph` visual loop-state foundation.
+- [x] Implement Grok-native `autoresearch-goal` professor-critic foundation.
 - [x] Implement Grok-native `ultrawork` batch task-state foundation.
 - [x] Implement Grok-native `wiki` storage/search.
 - [x] Implement `doctor` diagnostics.
@@ -204,6 +205,7 @@ Current feature coverage:
 | `/design` decision state | `docs/features/design-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/deep-interview` requirement intake | `docs/features/deep-interview-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/autoresearch` research state | `docs/features/autoresearch-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/autoresearch-goal` professor-critic state | `docs/features/autoresearch-goal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/ai-slop-cleaner` cleanup report | `docs/features/ai-slop-cleaner-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/worker` task status | `docs/features/worker-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/ralph` loop state | `docs/features/ralph-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |

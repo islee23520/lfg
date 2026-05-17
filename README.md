@@ -103,6 +103,8 @@ plugins/grok-harnessing/bin/grok-build.py configure-notifications set --channel 
 plugins/grok-harnessing/bin/grok-build.py design add "Team backend" "Use tmux windows" --rationale "durable coordination"
 plugins/grok-harnessing/bin/grok-build.py deep-interview create "team mode requirements"
 plugins/grok-harnessing/bin/grok-build.py autoresearch create "How should team mode work?"
+plugins/grok-harnessing/bin/grok-build.py autoresearch-goal create "What is safest?" --hypotheses "A;B"
+plugins/grok-harnessing/bin/grok-build.py autoresearch-goal critique --verdict pass --critic professor --evidence "sources verified"
 plugins/grok-harnessing/bin/grok-build.py ai-slop-cleaner create --scope README.md --verification self-test
 plugins/grok-harnessing/bin/grok-build.py worker ack worker-1 "fix tests"
 plugins/grok-harnessing/bin/grok-build.py ralph create "iterate until tests pass" --max-iterations 3

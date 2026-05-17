@@ -524,6 +524,42 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"id": "mcp-visual"', create_payload["stdout"])
         self.assertIn('"status": "complete"', verdict_payload["stdout"])
 
+
+    def test_autoresearch_goal_create_critique_show(self) -> None:
+        run = self.run_lfg("autoresearch-goal", "create", "What is safest?", "--id", "smoke-arg", "--hypotheses", "A;B")
+        self.assertEqual(run["gate"], "needs-critique")
+        self.assertEqual(run["hypotheses"], ["A", "B"])
+        critiqued = self.run_lfg("autoresearch-goal", "critique", "--id", "smoke-arg", "--verdict", "pass", "--critic", "professor", "--evidence", "sources verified")
+        self.assertEqual(critiqued["gate"], "pass")
+        self.assertEqual(critiqued["status"], "complete")
+        shown = self.run_lfg("autoresearch-goal", "show", "--id", "smoke-arg")
+        self.assertEqual(shown["critiques"][0]["critic"], "professor")
+
+    def test_mcp_autoresearch_goal_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_autoresearch_goal", "arguments": {"action": "create", "id": "mcp-arg", "question": "MCP research goal", "hypotheses": "A;B"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_autoresearch_goal", "arguments": {"action": "critique", "id": "mcp-arg", "verdict": "pass", "critic": "professor", "evidence": "ok"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        critique_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(critique_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-arg"', create_payload["stdout"])
+        self.assertIn('"gate": "pass"', critique_payload["stdout"])
+
     def test_skill_list_search_catalog(self) -> None:
         listed = self.run_lfg("skill", "list")
         self.assertGreaterEqual(listed["count"], 28)
