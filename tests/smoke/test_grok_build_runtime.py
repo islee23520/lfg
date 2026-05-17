@@ -661,6 +661,39 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"provider": "claude"', payload["stdout"])
         self.assertIn('"dryRun": true', payload["stdout"])
 
+    def test_notifications_set_show_persists_config(self) -> None:
+        result = self.run_lfg("configure-notifications", "set", "--channel", "console", "--target", "stdout", "--enabled")
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["config"]["enabled"])
+        self.assertTrue(result["config"]["dryRunOnly"])
+        shown = self.run_lfg("configure-notifications", "show")
+        self.assertEqual(shown["config"]["channel"], "console")
+        self.assertEqual(shown["config"]["target"], "stdout")
+
+    def test_mcp_notifications_tool(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_notifications", "arguments": {"action": "set", "channel": "console", "target": "stdout", "enabled": True}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        self.assertEqual(payload["returncode"], 0)
+        self.assertIn('"enabled": true', payload["stdout"])
+        self.assertIn('"dryRunOnly": true', payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

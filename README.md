@@ -93,6 +93,7 @@ plugins/grok-harnessing/bin/grok-build.py pipeline create "ship feature" --stage
 plugins/grok-harnessing/bin/grok-build.py code-review create "review current changes"
 plugins/grok-harnessing/bin/grok-build.py analyze create --focus "plugin surface"
 plugins/grok-harnessing/bin/grok-build.py ask create "review this architecture" --provider codex --dry-run
+plugins/grok-harnessing/bin/grok-build.py configure-notifications set --channel console --target stdout --enabled
 plugins/grok-harnessing/bin/grok-build.py wiki add "Decision" "Use tmux backend" --tags team
 plugins/grok-harnessing/bin/grok-build.py wiki search tmux
 plugins/grok-harnessing/bin/grok-build.py plan create "ship grok-build MVP"

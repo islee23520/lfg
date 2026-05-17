@@ -66,6 +66,21 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_notifications",
+        "description": "Set/show dry-run notification configuration under plugin data.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["set", "show"]},
+                "channel": {"type": "string", "enum": ["console", "slack", "webhook", "none"]},
+                "target": {"type": "string"},
+                "enabled": {"type": "boolean"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_ask",
         "description": "Record an external advisor request; defaults to dry-run safety.",
         "inputSchema": {
@@ -315,6 +330,21 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_notifications":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "configure-notifications"]
+        if action == "set":
+            cmd += ["set", "--channel", arguments.get("channel") or "console"]
+            if arguments.get("target"):
+                cmd += ["--target", arguments["target"]]
+            if arguments.get("enabled"):
+                cmd += ["--enabled"]
+        elif action == "show":
+            cmd += ["show"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

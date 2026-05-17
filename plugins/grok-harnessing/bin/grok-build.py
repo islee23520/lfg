@@ -131,6 +131,28 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def notifications_path() -> pathlib.Path:
+    return STATE_DIR / "notifications.json"
+
+
+def notifications_set(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    config = {
+        "enabled": bool(args.enabled),
+        "channel": args.channel,
+        "target": args.target,
+        "updatedAt": now(),
+        "dryRunOnly": True,
+    }
+    write_json(notifications_path(), config)
+    return {"ok": True, "config": config, "path": str(notifications_path())}
+
+
+def notifications_show(args: argparse.Namespace) -> dict[str, Any]:
+    config = read_json(notifications_path(), {"enabled": False, "channel": "none", "target": None, "dryRunOnly": True})
+    return {"ok": True, "config": config, "path": str(notifications_path())}
+
 def asks_dir() -> pathlib.Path:
     return RUNS_DIR / "ask"
 
@@ -856,6 +878,17 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    np = sub.add_parser("configure-notifications")
+    nsub = np.add_subparsers(dest="notifications_cmd", required=True)
+    ns = nsub.add_parser("set")
+    ns.add_argument("--channel", default="console", choices=["console", "slack", "webhook", "none"])
+    ns.add_argument("--target")
+    ns.add_argument("--enabled", action="store_true")
+    ns.set_defaults(fn=notifications_set)
+    nsh = nsub.add_parser("show")
+    nsh.set_defaults(fn=notifications_show)
 
     askp = sub.add_parser("ask")
     asksub = askp.add_subparsers(dest="ask_cmd", required=True)
