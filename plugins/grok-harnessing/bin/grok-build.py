@@ -135,6 +135,56 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def cleanup_dir() -> pathlib.Path:
+    return RUNS_DIR / "ai-slop-cleaner"
+
+
+def ai_slop_cleaner(args: argparse.Namespace) -> dict[str, Any]:
+    """Create a durable cleanup/deslop report; no automatic edits in MVP."""
+    ensure_dirs()
+    scope = [x.strip() for x in (args.scope or "").split(",") if x.strip()]
+    if not scope:
+        scope = ["repo"]
+    report_id = f"cleanup-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    fallback_findings = []
+    for item in scope:
+        path = pathlib.Path(args.cwd).resolve() / item
+        if path.exists() and path.is_file():
+            text = path.read_text(errors="ignore")[:20000]
+            if re.search(r"fallback|workaround|TODO|FIXME", text, re.I):
+                fallback_findings.append({"path": item, "signal": "fallback/workaround/TODO/FIXME"})
+    report = {
+        "id": report_id,
+        "createdAt": now(),
+        "scope": scope,
+        "status": "planned",
+        "behaviorLock": args.verification or "not run",
+        "fallbackFindings": fallback_findings,
+        "passes": [],
+        "qualityGate": {"status": "planned", "evidence": "MVP records cleanup plan only; no automatic edits."},
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+    }
+    path = cleanup_dir() / f"{report_id}.json"
+    write_json(path, report)
+    write_json(STATE_DIR / "last-cleanup.json", {"id": report_id, "path": str(path), "updatedAt": now()})
+    report["path"] = str(path)
+    return report
+
+
+def ai_slop_cleaner_list(args: argparse.Namespace) -> dict[str, Any]:
+    reports = []
+    for path in sorted(cleanup_dir().glob("*.json")) if cleanup_dir().exists() else []:
+        try:
+            item = read_json(path)
+            item["path"] = str(path)
+            reports.append(item)
+        except Exception:
+            pass
+    if args.limit:
+        reports = reports[-args.limit:]
+    return {"count": len(reports), "reports": reports}
+
 def research_dir() -> pathlib.Path:
     return RUNS_DIR / "autoresearch"
 
@@ -1034,6 +1084,17 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    cleanp = sub.add_parser("ai-slop-cleaner")
+    cleansub = cleanp.add_subparsers(dest="cleanup_cmd", required=True)
+    cleanc = cleansub.add_parser("create")
+    cleanc.add_argument("--scope", help="comma-separated files or repo")
+    cleanc.add_argument("--verification")
+    cleanc.set_defaults(fn=ai_slop_cleaner)
+    cleanl = cleansub.add_parser("list")
+    cleanl.add_argument("--limit", type=int)
+    cleanl.set_defaults(fn=ai_slop_cleaner_list)
 
     arp = sub.add_parser("autoresearch")
     arsub = arp.add_subparsers(dest="autoresearch_cmd", required=True)

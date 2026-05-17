@@ -197,6 +197,7 @@ Current feature coverage:
 | `/design` decision state | `docs/features/design-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/deep-interview` requirement intake | `docs/features/deep-interview-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/autoresearch` research state | `docs/features/autoresearch-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/ai-slop-cleaner` cleanup report | `docs/features/ai-slop-cleaner-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/doctor` diagnostics | `docs/features/doctor-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/wiki` durable notes | `docs/features/wiki-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 

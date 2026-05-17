@@ -66,6 +66,20 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_cleanup",
+        "description": "Create/list durable ai-slop-cleaner cleanup reports; no automatic edits in MVP.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "list"]},
+                "scope": {"type": "string"},
+                "verification": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_autoresearch",
         "description": "Create/show/add-source for durable research runs.",
         "inputSchema": {
@@ -378,6 +392,21 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_cleanup":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "ai-slop-cleaner"]
+        if action == "create":
+            cmd += ["create"]
+            if arguments.get("scope"):
+                cmd += ["--scope", arguments["scope"]]
+            if arguments.get("verification"):
+                cmd += ["--verification", arguments["verification"]]
+        elif action == "list":
+            cmd += ["list"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

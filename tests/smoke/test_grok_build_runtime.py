@@ -795,6 +795,37 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"id": "mcp-research"', create_payload["stdout"])
         self.assertIn('"note": "example"', source_payload["stdout"])
 
+    def test_cleanup_create_list_persists_report(self) -> None:
+        report = self.run_lfg("ai-slop-cleaner", "create", "--scope", "README.md", "--verification", "self-test")
+        self.assertEqual(report["scope"], ["README.md"])
+        self.assertEqual(report["behaviorLock"], "self-test")
+        self.assertEqual(report["status"], "planned")
+        self.assertTrue((pathlib.Path(self.tmp.name) / "state" / "last-cleanup.json").exists())
+        listed = self.run_lfg("ai-slop-cleaner", "list")
+        self.assertEqual(listed["count"], 1)
+
+    def test_mcp_cleanup_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_cleanup", "arguments": {"action": "create", "scope": "README.md", "verification": "self-test"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        self.assertEqual(payload["returncode"], 0)
+        self.assertIn('"behaviorLock": "self-test"', payload["stdout"])
+        self.assertIn('"status": "planned"', payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
