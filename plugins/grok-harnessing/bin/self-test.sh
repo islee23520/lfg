@@ -36,6 +36,10 @@ assert "hook-event-replay=ok" in hook_discovery
 assert "grok-headless-session=ok" in hook_discovery
 assert (repo / "docs/HOOK_EVIDENCE.md").exists(), "docs/HOOK_EVIDENCE.md"
 assert (repo / "scripts/verify-grok-hook-discovery.sh").stat().st_mode & 0o111, "scripts/verify-grok-hook-discovery.sh executable"
+limitation = (repo / "scripts/verify-grok-hook-headless-limitation.sh").read_text()
+assert "grok-real-tool-session=ok" in limitation
+assert "grok-headless-hook-emission=not-observed" in limitation
+assert (repo / "scripts/verify-grok-hook-headless-limitation.sh").stat().st_mode & 0o111, "scripts/verify-grok-hook-headless-limitation.sh executable"
 marketplace_source = (repo / "scripts/verify-marketplace-source.sh").read_text()
 assert "marketplace-source=ok" in marketplace_source
 assert "marketplace-remote-source=ok" in marketplace_source
@@ -82,6 +86,7 @@ assert "- [x] Release tags." in roadmap
 assert "- [x] Verify install from Grok UI/TUI marketplace flow." in roadmap
 assert "- [x] Remove local-dev install from primary docs once marketplace flow is stable." in roadmap
 assert "grok-plugins-surface=ok" in roadmap
+assert "grok-headless-hook-emission=not-observed" in roadmap
 assert "release-tag=ok" in roadmap
 assert "release-notes=ok" in roadmap
 assert "state-schema-versioning=ok" in roadmap

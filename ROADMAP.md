@@ -144,7 +144,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 ### M5 — Hardening
 
-- [ ] Hook event evidence from real Grok sessions.
+- [ ] Hook event evidence from real Grok sessions. **Blocked on Grok 0.1.211 headless hook emission**: `grok-real-tool-session=ok` passes, but `grok-headless-hook-emission=not-observed`; deterministic coverage remains `grok-hook-discovery=ok` + `hook-event-replay=ok`.
 - [x] MCP stderr isolation.
 - [x] State migration/versioning.
 - [x] Release tags.

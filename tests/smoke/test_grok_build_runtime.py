@@ -66,6 +66,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("- [x] Verify install from Grok UI/TUI marketplace flow.", roadmap)
         self.assertIn("- [x] Remove local-dev install from primary docs once marketplace flow is stable.", roadmap)
         self.assertIn("grok-plugins-surface=ok", roadmap)
+        self.assertIn("grok-headless-hook-emission=not-observed", roadmap)
         self.assertIn("release-tag=ok", roadmap)
         self.assertIn("release-notes=ok", roadmap)
         self.assertIn("state-schema-versioning=ok", roadmap)
@@ -198,6 +199,11 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("release-tag-remote=ok", release_tag_script)
         release_tag_doc = (REPO / "docs" / "RELEASE_TAGS.md").read_text(encoding="utf-8")
         self.assertIn("grok-build-v0.3.0-p1", release_tag_doc)
+        hook_limitation = REPO / "scripts" / "verify-grok-hook-headless-limitation.sh"
+        self.assertTrue(os.access(hook_limitation, os.X_OK))
+        hook_limitation_script = hook_limitation.read_text(encoding="utf-8")
+        self.assertIn("grok-real-tool-session=ok", hook_limitation_script)
+        self.assertIn("grok-headless-hook-emission=not-observed", hook_limitation_script)
         hook_discovery = REPO / "scripts" / "verify-grok-hook-discovery.sh"
         self.assertTrue(os.access(hook_discovery, os.X_OK))
         hook_discovery_script = hook_discovery.read_text(encoding="utf-8")

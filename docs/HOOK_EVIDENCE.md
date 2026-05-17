@@ -38,3 +38,21 @@ The gate verifies:
 5. a real Grok headless session can run while the plugin is installed.
 
 Current note: on this local Grok `0.1.211`, headless `grok -p` sessions complete successfully but do not emit plugin hook audit records by themselves. The replay gate therefore remains the deterministic event evidence until the TUI/modal hook execution path is verified interactively.
+
+
+## Headless real-session limitation check
+
+Run:
+
+```sh
+scripts/verify-grok-hook-headless-limitation.sh
+```
+
+Observed on local Grok `0.1.211`:
+
+```text
+grok-real-tool-session=ok
+grok-headless-hook-emission=not-observed grok=0.1.211
+```
+
+This proves a real Grok headless session can execute a terminal tool while the plugin is installed, but plugin hook audit records are not emitted by headless mode in this version. Keep the ROADMAP item open until an interactive TUI/modal run produces `grok-headless-hook-emission=ok` or Grok exposes a stable hook-test command.
