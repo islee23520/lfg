@@ -19,6 +19,7 @@ import importlib.util
 REPO = pathlib.Path(__file__).resolve().parents[2]
 PLUGIN = REPO / "plugins" / "grok-harnessing"
 LFG = PLUGIN / "bin" / "lfg"
+ULW = PLUGIN / "bin" / "ulw"
 MCP = PLUGIN / "bin" / "grok-build-mcp.py"
 
 
@@ -86,6 +87,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-global-hook-bridge=ok", roadmap)
         self.assertIn("grok-installed-mcp-surface=ok", roadmap)
         self.assertIn("lfg-installed-symlink-surface=ok", roadmap)
+        self.assertIn("aliases=lfg,ulw", roadmap)
         self.assertIn("lfg-inside-tmux-attach=ok", roadmap)
         self.assertIn("lfg hook-bridge status/install", roadmap)
         self.assertIn("MCP `grok_build_hook_bridge`", roadmap)
@@ -171,6 +173,7 @@ class RuntimeSmoke(unittest.TestCase):
             "grok_build_team",
             "grok_build_ultraqa",
             "grok_build_ultrawork",
+            "grok_build_ultragoal",
             "grok_build_visual_ralph",
             "grok_build_wiki",
             "grok_build_worker",
@@ -197,12 +200,15 @@ class RuntimeSmoke(unittest.TestCase):
         install_script = install_lfg.read_text(encoding="utf-8")
         self.assertIn("ln -sfn", install_script)
         self.assertIn("grok-build.py", install_script)
+        self.assertIn('ln -sfn "$SRC_DIR/ulw"', install_script)
         self.assertIn("lfg-status=ok", install_script)
+        self.assertIn("ulw-status=ok", install_script)
         self.assertIn("lfg-doctor=ok", install_script)
         launch_lfg = REPO / "scripts" / "verify-lfg-launch.sh"
         self.assertTrue(os.access(launch_lfg, os.X_OK))
         launch_script = launch_lfg.read_text(encoding="utf-8")
         self.assertIn("lfg-launch-smoke=ok", launch_script)
+        self.assertIn("ulw-launch-json=ok", launch_script)
         self.assertIn("tmux has-session", launch_script)
         runtime = (PLUGIN / "bin" / "grok-build.py").read_text(encoding="utf-8")
         self.assertIn("def attach_backend_from_tmux_pane", runtime)
@@ -382,6 +388,17 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(launched["mode"], "tmux-backend")
         self.assertFalse(launched["attached"])
         self.assertIn("tmux attach -t", launched["attachCommand"])
+
+    def test_ulw_alias_matches_lfg_backend_launcher(self) -> None:
+        proc = subprocess.run([str(ULW), "--json"], cwd=str(REPO), env=self.env, text=True, capture_output=True, check=True, timeout=20)
+        launched = json.loads(proc.stdout)
+        self.assertEqual(launched["status"], "running")
+        self.assertEqual(launched["launcher"], "ulw")
+        self.assertEqual(launched["mode"], "tmux-backend")
+        self.assertFalse(launched["attached"])
+        self.assertIn("tmux attach -t", launched["attachCommand"])
+        status = subprocess.run([str(ULW), "--json", "status"], cwd=str(REPO), env=self.env, text=True, capture_output=True, check=True, timeout=20)
+        self.assertTrue(json.loads(status.stdout)["ok"])
 
     def test_lfg_inside_tmux_respects_triggering_pane(self) -> None:
         module = load_grok_build_module()
@@ -869,6 +886,52 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(update_payload["returncode"], 0)
         self.assertIn('"id": "mcp-goal"', create_payload["stdout"])
         self.assertIn('"status": "complete"', update_payload["stdout"])
+
+    def test_ultragoal_create_status_checkpoint_show(self) -> None:
+        # exercises the new OMX-parity ultragoal surface
+        ug = self.run_lfg("ultragoal", "create", "Smoke ultragoal parity", "--id", "smoke-ug", "--brief", "test brief", "--checklist", "a;b")
+        self.assertEqual(ug["id"], "smoke-ug")
+        self.assertTrue((pathlib.Path(self.tmp.name) / "ultragoal" / "smoke-ug" / "brief.md").exists())
+        st = self.run_lfg("ultragoal", "status", "--id", "smoke-ug")
+        self.assertEqual(st["goals"]["aggregateStatus"], "active")
+        cp = self.run_lfg("ultragoal", "checkpoint", "--id", "smoke-ug", "--status", "complete", "--evidence", "ai-slop + code-review APPROVE + tests", "--force-gate")
+        self.assertEqual(cp["status"], "complete")
+        sh = self.run_lfg("ultragoal", "show", "--id", "smoke-ug")
+        self.assertIn("brief", sh)
+        self.assertTrue(len(sh.get("recentLedger", [])) >= 1)
+
+    def test_mcp_ultragoal_tool(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "create", "id": "mcp-ug", "objective": "MCP ultragoal"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "status", "id": "mcp-ug"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        status_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(status_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-ug"', create_payload["stdout"])
 
     def test_ultraqa_no_run_persists_run_state(self) -> None:
         run = self.run_lfg("ultraqa", "verify plugin smoke", "--no-run")
@@ -1664,6 +1727,47 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(update_payload["returncode"], 0)
         self.assertIn('"id": "mcp-ultrawork"', create_payload["stdout"])
         self.assertIn('"evidence": "ok"', update_payload["stdout"])
+
+    def test_ultragoal_create_checkpoint_show_and_slash(self) -> None:
+        rec = self.run_lfg("ultragoal", "create", "ship durable goal", "--id", "smoke-ultragoal", "--checklist", "design;verify", "--brief", "brief text")
+        self.assertEqual(rec["id"], "smoke-ultragoal")
+        self.assertEqual(rec["goals"]["backingGoal"]["id"], "backing-smoke-ultragoal")
+        status = self.run_lfg("ultragoal", "checkpoint", "--id", "smoke-ultragoal", "--status", "blocked", "--evidence", "needs provider")
+        self.assertEqual(status["status"], "blocked")
+        shown = self.run_lfg("ultragoal", "show", "--id", "smoke-ultragoal")
+        self.assertEqual(shown["brief"].strip(), "brief text")
+        self.assertEqual(shown["recentLedger"][-1]["evidence"], "needs provider")
+        slash = self.run_lfg("slash", '/ultragoal show smoke-ultragoal')
+        self.assertEqual(slash["id"], "smoke-ultragoal")
+
+    def test_mcp_ultragoal_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "create", "id": "mcp-ultragoal", "objective": "MCP durable", "checklist": "design;verify"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "checkpoint", "id": "mcp-ultragoal", "status": "complete", "evidence": "forced smoke gate", "forceGate": True}}},
+            {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "show", "id": "mcp-ultragoal"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        checkpoint_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        show_payload = json.loads(replies[3]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(checkpoint_payload["returncode"], 0)
+        self.assertEqual(show_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-ultragoal"', create_payload["stdout"])
+        self.assertIn('"status": "complete"', checkpoint_payload["stdout"])
+        self.assertIn('"brief"', show_payload["stdout"])
 
 
 if __name__ == "__main__":

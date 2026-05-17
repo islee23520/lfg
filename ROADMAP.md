@@ -52,7 +52,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 - `plan` / `ralplan` — planning and verification checklist
 - `ralph` — bounded execution loop with explicit stop conditions
-- `ultragoal` — durable goal state and completion evidence
+- `ultragoal` — durable multi-goal plans, ledger, quality-gate enforcement (OMX parity)
 - `ultraqa` — adversarial QA/smoke/e2e loop
 - `ultrawork` — high-throughput task execution pattern
 - `pipeline` — staged workflow orchestration
@@ -127,7 +127,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 - [x] Implement Grok-native `plan` behavior.
 - [x] Implement Grok-native `ralplan` consensus planning foundation.
-- [x] Implement Grok-native `ultragoal` durable goal foundation.
+- [x] Implement Grok-native `ultragoal` (create/status/checkpoint/show + ledger + quality gate + MCP) — full OMX parity for multi-goal durable plans.
 - [x] Implement Grok-native `ultraqa` planned-run behavior.
 - [x] Implement MVP tmux backend for `team create/status/resume/shutdown`.
 - [x] Wire `/team` arguments directly to the `lfg team` backend through `lfg slash` and MCP `grok_build_slash`.
@@ -191,7 +191,7 @@ Behavioral smoke gates now include team preflight evidence across CLI/slash/MCP:
 
 Behavioral smoke gates now include team provider matrix/command evidence: `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, `team-provider-doctor=ok`, and installed MCP team provider/preflight surface evidence via `grok-installed-mcp-surface=ok`, including actionable preflight commands.
 
-Behavioral smoke gates now include installed `lfg` symlink launch evidence: `lfg-installed-symlink-surface=ok` including installed `/team providers` and `/team preflight` actionable commands, plus inside-tmux attach evidence `lfg-inside-tmux-attach=ok`.
+Behavioral smoke gates now include installed `lfg`/`ulw` symlink launch evidence: `lfg-installed-symlink-surface=ok` including `aliases=lfg,ulw`, installed `/team providers` and `/team preflight` actionable commands, plus inside-tmux attach evidence `lfg-inside-tmux-attach=ok`.
 
 Behavioral smoke gates now include global hook bridge workaround evidence: `grok-global-hook-bridge=ok`, plus runtime bridge management via `lfg hook-bridge status/install`, `/hook-bridge`, MCP `grok_build_hook_bridge`, installed MCP surface evidence `grok-installed-mcp-surface=ok`, and `doctor` `global_hook_bridge`.
 
@@ -215,7 +215,7 @@ Behavioral smoke gates now include real tmux lifecycle evidence: `team-create=ok
 | `/team` tmux backend | `docs/features/team-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 4/4 matrix rows | 100% passing |
 | `/plan` structured state | `docs/features/plan-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/ralplan` consensus planning state | `docs/features/ralplan-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/ultragoal` goal foundation | `docs/features/goal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/ultragoal` multi-goal plans + ledger + gate | `docs/features/ultragoal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/ultraqa` adversarial smoke | `docs/features/ultraqa-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/cancel` pointer clear | `docs/features/cancel-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/hud` status summary | `docs/features/hud-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |

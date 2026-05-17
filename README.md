@@ -165,15 +165,15 @@ The smoke-safe provider is:
 noop
 ```
 
-## Install `lfg` CLI symlink
+## Install `lfg` / `ulw` CLI symlinks
 
-For local shell use, install `lfg` into PATH with:
+For local shell use, install `lfg` and its short ultrawork alias `ulw` into PATH with:
 
 ```sh
 scripts/install-lfg-symlink.sh
 ```
 
-This creates symlinks for both `lfg` and its sibling `grok-build.py` wrapper target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg` default launch, `lfg --json status`, and `lfg --json doctor`. Running `lfg` with no arguments starts the tmux backend and attaches when launched from an interactive terminal.
+This creates symlinks for `lfg`, `ulw`, and the sibling `grok-build.py` wrapper target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg` default launch, `lfg --json status`, `lfg --json doctor`, and `ulw --json status`. Running either `lfg` or `ulw` with no arguments starts the same tmux backend and attaches when launched from an interactive terminal.
 
 ## Verify
 
@@ -228,6 +228,7 @@ plugins/grok-harnessing/
   agents/harness.toml
   bin/grok-build.py                      # OMX-like MVP runtime
   bin/lfg                                # tmux backend wrapper
+  bin/ulw                                # short alias for the same backend
   bin/grok-build-mcp.py                  # stdio JSON-RPC MCP server
   bin/self-test.sh                       # local smoke test
   catalog/omx-skill-map.json             # oh-my-codex to Grok skill map

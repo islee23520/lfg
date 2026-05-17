@@ -99,6 +99,26 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_ultragoal",
+        "description": "Create/show/checkpoint durable Grok-native ultragoal state with a backing primitive goal.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "status", "show", "checkpoint"]},
+                "id": {"type": "string"},
+                "objective": {"type": "string"},
+                "checklist": {"type": "string"},
+                "brief": {"type": "string"},
+                "story": {"type": "string"},
+                "status": {"type": "string", "enum": ["active", "blocked", "complete", "cancelled"]},
+                "evidence": {"type": "string"},
+                "forceGate": {"type": "boolean", "default": False}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_ralph",
         "description": "Create/show/step durable Ralph loop state.",
         "inputSchema": {
@@ -420,6 +440,27 @@ TOOLS = [
             "additionalProperties": False
         },
     },
+    {
+        "name": "grok_build_ultragoal",
+        "description": "Create/status/checkpoint durable multi-goal ultragoal plans (OMX parity); manages brief, goals.json, ledger + backing goal primitive.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "status", "checkpoint", "show"]},
+                "id": {"type": "string"},
+                "objective": {"type": "string"},
+                "brief": {"type": "string"},
+                "checklist": {"type": "string"},
+                "status": {"type": "string", "enum": ["active", "complete", "blocked", "failed", "cancelled"]},
+                "evidence": {"type": "string"},
+                "story": {"type": "string"},
+                "goal_json": {"type": "string"},
+                "force_gate": {"type": "boolean"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
 
     {
         "name": "grok_build_ralplan",
@@ -613,6 +654,35 @@ def handle_tool(name, arguments=None):
             cmd += ["show"]
             if arguments.get("id"):
                 cmd += ["--id", arguments["id"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_ultragoal":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "ultragoal"]
+        if action == "create":
+            cmd += ["create", arguments.get("objective") or "Ultragoal objective"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("checklist"):
+                cmd += ["--checklist", arguments["checklist"]]
+            if arguments.get("brief"):
+                cmd += ["--brief", arguments["brief"]]
+        elif action in {"status", "show"}:
+            cmd += [action]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+        elif action == "checkpoint":
+            cmd += ["checkpoint", "--status", arguments.get("status") or "active"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("story"):
+                cmd += ["--story", arguments["story"]]
+            if arguments.get("evidence"):
+                cmd += ["--evidence", arguments["evidence"]]
+            if arguments.get("forceGate"):
+                cmd += ["--force-gate"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
@@ -963,6 +1033,42 @@ def handle_tool(name, arguments=None):
                 cmd += ["--id", arguments["id"]]
             if arguments.get("note"):
                 cmd += ["--note", arguments["note"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+
+    if name == "grok_build_ultragoal":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "ultragoal"]
+        if action == "create":
+            cmd += ["create", arguments.get("objective") or "Untitled ultragoal"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("brief"):
+                cmd += ["--brief", arguments["brief"]]
+            if arguments.get("checklist"):
+                cmd += ["--checklist", arguments["checklist"]]
+        elif action == "status":
+            cmd += ["status"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+        elif action == "checkpoint":
+            cmd += ["checkpoint", "--status", arguments.get("status") or "active"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("evidence"):
+                cmd += ["--evidence", arguments["evidence"]]
+            if arguments.get("story"):
+                cmd += ["--story", arguments["story"]]
+            if arguments.get("goal_json"):
+                cmd += ["--goal-json", arguments["goal_json"]]
+            if arguments.get("force_gate"):
+                cmd += ["--force-gate"]
+        elif action == "show":
+            cmd += ["show"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

@@ -45,13 +45,34 @@ assert '--providers noop' in obj['commands']['createNoopSmoke'], obj
 PY
   tmux kill-session -t lfg-installed-preflight >/dev/null 2>&1 || true
 done
+for bin in "$HOME/.local/bin/ulw" "$HOME/.grok/bin/ulw"; do
+  test -L "$bin"
+  target="$(readlink "$bin")"
+  test "$target" = "$REPO_ROOT/plugins/grok-harnessing/bin/ulw"
+  "$bin" --json status >/tmp/ulw-installed-status.json
+  python3 - <<'PY'
+import json
+obj=json.load(open('/tmp/ulw-installed-status.json'))
+assert obj['ok'], obj
+assert obj['version']=='0.3.0', obj
+PY
+  "$bin" --json >/tmp/ulw-installed-launch.json
+  python3 - <<'PY'
+import json
+obj=json.load(open('/tmp/ulw-installed-launch.json'))
+assert obj['status']=='running', obj
+assert obj['launcher']=='ulw', obj
+assert obj['mode']=='tmux-backend', obj
+assert obj['attachCommand'].startswith('tmux attach -t '), obj
+PY
+done
 for bin in "$HOME/.local/bin/grok-build.py" "$HOME/.grok/bin/grok-build.py"; do
   test -L "$bin"
   target="$(readlink "$bin")"
   test "$target" = "$REPO_ROOT/plugins/grok-harnessing/bin/grok-build.py"
 done
 if tmux has-session -t lfg-backend 2>/dev/null; then
-  echo "lfg-installed-symlink-surface=ok backend=lfg-backend slash=/team-providers,/team-preflight commands=ok"
+  echo "lfg-installed-symlink-surface=ok backend=lfg-backend aliases=lfg,ulw slash=/team-providers,/team-preflight commands=ok"
 else
   echo "lfg-installed-symlink-surface=missing-backend" >&2
   exit 1

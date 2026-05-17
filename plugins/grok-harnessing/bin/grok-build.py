@@ -152,6 +152,186 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
     return goal
 
 
+# --- ultragoal: durable multi-goal plans (Grok-native port of OMX ultragoal) ---
+
+def ultragoal_dir(ugid: str) -> pathlib.Path:
+    return DATA / "ultragoal" / ugid
+
+
+def ultragoal_goals_path(ugid: str) -> pathlib.Path:
+    return ultragoal_dir(ugid) / "goals.json"
+
+
+def ultragoal_ledger_path(ugid: str) -> pathlib.Path:
+    return ultragoal_dir(ugid) / "ledger.jsonl"
+
+
+def ultragoal_brief_path(ugid: str) -> pathlib.Path:
+    return ultragoal_dir(ugid) / "brief.md"
+
+
+def ultragoal_current_path() -> pathlib.Path:
+    return STATE_DIR / "current-ultragoal.json"
+
+
+def ultragoal_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    ugid = args.id or f"ultragoal-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    udir = ultragoal_dir(ugid)
+    udir.mkdir(parents=True, exist_ok=True)
+
+    brief = args.brief or args.objective
+    if brief.startswith("@"):
+        p = pathlib.Path(brief[1:]).resolve()
+        brief = p.read_text(encoding="utf-8") if p.exists() else brief
+
+    # Single aggregate story for v1 parity (matches "repo-native multi-goal" spirit; user can extend)
+    story = {
+        "id": "S001",
+        "objective": args.objective,
+        "status": "active",
+        "checklist": [s.strip() for s in (args.checklist or "design;implement;verify;gate").split(";") if s.strip()],
+        "createdAt": now(),
+    }
+    goals_doc = {
+        "id": ugid,
+        "objective": args.objective,
+        "createdAt": now(),
+        "updatedAt": now(),
+        "stories": [story],
+        "aggregateStatus": "active",
+        "backingGoal": None,
+    }
+
+    # Create a backing primitive goal (the "Codex goal" equivalent)
+    backing = create_goal(argparse.Namespace(
+        id=f"backing-{ugid}",
+        objective=f"[ultragoal {ugid}] {args.objective}",
+        checklist=";".join(story["checklist"]),
+        cwd=args.cwd,
+    ))
+    goals_doc["backingGoal"] = {"id": backing["id"], "path": str(goal_path(backing["id"]))}
+
+    write_json(ultragoal_goals_path(ugid), goals_doc)
+    (ultragoal_brief_path(ugid)).write_text(brief + "\n", encoding="utf-8")
+    # init empty ledger
+    ultragoal_ledger_path(ugid).write_text("", encoding="utf-8")
+
+    current = {"id": ugid, "path": str(udir), "updatedAt": now()}
+    write_json(ultragoal_current_path(), current)
+
+    # initial ledger entry
+    ultragoal_checkpoint_record(ugid, "active", "ultragoal created", {"backingGoal": backing})
+
+    rec = {"id": ugid, "dir": str(udir), "goals": goals_doc, "briefPath": str(ultragoal_brief_path(ugid))}
+    rec["path"] = str(udir)
+    return rec
+
+
+def ultragoal_checkpoint_record(ugid: str, status: str, evidence: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    ledger_path = ultragoal_ledger_path(ugid)
+    entry = {
+        "ts": now(),
+        "status": status,
+        "evidence": evidence,
+    }
+    if extra:
+        entry.update(extra)
+    with ledger_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    return entry
+
+
+def ultragoal_status(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(ultragoal_current_path(), {}) or {}).get("id")
+    if not ref:
+        return {"ultragoal": "none", "message": "no active ultragoal"}
+    udir = ultragoal_dir(ref)
+    if not udir.exists():
+        return {"ultragoal": ref, "error": "dir missing"}
+    goals = read_json(ultragoal_goals_path(ref), {})
+    # last few ledger lines
+    ledger_lines = []
+    lp = ultragoal_ledger_path(ref)
+    if lp.exists():
+        lines = [l for l in lp.read_text(encoding="utf-8").strip().splitlines() if l.strip()][-5:]
+        for l in lines:
+            try:
+                ledger_lines.append(json.loads(l))
+            except Exception:
+                pass
+    return {"id": ref, "dir": str(udir), "goals": goals, "recentLedger": ledger_lines}
+
+
+def ultragoal_checkpoint(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(ultragoal_current_path(), {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no ultragoal id and no current ultragoal")
+    udir = ultragoal_dir(ref)
+    if not udir.exists():
+        raise SystemExit(f"ultragoal not found: {ref}")
+
+    goals = read_json(ultragoal_goals_path(ref))
+    if not goals:
+        raise SystemExit("goals.json missing")
+
+    status = args.status
+    evidence = args.evidence or ""
+
+    # Quality gate enforcement for final completion (v1: if completing the only/last story)
+    stories = goals.get("stories", [])
+    is_final = len(stories) == 1 or (args.story and args.story == stories[-1].get("id"))
+    if status == "complete" and is_final:
+        # require evidence of gate (ai-slop + code-review or explicit --force-gate)
+        gate_ok = args.force_gate or ("ai-slop" in evidence.lower() and "approve" in evidence.lower())
+        if not gate_ok:
+            raise SystemExit("final story complete requires quality gate evidence (ai-slop-cleaner + code-review APPROVE) or --force-gate")
+
+    # update story status if provided
+    if args.story:
+        for s in stories:
+            if s.get("id") == args.story:
+                s["status"] = status
+                s["evidence"] = evidence
+                break
+    else:
+        # update aggregate + last story
+        goals["aggregateStatus"] = status
+        if stories:
+            stories[-1]["status"] = status
+            stories[-1]["evidence"] = evidence
+
+    goals["updatedAt"] = now()
+    write_json(ultragoal_goals_path(ref), goals)
+
+    extra = {"story": args.story} if args.story else {}
+    if args.goal_json:
+        extra["codexGoalSnapshot"] = args.goal_json[:2000]  # truncate for ledger sanity
+
+    entry = ultragoal_checkpoint_record(ref, status, evidence, extra)
+
+    # also touch backing goal if present
+    backing = goals.get("backingGoal")
+    if backing and status in ("complete", "blocked", "cancelled"):
+        try:
+            # best-effort update of backing
+            update_goal(argparse.Namespace(id=backing["id"], status=status, note=evidence[:200], cwd=os.getcwd()))
+        except Exception:
+            pass
+
+    return {"id": ref, "status": status, "entry": entry, "goals": goals}
+
+
+def ultragoal_show(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(ultragoal_current_path(), {}) or {}).get("id")
+    if not ref:
+        return {"ultragoal": []}
+    st = ultragoal_status(args)
+    st["brief"] = ""
+    bp = ultragoal_brief_path(ref)
+    if bp.exists():
+        st["brief"] = bp.read_text(encoding="utf-8")[:2000]
+    return st
 
 
 
@@ -1402,13 +1582,14 @@ def attach_backend_from_tmux_pane(state: dict[str, Any], cwd: pathlib.Path) -> d
 
 
 def lfg_launch(args: argparse.Namespace) -> dict[str, Any]:
-    """Default `lfg` behavior: start backend and attach when interactive."""
+    """Default `lfg`/`ulw` behavior: start backend and attach when interactive."""
     state = backend_start(argparse.Namespace(name=args.name, cwd=args.cwd))
-    state["launcher"] = "lfg"
+    launcher = os.environ.get("LFG_LAUNCHER") or pathlib.Path(sys.argv[0]).name or "lfg"
+    state["launcher"] = launcher
     state["attached"] = False
     state["mode"] = "tmux-backend"
     if args.json or not (sys.stdin.isatty() and sys.stdout.isatty()):
-        state["note"] = "non-interactive; run the attachCommand or execute `lfg` from a terminal to attach"
+        state["note"] = f"non-interactive; run the attachCommand or execute `{launcher}` from a terminal to attach"
         return state
     if os.environ.get("TMUX"):
         return attach_backend_from_tmux_pane(state, pathlib.Path(args.cwd).resolve())
@@ -1828,6 +2009,63 @@ def slash(args: argparse.Namespace) -> dict[str, Any]:
         if action == "install":
             return hook_bridge_install(argparse.Namespace())
         raise SystemExit("usage: /hook-bridge [status|install]")
+    if name == "ultragoal":
+        action = rest[0] if rest else "status"
+        if action == "create":
+            if len(rest) < 2:
+                raise SystemExit('usage: /ultragoal create "objective" [--checklist "a;b"]')
+            objective_parts: list[str] = []
+            checklist = None
+            ugid = None
+            brief = None
+            i = 1
+            while i < len(rest):
+                token = rest[i]
+                if token == "--checklist" and i + 1 < len(rest):
+                    checklist = rest[i + 1]
+                    i += 2
+                elif token == "--id" and i + 1 < len(rest):
+                    ugid = rest[i + 1]
+                    i += 2
+                elif token == "--brief" and i + 1 < len(rest):
+                    brief = rest[i + 1]
+                    i += 2
+                else:
+                    objective_parts.append(token)
+                    i += 1
+            return ultragoal_create(argparse.Namespace(objective=" ".join(objective_parts), id=ugid, checklist=checklist, brief=brief, cwd=args.cwd))
+        if action in {"status", "show"}:
+            target = rest[1] if len(rest) > 1 else None
+            return ultragoal_show(argparse.Namespace(id=target))
+        if action == "checkpoint":
+            status = "active"
+            evidence = ""
+            ugid = None
+            story = None
+            force_gate = False
+            i = 1
+            while i < len(rest):
+                token = rest[i]
+                if token == "--id" and i + 1 < len(rest):
+                    ugid = rest[i + 1]
+                    i += 2
+                elif token == "--story" and i + 1 < len(rest):
+                    story = rest[i + 1]
+                    i += 2
+                elif token == "--status" and i + 1 < len(rest):
+                    status = rest[i + 1]
+                    i += 2
+                elif token == "--evidence" and i + 1 < len(rest):
+                    evidence = rest[i + 1]
+                    i += 2
+                elif token == "--force-gate":
+                    force_gate = True
+                    i += 1
+                else:
+                    evidence = (evidence + " " + token).strip()
+                    i += 1
+            return ultragoal_checkpoint(argparse.Namespace(id=ugid, story=story, status=status, evidence=evidence, force_gate=force_gate, goal_json=None, cwd=args.cwd))
+        raise SystemExit("usage: /ultragoal [create|status|show|checkpoint] ...")
     if name != "team":
         raise SystemExit(f"unsupported slash command: /{name}")
     if not rest:
@@ -1873,19 +2111,28 @@ def main(argv: list[str] | None = None) -> int:
     cp.add_argument("--scope", default="all", help="comma list: goal,plan,team,ultraqa or all")
     cp.set_defaults(fn=cancel)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+    ugp = sub.add_parser("ultragoal")
+    ugsub = ugp.add_subparsers(dest="ultragoal_cmd", required=True)
+    ugc = ugsub.add_parser("create")
+    ugc.add_argument("objective")
+    ugc.add_argument("--id")
+    ugc.add_argument("--checklist")
+    ugc.add_argument("--brief")
+    ugc.set_defaults(fn=ultragoal_create)
+    ugs = ugsub.add_parser("status")
+    ugs.add_argument("--id")
+    ugs.set_defaults(fn=ultragoal_status)
+    ugsh = ugsub.add_parser("show")
+    ugsh.add_argument("--id")
+    ugsh.set_defaults(fn=ultragoal_show)
+    ugck = ugsub.add_parser("checkpoint")
+    ugck.add_argument("--id")
+    ugck.add_argument("--story")
+    ugck.add_argument("--status", choices=["active", "blocked", "complete", "cancelled"], required=True)
+    ugck.add_argument("--evidence", default="")
+    ugck.add_argument("--goal-json")
+    ugck.add_argument("--force-gate", action="store_true")
+    ugck.set_defaults(fn=ultragoal_checkpoint)
 
     uwp = sub.add_parser("ultrawork")
     uwsub = uwp.add_subparsers(dest="ultrawork_cmd", required=True)

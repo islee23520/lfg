@@ -1,8 +1,10 @@
-# Feature: `/ultragoal` durable goal foundation
+# Feature: `/ultragoal` durable goal foundation (primitive layer)
+
+> **Note:** The higher-level multi-goal `/ultragoal` experience (brief, stories, ledger, quality gates, `lfg ultragoal` commands) is documented in `ultragoal-runtime.md`. This file now only describes the backing primitive `goal` used by ultragoal and other workflows.
 
 ## Goal
 
-Provide durable goal state for Grok Build workflows. This is the base layer for a fuller OMX-like `/ultragoal` implementation.
+Provide durable goal state for Grok Build workflows. This is the primitive layer that `ultragoal` builds multi-goal plans on top of.
 
 ## User contract
 
