@@ -66,6 +66,22 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_autoresearch",
+        "description": "Create/show/add-source for durable research runs.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "add-source", "show"]},
+                "id": {"type": "string"},
+                "question": {"type": "string"},
+                "url": {"type": "string"},
+                "note": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_deep_interview",
         "description": "Create/show/answer durable requirement intake interviews.",
         "inputSchema": {
@@ -362,6 +378,27 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_autoresearch":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "autoresearch"]
+        if action == "create":
+            cmd += ["create", arguments.get("question") or "Untitled research"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+        elif action == "add-source":
+            cmd += ["add-source", arguments.get("url") or ""]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("note"):
+                cmd += ["--note", arguments["note"]]
+        elif action == "show":
+            cmd += ["show"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

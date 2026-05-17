@@ -760,6 +760,41 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"id": "mcp-interview"', create_payload["stdout"])
         self.assertIn('"answer": "Verified outcome"', answer_payload["stdout"])
 
+    def test_autoresearch_create_source_show(self) -> None:
+        rec = self.run_lfg("autoresearch", "create", "How should team mode work?", "--id", "smoke-research")
+        self.assertEqual(rec["status"], "open")
+        self.assertEqual(rec["sources"], [])
+        sourced = self.run_lfg("autoresearch", "add-source", "https://github.com/Yeachan-Heo/oh-my-codex", "--id", "smoke-research", "--note", "reference workflow")
+        self.assertEqual(sourced["sources"][0]["note"], "reference workflow")
+        shown = self.run_lfg("autoresearch", "show", "--id", "smoke-research")
+        self.assertEqual(shown["id"], "smoke-research")
+        self.assertTrue((pathlib.Path(self.tmp.name) / "state" / "current-research.json").exists())
+
+    def test_mcp_autoresearch_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_autoresearch", "arguments": {"action": "create", "id": "mcp-research", "question": "MCP research"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_autoresearch", "arguments": {"action": "add-source", "id": "mcp-research", "url": "https://example.com", "note": "example"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        source_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(source_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-research"', create_payload["stdout"])
+        self.assertIn('"note": "example"', source_payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

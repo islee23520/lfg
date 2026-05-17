@@ -134,6 +134,58 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def research_dir() -> pathlib.Path:
+    return RUNS_DIR / "autoresearch"
+
+
+def research_path(rid: str) -> pathlib.Path:
+    return research_dir() / f"{rid}.json"
+
+
+def autoresearch_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    rid = args.id or f"research-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    record = {
+        "id": rid,
+        "question": args.question,
+        "status": "open",
+        "createdAt": now(),
+        "updatedAt": now(),
+        "sources": [],
+        "findings": [],
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+    }
+    write_json(research_path(rid), record)
+    write_json(STATE_DIR / "current-research.json", {"id": rid, "path": str(research_path(rid)), "updatedAt": now()})
+    record["path"] = str(research_path(rid))
+    return record
+
+
+def autoresearch_add_source(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-research.json", {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no research id and no current research")
+    record = read_json(research_path(ref))
+    if not record:
+        raise SystemExit(f"research not found: {ref}")
+    record.setdefault("sources", []).append({"url": args.url, "note": args.note or "", "addedAt": now()})
+    record["updatedAt"] = now()
+    write_json(research_path(ref), record)
+    record["path"] = str(research_path(ref))
+    return record
+
+
+def autoresearch_show(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-research.json", {}) or {}).get("id")
+    if not ref:
+        return {"research": []}
+    record = read_json(research_path(ref))
+    if not record:
+        raise SystemExit(f"research not found: {ref}")
+    record["path"] = str(research_path(ref))
+    return record
+
 def interviews_dir() -> pathlib.Path:
     return DATA / "interviews"
 
@@ -981,6 +1033,22 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    arp = sub.add_parser("autoresearch")
+    arsub = arp.add_subparsers(dest="autoresearch_cmd", required=True)
+    arc = arsub.add_parser("create")
+    arc.add_argument("question")
+    arc.add_argument("--id")
+    arc.set_defaults(fn=autoresearch_create)
+    ars = arsub.add_parser("add-source")
+    ars.add_argument("url")
+    ars.add_argument("--id")
+    ars.add_argument("--note")
+    ars.set_defaults(fn=autoresearch_add_source)
+    arshow = arsub.add_parser("show")
+    arshow.add_argument("--id")
+    arshow.set_defaults(fn=autoresearch_show)
 
     dip = sub.add_parser("deep-interview")
     disub = dip.add_subparsers(dest="deep_interview_cmd", required=True)
