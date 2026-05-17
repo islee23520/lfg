@@ -145,7 +145,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 ### M5 — Hardening
 
 - [ ] Hook event evidence from real Grok sessions.
-- [ ] MCP stderr isolation.
+- [x] MCP stderr isolation.
 - [ ] State migration/versioning.
 - [ ] Release tags.
 - [ ] Marketplace release notes.
@@ -186,6 +186,8 @@ Each OMX-like feature should land with:
 5. Grok install/inspect verification when plugin metadata changes.
 
 Current feature coverage:
+
+Behavioral smoke gates now include MCP stdio isolation evidence: `mcp-stdout-jsonrpc=ok`, `mcp-stderr-isolated=ok`, and `mcp-stdio-isolation=ok`.
 
 Behavioral smoke gates now include real tmux lifecycle evidence: `team-create=ok`, `team-status=ok`, `team-resume=ok`, `team-shutdown=ok`, and `team-tmux-lifecycle=ok`.
 

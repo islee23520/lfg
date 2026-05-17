@@ -56,6 +56,8 @@ class RuntimeSmoke(unittest.TestCase):
     def test_all_skill_surfaces_have_roadmap_and_feature_docs(self) -> None:
         roadmap = (REPO / "ROADMAP.md").read_text(encoding="utf-8")
         self.assertIn("- [x] Add behavioral smoke tests per workflow.", roadmap)
+        self.assertIn("- [x] MCP stderr isolation.", roadmap)
+        self.assertIn("mcp-stdio-isolation=ok", roadmap)
         self.assertIn("team-tmux-lifecycle=ok", roadmap)
         skill_names = sorted(
             path.name
@@ -169,6 +171,11 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("team status", team_lifecycle_script)
         self.assertIn("team resume", team_lifecycle_script)
         self.assertIn("team shutdown", team_lifecycle_script)
+        mcp_stdio = REPO / "scripts" / "verify-mcp-stdio-isolation.sh"
+        self.assertTrue(os.access(mcp_stdio, os.X_OK))
+        mcp_stdio_script = mcp_stdio.read_text(encoding="utf-8")
+        self.assertIn("mcp-stdio-isolation=ok", mcp_stdio_script)
+        self.assertIn("mcp-stderr-isolated=ok", mcp_stdio_script)
         remote_smoke = REPO / "scripts" / "verify-remote-smoke.sh"
         self.assertTrue(os.access(remote_smoke, os.X_OK))
         remote_script = remote_smoke.read_text(encoding="utf-8")

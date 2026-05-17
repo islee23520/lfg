@@ -17,12 +17,13 @@ manifest-and-file-checks=ok
 marketplace-metadata=ok
 hook-smoke=ok
 mcp-smoke=ok
+mcp-stdio-isolation=ok
 team-dry-run=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
 
-The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
+The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
 
 
 ## Local `lfg` symlink install smoke
@@ -54,6 +55,24 @@ Expected terminal evidence:
 ```text
 lfg-launch-smoke=ok
 ```
+
+## Focused MCP stdio isolation smoke
+
+Run the MCP protocol isolation gate with both successful and failing tool calls:
+
+```sh
+scripts/verify-mcp-stdio-isolation.sh
+```
+
+Expected terminal evidence:
+
+```text
+mcp-stdout-jsonrpc=ok
+mcp-stderr-isolated=ok
+mcp-stdio-isolation=ok
+```
+
+The script asserts stdout contains only parseable JSON-RPC response lines and stderr remains empty; child tool failures must be captured inside JSON payloads instead of leaking onto MCP stderr.
 
 ## Focused tmux team lifecycle smoke
 
