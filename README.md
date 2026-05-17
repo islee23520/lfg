@@ -129,6 +129,8 @@ The main power feature is durable team execution. `/team` is the Grok-facing com
 Example target flow inside Grok:
 
 ```text
+/team providers
+/team preflight
 /team 3:executor "fix the failing tests with verification"
 /team status <team-name>
 /team resume <team-name>
@@ -139,11 +141,15 @@ Equivalent local runtime commands:
 
 ```sh
 plugins/grok-harnessing/bin/lfg backend start
+plugins/grok-harnessing/bin/lfg team providers
+plugins/grok-harnessing/bin/lfg team preflight
 plugins/grok-harnessing/bin/lfg team create 3:executor "fix the failing tests with verification"
 plugins/grok-harnessing/bin/lfg team status <team-name>
 plugins/grok-harnessing/bin/lfg team resume <team-name>
 plugins/grok-harnessing/bin/lfg team shutdown <team-name>
 ```
+
+Before starting a real team, run `/team preflight` or `lfg team preflight`. It checks tmux/backend readiness, lists provider availability, and returns actionable next commands including provider listing, backend attach/status, and a noop smoke team command.
 
 Default team providers rotate through:
 
@@ -151,6 +157,12 @@ Default team providers rotate through:
 hermes -z ... chat
 claude --permission-mode bypassPermissions ...
 codex ...
+```
+
+The smoke-safe provider is:
+
+```text
+noop
 ```
 
 ## Install `lfg` CLI symlink
@@ -184,7 +196,7 @@ grok-build v0.3.0
   28 skills, hooks: active, 1 MCP servers
 ```
 
-The self-test checks manifests, required files, hook smoke, token-like redaction, MCP initialization, MCP tool listing, and the runtime smoke matrix.
+The self-test checks manifests, required files, hook smoke, token-like redaction, MCP initialization, MCP tool listing, installed `lfg` symlink entrypoints, team preflight/provider gates, and the runtime smoke matrix.
 
 Runtime smoke coverage tracks the implemented OMX-like feature matrices under `plugins/grok-harnessing/docs/features/`; all matrix rows must pass for `runtime-smoke-coverage=100%`.
 

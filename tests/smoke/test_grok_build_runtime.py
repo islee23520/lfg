@@ -237,6 +237,10 @@ class RuntimeSmoke(unittest.TestCase):
         readme = (REPO / "README.md").read_text(encoding="utf-8")
         self.assertNotIn("cp -R plugins/grok-harnessing ~/.grok/plugins/grok-build", readme)
         self.assertIn("docs/SMOKE.md", readme)
+        self.assertIn("/team providers", readme)
+        self.assertIn("/team preflight", readme)
+        self.assertIn("lfg team preflight", readme)
+        self.assertIn("noop", readme)
         release_tag = REPO / "scripts" / "verify-release-tag.sh"
         self.assertTrue(os.access(release_tag, os.X_OK))
         release_tag_script = release_tag.read_text(encoding="utf-8")
