@@ -259,6 +259,8 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("/team preflight", readme)
         self.assertIn("lfg team preflight", readme)
         self.assertIn("noop", readme)
+        self.assertIn("verify-release-readiness-all.sh", readme)
+        self.assertIn("release-readiness-all=ok", readme)
         release_tag = REPO / "scripts" / "verify-release-tag.sh"
         self.assertTrue(os.access(release_tag, os.X_OK))
         release_tag_script = release_tag.read_text(encoding="utf-8")

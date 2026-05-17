@@ -189,6 +189,18 @@ Run a real local Grok install/discovery smoke when `~/.grok/bin/grok` is availab
 plugins/grok-harnessing/bin/grok-install-smoke.sh
 ```
 
+Run the full local+remote release-readiness gate after pushing `p1` and updating the preview tag:
+
+```sh
+scripts/verify-release-readiness-all.sh p1 grok-build-v0.3.0-p1
+```
+
+Expected evidence:
+
+```text
+release-readiness-all=ok
+```
+
 Expected Grok discovery signal after install:
 
 ```text
