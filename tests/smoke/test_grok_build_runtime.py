@@ -145,6 +145,12 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("inspect --json", script)
         self.assertIn("assert len(skills) == 28", script)
         self.assertIn("grok-install-smoke=ok skills=28", script)
+        remote_smoke = REPO / "scripts" / "verify-remote-smoke.sh"
+        self.assertTrue(os.access(remote_smoke, os.X_OK))
+        remote_script = remote_smoke.read_text(encoding="utf-8")
+        self.assertIn("gh run list", remote_script)
+        self.assertIn("gh run view", remote_script)
+        self.assertIn("remote-smoke=ok", remote_script)
 
     def test_marketplace_metadata_points_to_plugin_package(self) -> None:
         for rel in [".grok/plugins/marketplace.json", ".agents/plugins/marketplace.json"]:

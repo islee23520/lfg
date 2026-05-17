@@ -55,3 +55,15 @@ plugins/grok-harnessing/bin/self-test.sh
 ```
 
 A passing run must show the `grok-build smoke` workflow with the `smoke` job completed successfully.
+
+You can verify the latest pushed `p1` commit from a machine with GitHub CLI auth:
+
+```sh
+scripts/verify-remote-smoke.sh p1
+```
+
+Expected terminal evidence:
+
+```text
+remote-smoke=ok
+```

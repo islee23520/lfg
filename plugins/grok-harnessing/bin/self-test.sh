@@ -17,8 +17,13 @@ workflow = (repo / ".github/workflows/smoke.yml").read_text()
 assert "plugins/grok-harnessing/bin/self-test.sh" in workflow
 assert "sudo apt-get install -y tmux" in workflow
 smoke_doc = (repo / "docs/SMOKE.md").read_text()
-for required in ["plugins/grok-harnessing/bin/self-test.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "runtime-smoke-coverage=100%", "grok-install-smoke=ok skills=28"]:
+for required in ["plugins/grok-harnessing/bin/self-test.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "scripts/verify-remote-smoke.sh p1", "runtime-smoke-coverage=100%", "grok-install-smoke=ok skills=28", "remote-smoke=ok"]:
     assert required in smoke_doc, required
+remote_smoke = (repo / "scripts/verify-remote-smoke.sh").read_text()
+assert "gh run list" in remote_smoke
+assert "gh run view" in remote_smoke
+assert "remote-smoke=ok" in remote_smoke
+assert (repo / "scripts/verify-remote-smoke.sh").stat().st_mode & 0o111, "scripts/verify-remote-smoke.sh executable"
 install_smoke = (root / "bin/grok-install-smoke.sh").read_text()
 assert "grok-install-smoke=ok skills=28" in install_smoke
 assert "rsync -a --delete" in install_smoke
