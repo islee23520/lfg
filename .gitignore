@@ -4,3 +4,4 @@
 target/
 /tmp/
 *.log
+tests/smoke/__pycache__

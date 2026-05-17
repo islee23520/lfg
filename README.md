@@ -165,15 +165,23 @@ The smoke-safe provider is:
 noop
 ```
 
-## Install `lfg` / `ulw` CLI symlinks
+## `lfg` is the default binary
 
-For local shell use, install `lfg` and its short ultrawork alias `ulw` into PATH with:
+`lfg` is the **official, default CLI binary** for grok-build / the LFG runtime.
+
+- `lfg` (no args from a terminal) → starts the durable tmux backend and attaches
+- `lfg status`, `lfg doctor`, `lfg ultragoal spawn 3:executor "..."`, `lfg team create ...` etc.
+- `ulw` is the specialized launcher for ultragoal-driven swarms (sets `LFG_LAUNCHER=ulw`)
+
+Install the symlinks (recommended):
 
 ```sh
 scripts/install-lfg-symlink.sh
 ```
 
-This creates symlinks for `lfg`, `ulw`, and the sibling `grok-build.py` wrapper target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg` default launch, `lfg --json status`, `lfg --json doctor`, and `ulw --json status`. Running either `lfg` or `ulw` with no arguments starts the same tmux backend and attaches when launched from an interactive terminal.
+This places `lfg` and `ulw` (plus the internal `grok-build.py` for reference) under `~/.grok/bin/` and `~/.local/bin/`, then runs the smoke verification that `lfg` reports the correct launcher identity.
+
+After this, `lfg` on your PATH is the wrapped Grok Build experience.
 
 ## Verify
 
