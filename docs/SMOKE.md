@@ -323,6 +323,23 @@ release-readiness-remote=ok
 
 This wraps `scripts/verify-remote-smoke.sh p1` and `scripts/verify-release-tag.sh --remote grok-build-v0.3.0-p1`.
 
+
+## Full release-readiness aggregate
+
+Run this after the branch and preview tag are pushed:
+
+```sh
+scripts/verify-release-readiness-all.sh p1 grok-build-v0.3.0-p1
+```
+
+Expected terminal evidence:
+
+```text
+release-readiness-all=ok
+```
+
+This wraps the local and remote release-readiness gates.
+
 ## GitHub Actions smoke
 
 The workflow lives at:

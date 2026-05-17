@@ -25,6 +25,7 @@ lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 - [ ] Grok `/plugins` installed-surface smoke passes with `grok-plugins-surface=ok`.
 - [ ] Remote GitHub Actions smoke passes with `remote-smoke=ok` for the latest pushed commit.
 - [ ] Aggregated remote release-readiness smoke passes with `release-readiness-remote=ok`.
+- [ ] Full release-readiness aggregate passes with `release-readiness-all=ok`.
 - [ ] Roadmap coverage guard confirms `roadmap=27/27` non-harness skill surfaces.
 - [ ] Feature-doc coverage guard confirms `feature_docs=27/27` non-harness skill surfaces.
 - [ ] Marketplace metadata still points to `linalab-io-framework/grok-build`.
@@ -56,6 +57,7 @@ scripts/verify-grok-plugins-surface.sh
 plugins/grok-harnessing/bin/grok-install-smoke.sh
 scripts/verify-remote-smoke.sh p1
 scripts/verify-release-readiness-remote.sh p1 grok-build-v0.3.0-p1
+scripts/verify-release-readiness-all.sh p1 grok-build-v0.3.0-p1
 ```
 
 ## Expected installed surface

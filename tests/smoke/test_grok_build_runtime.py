@@ -207,6 +207,12 @@ class RuntimeSmoke(unittest.TestCase):
         runtime = (PLUGIN / "bin" / "grok-build.py").read_text(encoding="utf-8")
         self.assertIn("def attach_backend_from_tmux_pane", runtime)
         self.assertIn("split-window", runtime)
+        all_ready = REPO / "scripts" / "verify-release-readiness-all.sh"
+        self.assertTrue(os.access(all_ready, os.X_OK))
+        all_ready_script = all_ready.read_text(encoding="utf-8")
+        self.assertIn("release-readiness-all=ok", all_ready_script)
+        self.assertIn("verify-release-readiness-local.sh", all_ready_script)
+        self.assertIn("verify-release-readiness-remote.sh", all_ready_script)
         remote_ready = REPO / "scripts" / "verify-release-readiness-remote.sh"
         self.assertTrue(os.access(remote_ready, os.X_OK))
         remote_ready_script = remote_ready.read_text(encoding="utf-8")
@@ -329,6 +335,8 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("scripts/verify-release-readiness-local.sh", release_checklist)
         self.assertIn("release-readiness-remote=ok", release_checklist)
         self.assertIn("scripts/verify-release-readiness-remote.sh", release_checklist)
+        self.assertIn("release-readiness-all=ok", release_checklist)
+        self.assertIn("scripts/verify-release-readiness-all.sh", release_checklist)
         self.assertIn("/team providers", release_checklist)
         self.assertIn("/team preflight", release_checklist)
         self.assertIn("grok_build_team.preflight", release_checklist)
