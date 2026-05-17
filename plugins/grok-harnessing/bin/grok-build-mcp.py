@@ -26,12 +26,13 @@ TOOLS = [
     },
     {
         "name": "grok_build_runtime",
-        "description": "Run a safe grok-build runtime query such as status, catalog, doctor, backend_status, or team_status.",
+        "description": "Run a safe grok-build runtime query such as status, catalog, doctor, wiki_list, wiki_search, backend_status, or team_status.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "backend_status", "team_status"]},
-                "team": {"type": "string"}
+                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "wiki_list", "wiki_search", "backend_status", "team_status"]},
+                "team": {"type": "string"},
+                "query": {"type": "string"}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -56,8 +57,25 @@ TOOLS = [
                 "spec": {"type": "string", "description": "team spec like 3:executor"},
                 "objective": {"type": "string"},
                 "team": {"type": "string"},
+                "query": {"type": "string"},
                 "providers": {"type": "string", "description": "comma list, default hermes,claude,codex"},
                 "dryRun": {"type": "boolean", "default": True}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_wiki",
+        "description": "Add/list/search durable LFG wiki notes under plugin data.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["add", "list", "search"]},
+                "title": {"type": "string"},
+                "body": {"type": "string"},
+                "tags": {"type": "string"},
+                "query": {"type": "string"}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -118,6 +136,10 @@ def handle_tool(name, arguments=None):
             cmd += ["catalog"]
         elif action == "doctor":
             cmd += ["doctor"]
+        elif action == "wiki_list":
+            cmd += ["wiki", "list"]
+        elif action == "wiki_search":
+            cmd += ["wiki", "search", arguments.get("query") or ""]
         elif action == "backend_status":
             cmd += ["backend", "status"]
         elif action == "team_status":
@@ -149,6 +171,21 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_wiki":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "wiki"]
+        if action == "add":
+            cmd += ["add", arguments.get("title") or "Untitled", arguments.get("body") or ""]
+            if arguments.get("tags"):
+                cmd += ["--tags", arguments["tags"]]
+        elif action == "list":
+            cmd += ["list"]
+        elif action == "search":
+            cmd += ["search", arguments.get("query") or ""]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

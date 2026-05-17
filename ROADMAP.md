@@ -131,7 +131,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [x] Implement MVP tmux backend for `team create/status/resume/shutdown`.
 - [x] Wire `/team` arguments directly to the `lfg team` backend through `lfg slash` and MCP `grok_build_slash`.
 - [ ] Implement Grok-native `ralph` loop behavior.
-- [ ] Implement Grok-native `wiki` storage/search.
+- [x] Implement Grok-native `wiki` storage/search.
 - [x] Implement `doctor` diagnostics.
 - [ ] Add behavioral smoke tests per workflow.
 
@@ -184,6 +184,7 @@ Current feature coverage:
 | --- | --- | --- | --- | --- |
 | `/team` tmux backend | `docs/features/team-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 4/4 matrix rows | 100% passing |
 | `/doctor` diagnostics | `docs/features/doctor-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/wiki` durable notes | `docs/features/wiki-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 
 ## Definition of done
 

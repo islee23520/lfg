@@ -87,6 +87,8 @@ The `/team` slash command is backed by the same parser exposed through MCP tool 
 plugins/grok-harnessing/bin/grok-build.py status
 plugins/grok-harnessing/bin/grok-build.py catalog
 plugins/grok-harnessing/bin/grok-build.py doctor
+plugins/grok-harnessing/bin/grok-build.py wiki add "Decision" "Use tmux backend" --tags team
+plugins/grok-harnessing/bin/grok-build.py wiki search tmux
 plugins/grok-harnessing/bin/grok-build.py plan "ship grok-build MVP"
 plugins/grok-harnessing/bin/grok-build.py ultraqa "verify plugin install and MCP smoke"
 plugins/grok-harnessing/bin/lfg slash '/team 3:executor "fix tests"' --dry-run

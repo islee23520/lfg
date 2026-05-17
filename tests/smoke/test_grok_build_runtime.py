@@ -156,6 +156,59 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(payload["returncode"], 0)
         self.assertIn('"status": "pass"', payload["stdout"])
 
+    def test_wiki_add_list_search_persists_notes(self) -> None:
+        note = self.run_lfg("wiki", "add", "Team decision", "Use tmux backend for team mode", "--tags", "team,architecture")
+        self.assertEqual(note["title"], "Team decision")
+        self.assertTrue(pathlib.Path(note["path"]).exists())
+        listed = self.run_lfg("wiki", "list")
+        self.assertEqual(listed["count"], 1)
+        found = self.run_lfg("wiki", "search", "tmux")
+        self.assertEqual(found["count"], 1)
+        self.assertEqual(found["matches"][0]["title"], "Team decision")
+
+    def test_mcp_wiki_tool(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "grok_build_wiki", "arguments": {"action": "add", "title": "MCP note", "body": "wiki mcp body", "tags": "wiki,mcp"}},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "grok_build_wiki", "arguments": {"action": "search", "query": "mcp"}},
+            },
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+        add_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        search_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(add_payload["returncode"], 0)
+        self.assertEqual(search_payload["returncode"], 0)
+        self.assertIn('"count": 1', search_payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

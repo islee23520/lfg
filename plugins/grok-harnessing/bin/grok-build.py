@@ -375,6 +375,65 @@ def team_shutdown(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def wiki_dir() -> pathlib.Path:
+    return DATA / "wiki"
+
+
+def slugify(text: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", text.strip().lower()).strip("-")
+    return slug[:80] or f"note-{uuid.uuid4().hex[:8]}"
+
+
+def wiki_add(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    title = args.title.strip()
+    body = args.body.strip()
+    ts = now()
+    note_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{slugify(title)}"
+    note = {
+        "id": note_id,
+        "title": title,
+        "body": body,
+        "tags": [t.strip() for t in (args.tags or "").split(",") if t.strip()],
+        "createdAt": ts,
+        "updatedAt": ts,
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+    }
+    path = wiki_dir() / f"{note_id}.json"
+    write_json(path, note)
+    note["path"] = str(path)
+    return note
+
+
+def wiki_notes() -> list[dict[str, Any]]:
+    notes = []
+    for path in sorted(wiki_dir().glob("*.json")) if wiki_dir().exists() else []:
+        try:
+            note = read_json(path)
+            note["path"] = str(path)
+            notes.append(note)
+        except Exception:
+            pass
+    return notes
+
+
+def wiki_list(args: argparse.Namespace) -> dict[str, Any]:
+    notes = wiki_notes()
+    if args.limit:
+        notes = notes[-args.limit:]
+    return {"count": len(notes), "notes": notes}
+
+
+def wiki_search(args: argparse.Namespace) -> dict[str, Any]:
+    q = args.query.lower()
+    matches = []
+    for note in wiki_notes():
+        haystack = "\n".join([note.get("title", ""), note.get("body", ""), " ".join(note.get("tags", []))]).lower()
+        if q in haystack:
+            matches.append(note)
+    return {"query": args.query, "count": len(matches), "matches": matches}
+
 def doctor(args: argparse.Namespace) -> dict[str, Any]:
     """Diagnose the local grok-build plugin/runtime installation."""
     ensure_dirs()
@@ -458,6 +517,21 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("catalog").set_defaults(fn=catalog)
     sub.add_parser("status").set_defaults(fn=status)
     sub.add_parser("doctor").set_defaults(fn=doctor)
+
+
+    wp = sub.add_parser("wiki")
+    wsub = wp.add_subparsers(dest="wiki_cmd", required=True)
+    wa = wsub.add_parser("add")
+    wa.add_argument("title")
+    wa.add_argument("body")
+    wa.add_argument("--tags")
+    wa.set_defaults(fn=wiki_add)
+    wl = wsub.add_parser("list")
+    wl.add_argument("--limit", type=int)
+    wl.set_defaults(fn=wiki_list)
+    ws = wsub.add_parser("search")
+    ws.add_argument("query")
+    ws.set_defaults(fn=wiki_search)
 
     gp = sub.add_parser("goal")
     gsub = gp.add_subparsers(dest="goal_cmd", required=True)
