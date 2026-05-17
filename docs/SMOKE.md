@@ -39,6 +39,8 @@ Install the local `lfg` command into PATH with:
 
 ```sh
 scripts/install-lfg-symlink.sh
+scripts/verify-installed-lfg-symlink-surface.sh
+scripts/verify-lfg-inside-tmux-attach.sh
 ```
 
 Expected terminal evidence:
@@ -47,9 +49,11 @@ Expected terminal evidence:
 lfg-launch=ok
 lfg-status=ok version=0.3.0
 lfg-doctor=ok
+lfg-installed-symlink-surface=ok
+lfg-inside-tmux-attach=ok
 ```
 
-The script creates symlinks for both `lfg` and its sibling `grok-build.py` target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status` and `lfg --json doctor`.
+The script creates symlinks for both `lfg` and its sibling `grok-build.py` target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status` and `lfg --json doctor`. `scripts/verify-installed-lfg-symlink-surface.sh` additionally proves both installed symlink locations point at the repo runtime and that launching installed `lfg` creates the `lfg-backend` tmux session. `scripts/verify-lfg-inside-tmux-attach.sh` launches `lfg` from inside a real tmux pane and verifies it opens a split-window attach pane instead of stealing the current client.
 
 For a focused default-launch check, run:
 

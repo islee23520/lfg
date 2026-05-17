@@ -1374,6 +1374,32 @@ def backend_start(args: argparse.Namespace) -> dict[str, Any]:
     return state
 
 
+def current_tmux_pane() -> str | None:
+    pane = (os.environ.get("TMUX_PANE") or "").strip()
+    if re.fullmatch(r"%\d+", pane):
+        return pane
+    proc = subprocess.run(["tmux", "display-message", "-p", "#{pane_id}"], text=True, capture_output=True)
+    candidate = proc.stdout.strip() if proc.returncode == 0 else ""
+    if re.fullmatch(r"%\d+", candidate):
+        return candidate
+    return None
+
+
+def attach_backend_from_tmux_pane(state: dict[str, Any], cwd: pathlib.Path) -> dict[str, Any]:
+    pane = current_tmux_pane()
+    state["attachMethod"] = "split-window"
+    state["attached"] = False
+    if not pane:
+        state["attachMethod"] = "inside-tmux-unresolved-pane"
+        state["note"] = "inside tmux but current pane could not be resolved; use attachCommand from the desired pane"
+        return state
+    command = f"env -u TMUX tmux attach-session -t {shlex.quote(state['name'])}"
+    subprocess.run(["tmux", "split-window", "-h", "-t", pane, "-c", str(cwd), command], check=True)
+    state["attached"] = True
+    state["triggerPane"] = pane
+    state["paneAttachCommand"] = f"tmux split-window -h -t {shlex.quote(pane)} -c {shlex.quote(str(cwd))} {shlex.quote(command)}"
+    return state
+
 
 def lfg_launch(args: argparse.Namespace) -> dict[str, Any]:
     """Default `lfg` behavior: start backend and attach when interactive."""
@@ -1385,10 +1411,7 @@ def lfg_launch(args: argparse.Namespace) -> dict[str, Any]:
         state["note"] = "non-interactive; run the attachCommand or execute `lfg` from a terminal to attach"
         return state
     if os.environ.get("TMUX"):
-        subprocess.run(["tmux", "switch-client", "-t", state["name"]], check=True)
-        state["attached"] = True
-        state["attachMethod"] = "switch-client"
-        return state
+        return attach_backend_from_tmux_pane(state, pathlib.Path(args.cwd).resolve())
     os.execvp("tmux", ["tmux", "attach", "-t", state["name"]])
     raise SystemExit(0)
 

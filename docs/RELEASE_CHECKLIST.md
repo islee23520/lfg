@@ -8,6 +8,8 @@ Use this checklist before merging or tagging `linalab-io-framework/grok-build`.
 - [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=28 key_skills_present`.
 - [ ] Local `lfg` symlink installer passes with `lfg-launch=ok
 lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
+- [ ] Installed `lfg` symlink surface smoke passes with `lfg-installed-symlink-surface=ok`.
+- [ ] Inside-tmux `lfg` attach smoke passes with `lfg-inside-tmux-attach=ok`.
 - [ ] Team tmux lifecycle smoke passes with `team-tmux-lifecycle=ok`.
 - [ ] MCP stdio isolation smoke passes with `mcp-stdio-isolation=ok`.
 - [ ] State schema/versioning smoke passes with `state-schema-versioning=ok`.
@@ -29,6 +31,8 @@ lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 ```sh
 plugins/grok-harnessing/bin/self-test.sh
 scripts/install-lfg-symlink.sh
+scripts/verify-installed-lfg-symlink-surface.sh
+scripts/verify-lfg-inside-tmux-attach.sh
 scripts/verify-lfg-launch.sh
 scripts/verify-team-tmux-lifecycle.sh
 scripts/verify-mcp-stdio-isolation.sh

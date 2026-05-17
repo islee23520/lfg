@@ -13,11 +13,26 @@ import pathlib
 import subprocess
 import tempfile
 import unittest
+import argparse
+import importlib.util
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 PLUGIN = REPO / "plugins" / "grok-harnessing"
 LFG = PLUGIN / "bin" / "lfg"
 MCP = PLUGIN / "bin" / "grok-build-mcp.py"
+
+
+def load_grok_build_module():
+    spec = importlib.util.spec_from_file_location("grok_build_runtime", PLUGIN / "bin" / "grok-build.py")
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class FakeTty:
+    def isatty(self) -> bool:
+        return True
 
 
 class RuntimeSmoke(unittest.TestCase):
@@ -70,6 +85,8 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-plugin-hook-scope=not-observed", roadmap)
         self.assertIn("grok-global-hook-bridge=ok", roadmap)
         self.assertIn("grok-installed-mcp-surface=ok", roadmap)
+        self.assertIn("lfg-installed-symlink-surface=ok", roadmap)
+        self.assertIn("lfg-inside-tmux-attach=ok", roadmap)
         self.assertIn("lfg hook-bridge status/install", roadmap)
         self.assertIn("MCP `grok_build_hook_bridge`", roadmap)
         self.assertIn("release-tag=ok", roadmap)
@@ -182,6 +199,9 @@ class RuntimeSmoke(unittest.TestCase):
         launch_script = launch_lfg.read_text(encoding="utf-8")
         self.assertIn("lfg-launch-smoke=ok", launch_script)
         self.assertIn("tmux has-session", launch_script)
+        runtime = (PLUGIN / "bin" / "grok-build.py").read_text(encoding="utf-8")
+        self.assertIn("def attach_backend_from_tmux_pane", runtime)
+        self.assertIn("split-window", runtime)
         team_lifecycle = REPO / "scripts" / "verify-team-tmux-lifecycle.sh"
         self.assertTrue(os.access(team_lifecycle, os.X_OK))
         team_lifecycle_script = team_lifecycle.read_text(encoding="utf-8")
@@ -217,6 +237,16 @@ class RuntimeSmoke(unittest.TestCase):
         installed_mcp_script = installed_mcp.read_text(encoding="utf-8")
         self.assertIn("grok-installed-mcp-surface=ok", installed_mcp_script)
         self.assertIn("grok_build_hook_bridge", installed_mcp_script)
+        installed_lfg = REPO / "scripts" / "verify-installed-lfg-symlink-surface.sh"
+        self.assertTrue(os.access(installed_lfg, os.X_OK))
+        installed_lfg_script = installed_lfg.read_text(encoding="utf-8")
+        self.assertIn("lfg-installed-symlink-surface=ok", installed_lfg_script)
+        self.assertIn("tmux has-session -t lfg-backend", installed_lfg_script)
+        inside_tmux = REPO / "scripts" / "verify-lfg-inside-tmux-attach.sh"
+        self.assertTrue(os.access(inside_tmux, os.X_OK))
+        inside_tmux_script = inside_tmux.read_text(encoding="utf-8")
+        self.assertIn("lfg-inside-tmux-attach=ok", inside_tmux_script)
+        self.assertIn("split-window", inside_tmux_script)
         hook_limitation = REPO / "scripts" / "verify-grok-hook-headless-limitation.sh"
         self.assertTrue(os.access(hook_limitation, os.X_OK))
         hook_limitation_script = hook_limitation.read_text(encoding="utf-8")
@@ -290,6 +320,93 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(launched["mode"], "tmux-backend")
         self.assertFalse(launched["attached"])
         self.assertIn("tmux attach -t", launched["attachCommand"])
+
+    def test_lfg_inside_tmux_respects_triggering_pane(self) -> None:
+        module = load_grok_build_module()
+        calls: list[list[str]] = []
+        original_backend_start = module.backend_start
+        original_subprocess_run = module.subprocess.run
+        original_stdin = module.sys.stdin
+        original_stdout = module.sys.stdout
+        original_tmux = os.environ.get("TMUX")
+        original_tmux_pane = os.environ.get("TMUX_PANE")
+        try:
+            module.backend_start = lambda args: {"name": args.name or "lfg-backend", "status": "running", "cwd": args.cwd, "attachCommand": "tmux attach -t lfg-backend"}
+
+            def fake_run(argv, **kwargs):
+                calls.append(list(argv))
+                return subprocess.CompletedProcess(argv, 0, "", "")
+
+            module.subprocess.run = fake_run
+            module.sys.stdin = FakeTty()
+            module.sys.stdout = FakeTty()
+            os.environ["TMUX"] = "/tmp/tmux-test/default,1,0"
+            os.environ["TMUX_PANE"] = "%42"
+
+            result = module.lfg_launch(argparse.Namespace(name=None, cwd=str(REPO), json=False))
+
+            self.assertTrue(result["attached"])
+            self.assertEqual(result["attachMethod"], "split-window")
+            self.assertEqual(result["triggerPane"], "%42")
+            self.assertIn(["tmux", "split-window", "-h", "-t", "%42", "-c", str(REPO), "env -u TMUX tmux attach-session -t lfg-backend"], calls)
+            self.assertFalse(any(call[:2] == ["tmux", "switch-client"] for call in calls))
+        finally:
+            module.backend_start = original_backend_start
+            module.subprocess.run = original_subprocess_run
+            module.sys.stdin = original_stdin
+            module.sys.stdout = original_stdout
+            if original_tmux is None:
+                os.environ.pop("TMUX", None)
+            else:
+                os.environ["TMUX"] = original_tmux
+            if original_tmux_pane is None:
+                os.environ.pop("TMUX_PANE", None)
+            else:
+                os.environ["TMUX_PANE"] = original_tmux_pane
+
+    def test_lfg_inside_tmux_recovers_current_pane_when_env_pane_is_malformed(self) -> None:
+        module = load_grok_build_module()
+        calls: list[list[str]] = []
+        original_backend_start = module.backend_start
+        original_subprocess_run = module.subprocess.run
+        original_stdin = module.sys.stdin
+        original_stdout = module.sys.stdout
+        original_tmux = os.environ.get("TMUX")
+        original_tmux_pane = os.environ.get("TMUX_PANE")
+        try:
+            module.backend_start = lambda args: {"name": "lfg-backend", "status": "running", "cwd": args.cwd, "attachCommand": "tmux attach -t lfg-backend"}
+
+            def fake_run(argv, **kwargs):
+                calls.append(list(argv))
+                if list(argv)[:3] == ["tmux", "display-message", "-p"]:
+                    return subprocess.CompletedProcess(argv, 0, "%77\n", "")
+                return subprocess.CompletedProcess(argv, 0, "", "")
+
+            module.subprocess.run = fake_run
+            module.sys.stdin = FakeTty()
+            module.sys.stdout = FakeTty()
+            os.environ["TMUX"] = "/tmp/tmux-test/default,1,0"
+            os.environ["TMUX_PANE"] = "../../bad"
+
+            result = module.lfg_launch(argparse.Namespace(name=None, cwd=str(REPO), json=False))
+
+            self.assertTrue(result["attached"])
+            self.assertEqual(result["triggerPane"], "%77")
+            self.assertIn(["tmux", "split-window", "-h", "-t", "%77", "-c", str(REPO), "env -u TMUX tmux attach-session -t lfg-backend"], calls)
+            self.assertFalse(any("switch-client" in call for call in calls))
+        finally:
+            module.backend_start = original_backend_start
+            module.subprocess.run = original_subprocess_run
+            module.sys.stdin = original_stdin
+            module.sys.stdout = original_stdout
+            if original_tmux is None:
+                os.environ.pop("TMUX", None)
+            else:
+                os.environ["TMUX"] = original_tmux
+            if original_tmux_pane is None:
+                os.environ.pop("TMUX_PANE", None)
+            else:
+                os.environ["TMUX_PANE"] = original_tmux_pane
 
     def test_team_slash_dry_run_maps_to_three_default_providers(self) -> None:
         team = self.run_lfg("slash", '/team 3:executor "fix tests"', "--dry-run")
