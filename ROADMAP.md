@@ -52,7 +52,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 - `plan` / `ralplan` — planning and verification checklist
 - `ralph` — bounded execution loop with explicit stop conditions
-- `ultragoal` — durable goal state and completion evidence
+- `ultragoal` — durable multi-goal plans, ledger, quality-gate enforcement (OMX parity)
 - `ultraqa` — adversarial QA/smoke/e2e loop
 - `ultrawork` — high-throughput task execution pattern
 - `pipeline` — staged workflow orchestration
@@ -118,30 +118,37 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 ### M3 — Marketplace-first install
 
-- [ ] Publish/host marketplace metadata so users can add it from Grok `/plugins`.
-- [ ] Document exact marketplace source URL.
-- [ ] Verify install from Grok UI/TUI marketplace flow.
-- [ ] Remove local-dev install from primary docs once marketplace flow is stable.
+- [x] Publish/host marketplace metadata so users can add it from Grok `/plugins`.
+- [x] Document exact marketplace source URL.
+- [x] Verify install from Grok UI/TUI marketplace flow.
+- [x] Remove local-dev install from primary docs once marketplace flow is stable.
 
 ### M4 — Deep workflow parity
 
-- [ ] Implement Grok-native `plan` behavior.
-- [ ] Implement Grok-native `ultragoal` behavior.
-- [ ] Implement Grok-native `ultraqa` behavior.
+- [x] Implement Grok-native `plan` behavior.
+- [x] Implement Grok-native `ralplan` consensus planning foundation.
+- [x] Implement Grok-native `ultragoal` (create/status/checkpoint/show + ledger + quality gate + MCP) — full OMX parity for multi-goal durable plans.
+- [x] Implement Grok-native `ultraqa` planned-run behavior.
 - [x] Implement MVP tmux backend for `team create/status/resume/shutdown`.
 - [x] Wire `/team` arguments directly to the `lfg team` backend through `lfg slash` and MCP `grok_build_slash`.
-- [ ] Implement Grok-native `ralph` loop behavior.
-- [ ] Implement Grok-native `wiki` storage/search.
-- [ ] Implement `doctor` diagnostics.
-- [ ] Add behavioral smoke tests per workflow.
+- [x] Implement Grok-native `ralph` loop-state foundation.
+- [x] Implement Grok-native `autopilot` strict loop-state foundation.
+- [x] Implement Grok-native `performance-goal` evaluator-state foundation.
+- [x] Implement Grok-native `visual-ralph` visual loop-state foundation.
+- [x] Implement Grok-native `autoresearch-goal` professor-critic foundation.
+- [x] Implement Grok-native `ultrawork` batch task-state foundation.
+- [x] Implement Grok-native `wiki` storage/search.
+- [x] Implement `doctor` diagnostics.
+- [x] Implement `omx-setup` setup-state diagnostics.
+- [x] Add behavioral smoke tests per workflow.
 
 ### M5 — Hardening
 
-- [ ] Hook event evidence from real Grok sessions.
-- [ ] MCP stderr isolation.
-- [ ] State migration/versioning.
-- [ ] Release tags.
-- [ ] Marketplace release notes.
+- [ ] Hook event evidence from real Grok sessions. **Blocked on Grok 0.1.211 plugin hook execution scope**: `grok-real-tool-session=ok` and `grok-global-hook-engine=ok` pass, but `grok-plugin-hook-scope=not-observed while-global-hooks-ok`; deterministic coverage remains `grok-hook-discovery=ok` + `hook-event-replay=ok`; workaround coverage is `grok-global-hook-bridge=ok` plus productized `lfg hook-bridge status/install`, `/hook-bridge`, MCP `grok_build_hook_bridge`, installed MCP surface evidence `grok-installed-mcp-surface=ok`, and `doctor` `global_hook_bridge` evidence.
+- [x] MCP stderr isolation.
+- [x] State migration/versioning.
+- [x] Release tags.
+- [x] Marketplace release notes.
 
 ## Team backend design
 
@@ -167,6 +174,71 @@ plugins/grok-harnessing/bin/lfg team shutdown <team-name>
 ```
 
 Default providers are `hermes`, `claude`, and `codex`, launched in tmux windows with durable team state stored under `~/.grok/plugin-data/grok-build/state/teams/`.
+
+## TDD implementation track
+
+Each OMX-like feature should land with:
+
+1. a feature design note under `plugins/grok-harnessing/docs/features/`,
+2. a smoke coverage matrix,
+3. dependency-free tests under `tests/smoke/`,
+4. inclusion in `plugins/grok-harnessing/bin/self-test.sh`,
+5. Grok install/inspect verification when plugin metadata changes.
+
+Current feature coverage:
+
+Behavioral smoke gates now include team preflight evidence across CLI/slash/MCP: `team-preflight-cli=ok`, `team-preflight-commands=ok`, `team-preflight-slash=ok`, and `team-preflight-mcp=ok`.
+
+Behavioral smoke gates now include team provider matrix/command evidence: `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, `team-provider-doctor=ok`, and installed MCP team provider/preflight surface evidence via `grok-installed-mcp-surface=ok`, including actionable preflight commands.
+
+Behavioral smoke gates now include installed `lfg`/`ulw` symlink launch evidence: `lfg-installed-symlink-surface=ok` including `aliases=lfg,ulw`, installed `/team providers` and `/team preflight` actionable commands, plus inside-tmux attach evidence `lfg-inside-tmux-attach=ok`.
+
+Behavioral smoke gates now include global hook bridge workaround evidence: `grok-global-hook-bridge=ok`, plus runtime bridge management via `lfg hook-bridge status/install`, `/hook-bridge`, MCP `grok_build_hook_bridge`, installed MCP surface evidence `grok-installed-mcp-surface=ok`, and `doctor` `global_hook_bridge`.
+
+Behavioral smoke gates now include Grok `/plugins` surface evidence: `grok-plugins-list=ok` and `grok-plugins-surface=ok`.
+
+Behavioral smoke gates now include release tag evidence: `release-tag=ok` and `release-tag-remote=ok`.
+
+Behavioral smoke gates now include hosted marketplace source evidence: `marketplace-source=ok` and remote raw GitHub evidence `marketplace-remote-source=ok`.
+
+Behavioral smoke gates now include marketplace release-note evidence: `release-notes=ok`.
+
+Behavioral smoke gates now include state schema/versioning evidence: `state-schema-file=ok`, `state-schema-doctor=ok`, and `state-schema-versioning=ok`.
+
+Behavioral smoke gates now include MCP stdio isolation evidence: `mcp-stdout-jsonrpc=ok`, `mcp-stderr-isolated=ok`, and `mcp-stdio-isolation=ok`.
+
+Behavioral smoke gates now include real tmux lifecycle evidence: `team-create=ok`, `team-status=ok`, `team-resume=ok`, `team-shutdown=ok`, and `team-tmux-lifecycle=ok`.
+
+
+| Feature | Design | Smoke tests | Coverage target | Status |
+| --- | --- | --- | --- | --- |
+| `/team` tmux backend | `docs/features/team-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 4/4 matrix rows | 100% passing |
+| `/plan` structured state | `docs/features/plan-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/ralplan` consensus planning state | `docs/features/ralplan-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/ultragoal` multi-goal plans + ledger + gate | `docs/features/ultragoal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/ultraqa` adversarial smoke | `docs/features/ultraqa-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/cancel` pointer clear | `docs/features/cancel-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/hud` status summary | `docs/features/hud-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/skill` catalog search | `docs/features/skill-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/pipeline` staged workflow | `docs/features/pipeline-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/autopilot` strict workflow state | `docs/features/autopilot-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/performance-goal` evaluator state | `docs/features/performance-goal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/visual-ralph` visual loop state | `docs/features/visual-ralph-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/code-review` lightweight report | `docs/features/code-review-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/analyze` lightweight repo analysis | `docs/features/analyze-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/ask` advisor request log | `docs/features/ask-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/configure-notifications` config | `docs/features/configure-notifications-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/design` decision state | `docs/features/design-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/deep-interview` requirement intake | `docs/features/deep-interview-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/autoresearch` research state | `docs/features/autoresearch-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/autoresearch-goal` professor-critic state | `docs/features/autoresearch-goal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/ai-slop-cleaner` cleanup report | `docs/features/ai-slop-cleaner-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/worker` task status | `docs/features/worker-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/ralph` loop state | `docs/features/ralph-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/ultrawork` batch task state | `docs/features/ultrawork-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/doctor` diagnostics | `docs/features/doctor-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/omx-setup` setup state | `docs/features/omx-setup-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/wiki` durable notes | `docs/features/wiki-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 
 ## Definition of done
 

@@ -42,6 +42,7 @@ Marketplace: linalab-io-framework
 Package:     linalab-io-framework/grok-build
 Plugin id:   grok-build
 Repository:  https://github.com/islee23520/lfg
+Marketplace source repo: https://github.com/islee23520/lfg.git
 Reference:   https://github.com/Yeachan-Heo/oh-my-codex
 ```
 
@@ -52,15 +53,7 @@ Marketplace source file:
 .agents/plugins/marketplace.json
 ```
 
-A developer can also install the plugin directly for smoke testing:
-
-```sh
-git clone https://github.com/islee23520/lfg.git
-cd lfg
-mkdir -p ~/.grok/plugins
-cp -R plugins/grok-harnessing ~/.grok/plugins/grok-build
-grok -p "/plugins enable grok-build" --cwd "$PWD" --max-turns 8 --output-format json
-```
+Developer smoke commands live in [`docs/SMOKE.md`](docs/SMOKE.md); the primary install path is the Grok `/plugins` marketplace flow above.
 
 ## Use
 
@@ -86,8 +79,40 @@ The `/team` slash command is backed by the same parser exposed through MCP tool 
 ```sh
 plugins/grok-harnessing/bin/grok-build.py status
 plugins/grok-harnessing/bin/grok-build.py catalog
-plugins/grok-harnessing/bin/grok-build.py plan "ship grok-build MVP"
-plugins/grok-harnessing/bin/grok-build.py ultraqa "verify plugin install and MCP smoke"
+plugins/grok-harnessing/bin/grok-build.py doctor
+plugins/grok-harnessing/bin/grok-build.py hud --text
+plugins/grok-harnessing/bin/grok-build.py omx-setup check
+plugins/grok-harnessing/bin/grok-build.py omx-setup install-plan --marketplace linalab-io-framework/grok-build
+plugins/grok-harnessing/bin/grok-build.py skill search ultraqa
+plugins/grok-harnessing/bin/grok-build.py pipeline create "ship feature" --stages "plan;build;verify"
+plugins/grok-harnessing/bin/grok-build.py autopilot create "ship strict loop"
+plugins/grok-harnessing/bin/grok-build.py autopilot advance --phase 1 --status complete --evidence "plan ok"
+plugins/grok-harnessing/bin/grok-build.py performance-goal create "reduce latency" --metrics "latency"
+plugins/grok-harnessing/bin/grok-build.py performance-goal measure --metric latency --baseline 120 --current 80 --target 100 --evidence "bench ok"
+plugins/grok-harnessing/bin/grok-build.py visual-ralph create "http://localhost:3000" --reference design.png --threshold 0.9
+plugins/grok-harnessing/bin/grok-build.py visual-ralph verdict --score 0.91 --status pass --evidence "pixel diff ok"
+plugins/grok-harnessing/bin/grok-build.py code-review create "review current changes"
+plugins/grok-harnessing/bin/grok-build.py analyze create --focus "plugin surface"
+plugins/grok-harnessing/bin/grok-build.py ask create "review this architecture" --provider codex --dry-run
+plugins/grok-harnessing/bin/grok-build.py configure-notifications set --channel console --target stdout --enabled
+plugins/grok-harnessing/bin/grok-build.py design add "Team backend" "Use tmux windows" --rationale "durable coordination"
+plugins/grok-harnessing/bin/grok-build.py deep-interview create "team mode requirements"
+plugins/grok-harnessing/bin/grok-build.py autoresearch create "How should team mode work?"
+plugins/grok-harnessing/bin/grok-build.py autoresearch-goal create "What is safest?" --hypotheses "A;B"
+plugins/grok-harnessing/bin/grok-build.py autoresearch-goal critique --verdict pass --critic professor --evidence "sources verified"
+plugins/grok-harnessing/bin/grok-build.py ai-slop-cleaner create --scope README.md --verification self-test
+plugins/grok-harnessing/bin/grok-build.py worker ack worker-1 "fix tests"
+plugins/grok-harnessing/bin/grok-build.py ralph create "iterate until tests pass" --max-iterations 3
+plugins/grok-harnessing/bin/grok-build.py ultrawork create "ship batch" --tasks "one;two"
+plugins/grok-harnessing/bin/grok-build.py ultrawork update --task 1 --status complete --evidence "verified"
+plugins/grok-harnessing/bin/grok-build.py wiki add "Decision" "Use tmux backend" --tags team
+plugins/grok-harnessing/bin/grok-build.py wiki search tmux
+plugins/grok-harnessing/bin/grok-build.py ralplan create "Consensus plan" --steps "design;verify"
+plugins/grok-harnessing/bin/grok-build.py ralplan review --verdict approve --reviewer architect --evidence "looks safe"
+plugins/grok-harnessing/bin/grok-build.py plan create "ship grok-build MVP"
+plugins/grok-harnessing/bin/grok-build.py goal create "ship durable goal" --checklist "design;test;verify"
+plugins/grok-harnessing/bin/grok-build.py cancel --scope goal,plan
+plugins/grok-harnessing/bin/grok-build.py ultraqa "verify plugin install and MCP smoke" --no-run
 plugins/grok-harnessing/bin/lfg slash '/team 3:executor "fix tests"' --dry-run
 ```
 
@@ -104,6 +129,8 @@ The main power feature is durable team execution. `/team` is the Grok-facing com
 Example target flow inside Grok:
 
 ```text
+/team providers
+/team preflight
 /team 3:executor "fix the failing tests with verification"
 /team status <team-name>
 /team resume <team-name>
@@ -114,11 +141,15 @@ Equivalent local runtime commands:
 
 ```sh
 plugins/grok-harnessing/bin/lfg backend start
+plugins/grok-harnessing/bin/lfg team providers
+plugins/grok-harnessing/bin/lfg team preflight
 plugins/grok-harnessing/bin/lfg team create 3:executor "fix the failing tests with verification"
 plugins/grok-harnessing/bin/lfg team status <team-name>
 plugins/grok-harnessing/bin/lfg team resume <team-name>
 plugins/grok-harnessing/bin/lfg team shutdown <team-name>
 ```
+
+Before starting a real team, run `/team preflight` or `lfg team preflight`. It checks tmux/backend readiness, lists provider availability, and returns actionable next commands including provider listing, backend attach/status, and a noop smoke team command.
 
 Default team providers rotate through:
 
@@ -128,6 +159,22 @@ claude --permission-mode bypassPermissions ...
 codex ...
 ```
 
+The smoke-safe provider is:
+
+```text
+noop
+```
+
+## Install `lfg` / `ulw` CLI symlinks
+
+For local shell use, install `lfg` and its short ultrawork alias `ulw` into PATH with:
+
+```sh
+scripts/install-lfg-symlink.sh
+```
+
+This creates symlinks for `lfg`, `ulw`, and the sibling `grok-build.py` wrapper target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg` default launch, `lfg --json status`, `lfg --json doctor`, and `ulw --json status`. Running either `lfg` or `ulw` with no arguments starts the same tmux backend and attaches when launched from an interactive terminal.
+
 ## Verify
 
 Run the plugin self-test:
@@ -136,14 +183,37 @@ Run the plugin self-test:
 plugins/grok-harnessing/bin/self-test.sh
 ```
 
+Run a real local Grok install/discovery smoke when `~/.grok/bin/grok` is available:
+
+```sh
+plugins/grok-harnessing/bin/grok-install-smoke.sh
+```
+
+Run the full local+remote release-readiness gate after pushing `p1` and updating the preview tag:
+
+```sh
+scripts/verify-release-readiness-all.sh p1 grok-build-v0.3.0-p1
+```
+
+Expected evidence:
+
+```text
+release-readiness-all=ok
+```
+
 Expected Grok discovery signal after install:
 
 ```text
-grok-build v0.2.0
+grok-build v0.3.0
   28 skills, hooks: active, 1 MCP servers
 ```
 
-The self-test checks manifests, required files, hook smoke, token-like redaction, MCP initialization, and MCP tool listing.
+The self-test checks manifests, required files, hook smoke, token-like redaction, MCP initialization, MCP tool listing, installed `lfg` symlink entrypoints, team preflight/provider gates, and the runtime smoke matrix.
+
+Runtime smoke coverage tracks the implemented OMX-like feature matrices under `plugins/grok-harnessing/docs/features/`; all matrix rows must pass for `runtime-smoke-coverage=100%`.
+
+See [`docs/SMOKE.md`](docs/SMOKE.md) for the complete local, real-Grok, and GitHub Actions smoke procedure.
+See [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) for the release gate checklist.
 
 ## Layout
 
@@ -158,6 +228,7 @@ plugins/grok-harnessing/
   agents/harness.toml
   bin/grok-build.py                      # OMX-like MVP runtime
   bin/lfg                                # tmux backend wrapper
+  bin/ulw                                # short alias for the same backend
   bin/grok-build-mcp.py                  # stdio JSON-RPC MCP server
   bin/self-test.sh                       # local smoke test
   catalog/omx-skill-map.json             # oh-my-codex to Grok skill map
