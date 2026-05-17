@@ -1,0 +1,29 @@
+name: grok-build smoke
+
+on:
+  push:
+    branches: [main, p1]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tmux
+
+      - name: Verify Python syntax
+        run: |
+          python3 -m py_compile \
+            plugins/grok-harnessing/bin/grok-build.py \
+            plugins/grok-harnessing/bin/grok-build-mcp.py
+
+      - name: Run plugin self-test
+        run: plugins/grok-harnessing/bin/self-test.sh
