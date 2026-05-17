@@ -26,11 +26,11 @@ TOOLS = [
     },
     {
         "name": "grok_build_runtime",
-        "description": "Run a safe grok-build runtime query such as status, catalog, doctor, plan_list, wiki_list, wiki_search, backend_status, or team_status.",
+        "description": "Run a safe grok-build runtime query such as status, catalog, doctor, hud, plan_list, wiki_list, wiki_search, backend_status, or team_status.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "plan_list", "wiki_list", "wiki_search", "backend_status", "team_status"]},
+                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "hud", "plan_list", "wiki_list", "wiki_search", "backend_status", "team_status"]},
                 "team": {"type": "string"},
                 "query": {"type": "string"}
             },
@@ -62,6 +62,15 @@ TOOLS = [
                 "dryRun": {"type": "boolean", "default": True}
             },
             "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_hud",
+        "description": "Return compact LFG workflow status summary.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"text": {"type": "boolean", "default": False}},
             "additionalProperties": False
         },
     },
@@ -190,6 +199,8 @@ def handle_tool(name, arguments=None):
             cmd += ["catalog"]
         elif action == "doctor":
             cmd += ["doctor"]
+        elif action == "hud":
+            cmd += ["hud"]
         elif action == "plan_list":
             cmd += ["plan", "list"]
         elif action == "wiki_list":
@@ -229,6 +240,12 @@ def handle_tool(name, arguments=None):
                 cmd += [arguments["team"]]
         else:
             raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_hud":
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "hud"]
+        if arguments.get("text"):
+            cmd += ["--text"]
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_cancel":

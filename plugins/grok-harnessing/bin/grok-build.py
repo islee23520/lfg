@@ -174,6 +174,44 @@ def catalog(_: argparse.Namespace) -> dict[str, Any]:
     return {"pluginRoot": str(ROOT), "catalogPath": str(CATALOG_PATH), **data}
 
 
+
+def hud(args: argparse.Namespace) -> dict[str, Any]:
+    """Return a compact workflow status summary."""
+    ensure_dirs()
+    goals = list_goals()
+    plans = list_plans()
+    teams = [read_json(p) for p in sorted(team_dir().glob("*.json"))] if team_dir().exists() else []
+    notes = wiki_notes()
+    last_ultraqa = read_json(STATE_DIR / "last-ultraqa.json", None)
+    last_cancel = read_json(STATE_DIR / "last-cancel.json", None)
+    summary = {
+        "ok": True,
+        "plugin": "grok-build",
+        "version": read_json(ROOT / ".grok-plugin" / "plugin.json", {}).get("version"),
+        "pluginData": str(DATA),
+        "counts": {
+            "goals": len(goals),
+            "activeGoals": len([g for g in goals if g.get("status") == "active"]),
+            "plans": len(plans),
+            "teams": len(teams),
+            "wikiNotes": len(notes),
+        },
+        "current": {
+            "goal": read_json(STATE_DIR / "current-goal.json", None),
+            "plan": read_json(STATE_DIR / "current-plan.json", None),
+            "team": read_json(STATE_DIR / "current-team.json", None),
+            "lastUltraqa": last_ultraqa,
+            "lastCancel": last_cancel,
+        },
+    }
+    if args.text:
+        summary["text"] = (
+            f"grok-build {summary['version']} | goals {summary['counts']['goals']} "
+            f"(active {summary['counts']['activeGoals']}) | plans {summary['counts']['plans']} | "
+            f"teams {summary['counts']['teams']} | wiki {summary['counts']['wikiNotes']}"
+        )
+    return summary
+
 def status(args: argparse.Namespace) -> dict[str, Any]:
     goals = list_goals()
     return {
@@ -565,6 +603,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("catalog").set_defaults(fn=catalog)
     sub.add_parser("status").set_defaults(fn=status)
     sub.add_parser("doctor").set_defaults(fn=doctor)
+    hp = sub.add_parser("hud")
+    hp.add_argument("--text", action="store_true")
+    hp.set_defaults(fn=hud)
     cp = sub.add_parser("cancel")
     cp.add_argument("--scope", default="all", help="comma list: goal,plan,team,ultraqa or all")
     cp.set_defaults(fn=cancel)

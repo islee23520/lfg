@@ -409,6 +409,50 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertFalse((pathlib.Path(self.tmp.name) / "state" / "current-goal.json").exists())
         self.assertTrue((pathlib.Path(self.tmp.name) / "state" / "goals" / "cancel-goal.json").exists())
 
+    def test_hud_summarizes_workflow_state(self) -> None:
+        self.run_lfg("goal", "create", "HUD goal")
+        self.run_lfg("plan", "create", "HUD plan")
+        self.run_lfg("wiki", "add", "HUD note", "body")
+        hud = self.run_lfg("hud", "--text")
+        self.assertTrue(hud["ok"])
+        self.assertEqual(hud["counts"]["goals"], 1)
+        self.assertEqual(hud["counts"]["activeGoals"], 1)
+        self.assertEqual(hud["counts"]["plans"], 1)
+        self.assertEqual(hud["counts"]["wikiNotes"], 1)
+        self.assertIn("grok-build", hud["text"])
+
+    def test_mcp_hud_tool(self) -> None:
+        self.run_lfg("goal", "create", "MCP HUD goal")
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_hud", "arguments": {"text": True}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+        payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        self.assertEqual(payload["returncode"], 0)
+        self.assertIn('"goals": 1', payload["stdout"])
+        self.assertIn('"text": "grok-build', payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
