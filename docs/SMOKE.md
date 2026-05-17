@@ -21,12 +21,13 @@ mcp-stdio-isolation=ok
 state-schema-versioning=ok
 release-notes=ok
 marketplace-source=ok
+grok-hook-discovery=ok
 team-dry-run=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
 
-The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, marketplace release-note coverage, hosted marketplace source coverage, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
+The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, marketplace release-note coverage, hosted marketplace source coverage, Grok hook discovery/replay coverage, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
 
 
 ## Local `lfg` symlink install smoke
@@ -58,6 +59,24 @@ Expected terminal evidence:
 ```text
 lfg-launch-smoke=ok
 ```
+
+## Focused Grok hook discovery smoke
+
+Run the real Grok inspect + hook replay gate:
+
+```sh
+scripts/verify-grok-hook-discovery.sh
+```
+
+Expected terminal evidence:
+
+```text
+grok-hook-discovery=ok
+hook-event-replay=ok
+grok-headless-session=ok
+```
+
+The script syncs the plugin, verifies real `grok inspect --json` discovers the installed plugin hook file, replays a Grok-style hook event through the installed hook script, verifies redaction, and runs a short real Grok headless session.
 
 ## Focused marketplace source smoke
 

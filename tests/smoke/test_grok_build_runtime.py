@@ -178,6 +178,14 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("team status", team_lifecycle_script)
         self.assertIn("team resume", team_lifecycle_script)
         self.assertIn("team shutdown", team_lifecycle_script)
+        hook_discovery = REPO / "scripts" / "verify-grok-hook-discovery.sh"
+        self.assertTrue(os.access(hook_discovery, os.X_OK))
+        hook_discovery_script = hook_discovery.read_text(encoding="utf-8")
+        self.assertIn("grok-hook-discovery=ok", hook_discovery_script)
+        self.assertIn("hook-event-replay=ok", hook_discovery_script)
+        self.assertIn("grok-headless-session=ok", hook_discovery_script)
+        hook_doc = (REPO / "docs" / "HOOK_EVIDENCE.md").read_text(encoding="utf-8")
+        self.assertIn("scripts/grok-build-audit-hook.sh", hook_doc)
         marketplace_source = REPO / "scripts" / "verify-marketplace-source.sh"
         self.assertTrue(os.access(marketplace_source, os.X_OK))
         marketplace_source_script = marketplace_source.read_text(encoding="utf-8")

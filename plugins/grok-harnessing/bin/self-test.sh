@@ -12,12 +12,21 @@ for rel in [".grok-plugin/plugin.json", ".claude-plugin/plugin.json", "hooks/hoo
 for rel in ["skills/grok-harnessing/SKILL.md", "agents/harness.toml", "hooks/scripts/grok-build-audit-hook.sh", "bin/grok-build-mcp.py", "bin/grok-install-smoke.sh"]:
     assert (root / rel).exists(), rel
 assert (root / "bin/grok-install-smoke.sh").stat().st_mode & 0o111, "bin/grok-install-smoke.sh executable"
+hooks = json.loads((root / "hooks/hooks.json").read_text())["hooks"]
+hook_commands = {h["command"] for entries in hooks.values() for entry in entries for h in entry["hooks"]}
+assert "scripts/grok-build-audit-hook.sh" in hook_commands, hook_commands
 repo = root.parents[1]
 install_lfg = (repo / "scripts/install-lfg-symlink.sh").read_text()
 launch_lfg = (repo / "scripts/verify-lfg-launch.sh").read_text()
 assert "lfg-launch-smoke=ok" in launch_lfg
 assert "tmux has-session" in launch_lfg
 assert (repo / "scripts/verify-lfg-launch.sh").stat().st_mode & 0o111, "scripts/verify-lfg-launch.sh executable"
+hook_discovery = (repo / "scripts/verify-grok-hook-discovery.sh").read_text()
+assert "grok-hook-discovery=ok" in hook_discovery
+assert "hook-event-replay=ok" in hook_discovery
+assert "grok-headless-session=ok" in hook_discovery
+assert (repo / "docs/HOOK_EVIDENCE.md").exists(), "docs/HOOK_EVIDENCE.md"
+assert (repo / "scripts/verify-grok-hook-discovery.sh").stat().st_mode & 0o111, "scripts/verify-grok-hook-discovery.sh executable"
 marketplace_source = (repo / "scripts/verify-marketplace-source.sh").read_text()
 assert "marketplace-source=ok" in marketplace_source
 assert "marketplace-remote-source=ok" in marketplace_source
@@ -50,7 +59,7 @@ assert "actions/checkout@v5" in workflow
 assert "sudo apt-get install -y tmux" in workflow
 assert "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24" in workflow
 smoke_doc = (repo / "docs/SMOKE.md").read_text()
-for required in ["plugins/grok-harnessing/bin/self-test.sh", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "scripts/verify-mcp-stdio-isolation.sh", "scripts/verify-state-schema.sh", "scripts/verify-release-notes.sh", "scripts/verify-marketplace-source.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "scripts/verify-remote-smoke.sh p1", "runtime-smoke-coverage=100%", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "lfg-launch-smoke=ok", "team-tmux-lifecycle=ok", "mcp-stdio-isolation=ok", "state-schema-versioning=ok", "release-notes=ok", "marketplace-source=ok", "grok-install-smoke=ok skills=28", "remote-smoke=ok"]:
+for required in ["plugins/grok-harnessing/bin/self-test.sh", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "scripts/verify-mcp-stdio-isolation.sh", "scripts/verify-state-schema.sh", "scripts/verify-release-notes.sh", "scripts/verify-marketplace-source.sh", "scripts/verify-grok-hook-discovery.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "scripts/verify-remote-smoke.sh p1", "runtime-smoke-coverage=100%", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "lfg-launch-smoke=ok", "team-tmux-lifecycle=ok", "mcp-stdio-isolation=ok", "state-schema-versioning=ok", "release-notes=ok", "marketplace-source=ok", "grok-hook-discovery=ok", "hook-event-replay=ok", "grok-headless-session=ok", "grok-install-smoke=ok skills=28", "remote-smoke=ok"]:
     assert required in smoke_doc, required
 roadmap = (repo / "ROADMAP.md").read_text()
 assert "- [x] Add behavioral smoke tests per workflow." in roadmap
@@ -65,7 +74,7 @@ assert "state-schema-versioning=ok" in roadmap
 assert "mcp-stdio-isolation=ok" in roadmap
 assert "team-tmux-lifecycle=ok" in roadmap
 release_doc = (repo / "docs/RELEASE_CHECKLIST.md").read_text()
-for required in ["runtime-smoke-coverage=100%", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "team-tmux-lifecycle=ok", "mcp-stdio-isolation=ok", "state-schema-versioning=ok", "release-notes=ok", "marketplace-source=ok", "grok-install-smoke=ok skills=28 key_skills_present", "remote-smoke=ok", "roadmap=27/27", "feature_docs=27/27", "linalab-io-framework/grok-build", "grok_marketplace", "agents_marketplace"]:
+for required in ["runtime-smoke-coverage=100%", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "team-tmux-lifecycle=ok", "mcp-stdio-isolation=ok", "state-schema-versioning=ok", "release-notes=ok", "marketplace-source=ok", "grok-hook-discovery=ok", "hook-event-replay=ok", "grok-headless-session=ok", "grok-install-smoke=ok skills=28 key_skills_present", "remote-smoke=ok", "roadmap=27/27", "feature_docs=27/27", "linalab-io-framework/grok-build", "grok_marketplace", "agents_marketplace"]:
     assert required in release_doc, required
 remote_smoke = (repo / "scripts/verify-remote-smoke.sh").read_text()
 assert "gh run list" in remote_smoke
