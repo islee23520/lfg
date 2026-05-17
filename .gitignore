@@ -1,0 +1,6 @@
+.DS_Store
+.omx/
+.omo/
+target/
+/tmp/
+*.log

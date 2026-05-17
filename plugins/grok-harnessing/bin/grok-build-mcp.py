@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""Minimal stdio MCP server for linalab-io-frakework/grok-build.
+
+Provides catalog/status tools for the Grok adaptation of oh-my-codex.
+"""
+import json
+import os
+import pathlib
+import sys
+import subprocess
+
+SERVER_INFO = {"name": "grok-build-harness", "version": "0.2.0"}
+ROOT = pathlib.Path(os.environ.get("GROK_PLUGIN_ROOT") or pathlib.Path(__file__).resolve().parents[1])
+DATA = pathlib.Path(os.environ.get("GROK_PLUGIN_DATA") or pathlib.Path.home() / ".grok" / "plugin-data" / "grok-build")
+
+TOOLS = [
+    {
+        "name": "grok_build_catalog",
+        "description": "Return the OMX-to-Grok skill catalog for linalab-io-frakework/grok-build.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "grok_build_status",
+        "description": "Return install/status paths for the grok-build plugin.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "grok_build_runtime",
+        "description": "Run a safe grok-build runtime query such as status, backend_status, or team_status.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["status", "catalog", "backend_status", "team_status"]},
+                "team": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+]
+
+
+def respond(message, result=None, error=None):
+    if "id" not in message:
+        return
+    payload = {"jsonrpc": "2.0", "id": message.get("id")}
+    if error is not None:
+        payload["error"] = error
+    else:
+        payload["result"] = result if result is not None else {}
+    print(json.dumps(payload, separators=(",", ":")), flush=True)
+
+
+def text_result(value):
+    return {"content": [{"type": "text", "text": json.dumps(value, indent=2, ensure_ascii=False)}]}
+
+
+def handle_tool(name, arguments=None):
+    arguments = arguments or {}
+    if name == "grok_build_catalog":
+        path = ROOT / "catalog" / "omx-skill-map.json"
+        return text_result(json.loads(path.read_text()))
+    if name == "grok_build_status":
+        return text_result({
+            "pluginRoot": str(ROOT),
+            "pluginData": str(DATA),
+            "catalogExists": (ROOT / "catalog" / "omx-skill-map.json").exists(),
+            "skillsDir": str(ROOT / "skills"),
+            "hooksFile": str(ROOT / "hooks" / "hooks.json"),
+            "runtime": str(ROOT / "bin" / "lfg"),
+        })
+    if name == "grok_build_runtime":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json"]
+        if action == "status":
+            cmd += ["status"]
+        elif action == "catalog":
+            cmd += ["catalog"]
+        elif action == "backend_status":
+            cmd += ["backend", "status"]
+        elif action == "team_status":
+            cmd += ["team", "status"] + ([arguments["team"]] if arguments.get("team") else [])
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    raise KeyError(name)
+
+
+def handle(message):
+    method = message.get("method")
+    if method == "initialize":
+        respond(message, {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}}, "serverInfo": SERVER_INFO})
+    elif method == "notifications/initialized":
+        return
+    elif method == "tools/list":
+        respond(message, {"tools": TOOLS})
+    elif method == "tools/call":
+        try:
+            name = (message.get("params") or {}).get("name")
+            respond(message, handle_tool(name, (message.get("params") or {}).get("arguments") or {}))
+        except Exception as exc:
+            respond(message, error={"code": -32000, "message": str(exc)})
+    elif method == "ping":
+        respond(message, {})
+    else:
+        respond(message, error={"code": -32601, "message": f"Method not found: {method}"})
+
+
+def main():
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            handle(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+
+if __name__ == "__main__":
+    main()

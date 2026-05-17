@@ -1,0 +1,25 @@
+{
+  "name": "grok-build",
+  "version": "0.2.0",
+  "description": "OMX-like workflow/plugins for Grok Build, inspired by oh-my-codex.",
+  "author": {
+    "name": "linalab-io-frakework"
+  },
+  "homepage": "https://github.com/islee23520/lfg",
+  "repository": "https://github.com/islee23520/lfg",
+  "skills": "./skills",
+  "agents": "./agents",
+  "mcpServers": "./.mcp.json",
+  "lspServers": "./.lsp.json",
+  "metadata": {
+    "packageName": "linalab-io-frakework/grok-build",
+    "compatibility": [
+      "grok",
+      "claude-code",
+      "agents-md"
+    ],
+    "lfg": true,
+    "reference": "https://github.com/Yeachan-Heo/oh-my-codex",
+    "scope": "Match what oh-my-codex brings to Codex, adapted for Grok Build."
+  }
+}
