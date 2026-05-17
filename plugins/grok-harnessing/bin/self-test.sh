@@ -18,6 +18,10 @@ launch_lfg = (repo / "scripts/verify-lfg-launch.sh").read_text()
 assert "lfg-launch-smoke=ok" in launch_lfg
 assert "tmux has-session" in launch_lfg
 assert (repo / "scripts/verify-lfg-launch.sh").stat().st_mode & 0o111, "scripts/verify-lfg-launch.sh executable"
+state_schema = (repo / "scripts/verify-state-schema.sh").read_text()
+assert "state-schema-versioning=ok" in state_schema
+assert "state-schema-doctor=ok" in state_schema
+assert (repo / "scripts/verify-state-schema.sh").stat().st_mode & 0o111, "scripts/verify-state-schema.sh executable"
 mcp_stdio = (repo / "scripts/verify-mcp-stdio-isolation.sh").read_text()
 assert "mcp-stdio-isolation=ok" in mcp_stdio
 assert "mcp-stderr-isolated=ok" in mcp_stdio
@@ -37,15 +41,17 @@ assert "actions/checkout@v5" in workflow
 assert "sudo apt-get install -y tmux" in workflow
 assert "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24" in workflow
 smoke_doc = (repo / "docs/SMOKE.md").read_text()
-for required in ["plugins/grok-harnessing/bin/self-test.sh", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "scripts/verify-mcp-stdio-isolation.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "scripts/verify-remote-smoke.sh p1", "runtime-smoke-coverage=100%", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "lfg-launch-smoke=ok", "team-tmux-lifecycle=ok", "mcp-stdio-isolation=ok", "grok-install-smoke=ok skills=28", "remote-smoke=ok"]:
+for required in ["plugins/grok-harnessing/bin/self-test.sh", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "scripts/verify-mcp-stdio-isolation.sh", "scripts/verify-state-schema.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "scripts/verify-remote-smoke.sh p1", "runtime-smoke-coverage=100%", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "lfg-launch-smoke=ok", "team-tmux-lifecycle=ok", "mcp-stdio-isolation=ok", "state-schema-versioning=ok", "grok-install-smoke=ok skills=28", "remote-smoke=ok"]:
     assert required in smoke_doc, required
 roadmap = (repo / "ROADMAP.md").read_text()
 assert "- [x] Add behavioral smoke tests per workflow." in roadmap
 assert "- [x] MCP stderr isolation." in roadmap
+assert "- [x] State migration/versioning." in roadmap
+assert "state-schema-versioning=ok" in roadmap
 assert "mcp-stdio-isolation=ok" in roadmap
 assert "team-tmux-lifecycle=ok" in roadmap
 release_doc = (repo / "docs/RELEASE_CHECKLIST.md").read_text()
-for required in ["runtime-smoke-coverage=100%", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "team-tmux-lifecycle=ok", "mcp-stdio-isolation=ok", "grok-install-smoke=ok skills=28 key_skills_present", "remote-smoke=ok", "roadmap=27/27", "feature_docs=27/27", "linalab-io-framework/grok-build", "grok_marketplace", "agents_marketplace"]:
+for required in ["runtime-smoke-coverage=100%", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "team-tmux-lifecycle=ok", "mcp-stdio-isolation=ok", "state-schema-versioning=ok", "grok-install-smoke=ok skills=28 key_skills_present", "remote-smoke=ok", "roadmap=27/27", "feature_docs=27/27", "linalab-io-framework/grok-build", "grok_marketplace", "agents_marketplace"]:
     assert required in release_doc, required
 remote_smoke = (repo / "scripts/verify-remote-smoke.sh").read_text()
 assert "gh run list" in remote_smoke
@@ -98,6 +104,7 @@ print("mcp-smoke=ok")
 PY
 
 "$ROOT/../../scripts/verify-mcp-stdio-isolation.sh"
+"$ROOT/../../scripts/verify-state-schema.sh"
 
 TEAM_JSON="$($ROOT/bin/lfg --json team create 3:executor "self-test dry run" --dry-run)"
 TEAM_JSON="$TEAM_JSON" python3 - <<'PY'

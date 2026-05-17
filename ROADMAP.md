@@ -146,7 +146,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 - [ ] Hook event evidence from real Grok sessions.
 - [x] MCP stderr isolation.
-- [ ] State migration/versioning.
+- [x] State migration/versioning.
 - [ ] Release tags.
 - [ ] Marketplace release notes.
 
@@ -186,6 +186,8 @@ Each OMX-like feature should land with:
 5. Grok install/inspect verification when plugin metadata changes.
 
 Current feature coverage:
+
+Behavioral smoke gates now include state schema/versioning evidence: `state-schema-file=ok`, `state-schema-doctor=ok`, and `state-schema-versioning=ok`.
 
 Behavioral smoke gates now include MCP stdio isolation evidence: `mcp-stdout-jsonrpc=ok`, `mcp-stderr-isolated=ok`, and `mcp-stdio-isolation=ok`.
 

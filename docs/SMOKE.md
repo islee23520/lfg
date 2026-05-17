@@ -18,12 +18,13 @@ marketplace-metadata=ok
 hook-smoke=ok
 mcp-smoke=ok
 mcp-stdio-isolation=ok
+state-schema-versioning=ok
 team-dry-run=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
 
-The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
+The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
 
 
 ## Local `lfg` symlink install smoke
@@ -55,6 +56,24 @@ Expected terminal evidence:
 ```text
 lfg-launch-smoke=ok
 ```
+
+## Focused state schema/versioning smoke
+
+Run the state schema gate:
+
+```sh
+scripts/verify-state-schema.sh
+```
+
+Expected terminal evidence:
+
+```text
+state-schema-file=ok
+state-schema-doctor=ok
+state-schema-versioning=ok
+```
+
+The script asserts plugin-data state creates `state/schema.json`, records schema version `1`, keeps migration history, and exposes the `state_schema` doctor check.
 
 ## Focused MCP stdio isolation smoke
 

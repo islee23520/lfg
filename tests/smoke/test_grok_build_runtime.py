@@ -57,6 +57,8 @@ class RuntimeSmoke(unittest.TestCase):
         roadmap = (REPO / "ROADMAP.md").read_text(encoding="utf-8")
         self.assertIn("- [x] Add behavioral smoke tests per workflow.", roadmap)
         self.assertIn("- [x] MCP stderr isolation.", roadmap)
+        self.assertIn("- [x] State migration/versioning.", roadmap)
+        self.assertIn("state-schema-versioning=ok", roadmap)
         self.assertIn("mcp-stdio-isolation=ok", roadmap)
         self.assertIn("team-tmux-lifecycle=ok", roadmap)
         skill_names = sorted(
@@ -171,6 +173,11 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("team status", team_lifecycle_script)
         self.assertIn("team resume", team_lifecycle_script)
         self.assertIn("team shutdown", team_lifecycle_script)
+        state_schema = REPO / "scripts" / "verify-state-schema.sh"
+        self.assertTrue(os.access(state_schema, os.X_OK))
+        state_schema_script = state_schema.read_text(encoding="utf-8")
+        self.assertIn("state-schema-versioning=ok", state_schema_script)
+        self.assertIn("state-schema-doctor=ok", state_schema_script)
         mcp_stdio = REPO / "scripts" / "verify-mcp-stdio-isolation.sh"
         self.assertTrue(os.access(mcp_stdio, os.X_OK))
         mcp_stdio_script = mcp_stdio.read_text(encoding="utf-8")
@@ -270,7 +277,7 @@ class RuntimeSmoke(unittest.TestCase):
         report = self.run_lfg("doctor")
         self.assertTrue(report["ok"], report)
         check_names = {check["name"] for check in report["checks"]}
-        for required in {"grok_manifest", "mcp_config", "catalog", "skills", "grok_marketplace", "agents_marketplace", "exe:tmux", "plugin_data"}:
+        for required in {"grok_manifest", "mcp_config", "catalog", "skills", "grok_marketplace", "agents_marketplace", "exe:tmux", "plugin_data", "state_schema"}:
             self.assertIn(required, check_names)
         self.assertEqual(report["failedRequired"], [])
 

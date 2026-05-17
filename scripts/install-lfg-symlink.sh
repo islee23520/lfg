@@ -40,7 +40,7 @@ import json
 obj=json.load(open('/tmp/lfg-doctor.json'))
 assert obj['ok'], obj
 names={c['name'] for c in obj['checks']}
-for required in ['grok_manifest','mcp_config','catalog','skills','grok_marketplace','agents_marketplace','exe:tmux','plugin_data']:
+for required in ['grok_manifest','mcp_config','catalog','skills','grok_marketplace','agents_marketplace','exe:tmux','plugin_data','state_schema']:
     assert required in names, required
 print('lfg-doctor=ok checks=%d warnings=%d' % (len(obj['checks']), len(obj.get('warnings', []))))
 PY

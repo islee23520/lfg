@@ -24,15 +24,42 @@ DATA = pathlib.Path(os.environ.get("GROK_PLUGIN_DATA") or pathlib.Path.home() / 
 STATE_DIR = DATA / "state"
 RUNS_DIR = DATA / "runs"
 CATALOG_PATH = ROOT / "catalog" / "omx-skill-map.json"
+STATE_SCHEMA_VERSION = 1
 
 
 def now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def state_schema_path() -> pathlib.Path:
+    return STATE_DIR / "schema.json"
+
+
+def ensure_state_schema() -> dict[str, Any]:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    path = state_schema_path()
+    current = read_json(path, {}) if path.exists() else {}
+    previous = current.get("version")
+    migrations = list(current.get("migrations", [])) if isinstance(current.get("migrations"), list) else []
+    if previous != STATE_SCHEMA_VERSION:
+        migrations.append({"ts": now(), "from": previous, "to": STATE_SCHEMA_VERSION})
+    schema = {
+        "name": "grok-build-state",
+        "version": STATE_SCHEMA_VERSION,
+        "createdAt": current.get("createdAt") or now(),
+        "updatedAt": now(),
+        "stateDir": str(STATE_DIR),
+        "runsDir": str(RUNS_DIR),
+        "migrations": migrations,
+    }
+    path.write_text(jdump(schema) + "\n", encoding="utf-8")
+    return schema
+
+
 def ensure_dirs() -> None:
     for p in (DATA, STATE_DIR, RUNS_DIR):
         p.mkdir(parents=True, exist_ok=True)
+    ensure_state_schema()
 
 
 def jdump(value: Any) -> str:
@@ -1246,6 +1273,7 @@ def hud(args: argparse.Namespace) -> dict[str, Any]:
     return summary
 
 def status(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
     goals = list_goals()
     return {
         "ok": True,
@@ -1606,6 +1634,8 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
         add(f"exe:{exe}", bool(path), path or "not found", required=required)
     data_ok = DATA.exists() or DATA.parent.exists()
     add("plugin_data", data_ok, str(DATA), required=True)
+    schema = ensure_state_schema()
+    add("state_schema", schema.get("version") == STATE_SCHEMA_VERSION and state_schema_path().exists(), f"{state_schema_path()} version={schema.get('version')}", required=True)
     failed_required = [c for c in checks if c["required"] and not c["ok"]]
     warnings = [c for c in checks if not c["required"] and not c["ok"]]
     return {
