@@ -26,7 +26,10 @@ print('release-tag-policy=ok tag=%s version=%s package=%s' % (tag, version, pack
 PY
 if [[ "$REMOTE" == 1 ]]; then
   SHA="$(git rev-parse "$TAG^{commit}")"
-  REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+  REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
+  if [[ -z "$REMOTE_SHA" ]]; then
+    REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+  fi
   test -n "$REMOTE_SHA"
   test "$SHA" = "$REMOTE_SHA"
   echo "release-tag-remote=ok tag=$TAG commit=${SHA:0:7}"
