@@ -19,6 +19,9 @@ assert "sudo apt-get install -y tmux" in workflow
 smoke_doc = (repo / "docs/SMOKE.md").read_text()
 for required in ["plugins/grok-harnessing/bin/self-test.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "scripts/verify-remote-smoke.sh p1", "runtime-smoke-coverage=100%", "grok-install-smoke=ok skills=28", "remote-smoke=ok"]:
     assert required in smoke_doc, required
+release_doc = (repo / "docs/RELEASE_CHECKLIST.md").read_text()
+for required in ["runtime-smoke-coverage=100%", "grok-install-smoke=ok skills=28 key_skills_present", "remote-smoke=ok", "roadmap=27/27", "feature_docs=27/27", "linalab-io-framework/grok-build", "grok_marketplace", "agents_marketplace"]:
+    assert required in release_doc, required
 remote_smoke = (repo / "scripts/verify-remote-smoke.sh").read_text()
 assert "gh run list" in remote_smoke
 assert "gh run view" in remote_smoke

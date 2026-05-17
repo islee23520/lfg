@@ -1,0 +1,42 @@
+# Release checklist
+
+Use this checklist before merging or tagging `linalab-io-framework/grok-build`.
+
+## Required release gates
+
+- [ ] Local smoke passes with `runtime-smoke-coverage=100%`.
+- [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=28 key_skills_present`.
+- [ ] Remote GitHub Actions smoke passes with `remote-smoke=ok` for the latest pushed commit.
+- [ ] Roadmap coverage guard confirms `roadmap=27/27` non-harness skill surfaces.
+- [ ] Feature-doc coverage guard confirms `feature_docs=27/27` non-harness skill surfaces.
+- [ ] Marketplace metadata still points to `linalab-io-framework/grok-build`.
+- [ ] Doctor diagnostics include `grok_marketplace` and `agents_marketplace` checks.
+
+## Commands
+
+```sh
+plugins/grok-harnessing/bin/self-test.sh
+plugins/grok-harnessing/bin/grok-install-smoke.sh
+scripts/verify-remote-smoke.sh p1
+```
+
+## Expected installed surface
+
+The real Grok inspect smoke must discover exactly 28 skills from the plugin, including:
+
+```text
+team
+ultrawork
+autopilot
+ralplan
+autoresearch-goal
+performance-goal
+visual-ralph
+omx-setup
+doctor
+wiki
+```
+
+## Stop condition
+
+Do not tag or merge unless all commands above pass and the latest GitHub Actions `grok-build smoke` run is `completed` with conclusion `success`.

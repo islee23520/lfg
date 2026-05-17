@@ -186,6 +186,7 @@ The self-test checks manifests, required files, hook smoke, token-like redaction
 Runtime smoke coverage tracks the implemented OMX-like feature matrices under `plugins/grok-harnessing/docs/features/`; all matrix rows must pass for `runtime-smoke-coverage=100%`.
 
 See [`docs/SMOKE.md`](docs/SMOKE.md) for the complete local, real-Grok, and GitHub Actions smoke procedure.
+See [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) for the release gate checklist.
 
 ## Layout
 
