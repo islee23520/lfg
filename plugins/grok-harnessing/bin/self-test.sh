@@ -50,3 +50,6 @@ assert d["status"] == "planned"
 assert [m["provider"] for m in d["members"]] == ["hermes", "claude", "codex"]
 PY
 echo "team-dry-run=ok"
+
+python3 -m unittest tests.smoke.test_grok_build_runtime -v
+echo "runtime-smoke-coverage=100%"

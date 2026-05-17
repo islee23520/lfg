@@ -143,7 +143,9 @@ grok-build v0.2.0
   28 skills, hooks: active, 1 MCP servers
 ```
 
-The self-test checks manifests, required files, hook smoke, token-like redaction, MCP initialization, and MCP tool listing.
+The self-test checks manifests, required files, hook smoke, token-like redaction, MCP initialization, MCP tool listing, and the runtime smoke matrix.
+
+Runtime smoke coverage currently targets the `/team` feature matrix documented in `plugins/grok-harnessing/docs/features/team-runtime.md`; all matrix rows must pass for `runtime-smoke-coverage=100%`.
 
 ## Layout
 

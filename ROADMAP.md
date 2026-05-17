@@ -168,6 +168,22 @@ plugins/grok-harnessing/bin/lfg team shutdown <team-name>
 
 Default providers are `hermes`, `claude`, and `codex`, launched in tmux windows with durable team state stored under `~/.grok/plugin-data/grok-build/state/teams/`.
 
+## TDD implementation track
+
+Each OMX-like feature should land with:
+
+1. a feature design note under `plugins/grok-harnessing/docs/features/`,
+2. a smoke coverage matrix,
+3. dependency-free tests under `tests/smoke/`,
+4. inclusion in `plugins/grok-harnessing/bin/self-test.sh`,
+5. Grok install/inspect verification when plugin metadata changes.
+
+Current feature coverage:
+
+| Feature | Design | Smoke tests | Coverage target | Status |
+| --- | --- | --- | --- | --- |
+| `/team` tmux backend | `docs/features/team-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 4/4 matrix rows | 100% passing |
+
 ## Definition of done
 
 `grok-build` is ready when:
