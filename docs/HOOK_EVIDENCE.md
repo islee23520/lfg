@@ -73,3 +73,21 @@ grok-hooks-list-headless=not-observed reason=max_turns-exceeded
 ```
 
 This confirms that the headless slash surface for `/hooks-list` is not a stable hook evidence source in this version; it can recurse into filesystem inspection and exceed `max_turns`. Use `grok inspect --json`, `/plugins list`, and hook replay gates for deterministic automation until Grok exposes a hook-test command or the interactive TUI/modal path is manually verified.
+
+
+## TUI PTY hook limitation check
+
+Run:
+
+```sh
+scripts/verify-grok-tui-hook-limitation.sh
+```
+
+Observed on local Grok `0.1.211` via `/usr/bin/expect` PTY automation:
+
+```text
+grok-tui-hook-session=attempted
+grok-tui-hook-emission=not-observed grok=0.1.211
+```
+
+This starts real `grok --no-leader --no-alt-screen` in a PTY, submits a prompt that reaches terminal-tool execution (`echo LFG_TUI_HOOK_SESSION`), then checks the plugin audit log. No audit log is emitted in this automated TUI path either.

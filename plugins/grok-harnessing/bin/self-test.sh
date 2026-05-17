@@ -43,6 +43,10 @@ assert (repo / "scripts/verify-grok-hook-headless-limitation.sh").stat().st_mode
 hooks_slash = (repo / "scripts/verify-grok-hooks-slash-limitation.sh").read_text()
 assert "grok-hooks-list-headless=not-observed" in hooks_slash
 assert (repo / "scripts/verify-grok-hooks-slash-limitation.sh").stat().st_mode & 0o111, "scripts/verify-grok-hooks-slash-limitation.sh executable"
+tui_limitation = (repo / "scripts/verify-grok-tui-hook-limitation.sh").read_text()
+assert "grok-tui-hook-session=attempted" in tui_limitation
+assert "grok-tui-hook-emission=not-observed" in tui_limitation
+assert (repo / "scripts/verify-grok-tui-hook-limitation.sh").stat().st_mode & 0o111, "scripts/verify-grok-tui-hook-limitation.sh executable"
 marketplace_source = (repo / "scripts/verify-marketplace-source.sh").read_text()
 assert "marketplace-source=ok" in marketplace_source
 assert "marketplace-remote-source=ok" in marketplace_source
