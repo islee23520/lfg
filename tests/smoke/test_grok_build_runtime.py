@@ -725,6 +725,41 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"title": "MCP design"', payload["stdout"])
         self.assertIn('"decision": "Persist decisions"', payload["stdout"])
 
+    def test_deep_interview_create_answer_show(self) -> None:
+        rec = self.run_lfg("deep-interview", "create", "Team requirements", "--id", "smoke-interview")
+        self.assertEqual(rec["status"], "open")
+        self.assertEqual(len(rec["questions"]), 3)
+        answered = self.run_lfg("deep-interview", "answer", "--id", "smoke-interview", "--question", "1", "Launch tmux team")
+        self.assertEqual(answered["questions"][0]["answer"], "Launch tmux team")
+        shown = self.run_lfg("deep-interview", "show", "--id", "smoke-interview")
+        self.assertEqual(shown["id"], "smoke-interview")
+        self.assertTrue((pathlib.Path(self.tmp.name) / "state" / "current-interview.json").exists())
+
+    def test_mcp_deep_interview_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_deep_interview", "arguments": {"action": "create", "id": "mcp-interview", "topic": "MCP intake"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_deep_interview", "arguments": {"action": "answer", "id": "mcp-interview", "question": 1, "answer": "Verified outcome"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        answer_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(answer_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-interview"', create_payload["stdout"])
+        self.assertIn('"answer": "Verified outcome"', answer_payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

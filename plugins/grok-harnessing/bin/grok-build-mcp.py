@@ -66,6 +66,23 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_deep_interview",
+        "description": "Create/show/answer durable requirement intake interviews.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "answer", "show"]},
+                "id": {"type": "string"},
+                "topic": {"type": "string"},
+                "questions": {"type": "string"},
+                "question": {"type": "integer"},
+                "answer": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_design",
         "description": "Add/list durable design decisions under plugin data.",
         "inputSchema": {
@@ -345,6 +362,27 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_deep_interview":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "deep-interview"]
+        if action == "create":
+            cmd += ["create", arguments.get("topic") or "Untitled interview"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("questions"):
+                cmd += ["--questions", arguments["questions"]]
+        elif action == "answer":
+            cmd += ["answer", "--question", str(arguments.get("question") or 1), arguments.get("answer") or ""]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+        elif action == "show":
+            cmd += ["show"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

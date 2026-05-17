@@ -133,6 +133,69 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def interviews_dir() -> pathlib.Path:
+    return DATA / "interviews"
+
+
+def interview_path(iid: str) -> pathlib.Path:
+    return interviews_dir() / f"{iid}.json"
+
+
+def deep_interview_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    iid = args.id or f"interview-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    questions = [q.strip() for q in re.split(r"\n|;", args.questions or "") if q.strip()]
+    if not questions:
+        questions = [
+            "What exact outcome should be true when this is done?",
+            "What constraints or integrations must not be broken?",
+            "What evidence should prove completion?",
+        ]
+    record = {
+        "id": iid,
+        "topic": args.topic,
+        "status": "open",
+        "createdAt": now(),
+        "updatedAt": now(),
+        "questions": [{"id": i + 1, "question": q, "answer": None} for i, q in enumerate(questions)],
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+    }
+    write_json(interview_path(iid), record)
+    write_json(STATE_DIR / "current-interview.json", {"id": iid, "path": str(interview_path(iid)), "updatedAt": now()})
+    record["path"] = str(interview_path(iid))
+    return record
+
+
+def deep_interview_answer(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-interview.json", {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no interview id and no current interview")
+    record = read_json(interview_path(ref))
+    if not record:
+        raise SystemExit(f"interview not found: {ref}")
+    idx = args.question - 1
+    if idx < 0 or idx >= len(record.get("questions", [])):
+        raise SystemExit(f"question out of range: {args.question}")
+    record["questions"][idx]["answer"] = args.answer
+    record["updatedAt"] = now()
+    if all(q.get("answer") for q in record.get("questions", [])):
+        record["status"] = "answered"
+    write_json(interview_path(ref), record)
+    record["path"] = str(interview_path(ref))
+    return record
+
+
+def deep_interview_show(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-interview.json", {}) or {}).get("id")
+    if not ref:
+        return {"interviews": []}
+    record = read_json(interview_path(ref))
+    if not record:
+        raise SystemExit(f"interview not found: {ref}")
+    record["path"] = str(interview_path(ref))
+    return record
+
 def design_dir() -> pathlib.Path:
     return DATA / "design"
 
@@ -917,6 +980,23 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    dip = sub.add_parser("deep-interview")
+    disub = dip.add_subparsers(dest="deep_interview_cmd", required=True)
+    dic = disub.add_parser("create")
+    dic.add_argument("topic")
+    dic.add_argument("--id")
+    dic.add_argument("--questions")
+    dic.set_defaults(fn=deep_interview_create)
+    dia = disub.add_parser("answer")
+    dia.add_argument("--id")
+    dia.add_argument("--question", type=int, required=True)
+    dia.add_argument("answer")
+    dia.set_defaults(fn=deep_interview_answer)
+    dish = disub.add_parser("show")
+    dish.add_argument("--id")
+    dish.set_defaults(fn=deep_interview_show)
 
     dp = sub.add_parser("design")
     dsub = dp.add_subparsers(dest="design_cmd", required=True)
