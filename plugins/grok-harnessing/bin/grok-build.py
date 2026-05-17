@@ -374,6 +374,42 @@ def team_shutdown(args: argparse.Namespace) -> dict[str, Any]:
     return team
 
 
+
+def doctor(args: argparse.Namespace) -> dict[str, Any]:
+    """Diagnose the local grok-build plugin/runtime installation."""
+    ensure_dirs()
+    checks = []
+
+    def add(name: str, ok: bool, evidence: str, required: bool = True) -> None:
+        checks.append({"name": name, "ok": bool(ok), "required": required, "evidence": evidence})
+
+    manifest = ROOT / ".grok-plugin" / "plugin.json"
+    add("grok_manifest", manifest.exists(), str(manifest))
+    mcp_config = ROOT / ".mcp.json"
+    add("mcp_config", mcp_config.exists(), str(mcp_config))
+    catalog_file = ROOT / "catalog" / "omx-skill-map.json"
+    catalog_data = read_json(catalog_file, {"skills": []})
+    add("catalog", catalog_file.exists() and len(catalog_data.get("skills", [])) >= 28, f"{catalog_file} skills={len(catalog_data.get('skills', []))}")
+    skills_dir = ROOT / "skills"
+    skill_count = len(list(skills_dir.glob("*/SKILL.md"))) if skills_dir.exists() else 0
+    add("skills", skill_count >= 28, f"{skills_dir} skill_count={skill_count}")
+    for exe, required in [("tmux", True), ("hermes", False), ("claude", False), ("codex", False), ("grok", False)]:
+        path = shutil.which(exe)
+        add(f"exe:{exe}", bool(path), path or "not found", required=required)
+    data_ok = DATA.exists() or DATA.parent.exists()
+    add("plugin_data", data_ok, str(DATA), required=True)
+    failed_required = [c for c in checks if c["required"] and not c["ok"]]
+    warnings = [c for c in checks if not c["required"] and not c["ok"]]
+    return {
+        "ok": not failed_required,
+        "status": "pass" if not failed_required else "fail",
+        "pluginRoot": str(ROOT),
+        "pluginData": str(DATA),
+        "checks": checks,
+        "failedRequired": failed_required,
+        "warnings": warnings,
+    }
+
 def slash(args: argparse.Namespace) -> dict[str, Any]:
     """Parse a Grok slash-command string into an LFG runtime action.
 
@@ -421,6 +457,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("catalog").set_defaults(fn=catalog)
     sub.add_parser("status").set_defaults(fn=status)
+    sub.add_parser("doctor").set_defaults(fn=doctor)
 
     gp = sub.add_parser("goal")
     gsub = gp.add_subparsers(dest="goal_cmd", required=True)

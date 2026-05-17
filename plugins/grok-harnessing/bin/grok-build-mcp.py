@@ -26,11 +26,11 @@ TOOLS = [
     },
     {
         "name": "grok_build_runtime",
-        "description": "Run a safe grok-build runtime query such as status, catalog, backend_status, or team_status.",
+        "description": "Run a safe grok-build runtime query such as status, catalog, doctor, backend_status, or team_status.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["status", "catalog", "backend_status", "team_status"]},
+                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "backend_status", "team_status"]},
                 "team": {"type": "string"}
             },
             "required": ["action"],
@@ -116,6 +116,8 @@ def handle_tool(name, arguments=None):
             cmd += ["status"]
         elif action == "catalog":
             cmd += ["catalog"]
+        elif action == "doctor":
+            cmd += ["doctor"]
         elif action == "backend_status":
             cmd += ["backend", "status"]
         elif action == "team_status":
