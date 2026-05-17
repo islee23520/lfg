@@ -168,6 +168,12 @@ Run the plugin self-test:
 plugins/grok-harnessing/bin/self-test.sh
 ```
 
+Run a real local Grok install/discovery smoke when `~/.grok/bin/grok` is available:
+
+```sh
+plugins/grok-harnessing/bin/grok-install-smoke.sh
+```
+
 Expected Grok discovery signal after install:
 
 ```text
