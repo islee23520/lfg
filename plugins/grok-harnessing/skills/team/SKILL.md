@@ -31,6 +31,27 @@ Use this skill when the user wants durable team execution, especially commands l
 - Store team state under `~/.grok/plugin-data/grok-build/state/teams/`.
 - Do not use this as the default for simple tasks; use it when tmux/worktree/durable coordination is explicitly desired.
 
+## Grok slash-command handling
+
+When the user invokes `/team`, map the slash string to the LFG backend. Prefer the MCP tool `grok_build_slash` when available; otherwise run `bin/lfg slash` from the plugin root.
+
+Examples:
+
+```text
+/team 3:executor "fix the failing tests with verification"
+/team status <team-name>
+/team resume <team-name>
+/team shutdown <team-name>
+```
+
+MCP equivalent:
+
+```json
+{"tool":"grok_build_slash","arguments":{"command":"/team 3:executor \"fix the failing tests with verification\"","dryRun":false}}
+```
+
+Use `dryRun:true` for planning or safety checks. Use `dryRun:false` only when the user clearly wants workers launched.
+
 ## Runtime commands
 
 From the plugin root or repo root:

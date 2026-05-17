@@ -12,11 +12,11 @@ import os
 import pathlib
 import re
 import subprocess
+import shutil
 import sys
 import time
 import uuid
 import shlex
-from dataclasses import dataclass
 from typing import Any
 
 ROOT = pathlib.Path(os.environ.get("GROK_PLUGIN_ROOT") or pathlib.Path(__file__).resolve().parents[1])
@@ -229,15 +229,20 @@ def ultraqa(args: argparse.Namespace) -> dict[str, Any]:
     write_json(STATE_DIR / "last-ultraqa.json", {"id": run["id"], "path": str(RUNS_DIR / f"{run['id']}.json"), "verdict": verdict, "updatedAt": now()})
     return run
 
-
-
-
 def backend_name(args: argparse.Namespace) -> str:
     return args.name or "lfg-backend"
 
 
+def require_executable(name: str) -> str:
+    path = shutil.which(name)
+    if not path:
+        raise SystemExit(f"required executable not found: {name}")
+    return path
+
+
 def backend_start(args: argparse.Namespace) -> dict[str, Any]:
     ensure_dirs()
+    require_executable("tmux")
     name = backend_name(args)
     cwd = pathlib.Path(args.cwd).resolve()
     exists = subprocess.run(["tmux", "has-session", "-t", name], text=True, capture_output=True).returncode == 0
@@ -329,8 +334,7 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
     write_json(team_dir() / f"{name}.json", team)
     write_json(STATE_DIR / "current-team.json", {"name": name, "path": str(team_dir() / f"{name}.json"), "updatedAt": now()})
     if not args.dry_run:
-        if subprocess.run(["command", "-v", "tmux"], shell=True, capture_output=True).returncode != 0:
-            raise SystemExit("tmux not found")
+        require_executable("tmux")
         subprocess.run(["tmux", "new-session", "-d", "-s", name, "-n", "control", "-c", str(cwd), "bash", "-lc", f"echo 'grok-build team {name}'; echo {shlex.quote(objective)}; exec $SHELL"], check=True)
         for m in members:
             subprocess.run(["tmux", "new-window", "-t", name, "-n", m["name"][:20], "-c", str(cwd), "bash", "-lc", m["command"]], check=True)
@@ -369,6 +373,46 @@ def team_shutdown(args: argparse.Namespace) -> dict[str, Any]:
     write_json(path, team)
     return team
 
+
+def slash(args: argparse.Namespace) -> dict[str, Any]:
+    """Parse a Grok slash-command string into an LFG runtime action.
+
+    MVP target: /team 3:executor "task", /team status NAME, /team resume NAME,
+    /team shutdown NAME.  This lets a Grok skill map user-visible slash syntax to
+    the durable tmux backend without duplicating parsing logic in prompt text.
+    """
+    raw = args.command.strip()
+    if not raw.startswith("/"):
+        raise SystemExit("slash command must start with /")
+    parts = shlex.split(raw)
+    if not parts:
+        raise SystemExit("empty slash command")
+    name = parts[0][1:]
+    if name != "team":
+        raise SystemExit(f"unsupported slash command: /{name}")
+    rest = parts[1:]
+    if not rest:
+        return team_status(argparse.Namespace(name=None, cwd=args.cwd))
+    verb = rest[0]
+    if verb in {"status", "resume", "shutdown"}:
+        target = rest[1] if len(rest) > 1 else None
+        ns = argparse.Namespace(name=target, cwd=args.cwd)
+        if verb == "status":
+            return team_status(ns)
+        if verb == "resume":
+            return team_resume(ns)
+        return team_shutdown(ns)
+    if len(rest) < 2:
+        raise SystemExit('usage: /team 3:executor "objective"')
+    return team_create(argparse.Namespace(
+        spec=rest[0],
+        objective=" ".join(rest[1:]),
+        name=args.name,
+        providers=args.providers,
+        dry_run=args.dry_run,
+        cwd=args.cwd,
+    ))
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="grok-build", description="OMX-like MVP runtime for Grok Build plugin")
     p.add_argument("--json", action="store_true")
@@ -406,6 +450,12 @@ def main(argv: list[str] | None = None) -> int:
     uq.set_defaults(fn=ultraqa)
 
 
+    sp = sub.add_parser("slash")
+    sp.add_argument("command", help='slash command, e.g. /team 3:executor "fix tests"')
+    sp.add_argument("--name")
+    sp.add_argument("--providers", default="hermes,claude,codex")
+    sp.add_argument("--dry-run", action="store_true")
+    sp.set_defaults(fn=slash)
 
     bp = sub.add_parser("backend")
     bsub = bp.add_subparsers(dest="backend_cmd", required=True)

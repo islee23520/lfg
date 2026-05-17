@@ -9,7 +9,7 @@ import pathlib
 import sys
 import subprocess
 
-SERVER_INFO = {"name": "grok-build-harness", "version": "0.2.0"}
+SERVER_INFO = {"name": "grok-build-harness", "version": "0.3.0"}
 ROOT = pathlib.Path(os.environ.get("GROK_PLUGIN_ROOT") or pathlib.Path(__file__).resolve().parents[1])
 DATA = pathlib.Path(os.environ.get("GROK_PLUGIN_DATA") or pathlib.Path.home() / ".grok" / "plugin-data" / "grok-build")
 
@@ -26,7 +26,7 @@ TOOLS = [
     },
     {
         "name": "grok_build_runtime",
-        "description": "Run a safe grok-build runtime query such as status, backend_status, or team_status.",
+        "description": "Run a safe grok-build runtime query such as status, catalog, backend_status, or team_status.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -34,6 +34,46 @@ TOOLS = [
                 "team": {"type": "string"}
             },
             "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_backend_start",
+        "description": "Start the LFG tmux backend session used by /team.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_team",
+        "description": "Create/status/resume/shutdown an LFG tmux team. Creation defaults to dryRun=true unless explicitly false.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "status", "resume", "shutdown"]},
+                "spec": {"type": "string", "description": "team spec like 3:executor"},
+                "objective": {"type": "string"},
+                "team": {"type": "string"},
+                "providers": {"type": "string", "description": "comma list, default hermes,claude,codex"},
+                "dryRun": {"type": "boolean", "default": True}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_slash",
+        "description": "Parse and execute an LFG-supported Grok slash command, currently /team. Defaults to dryRun=true.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string"},
+                "providers": {"type": "string"},
+                "dryRun": {"type": "boolean", "default": True}
+            },
+            "required": ["command"],
             "additionalProperties": False
         },
     },
@@ -83,6 +123,41 @@ def handle_tool(name, arguments=None):
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_backend_start":
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "backend", "start"]
+        if arguments.get("name"):
+            cmd += ["--name", arguments["name"]]
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_team":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "team"]
+        if action == "create":
+            spec = arguments.get("spec") or "3:executor"
+            objective = arguments.get("objective") or "coordinate Grok Build team work with verification"
+            cmd += ["create", spec, objective]
+            if arguments.get("team"):
+                cmd += ["--name", arguments["team"]]
+            if arguments.get("providers"):
+                cmd += ["--providers", arguments["providers"]]
+            if arguments.get("dryRun", True):
+                cmd += ["--dry-run"]
+        elif action in {"status", "resume", "shutdown"}:
+            cmd += [action]
+            if arguments.get("team"):
+                cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_slash":
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "slash", arguments["command"]]
+        if arguments.get("providers"):
+            cmd += ["--providers", arguments["providers"]]
+        if arguments.get("dryRun", True):
+            cmd += ["--dry-run"]
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     raise KeyError(name)
 

@@ -81,13 +81,14 @@ After installation, features are invoked as Grok slash commands. Grok should dis
 /grok-harnessing
 ```
 
-The MVP runtime can also be exercised directly during development:
+The `/team` slash command is backed by the same parser exposed through MCP tool `grok_build_slash`. The MVP runtime can also be exercised directly during development:
 
 ```sh
 plugins/grok-harnessing/bin/grok-build.py status
 plugins/grok-harnessing/bin/grok-build.py catalog
 plugins/grok-harnessing/bin/grok-build.py plan "ship grok-build MVP"
 plugins/grok-harnessing/bin/grok-build.py ultraqa "verify plugin install and MCP smoke"
+plugins/grok-harnessing/bin/lfg slash '/team 3:executor "fix tests"' --dry-run
 ```
 
 Runtime state is stored under:

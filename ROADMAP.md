@@ -38,7 +38,7 @@ Grok Build
           ├─ hooks/hooks.json               # hook registration
           ├─ hooks/scripts/*.sh             # fail-open hook scripts
           ├─ .mcp.json                      # MCP registration
-          ├─ bin/grok-build-mcp.py          # stdio MCP server
+          ├─ bin/grok-build-mcp.py          # stdio MCP server with runtime/team tools
           ├─ bin/grok-build.py              # MVP workflow runtime
           ├─ catalog/omx-skill-map.json     # oh-my-codex mapping
           └─ ~/.grok/plugin-data/grok-build # durable runtime state
@@ -114,7 +114,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [x] Add runtime commands: `status`, `catalog`, `goal`, `plan`, `ultraqa`.
 - [x] Store state under `~/.grok/plugin-data/grok-build/`.
 - [x] Expose catalog/status via MCP tools.
-- [ ] Expose runtime actions via MCP tools.
+- [x] Expose runtime actions via MCP tools.
 
 ### M3 — Marketplace-first install
 
@@ -129,7 +129,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [ ] Implement Grok-native `ultragoal` behavior.
 - [ ] Implement Grok-native `ultraqa` behavior.
 - [x] Implement MVP tmux backend for `team create/status/resume/shutdown`.
-- [ ] Wire `/team` arguments directly to the `lfg team` backend.
+- [x] Wire `/team` arguments directly to the `lfg team` backend through `lfg slash` and MCP `grok_build_slash`.
 - [ ] Implement Grok-native `ralph` loop behavior.
 - [ ] Implement Grok-native `wiki` storage/search.
 - [ ] Implement `doctor` diagnostics.

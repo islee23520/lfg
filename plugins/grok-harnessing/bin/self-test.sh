@@ -35,7 +35,10 @@ first=json.loads(p.stdout.readline())
 second=json.loads(p.stdout.readline())
 p.kill()
 assert first["result"]["serverInfo"]["name"] == "grok-build-harness"
-assert any(t["name"] == "grok_build_catalog" for t in second["result"]["tools"])
+names={t["name"] for t in second["result"]["tools"]}
+assert "grok_build_catalog" in names
+assert "grok_build_team" in names
+assert "grok_build_slash" in names
 print("mcp-smoke=ok")
 PY
 
