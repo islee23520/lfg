@@ -5,6 +5,7 @@ Use this checklist before merging or tagging `linalab-io-framework/grok-build`.
 ## Required release gates
 
 - [ ] Local smoke passes with `runtime-smoke-coverage=100%`.
+- [ ] Aggregated local release-readiness smoke passes with `release-readiness-local=ok`.
 - [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=28 key_skills_present`.
 - [ ] Local `lfg` symlink installer passes with `lfg-launch=ok
 lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
@@ -32,6 +33,7 @@ lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 
 ```sh
 plugins/grok-harnessing/bin/self-test.sh
+scripts/verify-release-readiness-local.sh
 scripts/install-lfg-symlink.sh
 scripts/verify-installed-lfg-symlink-surface.sh
 scripts/verify-lfg-inside-tmux-attach.sh

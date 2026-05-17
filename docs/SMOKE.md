@@ -33,6 +33,23 @@ runtime-smoke-coverage=100%
 The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, MCP stdio isolation, state schema/versioning, marketplace release-note coverage, hosted marketplace source coverage, Grok hook discovery/replay coverage, global hook bridge workaround coverage, release tag coverage, Grok `/plugins` installed-surface coverage, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
 
 
+
+## Aggregated local release-readiness smoke
+
+Run the local release-readiness bundle before pushing or tagging:
+
+```sh
+scripts/verify-release-readiness-local.sh
+```
+
+Expected terminal evidence:
+
+```text
+release-readiness-local=ok
+```
+
+This runs the self-test plus focused team preflight/provider, tmux lifecycle, installed `lfg`, and installed MCP surface gates.
+
 ## Local `lfg` symlink install smoke
 
 Install the local `lfg` command into PATH with:
