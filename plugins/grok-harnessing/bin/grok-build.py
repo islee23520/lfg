@@ -128,6 +128,62 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def reviews_dir() -> pathlib.Path:
+    return RUNS_DIR / "code-review"
+
+
+def code_review(args: argparse.Namespace) -> dict[str, Any]:
+    """Create a lightweight durable review report from repo status/diff stats."""
+    ensure_dirs()
+    cwd = pathlib.Path(args.cwd).resolve()
+    def git(cmd: list[str]) -> str:
+        try:
+            return subprocess.check_output(["git", *cmd], cwd=str(cwd), text=True, stderr=subprocess.DEVNULL).strip()
+        except Exception:
+            return ""
+    status_text = git(["status", "--short"])
+    diff_stat = git(["diff", "--stat"])
+    name_only = git(["diff", "--name-only"])
+    files = [x for x in name_only.splitlines() if x.strip()]
+    report_id = f"code-review-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    recommendation = "COMMENT" if files else "APPROVE"
+    architect_status = "WATCH" if files else "CLEAR"
+    report = {
+        "id": report_id,
+        "createdAt": now(),
+        "objective": args.objective,
+        "repo": detect_repo(cwd),
+        "filesChanged": files,
+        "statusShort": status_text.splitlines(),
+        "diffStat": diff_stat,
+        "codeReview": {
+            "recommendation": recommendation,
+            "architectStatus": architect_status,
+            "evidence": "Lightweight runtime review based on git status/diff stat; use full reviewer workflow before merge."
+        },
+        "findings": [] if not files else [{"severity": "LOW", "message": "Uncommitted diff exists; run targeted verification and full review before merge."}],
+    }
+    path = reviews_dir() / f"{report_id}.json"
+    write_json(path, report)
+    write_json(STATE_DIR / "last-code-review.json", {"id": report_id, "path": str(path), "updatedAt": now()})
+    report["path"] = str(path)
+    return report
+
+
+def code_review_list(args: argparse.Namespace) -> dict[str, Any]:
+    reports = []
+    for path in sorted(reviews_dir().glob("*.json")) if reviews_dir().exists() else []:
+        try:
+            item = read_json(path)
+            item["path"] = str(path)
+            reports.append(item)
+        except Exception:
+            pass
+    if args.limit:
+        reports = reports[-args.limit:]
+    return {"count": len(reports), "reports": reports}
+
 def pipeline_dir() -> pathlib.Path:
     return STATE_DIR / "pipelines"
 
@@ -696,6 +752,16 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    crp = sub.add_parser("code-review")
+    crsub = crp.add_subparsers(dest="code_review_cmd", required=True)
+    crc = crsub.add_parser("create")
+    crc.add_argument("objective")
+    crc.set_defaults(fn=code_review)
+    crl = crsub.add_parser("list")
+    crl.add_argument("--limit", type=int)
+    crl.set_defaults(fn=code_review_list)
 
     pip = sub.add_parser("pipeline")
     psub = pip.add_subparsers(dest="pipeline_cmd", required=True)

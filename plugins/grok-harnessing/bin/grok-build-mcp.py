@@ -66,6 +66,19 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_code_review",
+        "description": "Create/list lightweight durable code review reports from git status/diff evidence.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "list"]},
+                "objective": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_pipeline",
         "description": "Create/list/update durable staged workflow pipelines under plugin data.",
         "inputSchema": {
@@ -275,6 +288,17 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_code_review":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "code-review"]
+        if action == "create":
+            cmd += ["create", arguments.get("objective") or "review current changes"]
+        elif action == "list":
+            cmd += ["list"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
