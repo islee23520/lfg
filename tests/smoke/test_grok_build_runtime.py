@@ -152,6 +152,11 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-build.py", install_script)
         self.assertIn("lfg-status=ok", install_script)
         self.assertIn("lfg-doctor=ok", install_script)
+        launch_lfg = REPO / "scripts" / "verify-lfg-launch.sh"
+        self.assertTrue(os.access(launch_lfg, os.X_OK))
+        launch_script = launch_lfg.read_text(encoding="utf-8")
+        self.assertIn("lfg-launch-smoke=ok", launch_script)
+        self.assertIn("tmux has-session", launch_script)
         remote_smoke = REPO / "scripts" / "verify-remote-smoke.sh"
         self.assertTrue(os.access(remote_smoke, os.X_OK))
         remote_script = remote_smoke.read_text(encoding="utf-8")

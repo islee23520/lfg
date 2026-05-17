@@ -42,6 +42,18 @@ lfg-doctor=ok
 
 The script creates symlinks for both `lfg` and its sibling `grok-build.py` target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status` and `lfg --json doctor`.
 
+For a focused default-launch check, run:
+
+```sh
+scripts/verify-lfg-launch.sh
+```
+
+Expected terminal evidence:
+
+```text
+lfg-launch-smoke=ok
+```
+
 ## Real Grok install/discovery smoke
 
 Run when the local Grok binary is available at `~/.grok/bin/grok`:

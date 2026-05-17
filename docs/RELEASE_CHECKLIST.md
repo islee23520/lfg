@@ -19,6 +19,7 @@ lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 ```sh
 plugins/grok-harnessing/bin/self-test.sh
 scripts/install-lfg-symlink.sh
+scripts/verify-lfg-launch.sh
 plugins/grok-harnessing/bin/grok-install-smoke.sh
 scripts/verify-remote-smoke.sh p1
 ```
