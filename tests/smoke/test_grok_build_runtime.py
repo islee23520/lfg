@@ -503,6 +503,15 @@ class RuntimeSmoke(unittest.TestCase):
         current_team = json.loads(current.read_text())
         self.assertEqual(current_team["name"], team["name"])
 
+    def test_team_spawn_inherits_current_ultragoal_context(self) -> None:
+        ug = self.run_lfg("ultragoal", "create", "coordinate swarm", "--id", "team-ulw-ug", "--checklist", "plan;execute;verify")
+        self.assertEqual(ug["id"], "team-ulw-ug")
+        team = self.run_lfg("team", "create", "2:executor", "ship swarm slice", "--providers", "noop", "--dry-run")
+        self.assertEqual(team["ultragoal"], "team-ulw-ug")
+        self.assertEqual([m["ultragoal"] for m in team["members"]], ["team-ulw-ug", "team-ulw-ug"])
+        self.assertIn("ultragoal team-ulw-ug", team["members"][0]["prompt"])
+        self.assertIn("ulw ultragoal checkpoint --id team-ulw-ug", team["members"][0]["prompt"])
+
     def test_mcp_exposes_runtime_and_team_tools(self) -> None:
         proc = subprocess.Popen(
             ["python3", str(MCP)],

@@ -334,6 +334,51 @@ def ultragoal_show(args: argparse.Namespace) -> dict[str, Any]:
     return st
 
 
+def ultragoal_spawn(args: argparse.Namespace) -> dict[str, Any]:
+    """Create an ultragoal and immediately spawn a linked ulw-branded team swarm.
+
+    This is the 'ultragoal spawn ulw' surface that makes LFG team mode feel like
+    Grok-native sub-agent swarm spawning tied to a durable goal ledger.
+    """
+    ug = ultragoal_create(argparse.Namespace(
+        objective=args.objective,
+        id=getattr(args, "id", None),
+        brief=getattr(args, "brief", None),
+        checklist=getattr(args, "checklist", None),
+        cwd=args.cwd,
+    ))
+    ugid = ug["id"]
+
+    # Now spawn the team (the team_create will detect the just-created current ultragoal)
+    team = team_create(argparse.Namespace(
+        spec=args.spec or "3:executor",
+        objective=f"[ultragoal {ugid}] {args.objective}",
+        name=getattr(args, "name", None),
+        providers=getattr(args, "providers", "hermes,claude,codex"),
+        dry_run=getattr(args, "dry_run", False),
+        cwd=args.cwd,
+    ))
+
+    # Link both ways
+    team["ultragoal"] = ugid
+    write_json(team_dir() / f"{team['name']}.json", team)
+
+    ultragoal_checkpoint_record(ugid, "active", f"spawned ulw swarm team {team['name']}", {"team": team["name"]})
+
+    return {"ultragoal": ug, "team": team, "note": "workers instructed to report via `ulw ultragoal checkpoint --id ...`"}
+
+
+def detect_current_ultragoal() -> dict[str, Any] | None:
+    cur = read_json(ultragoal_current_path(), {})
+    if not cur or not cur.get("id"):
+        return None
+    ugid = cur["id"]
+    goals = read_json(ultragoal_goals_path(ugid), {})
+    if not goals:
+        return None
+    return {"id": ugid, "objective": goals.get("objective"), "aggregateStatus": goals.get("aggregateStatus")}
+
+
 
 
 
@@ -1698,22 +1743,39 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
     name = args.name or f"grok-team-{time.strftime('%Y%m%d-%H%M%S')}"
     objective = args.objective
     members = []
+    ug = detect_current_ultragoal()
+    ug_id = ug["id"] if ug else None
     for i in range(count):
         provider = providers[i % len(providers)]
         member_name = f"{role}-{i+1}-{provider}"
-        member_prompt = (
+        base = (
             f"You are {member_name} in Grok Build team {name}. "
             f"Objective: {objective}. Work in {cwd}. "
             "Coordinate through git status, tests, and concise verification notes. "
             "Do not overwrite teammate work; inspect before editing."
         )
+        if ug_id:
+            base += (
+                f" This team was spawned from ultragoal {ug_id} (leader objective: {ug.get('objective','')}). "
+                "You are acting as a Grok sub-agent in an ultragoal-driven swarm (ulw mode). "
+                "When you have verifiable progress or complete a story, report back with: "
+                f"ulw ultragoal checkpoint --id {ug_id} --status complete --evidence \"<what you did + tests or artifacts>\" --story S001 (or the relevant story id). "
+                "Use the ultragoal ledger as the single source of truth for the leader."
+            )
+        member_prompt = base
+        cmd = provider_command(provider, member_prompt)
+        # If ulw launcher is preferred/available and this is an ultragoal-spawned swarm, brand the worker command
+        if ug_id and shutil.which("ulw"):
+            # Wrap the provider command inside an ulw context for the worker window (ulw sets LFG_LAUNCHER=ulw and execs the runtime)
+            cmd = f"ulw --name {shlex.quote(name)} --json status 2>/dev/null; exec bash -lc {shlex.quote(cmd)}"
         members.append({
             "index": i + 1,
             "name": member_name,
             "role": role,
             "provider": provider,
             "prompt": member_prompt,
-            "command": provider_command(provider, member_prompt),
+            "command": cmd,
+            "ultragoal": ug_id,
         })
     team = {
         "name": name,
@@ -1724,6 +1786,7 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
         "cwd": str(cwd),
         "tmuxSession": name,
         "members": members,
+        "ultragoal": ug_id,
         "commands": {
             "status": f"tmux list-windows -t {shlex.quote(name)}",
             "attach": f"tmux attach -t {shlex.quote(name)}",
@@ -2034,6 +2097,15 @@ def slash(args: argparse.Namespace) -> dict[str, Any]:
                     objective_parts.append(token)
                     i += 1
             return ultragoal_create(argparse.Namespace(objective=" ".join(objective_parts), id=ugid, checklist=checklist, brief=brief, cwd=args.cwd))
+        if action == "spawn":
+            # /ultragoal spawn 3:executor "objective for swarm"
+            spec = rest[1] if len(rest) > 1 else "3:executor"
+            objective_parts = []
+            i = 2 if len(rest) > 1 else 1
+            while i < len(rest):
+                objective_parts.append(rest[i])
+                i += 1
+            return ultragoal_spawn(argparse.Namespace(objective=" ".join(objective_parts) or "swarm task", spec=spec, cwd=args.cwd))
         if action in {"status", "show"}:
             target = rest[1] if len(rest) > 1 else None
             return ultragoal_show(argparse.Namespace(id=target))
@@ -2119,6 +2191,16 @@ def main(argv: list[str] | None = None) -> int:
     ugc.add_argument("--checklist")
     ugc.add_argument("--brief")
     ugc.set_defaults(fn=ultragoal_create)
+    ugsp = ugsub.add_parser("spawn")
+    ugsp.add_argument("objective")
+    ugsp.add_argument("--spec", default="3:executor", help="team spec like 3:executor")
+    ugsp.add_argument("--id")
+    ugsp.add_argument("--checklist")
+    ugsp.add_argument("--brief")
+    ugsp.add_argument("--name")
+    ugsp.add_argument("--providers", default="hermes,claude,codex")
+    ugsp.add_argument("--dry-run", action="store_true")
+    ugsp.set_defaults(fn=ultragoal_spawn)
     ugs = ugsub.add_parser("status")
     ugs.add_argument("--id")
     ugs.set_defaults(fn=ultragoal_status)
