@@ -66,6 +66,19 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_analyze",
+        "description": "Create/list lightweight durable repo analysis reports.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "list"]},
+                "focus": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_code_review",
         "description": "Create/list lightweight durable code review reports from git status/diff evidence.",
         "inputSchema": {
@@ -288,6 +301,19 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_analyze":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "analyze"]
+        if action == "create":
+            cmd += ["create"]
+            if arguments.get("focus"):
+                cmd += ["--focus", arguments["focus"]]
+        elif action == "list":
+            cmd += ["list"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

@@ -129,6 +129,56 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def analyses_dir() -> pathlib.Path:
+    return RUNS_DIR / "analyze"
+
+
+def analyze(args: argparse.Namespace) -> dict[str, Any]:
+    """Create a lightweight durable repo analysis report."""
+    ensure_dirs()
+    cwd = pathlib.Path(args.cwd).resolve()
+    tracked = []
+    try:
+        tracked = subprocess.check_output(["git", "ls-files"], cwd=str(cwd), text=True, stderr=subprocess.DEVNULL).splitlines()
+    except Exception:
+        tracked = [str(p.relative_to(cwd)) for p in cwd.rglob("*") if p.is_file() and ".git" not in p.parts]
+    by_ext: dict[str, int] = {}
+    for rel in tracked:
+        ext = pathlib.Path(rel).suffix or "[no-ext]"
+        by_ext[ext] = by_ext.get(ext, 0) + 1
+    focus = args.focus or "repo surface"
+    report_id = f"analyze-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    report = {
+        "id": report_id,
+        "createdAt": now(),
+        "focus": focus,
+        "repo": detect_repo(cwd),
+        "fileCount": len(tracked),
+        "extensions": dict(sorted(by_ext.items(), key=lambda x: (-x[1], x[0]))[:20]),
+        "keyPaths": [p for p in tracked if p in {"README.md", "ROADMAP.md"} or p.startswith("plugins/grok-harnessing/")][:40],
+        "summary": f"Lightweight analysis for {focus}: {len(tracked)} tracked files, {len(by_ext)} extension groups.",
+    }
+    path = analyses_dir() / f"{report_id}.json"
+    write_json(path, report)
+    write_json(STATE_DIR / "last-analyze.json", {"id": report_id, "path": str(path), "updatedAt": now()})
+    report["path"] = str(path)
+    return report
+
+
+def analyze_list(args: argparse.Namespace) -> dict[str, Any]:
+    reports = []
+    for path in sorted(analyses_dir().glob("*.json")) if analyses_dir().exists() else []:
+        try:
+            item = read_json(path)
+            item["path"] = str(path)
+            reports.append(item)
+        except Exception:
+            pass
+    if args.limit:
+        reports = reports[-args.limit:]
+    return {"count": len(reports), "reports": reports}
+
 def reviews_dir() -> pathlib.Path:
     return RUNS_DIR / "code-review"
 
@@ -753,6 +803,16 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    ap = sub.add_parser("analyze")
+    asub = ap.add_subparsers(dest="analyze_cmd", required=True)
+    ac = asub.add_parser("create")
+    ac.add_argument("--focus")
+    ac.set_defaults(fn=analyze)
+    al = asub.add_parser("list")
+    al.add_argument("--limit", type=int)
+    al.set_defaults(fn=analyze_list)
 
     crp = sub.add_parser("code-review")
     crsub = crp.add_subparsers(dest="code_review_cmd", required=True)
