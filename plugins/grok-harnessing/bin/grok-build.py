@@ -1482,6 +1482,25 @@ def team_providers(args: argparse.Namespace) -> dict[str, Any]:
         },
     }
 
+
+def team_preflight(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    providers = team_provider_matrix()
+    tmux_path = shutil.which("tmux")
+    backend = backend_start(argparse.Namespace(name=getattr(args, "name", None), cwd=args.cwd))
+    required_ok = bool(tmux_path) and backend.get("status") == "running"
+    return {
+        "ok": required_ok,
+        "tmux": {"available": bool(tmux_path), "path": tmux_path},
+        "backend": backend,
+        "providers": providers,
+        "summary": {
+            "availableProviders": [p["provider"] for p in providers if p["available"]],
+            "missingProviders": [p["provider"] for p in providers if not p["available"]],
+            "smokeSafe": "noop",
+        },
+    }
+
 def team_create(args: argparse.Namespace) -> dict[str, Any]:
     ensure_dirs()
     cwd = pathlib.Path(args.cwd).resolve()
@@ -1808,6 +1827,8 @@ def slash(args: argparse.Namespace) -> dict[str, Any]:
     verb = rest[0]
     if verb == "providers":
         return team_providers(argparse.Namespace())
+    if verb == "preflight":
+        return team_preflight(argparse.Namespace(name=args.name, cwd=args.cwd))
     if verb in {"status", "resume", "shutdown"}:
         target = rest[1] if len(rest) > 1 else None
         ns = argparse.Namespace(name=target, cwd=args.cwd)
@@ -2204,6 +2225,9 @@ def main(argv: list[str] | None = None) -> int:
     tsub = tp.add_subparsers(dest="team_cmd", required=True)
     tprov = tsub.add_parser("providers")
     tprov.set_defaults(fn=team_providers)
+    tpre = tsub.add_parser("preflight")
+    tpre.add_argument("--name")
+    tpre.set_defaults(fn=team_preflight)
     tc = tsub.add_parser("create")
     tc.add_argument("spec", help="team spec like 3:executor")
     tc.add_argument("objective")

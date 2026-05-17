@@ -94,6 +94,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("state-schema-versioning=ok", roadmap)
         self.assertIn("mcp-stdio-isolation=ok", roadmap)
         self.assertIn("team-tmux-lifecycle=ok", roadmap)
+        self.assertIn("team-preflight-cli=ok", roadmap)
         self.assertIn("team-provider-matrix=ok", roadmap)
         self.assertIn("team-provider-slash=ok", roadmap)
         self.assertIn("team-provider-commands=ok", roadmap)
@@ -205,6 +206,12 @@ class RuntimeSmoke(unittest.TestCase):
         runtime = (PLUGIN / "bin" / "grok-build.py").read_text(encoding="utf-8")
         self.assertIn("def attach_backend_from_tmux_pane", runtime)
         self.assertIn("split-window", runtime)
+        team_preflight = REPO / "scripts" / "verify-team-preflight.sh"
+        self.assertTrue(os.access(team_preflight, os.X_OK))
+        team_preflight_script = team_preflight.read_text(encoding="utf-8")
+        self.assertIn("team-preflight-cli=ok", team_preflight_script)
+        self.assertIn("team-preflight-slash=ok", team_preflight_script)
+        self.assertIn("team-preflight-mcp=ok", team_preflight_script)
         team_provider = REPO / "scripts" / "verify-team-provider-commands.sh"
         self.assertTrue(os.access(team_provider, os.X_OK))
         team_provider_script = team_provider.read_text(encoding="utf-8")
@@ -502,6 +509,17 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("installed=False", bridge["evidence"])
         self.assertEqual(report["failedRequired"], [])
 
+
+
+    def test_team_preflight_cli_and_slash(self) -> None:
+        preflight = self.run_lfg("team", "preflight", "--name", "unit-preflight")
+        self.assertTrue(preflight["ok"], preflight)
+        self.assertTrue(preflight["tmux"]["available"], preflight)
+        self.assertEqual(preflight["backend"]["status"], "running")
+        self.assertEqual(preflight["summary"]["smokeSafe"], "noop")
+        slash = self.run_lfg("slash", "/team preflight", "--name", "unit-preflight")
+        self.assertTrue(slash["ok"], slash)
+        subprocess.run(["tmux", "kill-session", "-t", "unit-preflight"], text=True, capture_output=True)
 
     def test_team_provider_commands_are_stable(self) -> None:
         module = load_grok_build_module()

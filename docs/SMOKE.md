@@ -236,6 +236,22 @@ team-shutdown=ok
 team-tmux-lifecycle=ok
 ```
 
+Team preflight smoke:
+
+```sh
+scripts/verify-team-preflight.sh
+```
+
+Expected terminal evidence:
+
+```text
+team-preflight-cli=ok
+team-preflight-slash=ok
+team-preflight-mcp=ok
+```
+
+This verifies `lfg team preflight`, `/team preflight`, and MCP `grok_build_team(action=preflight)` all check tmux backend availability and provider readiness before starting a team.
+
 Provider command smoke:
 
 ```sh
