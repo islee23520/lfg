@@ -172,6 +172,16 @@ class RuntimeSmoke(unittest.TestCase):
             self.assertEqual(plugin["metadata"]["packageName"], "linalab-io-framework/grok-build")
             self.assertEqual(plugin["metadata"]["reference"], "https://github.com/Yeachan-Heo/oh-my-codex")
 
+
+    def test_lfg_default_starts_backend_non_interactive(self) -> None:
+        proc = subprocess.run([str(LFG), "--json"], cwd=str(REPO), env=self.env, text=True, capture_output=True, check=True, timeout=20)
+        launched = json.loads(proc.stdout)
+        self.assertEqual(launched["status"], "running")
+        self.assertEqual(launched["launcher"], "lfg")
+        self.assertEqual(launched["mode"], "tmux-backend")
+        self.assertFalse(launched["attached"])
+        self.assertIn("tmux attach -t", launched["attachCommand"])
+
     def test_team_slash_dry_run_maps_to_three_default_providers(self) -> None:
         team = self.run_lfg("slash", '/team 3:executor "fix tests"', "--dry-run")
         self.assertEqual(team["status"], "planned")

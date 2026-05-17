@@ -168,7 +168,7 @@ For local shell use, install `lfg` into PATH with:
 scripts/install-lfg-symlink.sh
 ```
 
-This creates symlinks for both `lfg` and its sibling `grok-build.py` wrapper target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status` and `lfg --json doctor`.
+This creates symlinks for both `lfg` and its sibling `grok-build.py` wrapper target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg` default launch, `lfg --json status`, and `lfg --json doctor`. Running `lfg` with no arguments starts the tmux backend and attaches when launched from an interactive terminal.
 
 ## Verify
 

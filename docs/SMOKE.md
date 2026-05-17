@@ -35,6 +35,7 @@ scripts/install-lfg-symlink.sh
 Expected terminal evidence:
 
 ```text
+lfg-launch=ok
 lfg-status=ok version=0.3.0
 lfg-doctor=ok
 ```

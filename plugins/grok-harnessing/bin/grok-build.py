@@ -1346,6 +1346,24 @@ def backend_start(args: argparse.Namespace) -> dict[str, Any]:
     return state
 
 
+
+def lfg_launch(args: argparse.Namespace) -> dict[str, Any]:
+    """Default `lfg` behavior: start backend and attach when interactive."""
+    state = backend_start(argparse.Namespace(name=args.name, cwd=args.cwd))
+    state["launcher"] = "lfg"
+    state["attached"] = False
+    state["mode"] = "tmux-backend"
+    if args.json or not (sys.stdin.isatty() and sys.stdout.isatty()):
+        state["note"] = "non-interactive; run the attachCommand or execute `lfg` from a terminal to attach"
+        return state
+    if os.environ.get("TMUX"):
+        subprocess.run(["tmux", "switch-client", "-t", state["name"]], check=True)
+        state["attached"] = True
+        state["attachMethod"] = "switch-client"
+        return state
+    os.execvp("tmux", ["tmux", "attach", "-t", state["name"]])
+    raise SystemExit(0)
+
 def backend_status(args: argparse.Namespace) -> dict[str, Any]:
     name = backend_name(args)
     proc = subprocess.run(["tmux", "list-sessions"], text=True, capture_output=True)
@@ -1643,7 +1661,8 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="grok-build", description="OMX-like MVP runtime for Grok Build plugin")
     p.add_argument("--json", action="store_true")
     p.add_argument("--cwd", default=os.getcwd())
-    sub = p.add_subparsers(dest="cmd", required=True)
+    p.add_argument("--name", help="backend session name for default lfg attach/start")
+    sub = p.add_subparsers(dest="cmd")
 
     sub.add_parser("catalog").set_defaults(fn=catalog)
     sub.add_parser("status").set_defaults(fn=status)
@@ -2024,6 +2043,8 @@ def main(argv: list[str] | None = None) -> int:
     td.set_defaults(fn=team_shutdown)
 
     args = p.parse_args(argv)
+    if not getattr(args, "cmd", None):
+        args.fn = lfg_launch
     result = args.fn(args)
     emit(result, args.json)
     return 0

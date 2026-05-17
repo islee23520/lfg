@@ -17,6 +17,15 @@ if ! command -v lfg >/dev/null 2>&1; then
   echo "lfg not found on PATH after symlink; add ${TARGET_DIRS[0]} to PATH" >&2
   exit 1
 fi
+lfg --json >/tmp/lfg-launch.json
+python3 - <<'PY'
+import json
+obj=json.load(open('/tmp/lfg-launch.json'))
+assert obj['status'] == 'running', obj
+assert obj['launcher'] == 'lfg', obj
+assert obj['mode'] == 'tmux-backend', obj
+print('lfg-launch=ok attachCommand=%s' % obj['attachCommand'])
+PY
 lfg --json status >/tmp/lfg-status.json
 python3 - <<'PY'
 import json

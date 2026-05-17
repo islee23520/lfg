@@ -6,7 +6,8 @@ Use this checklist before merging or tagging `linalab-io-framework/grok-build`.
 
 - [ ] Local smoke passes with `runtime-smoke-coverage=100%`.
 - [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=28 key_skills_present`.
-- [ ] Local `lfg` symlink installer passes with `lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
+- [ ] Local `lfg` symlink installer passes with `lfg-launch=ok
+lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 - [ ] Remote GitHub Actions smoke passes with `remote-smoke=ok` for the latest pushed commit.
 - [ ] Roadmap coverage guard confirms `roadmap=27/27` non-harness skill surfaces.
 - [ ] Feature-doc coverage guard confirms `feature_docs=27/27` non-harness skill surfaces.
