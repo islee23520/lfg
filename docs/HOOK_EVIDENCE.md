@@ -56,3 +56,20 @@ grok-headless-hook-emission=not-observed grok=0.1.211
 ```
 
 This proves a real Grok headless session can execute a terminal tool while the plugin is installed, but plugin hook audit records are not emitted by headless mode in this version. Keep the ROADMAP item open until an interactive TUI/modal run produces `grok-headless-hook-emission=ok` or Grok exposes a stable hook-test command.
+
+
+## Headless `/hooks-list` limitation check
+
+Run:
+
+```sh
+scripts/verify-grok-hooks-slash-limitation.sh
+```
+
+Observed on local Grok `0.1.211`:
+
+```text
+grok-hooks-list-headless=not-observed reason=max_turns-exceeded
+```
+
+This confirms that the headless slash surface for `/hooks-list` is not a stable hook evidence source in this version; it can recurse into filesystem inspection and exceed `max_turns`. Use `grok inspect --json`, `/plugins list`, and hook replay gates for deterministic automation until Grok exposes a hook-test command or the interactive TUI/modal path is manually verified.

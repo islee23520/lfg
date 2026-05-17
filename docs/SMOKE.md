@@ -111,7 +111,7 @@ hook-event-replay=ok
 grok-headless-session=ok
 ```
 
-The script syncs the plugin, verifies real `grok inspect --json` discovers the installed plugin hook file, replays a Grok-style hook event through the installed hook script, verifies redaction, and runs a short real Grok headless session. For the current headless limitation evidence, run `scripts/verify-grok-hook-headless-limitation.sh`; expected local evidence is `grok-real-tool-session=ok` and `grok-headless-hook-emission=not-observed grok=0.1.211`.
+The script syncs the plugin, verifies real `grok inspect --json` discovers the installed plugin hook file, replays a Grok-style hook event through the installed hook script, verifies redaction, and runs a short real Grok headless session. For the current headless limitation evidence, run `scripts/verify-grok-hook-headless-limitation.sh`; expected local evidence is `grok-real-tool-session=ok` and `grok-headless-hook-emission=not-observed grok=0.1.211`. For `/hooks-list` headless limitation evidence, run `scripts/verify-grok-hooks-slash-limitation.sh`; expected evidence is `grok-hooks-list-headless=not-observed reason=max_turns-exceeded`.
 
 ## Focused marketplace source smoke
 
