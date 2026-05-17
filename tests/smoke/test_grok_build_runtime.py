@@ -318,6 +318,52 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"id": "mcp-goal"', create_payload["stdout"])
         self.assertIn('"status": "complete"', update_payload["stdout"])
 
+    def test_ultraqa_no_run_persists_run_state(self) -> None:
+        run = self.run_lfg("ultraqa", "verify plugin smoke", "--no-run")
+        self.assertEqual(run["verdict"], "planned")
+        self.assertEqual(run["commands"], [])
+        self.assertGreaterEqual(len(run["scenarios"]), 5)
+        pointer = pathlib.Path(self.tmp.name) / "state" / "last-ultraqa.json"
+        self.assertTrue(pointer.exists())
+        stored = pathlib.Path(json.loads(pointer.read_text())["path"])
+        self.assertTrue(stored.exists())
+
+    def test_mcp_ultraqa_tool(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "grok_build_ultraqa", "arguments": {"objective": "MCP ultraqa", "noRun": True}},
+            },
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+        payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        self.assertEqual(payload["returncode"], 0)
+        self.assertIn('"verdict": "planned"', payload["stdout"])
+        self.assertIn('"objective": "MCP ultraqa"', payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

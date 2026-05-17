@@ -66,6 +66,20 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_ultraqa",
+        "description": "Create an adversarial QA smoke run and persist evidence under plugin data.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "objective": {"type": "string"},
+                "noRun": {"type": "boolean", "default": True},
+                "timeout": {"type": "integer", "default": 60}
+            },
+            "required": ["objective"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_goal",
         "description": "Create/list/update durable LFG goal state under plugin data; foundation for /ultragoal.",
         "inputSchema": {
@@ -207,6 +221,14 @@ def handle_tool(name, arguments=None):
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_ultraqa":
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "ultraqa", arguments["objective"]]
+        if arguments.get("noRun", True):
+            cmd += ["--no-run"]
+        if arguments.get("timeout"):
+            cmd += ["--timeout", str(arguments["timeout"])]
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=60)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_goal":
         action = arguments.get("action")
