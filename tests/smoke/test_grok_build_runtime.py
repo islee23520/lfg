@@ -26,6 +26,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.env = os.environ.copy()
         self.env["GROK_PLUGIN_ROOT"] = str(PLUGIN)
         self.env["GROK_PLUGIN_DATA"] = self.tmp.name
+        self.env["HOME"] = self.tmp.name
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
@@ -68,6 +69,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-plugins-surface=ok", roadmap)
         self.assertIn("grok-plugin-hook-scope=not-observed", roadmap)
         self.assertIn("grok-global-hook-bridge=ok", roadmap)
+        self.assertIn("lfg hook-bridge status/install", roadmap)
         self.assertIn("release-tag=ok", roadmap)
         self.assertIn("release-notes=ok", roadmap)
         self.assertIn("state-schema-versioning=ok", roadmap)
@@ -206,6 +208,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-global-hook-bridge=ok", hook_bridge_script)
         install_bridge = REPO / "scripts" / "install-grok-build-global-hook-bridge.sh"
         self.assertTrue(os.access(install_bridge, os.X_OK))
+        self.assertIn("grok-build-audit-bridge.json", install_bridge.read_text(encoding="utf-8"))
         hook_limitation = REPO / "scripts" / "verify-grok-hook-headless-limitation.sh"
         self.assertTrue(os.access(hook_limitation, os.X_OK))
         hook_limitation_script = hook_limitation.read_text(encoding="utf-8")
@@ -219,6 +222,9 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-headless-session=ok", hook_discovery_script)
         hook_doc = (REPO / "docs" / "HOOK_EVIDENCE.md").read_text(encoding="utf-8")
         self.assertIn("scripts/grok-build-audit-hook.sh", hook_doc)
+        self.assertIn("lfg hook-bridge install", hook_doc)
+        smoke_doc = (REPO / "docs" / "SMOKE.md").read_text(encoding="utf-8")
+        self.assertIn("lfg --json hook-bridge install", smoke_doc)
         marketplace_source = REPO / "scripts" / "verify-marketplace-source.sh"
         self.assertTrue(os.access(marketplace_source, os.X_OK))
         marketplace_source_script = marketplace_source.read_text(encoding="utf-8")
@@ -339,9 +345,28 @@ class RuntimeSmoke(unittest.TestCase):
         report = self.run_lfg("doctor")
         self.assertTrue(report["ok"], report)
         check_names = {check["name"] for check in report["checks"]}
-        for required in {"grok_manifest", "mcp_config", "catalog", "skills", "grok_marketplace", "agents_marketplace", "exe:tmux", "plugin_data", "state_schema"}:
+        for required in {"grok_manifest", "mcp_config", "catalog", "skills", "grok_marketplace", "agents_marketplace", "exe:tmux", "plugin_data", "state_schema", "global_hook_bridge"}:
             self.assertIn(required, check_names)
+        bridge = next(check for check in report["checks"] if check["name"] == "global_hook_bridge")
+        self.assertTrue(bridge["ok"])
+        self.assertIn("installed=False", bridge["evidence"])
         self.assertEqual(report["failedRequired"], [])
+
+    def test_hook_bridge_install_status_uses_home_hooks(self) -> None:
+        status = self.run_lfg("hook-bridge", "status")
+        self.assertTrue(status["ok"])
+        self.assertFalse(status["installed"])
+        installed = self.run_lfg("hook-bridge", "install")
+        self.assertTrue(installed["ok"], installed)
+        self.assertTrue(installed["installed"])
+        self.assertTrue(installed["valid"])
+        self.assertTrue(pathlib.Path(installed["config"]).exists())
+        self.assertTrue(os.access(installed["script"], os.X_OK))
+        script = pathlib.Path(installed["script"]).read_text(encoding="utf-8")
+        self.assertIn("grok-build-audit-hook.sh", script)
+        doctor = self.run_lfg("doctor")
+        bridge = next(check for check in doctor["checks"] if check["name"] == "global_hook_bridge")
+        self.assertIn("installed=True valid=True", bridge["evidence"])
 
     def test_mcp_doctor_runtime(self) -> None:
         proc = subprocess.Popen(

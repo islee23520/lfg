@@ -133,3 +133,13 @@ grok-global-hook-bridge=ok
 ```
 
 This installs a global `~/.grok/hooks/grok-build-audit-bridge.json` that delegates to the installed plugin audit hook at `~/.grok/plugins/grok-build/hooks/scripts/grok-build-audit-hook.sh`. The verification runs a real Grok tool-use session and confirms `~/.grok/plugin-data/grok-build/events/audit.jsonl` is written.
+
+Runtime CLI support:
+
+```sh
+lfg hook-bridge status
+lfg hook-bridge install
+lfg doctor
+```
+
+`doctor` reports `global_hook_bridge` as an optional check: absent is OK, installed+valid is OK, and an installed-but-invalid bridge becomes visible evidence without blocking core plugin startup.

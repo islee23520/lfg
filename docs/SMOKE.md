@@ -85,6 +85,8 @@ The script syncs the plugin into `~/.grok/plugins/grok-build`, runs a real Grok 
 Run the optional global hook bridge workaround gate:
 
 ```sh
+lfg --json hook-bridge status
+lfg --json hook-bridge install
 scripts/verify-grok-build-global-hook-bridge.sh
 ```
 
@@ -94,7 +96,7 @@ Expected terminal evidence:
 grok-global-hook-bridge=ok
 ```
 
-This proves Grok `0.1.211` can execute the same audit hook through a global hook bridge while plugin hook scope remains blocked.
+This proves Grok `0.1.211` can execute the same audit hook through a global hook bridge while plugin hook scope remains blocked. The runtime command `lfg hook-bridge install` writes `~/.grok/hooks/grok-build-audit-bridge.{json,sh}` and `lfg hook-bridge status` is also surfaced through `doctor` as `global_hook_bridge`.
 
 ## Focused release tag smoke
 

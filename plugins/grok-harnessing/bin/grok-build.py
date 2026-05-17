@@ -1636,6 +1636,8 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
     add("plugin_data", data_ok, str(DATA), required=True)
     schema = ensure_state_schema()
     add("state_schema", schema.get("version") == STATE_SCHEMA_VERSION and state_schema_path().exists(), f"{state_schema_path()} version={schema.get('version')}", required=True)
+    bridge = hook_bridge_status(argparse.Namespace())
+    add("global_hook_bridge", bridge["ok"], f"installed={bridge['installed']} valid={bridge['valid']} config={bridge['config']}", required=False)
     failed_required = [c for c in checks if c["required"] and not c["ok"]]
     warnings = [c for c in checks if not c["required"] and not c["ok"]]
     return {
@@ -1647,6 +1649,77 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
         "failedRequired": failed_required,
         "warnings": warnings,
     }
+
+
+def hook_bridge_paths() -> dict[str, pathlib.Path]:
+    hook_dir = pathlib.Path.home() / ".grok" / "hooks"
+    return {
+        "hookDir": hook_dir,
+        "config": hook_dir / "grok-build-audit-bridge.json",
+        "script": hook_dir / "grok-build-audit-bridge.sh",
+        "delegate": ROOT / "hooks" / "scripts" / "grok-build-audit-hook.sh",
+    }
+
+
+def hook_bridge_status(args: argparse.Namespace) -> dict[str, Any]:
+    paths = hook_bridge_paths()
+    config = paths["config"]
+    script = paths["script"]
+    delegate = paths["delegate"]
+    installed = config.exists() or script.exists()
+    script_text = script.read_text(encoding="utf-8") if script.exists() else ""
+    config_text = config.read_text(encoding="utf-8") if config.exists() else ""
+    valid = (
+        config.exists()
+        and script.exists()
+        and os.access(script, os.X_OK)
+        and delegate.exists()
+        and str(delegate) in script_text
+        and "grok-build-audit-bridge.sh" in config_text
+    )
+    return {
+        "ok": (not installed) or valid,
+        "installed": installed,
+        "valid": valid,
+        "hookDir": str(paths["hookDir"]),
+        "config": str(config),
+        "script": str(script),
+        "delegate": str(delegate),
+        "evidence": "valid global bridge" if valid else ("not installed" if not installed else "installed but invalid"),
+    }
+
+
+def hook_bridge_install(args: argparse.Namespace) -> dict[str, Any]:
+    paths = hook_bridge_paths()
+    hook_dir = paths["hookDir"]
+    config = paths["config"]
+    script = paths["script"]
+    delegate = paths["delegate"]
+    if not delegate.exists():
+        raise SystemExit(f"delegate hook not found: {delegate}")
+    hook_dir.mkdir(parents=True, exist_ok=True)
+    command = str(script)
+    config.write_text(jdump({
+        "hooks": {
+            event: [{"hooks": [{"type": "command", "command": command, "timeout": 5}]}]
+            for event in [
+                "SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse",
+                "PostToolUseFailure", "PreCompact", "Stop", "SessionEnd", "Notification"
+            ]
+        }
+    }) + "\n", encoding="utf-8")
+    script.write_text(
+        "#!/usr/bin/env bash\n"
+        "set +euo pipefail\n"
+        f"export GROK_PLUGIN_ROOT={shlex.quote(str(ROOT))}\n"
+        f"export GROK_PLUGIN_DATA=\"${{GROK_PLUGIN_DATA:-{pathlib.Path.home() / '.grok' / 'plugin-data' / 'grok-build'}}}\"\n"
+        f"exec {shlex.quote(str(delegate))}\n",
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    status = hook_bridge_status(args)
+    status["installedNow"] = True
+    return status
 
 def slash(args: argparse.Namespace) -> dict[str, Any]:
     """Parse a Grok slash-command string into an LFG runtime action.
@@ -2040,6 +2113,13 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--providers", default="hermes,claude,codex")
     sp.add_argument("--dry-run", action="store_true")
     sp.set_defaults(fn=slash)
+
+    hbp = sub.add_parser("hook-bridge")
+    hbsub = hbp.add_subparsers(dest="hook_bridge_cmd", required=True)
+    hbs = hbsub.add_parser("status")
+    hbs.set_defaults(fn=hook_bridge_status)
+    hbi = hbsub.add_parser("install")
+    hbi.set_defaults(fn=hook_bridge_install)
 
     bp = sub.add_parser("backend")
     bsub = bp.add_subparsers(dest="backend_cmd", required=True)
