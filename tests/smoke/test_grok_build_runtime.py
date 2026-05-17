@@ -69,6 +69,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-plugins-surface=ok", roadmap)
         self.assertIn("grok-plugin-hook-scope=not-observed", roadmap)
         self.assertIn("grok-global-hook-bridge=ok", roadmap)
+        self.assertIn("grok-installed-mcp-surface=ok", roadmap)
         self.assertIn("lfg hook-bridge status/install", roadmap)
         self.assertIn("MCP `grok_build_hook_bridge`", roadmap)
         self.assertIn("release-tag=ok", roadmap)
@@ -211,6 +212,11 @@ class RuntimeSmoke(unittest.TestCase):
         install_bridge = REPO / "scripts" / "install-grok-build-global-hook-bridge.sh"
         self.assertTrue(os.access(install_bridge, os.X_OK))
         self.assertIn("grok-build-audit-bridge.json", install_bridge.read_text(encoding="utf-8"))
+        installed_mcp = REPO / "scripts" / "verify-grok-installed-mcp-surface.sh"
+        self.assertTrue(os.access(installed_mcp, os.X_OK))
+        installed_mcp_script = installed_mcp.read_text(encoding="utf-8")
+        self.assertIn("grok-installed-mcp-surface=ok", installed_mcp_script)
+        self.assertIn("grok_build_hook_bridge", installed_mcp_script)
         hook_limitation = REPO / "scripts" / "verify-grok-hook-headless-limitation.sh"
         self.assertTrue(os.access(hook_limitation, os.X_OK))
         hook_limitation_script = hook_limitation.read_text(encoding="utf-8")

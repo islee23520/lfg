@@ -15,6 +15,7 @@ lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 - [ ] Marketplace source smoke passes with `marketplace-source=ok` and preview remote smoke passes with `marketplace-remote-source=ok branch=p1`.
 - [ ] Grok hook discovery/replay smoke passes with `grok-hook-discovery=ok`, `hook-event-replay=ok`, and `grok-headless-session=ok`.
 - [ ] Optional global hook bridge workaround smoke passes with `grok-global-hook-bridge=ok`.
+- [ ] Installed MCP surface smoke passes with `grok-installed-mcp-surface=ok`.
 - [ ] Release tag smoke passes with `release-tag=ok` and `release-tag-remote=ok`.
 - [ ] Grok `/plugins` installed-surface smoke passes with `grok-plugins-surface=ok`.
 - [ ] Remote GitHub Actions smoke passes with `remote-smoke=ok` for the latest pushed commit.
@@ -37,6 +38,7 @@ scripts/verify-marketplace-source.sh
 scripts/verify-marketplace-source.sh --remote p1
 scripts/verify-grok-hook-discovery.sh
 scripts/verify-grok-build-global-hook-bridge.sh
+scripts/verify-grok-installed-mcp-surface.sh
 scripts/verify-release-tag.sh grok-build-v0.3.0-p1
 scripts/verify-release-tag.sh --remote grok-build-v0.3.0-p1
 scripts/verify-grok-plugins-surface.sh
