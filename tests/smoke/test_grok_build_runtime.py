@@ -245,6 +245,8 @@ class RuntimeSmoke(unittest.TestCase):
         installed_mcp_script = installed_mcp.read_text(encoding="utf-8")
         self.assertIn("grok-installed-mcp-surface=ok", installed_mcp_script)
         self.assertIn("grok_build_hook_bridge", installed_mcp_script)
+        self.assertIn("grok_build_team", installed_mcp_script)
+        self.assertIn("grok_build_team.providers", installed_mcp_script)
         installed_lfg = REPO / "scripts" / "verify-installed-lfg-symlink-surface.sh"
         self.assertTrue(os.access(installed_lfg, os.X_OK))
         installed_lfg_script = installed_lfg.read_text(encoding="utf-8")
