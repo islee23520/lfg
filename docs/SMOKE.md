@@ -246,11 +246,12 @@ Expected terminal evidence:
 
 ```text
 team-preflight-cli=ok
+team-preflight-commands=ok
 team-preflight-slash=ok
 team-preflight-mcp=ok
 ```
 
-This verifies `lfg team preflight`, `/team preflight`, and MCP `grok_build_team(action=preflight)` all check tmux backend availability and provider readiness before starting a team.
+This verifies `lfg team preflight`, `/team preflight`, and MCP `grok_build_team(action=preflight)` all check tmux backend availability and provider readiness before starting a team, and return actionable next commands for provider listing, backend attach/status, and noop team smoke creation.
 
 Provider command smoke:
 

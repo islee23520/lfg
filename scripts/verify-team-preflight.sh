@@ -16,7 +16,11 @@ assert obj['backend']['status']=='running', obj
 assert obj['backend']['name']==sys.argv[1], obj
 assert obj['summary']['smokeSafe']=='noop', obj
 assert 'noop' in obj['summary']['availableProviders'], obj
+assert obj['commands']['providers']=='lfg team providers', obj
+assert obj['commands']['backendAttach'].startswith('tmux attach -t '), obj
+assert '--providers noop' in obj['commands']['createNoopSmoke'], obj
 print('team-preflight-cli=ok backend=%s' % obj['backend']['name'])
+print('team-preflight-commands=ok')
 PY
 GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json slash '/team preflight' --name "$TEAM" >/tmp/team-preflight-slash.json
 python3 - <<'PY'
@@ -24,6 +28,7 @@ import json, pathlib
 obj=json.loads(pathlib.Path('/tmp/team-preflight-slash.json').read_text())
 assert obj['ok'], obj
 assert obj['backend']['status']=='running', obj
+assert obj['commands']['providers']=='lfg team providers', obj
 print('team-preflight-slash=ok')
 PY
 GROK_PLUGIN_DATA="$TMP" python3 plugins/grok-harnessing/bin/grok-build-mcp.py >/tmp/team-preflight-mcp.out 2>/tmp/team-preflight-mcp.err <<EOF
@@ -38,6 +43,8 @@ payload=json.loads(lines[1]['result']['content'][0]['text'])
 assert payload['returncode']==0, payload
 assert '"ok": true' in payload['stdout'], payload
 assert '"smokeSafe": "noop"' in payload['stdout'], payload
+assert '"commands"' in payload['stdout'], payload
+assert 'lfg team providers' in payload['stdout'], payload
 assert pathlib.Path('/tmp/team-preflight-mcp.err').read_text() == ''
 print('team-preflight-mcp=ok')
 PY

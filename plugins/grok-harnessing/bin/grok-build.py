@@ -1489,11 +1489,19 @@ def team_preflight(args: argparse.Namespace) -> dict[str, Any]:
     tmux_path = shutil.which("tmux")
     backend = backend_start(argparse.Namespace(name=getattr(args, "name", None), cwd=args.cwd))
     required_ok = bool(tmux_path) and backend.get("status") == "running"
+    name = backend.get("name") or backend_name(args)
     return {
         "ok": required_ok,
         "tmux": {"available": bool(tmux_path), "path": tmux_path},
         "backend": backend,
         "providers": providers,
+        "commands": {
+            "createDryRun": "lfg team create 3:executor \"objective\" --dry-run",
+            "createNoopSmoke": f"lfg team create 2:executor \"smoke objective\" --name {shlex.quote(name + '-team')} --providers noop",
+            "backendAttach": backend.get("attachCommand") or f"tmux attach -t {shlex.quote(name)}",
+            "backendStatus": f"tmux has-session -t {shlex.quote(name)}",
+            "providers": "lfg team providers",
+        },
         "summary": {
             "availableProviders": [p["provider"] for p in providers if p["available"]],
             "missingProviders": [p["provider"] for p in providers if not p["available"]],

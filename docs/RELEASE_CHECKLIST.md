@@ -10,7 +10,7 @@ Use this checklist before merging or tagging `linalab-io-framework/grok-build`.
 lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 - [ ] Installed `lfg` symlink surface smoke passes with `lfg-installed-symlink-surface=ok`.
 - [ ] Inside-tmux `lfg` attach smoke passes with `lfg-inside-tmux-attach=ok`.
-- [ ] Team preflight smoke passes with `team-preflight-cli=ok`, `team-preflight-slash=ok`, and `team-preflight-mcp=ok`.
+- [ ] Team preflight smoke passes with `team-preflight-cli=ok`, `team-preflight-commands=ok`, `team-preflight-slash=ok`, and `team-preflight-mcp=ok`.
 - [ ] Team provider command smoke passes with `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, and `team-provider-doctor=ok`.
 - [ ] Team tmux lifecycle smoke passes with `team-tmux-lifecycle=ok`.
 - [ ] MCP stdio isolation smoke passes with `mcp-stdio-isolation=ok`.
