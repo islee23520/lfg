@@ -157,6 +157,14 @@ class RuntimeSmoke(unittest.TestCase):
         launch_script = launch_lfg.read_text(encoding="utf-8")
         self.assertIn("lfg-launch-smoke=ok", launch_script)
         self.assertIn("tmux has-session", launch_script)
+        team_lifecycle = REPO / "scripts" / "verify-team-tmux-lifecycle.sh"
+        self.assertTrue(os.access(team_lifecycle, os.X_OK))
+        team_lifecycle_script = team_lifecycle.read_text(encoding="utf-8")
+        self.assertIn("team-tmux-lifecycle=ok", team_lifecycle_script)
+        self.assertIn("team create", team_lifecycle_script)
+        self.assertIn("team status", team_lifecycle_script)
+        self.assertIn("team resume", team_lifecycle_script)
+        self.assertIn("team shutdown", team_lifecycle_script)
         remote_smoke = REPO / "scripts" / "verify-remote-smoke.sh"
         self.assertTrue(os.access(remote_smoke, os.X_OK))
         remote_script = remote_smoke.read_text(encoding="utf-8")

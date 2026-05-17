@@ -8,6 +8,7 @@ Use this checklist before merging or tagging `linalab-io-framework/grok-build`.
 - [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=28 key_skills_present`.
 - [ ] Local `lfg` symlink installer passes with `lfg-launch=ok
 lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
+- [ ] Team tmux lifecycle smoke passes with `team-tmux-lifecycle=ok`.
 - [ ] Remote GitHub Actions smoke passes with `remote-smoke=ok` for the latest pushed commit.
 - [ ] Roadmap coverage guard confirms `roadmap=27/27` non-harness skill surfaces.
 - [ ] Feature-doc coverage guard confirms `feature_docs=27/27` non-harness skill surfaces.
@@ -20,6 +21,7 @@ lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 plugins/grok-harnessing/bin/self-test.sh
 scripts/install-lfg-symlink.sh
 scripts/verify-lfg-launch.sh
+scripts/verify-team-tmux-lifecycle.sh
 plugins/grok-harnessing/bin/grok-install-smoke.sh
 scripts/verify-remote-smoke.sh p1
 ```

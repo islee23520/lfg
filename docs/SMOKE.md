@@ -18,10 +18,11 @@ marketplace-metadata=ok
 hook-smoke=ok
 mcp-smoke=ok
 team-dry-run=ok
+team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
 
-The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, tmux-team dry-run planning, and the full Python smoke matrix under `tests/smoke/`.
+The self-test covers JSON manifests, marketplace metadata, hook redaction, MCP initialization/tool listing, tmux-team dry-run planning, actual tmux team create/status/resume/shutdown lifecycle, and the full Python smoke matrix under `tests/smoke/`.
 
 
 ## Local `lfg` symlink install smoke
@@ -53,6 +54,26 @@ Expected terminal evidence:
 ```text
 lfg-launch-smoke=ok
 ```
+
+## Focused tmux team lifecycle smoke
+
+Run the team backend lifecycle gate without launching real Hermes/Claude/Codex workers:
+
+```sh
+scripts/verify-team-tmux-lifecycle.sh
+```
+
+Expected terminal evidence:
+
+```text
+team-create=ok
+team-status=ok
+team-resume=ok
+team-shutdown=ok
+team-tmux-lifecycle=ok
+```
+
+The script uses a `noop` provider so it verifies tmux session/window lifecycle without requiring external agent CLIs.
 
 ## Real Grok install/discovery smoke
 

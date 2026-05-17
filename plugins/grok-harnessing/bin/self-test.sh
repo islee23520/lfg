@@ -18,6 +18,10 @@ launch_lfg = (repo / "scripts/verify-lfg-launch.sh").read_text()
 assert "lfg-launch-smoke=ok" in launch_lfg
 assert "tmux has-session" in launch_lfg
 assert (repo / "scripts/verify-lfg-launch.sh").stat().st_mode & 0o111, "scripts/verify-lfg-launch.sh executable"
+team_lifecycle = (repo / "scripts/verify-team-tmux-lifecycle.sh").read_text()
+assert "team-tmux-lifecycle=ok" in team_lifecycle
+assert "team create" in team_lifecycle and "team status" in team_lifecycle and "team resume" in team_lifecycle and "team shutdown" in team_lifecycle
+assert (repo / "scripts/verify-team-tmux-lifecycle.sh").stat().st_mode & 0o111, "scripts/verify-team-tmux-lifecycle.sh executable"
 assert "ln -sfn" in install_lfg
 assert "grok-build.py" in install_lfg
 assert "lfg-status=ok" in install_lfg
@@ -27,10 +31,10 @@ workflow = (repo / ".github/workflows/smoke.yml").read_text()
 assert "plugins/grok-harnessing/bin/self-test.sh" in workflow
 assert "sudo apt-get install -y tmux" in workflow
 smoke_doc = (repo / "docs/SMOKE.md").read_text()
-for required in ["plugins/grok-harnessing/bin/self-test.sh", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "scripts/verify-remote-smoke.sh p1", "runtime-smoke-coverage=100%", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "lfg-launch-smoke=ok", "grok-install-smoke=ok skills=28", "remote-smoke=ok"]:
+for required in ["plugins/grok-harnessing/bin/self-test.sh", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "plugins/grok-harnessing/bin/grok-install-smoke.sh", ".github/workflows/smoke.yml", "scripts/verify-remote-smoke.sh p1", "runtime-smoke-coverage=100%", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "lfg-launch-smoke=ok", "team-tmux-lifecycle=ok", "grok-install-smoke=ok skills=28", "remote-smoke=ok"]:
     assert required in smoke_doc, required
 release_doc = (repo / "docs/RELEASE_CHECKLIST.md").read_text()
-for required in ["runtime-smoke-coverage=100%", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "grok-install-smoke=ok skills=28 key_skills_present", "remote-smoke=ok", "roadmap=27/27", "feature_docs=27/27", "linalab-io-framework/grok-build", "grok_marketplace", "agents_marketplace"]:
+for required in ["runtime-smoke-coverage=100%", "scripts/install-lfg-symlink.sh", "scripts/verify-lfg-launch.sh", "scripts/verify-team-tmux-lifecycle.sh", "lfg-status=ok version=0.3.0", "lfg-doctor=ok", "team-tmux-lifecycle=ok", "grok-install-smoke=ok skills=28 key_skills_present", "remote-smoke=ok", "roadmap=27/27", "feature_docs=27/27", "linalab-io-framework/grok-build", "grok_marketplace", "agents_marketplace"]:
     assert required in release_doc, required
 remote_smoke = (repo / "scripts/verify-remote-smoke.sh").read_text()
 assert "gh run list" in remote_smoke
@@ -90,6 +94,8 @@ assert d["status"] == "planned"
 assert [m["provider"] for m in d["members"]] == ["hermes", "claude", "codex"]
 PY
 echo "team-dry-run=ok"
+
+"$ROOT/../../scripts/verify-team-tmux-lifecycle.sh"
 
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
 echo "runtime-smoke-coverage=100%"
