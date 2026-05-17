@@ -127,6 +127,73 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def pipeline_dir() -> pathlib.Path:
+    return STATE_DIR / "pipelines"
+
+
+def pipeline_path(pid: str) -> pathlib.Path:
+    return pipeline_dir() / f"{pid}.json"
+
+
+def pipeline_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    stages = [x.strip() for x in re.split(r"\n|;", args.stages or "") if x.strip()]
+    if not stages:
+        stages = ["plan", "implement", "verify"]
+    pid = args.id or f"pipeline-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    pipeline = {
+        "id": pid,
+        "title": args.title,
+        "status": "active",
+        "createdAt": now(),
+        "updatedAt": now(),
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+        "stages": [{"id": i + 1, "name": stage, "status": "pending"} for i, stage in enumerate(stages)],
+        "events": [{"ts": now(), "type": "created", "message": args.title}],
+    }
+    write_json(pipeline_path(pid), pipeline)
+    write_json(STATE_DIR / "current-pipeline.json", {"id": pid, "path": str(pipeline_path(pid)), "updatedAt": now()})
+    return pipeline
+
+
+def pipeline_list(args: argparse.Namespace) -> dict[str, Any]:
+    items = []
+    for path in sorted(pipeline_dir().glob("*.json")) if pipeline_dir().exists() else []:
+        try:
+            item = read_json(path)
+            item["path"] = str(path)
+            items.append(item)
+        except Exception:
+            pass
+    if args.limit:
+        items = items[-args.limit:]
+    return {"count": len(items), "pipelines": items}
+
+
+def pipeline_update(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-pipeline.json", {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no pipeline id and no current pipeline")
+    item = read_json(pipeline_path(ref))
+    if not item:
+        raise SystemExit(f"pipeline not found: {ref}")
+    if args.stage is not None:
+        idx = args.stage - 1
+        if idx < 0 or idx >= len(item.get("stages", [])):
+            raise SystemExit(f"stage out of range: {args.stage}")
+        item["stages"][idx]["status"] = args.status
+    if all(s.get("status") == "complete" for s in item.get("stages", [])):
+        item["status"] = "complete"
+    elif any(s.get("status") == "blocked" for s in item.get("stages", [])):
+        item["status"] = "blocked"
+    else:
+        item["status"] = "active"
+    item["updatedAt"] = now()
+    item.setdefault("events", []).append({"ts": now(), "type": "stage", "stage": args.stage, "status": args.status, "message": args.note or ""})
+    write_json(pipeline_path(ref), item)
+    return item
+
 def skill_list(args: argparse.Namespace) -> dict[str, Any]:
     data = read_json(CATALOG_PATH, {"skills": []})
     skills = data.get("skills", [])
@@ -628,6 +695,24 @@ def main(argv: list[str] | None = None) -> int:
     cp.set_defaults(fn=cancel)
 
 
+
+
+    pip = sub.add_parser("pipeline")
+    psub = pip.add_subparsers(dest="pipeline_cmd", required=True)
+    pc = psub.add_parser("create")
+    pc.add_argument("title")
+    pc.add_argument("--id")
+    pc.add_argument("--stages")
+    pc.set_defaults(fn=pipeline_create)
+    pln = psub.add_parser("list")
+    pln.add_argument("--limit", type=int)
+    pln.set_defaults(fn=pipeline_list)
+    pu = psub.add_parser("update")
+    pu.add_argument("--id")
+    pu.add_argument("--stage", type=int, required=True)
+    pu.add_argument("--status", choices=["pending", "active", "complete", "blocked"], required=True)
+    pu.add_argument("--note")
+    pu.set_defaults(fn=pipeline_update)
 
     skp = sub.add_parser("skill")
     sksub = skp.add_subparsers(dest="skill_cmd", required=True)
