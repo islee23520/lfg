@@ -189,7 +189,7 @@ Current feature coverage:
 
 Behavioral smoke gates now include team preflight evidence across CLI/slash/MCP: `team-preflight-cli=ok`, `team-preflight-commands=ok`, `team-preflight-slash=ok`, and `team-preflight-mcp=ok`.
 
-Behavioral smoke gates now include team provider matrix/command evidence: `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, `team-provider-doctor=ok`, and installed MCP team provider/preflight surface evidence via `grok-installed-mcp-surface=ok`.
+Behavioral smoke gates now include team provider matrix/command evidence: `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, `team-provider-doctor=ok`, and installed MCP team provider/preflight surface evidence via `grok-installed-mcp-surface=ok`, including actionable preflight commands.
 
 Behavioral smoke gates now include installed `lfg` symlink launch evidence: `lfg-installed-symlink-surface=ok` including installed `/team providers` and `/team preflight` actionable commands, plus inside-tmux attach evidence `lfg-inside-tmux-attach=ok`.
 

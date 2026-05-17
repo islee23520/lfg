@@ -41,6 +41,9 @@ preflight_payload=json.loads(lines[5]['result']['content'][0]['text'])
 assert preflight_payload['returncode']==0, preflight_payload
 assert '"ok": true' in preflight_payload['stdout'], preflight_payload
 assert '"smokeSafe": "noop"' in preflight_payload['stdout'], preflight_payload
-print('grok-installed-mcp-surface=ok tools=grok_build_hook_bridge,grok_build_team.providers,grok_build_team.preflight')
+assert '"commands"' in preflight_payload['stdout'], preflight_payload
+assert 'lfg team providers' in preflight_payload['stdout'], preflight_payload
+assert '--providers noop' in preflight_payload['stdout'], preflight_payload
+print('grok-installed-mcp-surface=ok tools=grok_build_hook_bridge,grok_build_team.providers,grok_build_team.preflight commands=ok')
 PY
 tmux kill-session -t lfg-installed-mcp-preflight >/dev/null 2>&1 || true

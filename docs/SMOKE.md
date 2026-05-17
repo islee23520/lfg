@@ -103,7 +103,7 @@ grok-global-hook-bridge=ok
 grok-installed-mcp-surface=ok
 ```
 
-This proves Grok `0.1.211` can execute the same audit hook through a global hook bridge while plugin hook scope remains blocked. The runtime command `lfg hook-bridge install` writes `~/.grok/hooks/grok-build-audit-bridge.{json,sh}`. `lfg hook-bridge status` is surfaced through `doctor` as `global_hook_bridge`, through `/hook-bridge status`, and through the MCP tools `grok_build_runtime`/`grok_build_hook_bridge`. `scripts/verify-grok-installed-mcp-surface.sh` first syncs the plugin into `~/.grok/plugins/grok-build`, then invokes the installed MCP server over stdio to prove the installed package exposes `grok_build_hook_bridge`, `grok_build_team(action=providers)`, and `grok_build_team(action=preflight)`.
+This proves Grok `0.1.211` can execute the same audit hook through a global hook bridge while plugin hook scope remains blocked. The runtime command `lfg hook-bridge install` writes `~/.grok/hooks/grok-build-audit-bridge.{json,sh}`. `lfg hook-bridge status` is surfaced through `doctor` as `global_hook_bridge`, through `/hook-bridge status`, and through the MCP tools `grok_build_runtime`/`grok_build_hook_bridge`. `scripts/verify-grok-installed-mcp-surface.sh` first syncs the plugin into `~/.grok/plugins/grok-build`, then invokes the installed MCP server over stdio to prove the installed package exposes `grok_build_hook_bridge`, `grok_build_team(action=providers)`, and `grok_build_team(action=preflight)`, including actionable preflight commands.
 
 ## Focused release tag smoke
 
