@@ -8,7 +8,7 @@ Use this checklist before merging or tagging `linalab-io-framework/grok-build`.
 - [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=28 key_skills_present`.
 - [ ] Local `lfg` symlink installer passes with `lfg-launch=ok
 lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
-- [ ] Installed `lfg` symlink surface smoke passes with `lfg-installed-symlink-surface=ok`.
+- [ ] Installed `lfg` symlink surface smoke passes with `lfg-installed-symlink-surface=ok` and confirms `/team providers`, `/team preflight`, and preflight `commands=ok`.
 - [ ] Inside-tmux `lfg` attach smoke passes with `lfg-inside-tmux-attach=ok`.
 - [ ] Team preflight smoke passes with `team-preflight-cli=ok`, `team-preflight-commands=ok`, `team-preflight-slash=ok`, and `team-preflight-mcp=ok`.
 - [ ] Team provider command smoke passes with `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, and `team-provider-doctor=ok`.
@@ -19,7 +19,7 @@ lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 - [ ] Marketplace source smoke passes with `marketplace-source=ok` and preview remote smoke passes with `marketplace-remote-source=ok branch=p1`.
 - [ ] Grok hook discovery/replay smoke passes with `grok-hook-discovery=ok`, `hook-event-replay=ok`, and `grok-headless-session=ok`.
 - [ ] Optional global hook bridge workaround smoke passes with `grok-global-hook-bridge=ok`.
-- [ ] Installed MCP surface smoke passes with `grok-installed-mcp-surface=ok`.
+- [ ] Installed MCP surface smoke passes with `grok-installed-mcp-surface=ok` and confirms `grok_build_hook_bridge`, `grok_build_team.providers`, `grok_build_team.preflight`, and preflight `commands=ok`.
 - [ ] Release tag smoke passes with `release-tag=ok` and `release-tag-remote=ok`.
 - [ ] Grok `/plugins` installed-surface smoke passes with `grok-plugins-surface=ok`.
 - [ ] Remote GitHub Actions smoke passes with `remote-smoke=ok` for the latest pushed commit.

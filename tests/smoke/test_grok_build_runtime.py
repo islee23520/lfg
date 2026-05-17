@@ -312,6 +312,11 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("linalab-io-framework/grok-build", release_notes_doc)
         self.assertIn("grok-build 0.3.0", release_notes_doc)
         self.assertIn("/plugins", release_notes_doc)
+        release_checklist = (REPO / "docs" / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
+        self.assertIn("/team providers", release_checklist)
+        self.assertIn("/team preflight", release_checklist)
+        self.assertIn("grok_build_team.preflight", release_checklist)
+        self.assertIn("commands=ok", release_checklist)
         state_schema = REPO / "scripts" / "verify-state-schema.sh"
         self.assertTrue(os.access(state_schema, os.X_OK))
         state_schema_script = state_schema.read_text(encoding="utf-8")
