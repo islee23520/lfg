@@ -67,6 +67,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("- [x] Remove local-dev install from primary docs once marketplace flow is stable.", roadmap)
         self.assertIn("grok-plugins-surface=ok", roadmap)
         self.assertIn("grok-plugin-hook-scope=not-observed", roadmap)
+        self.assertIn("grok-global-hook-bridge=ok", roadmap)
         self.assertIn("release-tag=ok", roadmap)
         self.assertIn("release-notes=ok", roadmap)
         self.assertIn("state-schema-versioning=ok", roadmap)
@@ -199,6 +200,12 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("release-tag-remote=ok", release_tag_script)
         release_tag_doc = (REPO / "docs" / "RELEASE_TAGS.md").read_text(encoding="utf-8")
         self.assertIn("grok-build-v0.3.0-p1", release_tag_doc)
+        hook_bridge = REPO / "scripts" / "verify-grok-build-global-hook-bridge.sh"
+        self.assertTrue(os.access(hook_bridge, os.X_OK))
+        hook_bridge_script = hook_bridge.read_text(encoding="utf-8")
+        self.assertIn("grok-global-hook-bridge=ok", hook_bridge_script)
+        install_bridge = REPO / "scripts" / "install-grok-build-global-hook-bridge.sh"
+        self.assertTrue(os.access(install_bridge, os.X_OK))
         hook_limitation = REPO / "scripts" / "verify-grok-hook-headless-limitation.sh"
         self.assertTrue(os.access(hook_limitation, os.X_OK))
         hook_limitation_script = hook_limitation.read_text(encoding="utf-8")
