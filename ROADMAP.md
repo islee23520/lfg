@@ -125,7 +125,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 ### M4 — Deep workflow parity
 
-- [ ] Implement Grok-native `plan` behavior.
+- [x] Implement Grok-native `plan` behavior.
 - [ ] Implement Grok-native `ultragoal` behavior.
 - [ ] Implement Grok-native `ultraqa` behavior.
 - [x] Implement MVP tmux backend for `team create/status/resume/shutdown`.
@@ -183,6 +183,7 @@ Current feature coverage:
 | Feature | Design | Smoke tests | Coverage target | Status |
 | --- | --- | --- | --- | --- |
 | `/team` tmux backend | `docs/features/team-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 4/4 matrix rows | 100% passing |
+| `/plan` structured state | `docs/features/plan-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/doctor` diagnostics | `docs/features/doctor-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/wiki` durable notes | `docs/features/wiki-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 

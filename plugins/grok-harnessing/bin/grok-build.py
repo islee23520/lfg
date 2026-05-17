@@ -125,6 +125,25 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
     return goal
 
 
+
+def list_plans() -> list[dict[str, Any]]:
+    plans = []
+    for path in sorted((STATE_DIR / "plans").glob("*.json")) if (STATE_DIR / "plans").exists() else []:
+        try:
+            plan = read_json(path)
+            plan["path"] = str(path)
+            plans.append(plan)
+        except Exception:
+            pass
+    return plans
+
+
+def plan_list(args: argparse.Namespace) -> dict[str, Any]:
+    plans = list_plans()
+    if args.limit:
+        plans = plans[-args.limit:]
+    return {"count": len(plans), "plans": plans}
+
 def mk_plan(args: argparse.Namespace) -> dict[str, Any]:
     ensure_dirs()
     steps = [s.strip() for s in re.split(r"\n|;", args.steps or "") if s.strip()]
@@ -549,9 +568,14 @@ def main(argv: list[str] | None = None) -> int:
     gupd.set_defaults(fn=update_goal)
 
     pp = sub.add_parser("plan")
-    pp.add_argument("title")
-    pp.add_argument("--steps")
-    pp.set_defaults(fn=mk_plan)
+    psub = pp.add_subparsers(dest="plan_cmd", required=True)
+    pc = psub.add_parser("create")
+    pc.add_argument("title")
+    pc.add_argument("--steps")
+    pc.set_defaults(fn=mk_plan)
+    pl = psub.add_parser("list")
+    pl.add_argument("--limit", type=int)
+    pl.set_defaults(fn=plan_list)
 
     uq = sub.add_parser("ultraqa")
     uq.add_argument("objective")

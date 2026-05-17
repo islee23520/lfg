@@ -26,11 +26,11 @@ TOOLS = [
     },
     {
         "name": "grok_build_runtime",
-        "description": "Run a safe grok-build runtime query such as status, catalog, doctor, wiki_list, wiki_search, backend_status, or team_status.",
+        "description": "Run a safe grok-build runtime query such as status, catalog, doctor, plan_list, wiki_list, wiki_search, backend_status, or team_status.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "wiki_list", "wiki_search", "backend_status", "team_status"]},
+                "action": {"type": "string", "enum": ["status", "catalog", "doctor", "plan_list", "wiki_list", "wiki_search", "backend_status", "team_status"]},
                 "team": {"type": "string"},
                 "query": {"type": "string"}
             },
@@ -60,6 +60,20 @@ TOOLS = [
                 "query": {"type": "string"},
                 "providers": {"type": "string", "description": "comma list, default hermes,claude,codex"},
                 "dryRun": {"type": "boolean", "default": True}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_plan",
+        "description": "Create or list durable LFG plan state under plugin data.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "list"]},
+                "title": {"type": "string"},
+                "steps": {"type": "string", "description": "semicolon or newline separated steps"}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -136,6 +150,8 @@ def handle_tool(name, arguments=None):
             cmd += ["catalog"]
         elif action == "doctor":
             cmd += ["doctor"]
+        elif action == "plan_list":
+            cmd += ["plan", "list"]
         elif action == "wiki_list":
             cmd += ["wiki", "list"]
         elif action == "wiki_search":
@@ -171,6 +187,19 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_plan":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "plan"]
+        if action == "create":
+            cmd += ["create", arguments.get("title") or "Untitled plan"]
+            if arguments.get("steps"):
+                cmd += ["--steps", arguments["steps"]]
+        elif action == "list":
+            cmd += ["list"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

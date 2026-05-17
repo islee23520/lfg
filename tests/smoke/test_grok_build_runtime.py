@@ -209,6 +209,59 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(search_payload["returncode"], 0)
         self.assertIn('"count": 1', search_payload["stdout"])
 
+    def test_plan_create_list_persists_steps(self) -> None:
+        plan = self.run_lfg("plan", "create", "Ship plan", "--steps", "design;test;implement;verify")
+        self.assertEqual(plan["title"], "Ship plan")
+        self.assertEqual([s["text"] for s in plan["steps"]], ["design", "test", "implement", "verify"])
+        current = pathlib.Path(self.tmp.name) / "state" / "current-plan.json"
+        self.assertTrue(current.exists())
+        listed = self.run_lfg("plan", "list")
+        self.assertEqual(listed["count"], 1)
+        self.assertEqual(listed["plans"][0]["title"], "Ship plan")
+
+    def test_mcp_plan_tool(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "grok_build_plan", "arguments": {"action": "create", "title": "MCP plan", "steps": "design;test"}},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "grok_build_plan", "arguments": {"action": "list"}},
+            },
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        list_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(list_payload["returncode"], 0)
+        self.assertIn('"title": "MCP plan"', list_payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
