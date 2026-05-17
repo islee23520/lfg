@@ -9,9 +9,17 @@ import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 for rel in [".grok-plugin/plugin.json", ".claude-plugin/plugin.json", "hooks/hooks.json", ".mcp.json", ".lsp.json", "catalog/omx-skill-map.json"]:
     json.loads((root / rel).read_text())
-for rel in ["skills/grok-harnessing/SKILL.md", "agents/harness.toml", "hooks/scripts/grok-build-audit-hook.sh", "bin/grok-build-mcp.py"]:
+for rel in ["skills/grok-harnessing/SKILL.md", "agents/harness.toml", "hooks/scripts/grok-build-audit-hook.sh", "bin/grok-build-mcp.py", "bin/grok-install-smoke.sh"]:
     assert (root / rel).exists(), rel
+assert (root / "bin/grok-install-smoke.sh").stat().st_mode & 0o111, "bin/grok-install-smoke.sh executable"
 repo = root.parents[1]
+workflow = (repo / ".github/workflows/smoke.yml").read_text()
+assert "plugins/grok-harnessing/bin/self-test.sh" in workflow
+assert "sudo apt-get install -y tmux" in workflow
+install_smoke = (root / "bin/grok-install-smoke.sh").read_text()
+assert "grok-install-smoke=ok skills=28" in install_smoke
+assert "rsync -a --delete" in install_smoke
+assert "inspect --json" in install_smoke
 for rel in [".grok/plugins/marketplace.json", ".agents/plugins/marketplace.json"]:
     data = json.loads((repo / rel).read_text())
     plugins = data.get("plugins", [])

@@ -133,6 +133,19 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(expected - tool_names, set())
 
 
+
+    def test_ci_and_install_smoke_contracts(self) -> None:
+        workflow = (REPO / ".github/workflows/smoke.yml").read_text(encoding="utf-8")
+        self.assertIn("plugins/grok-harnessing/bin/self-test.sh", workflow)
+        self.assertIn("sudo apt-get install -y tmux", workflow)
+        install_smoke = PLUGIN / "bin" / "grok-install-smoke.sh"
+        self.assertTrue(os.access(install_smoke, os.X_OK))
+        script = install_smoke.read_text(encoding="utf-8")
+        self.assertIn("rsync -a --delete", script)
+        self.assertIn("inspect --json", script)
+        self.assertIn("assert len(skills) == 28", script)
+        self.assertIn("grok-install-smoke=ok skills=28", script)
+
     def test_marketplace_metadata_points_to_plugin_package(self) -> None:
         for rel in [".grok/plugins/marketplace.json", ".agents/plugins/marketplace.json"]:
             data = json.loads((REPO / rel).read_text(encoding="utf-8"))
