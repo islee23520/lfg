@@ -189,7 +189,7 @@ Current feature coverage:
 
 Behavioral smoke gates now include team provider matrix/command evidence: `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, `team-provider-doctor=ok`, and installed MCP team provider surface evidence via `grok-installed-mcp-surface=ok`.
 
-Behavioral smoke gates now include installed `lfg` symlink launch evidence: `lfg-installed-symlink-surface=ok`, plus inside-tmux attach evidence `lfg-inside-tmux-attach=ok`.
+Behavioral smoke gates now include installed `lfg` symlink launch evidence: `lfg-installed-symlink-surface=ok` including installed `/team providers`, plus inside-tmux attach evidence `lfg-inside-tmux-attach=ok`.
 
 Behavioral smoke gates now include global hook bridge workaround evidence: `grok-global-hook-bridge=ok`, plus runtime bridge management via `lfg hook-bridge status/install`, `/hook-bridge`, MCP `grok_build_hook_bridge`, installed MCP surface evidence `grok-installed-mcp-surface=ok`, and `doctor` `global_hook_bridge`.
 

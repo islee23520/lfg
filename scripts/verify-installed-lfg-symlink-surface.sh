@@ -24,6 +24,14 @@ assert obj['launcher']=='lfg', obj
 assert obj['mode']=='tmux-backend', obj
 assert obj['attachCommand'].startswith('tmux attach -t '), obj
 PY
+  "$bin" --json slash '/team providers' >/tmp/lfg-installed-team-providers.json
+  python3 - <<'PY'
+import json
+obj=json.load(open('/tmp/lfg-installed-team-providers.json'))
+assert obj['ok'], obj
+assert [p['provider'] for p in obj['providers']] == ['hermes','claude','codex','noop'], obj
+assert obj['smokeSafe'] == 'noop', obj
+PY
 done
 for bin in "$HOME/.local/bin/grok-build.py" "$HOME/.grok/bin/grok-build.py"; do
   test -L "$bin"
@@ -31,7 +39,7 @@ for bin in "$HOME/.local/bin/grok-build.py" "$HOME/.grok/bin/grok-build.py"; do
   test "$target" = "$REPO_ROOT/plugins/grok-harnessing/bin/grok-build.py"
 done
 if tmux has-session -t lfg-backend 2>/dev/null; then
-  echo "lfg-installed-symlink-surface=ok backend=lfg-backend"
+  echo "lfg-installed-symlink-surface=ok backend=lfg-backend slash=/team-providers"
 else
   echo "lfg-installed-symlink-surface=missing-backend" >&2
   exit 1
