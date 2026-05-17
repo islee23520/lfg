@@ -138,6 +138,68 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def ultrawork_dir() -> pathlib.Path:
+    return RUNS_DIR / "ultrawork"
+
+
+def ultrawork_path(uid: str) -> pathlib.Path:
+    return ultrawork_dir() / f"{uid}.json"
+
+
+def ultrawork_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    uid = args.id or f"ultrawork-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    tasks = [t.strip() for t in re.split(r"\n|;", args.tasks or "") if t.strip()] or [args.objective]
+    rec = {
+        "id": uid,
+        "objective": args.objective,
+        "status": "active",
+        "createdAt": now(),
+        "updatedAt": now(),
+        "tasks": [{"id": i + 1, "task": t, "status": "pending", "evidence": ""} for i, t in enumerate(tasks)],
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+    }
+    write_json(ultrawork_path(uid), rec)
+    write_json(STATE_DIR / "current-ultrawork.json", {"id": uid, "path": str(ultrawork_path(uid)), "updatedAt": now()})
+    rec["path"] = str(ultrawork_path(uid))
+    return rec
+
+
+def ultrawork_update(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-ultrawork.json", {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no ultrawork id and no current ultrawork batch")
+    rec = read_json(ultrawork_path(ref))
+    if not rec:
+        raise SystemExit(f"ultrawork batch not found: {ref}")
+    idx = args.task - 1
+    if idx < 0 or idx >= len(rec.get("tasks", [])):
+        raise SystemExit(f"task out of range: {args.task}")
+    rec["tasks"][idx]["status"] = args.status
+    rec["tasks"][idx]["evidence"] = args.evidence or ""
+    if all(t.get("status") == "complete" for t in rec.get("tasks", [])):
+        rec["status"] = "complete"
+    elif any(t.get("status") == "blocked" for t in rec.get("tasks", [])):
+        rec["status"] = "blocked"
+    else:
+        rec["status"] = "active"
+    rec["updatedAt"] = now()
+    write_json(ultrawork_path(ref), rec)
+    rec["path"] = str(ultrawork_path(ref))
+    return rec
+
+
+def ultrawork_show(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-ultrawork.json", {}) or {}).get("id")
+    if not ref:
+        return {"ultrawork": []}
+    rec = read_json(ultrawork_path(ref))
+    if not rec:
+        raise SystemExit(f"ultrawork batch not found: {ref}")
+    rec["path"] = str(ultrawork_path(ref))
+    return rec
+
 def ralph_dir() -> pathlib.Path:
     return RUNS_DIR / "ralph"
 
@@ -1190,6 +1252,24 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    uwp = sub.add_parser("ultrawork")
+    uwsub = uwp.add_subparsers(dest="ultrawork_cmd", required=True)
+    uwc = uwsub.add_parser("create")
+    uwc.add_argument("objective")
+    uwc.add_argument("--id")
+    uwc.add_argument("--tasks")
+    uwc.set_defaults(fn=ultrawork_create)
+    uwu = uwsub.add_parser("update")
+    uwu.add_argument("--id")
+    uwu.add_argument("--task", type=int, required=True)
+    uwu.add_argument("--status", choices=["pending", "active", "complete", "blocked"], required=True)
+    uwu.add_argument("--evidence", default="")
+    uwu.set_defaults(fn=ultrawork_update)
+    uwsh = uwsub.add_parser("show")
+    uwsh.add_argument("--id")
+    uwsh.set_defaults(fn=ultrawork_show)
 
     rp = sub.add_parser("ralph")
     rsub = rp.add_subparsers(dest="ralph_cmd", required=True)

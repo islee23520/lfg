@@ -893,6 +893,39 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"id": "mcp-ralph"', create_payload["stdout"])
         self.assertIn('"status": "complete"', step_payload["stdout"])
 
+    def test_ultrawork_create_update_show(self) -> None:
+        rec = self.run_lfg("ultrawork", "create", "ship batch", "--id", "smoke-ultrawork", "--tasks", "one;two")
+        self.assertEqual(len(rec["tasks"]), 2)
+        updated = self.run_lfg("ultrawork", "update", "--id", "smoke-ultrawork", "--task", "1", "--status", "complete", "--evidence", "verified")
+        self.assertEqual(updated["tasks"][0]["status"], "complete")
+        shown = self.run_lfg("ultrawork", "show", "--id", "smoke-ultrawork")
+        self.assertEqual(shown["tasks"][0]["evidence"], "verified")
+
+    def test_mcp_ultrawork_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ultrawork", "arguments": {"action": "create", "id": "mcp-ultrawork", "objective": "MCP batch", "tasks": "a;b"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ultrawork", "arguments": {"action": "update", "id": "mcp-ultrawork", "task": 1, "status": "complete", "evidence": "ok"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        update_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(update_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-ultrawork"', create_payload["stdout"])
+        self.assertIn('"evidence": "ok"', update_payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

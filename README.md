@@ -100,6 +100,8 @@ plugins/grok-harnessing/bin/grok-build.py autoresearch create "How should team m
 plugins/grok-harnessing/bin/grok-build.py ai-slop-cleaner create --scope README.md --verification self-test
 plugins/grok-harnessing/bin/grok-build.py worker ack worker-1 "fix tests"
 plugins/grok-harnessing/bin/grok-build.py ralph create "iterate until tests pass" --max-iterations 3
+plugins/grok-harnessing/bin/grok-build.py ultrawork create "ship batch" --tasks "one;two"
+plugins/grok-harnessing/bin/grok-build.py ultrawork update --task 1 --status complete --evidence "verified"
 plugins/grok-harnessing/bin/grok-build.py wiki add "Decision" "Use tmux backend" --tags team
 plugins/grok-harnessing/bin/grok-build.py wiki search tmux
 plugins/grok-harnessing/bin/grok-build.py plan create "ship grok-build MVP"
@@ -157,13 +159,13 @@ plugins/grok-harnessing/bin/self-test.sh
 Expected Grok discovery signal after install:
 
 ```text
-grok-build v0.2.0
+grok-build v0.3.0
   28 skills, hooks: active, 1 MCP servers
 ```
 
 The self-test checks manifests, required files, hook smoke, token-like redaction, MCP initialization, MCP tool listing, and the runtime smoke matrix.
 
-Runtime smoke coverage currently targets the `/team` feature matrix documented in `plugins/grok-harnessing/docs/features/team-runtime.md`; all matrix rows must pass for `runtime-smoke-coverage=100%`.
+Runtime smoke coverage tracks the implemented OMX-like feature matrices under `plugins/grok-harnessing/docs/features/`; all matrix rows must pass for `runtime-smoke-coverage=100%`.
 
 ## Layout
 

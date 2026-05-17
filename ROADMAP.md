@@ -131,6 +131,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - [x] Implement MVP tmux backend for `team create/status/resume/shutdown`.
 - [x] Wire `/team` arguments directly to the `lfg team` backend through `lfg slash` and MCP `grok_build_slash`.
 - [x] Implement Grok-native `ralph` loop-state foundation.
+- [x] Implement Grok-native `ultrawork` batch task-state foundation.
 - [x] Implement Grok-native `wiki` storage/search.
 - [x] Implement `doctor` diagnostics.
 - [ ] Add behavioral smoke tests per workflow.
@@ -200,6 +201,7 @@ Current feature coverage:
 | `/ai-slop-cleaner` cleanup report | `docs/features/ai-slop-cleaner-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/worker` task status | `docs/features/worker-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/ralph` loop state | `docs/features/ralph-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
+| `/ultrawork` batch task state | `docs/features/ultrawork-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/doctor` diagnostics | `docs/features/doctor-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 | `/wiki` durable notes | `docs/features/wiki-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
 

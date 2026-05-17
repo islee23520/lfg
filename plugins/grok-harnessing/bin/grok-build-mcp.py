@@ -66,6 +66,24 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_ultrawork",
+        "description": "Create/show/update durable ultrawork batch task state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "update", "show"]},
+                "id": {"type": "string"},
+                "objective": {"type": "string"},
+                "tasks": {"type": "string"},
+                "task": {"type": "integer"},
+                "status": {"type": "string", "enum": ["pending", "active", "complete", "blocked"]},
+                "evidence": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_ralph",
         "description": "Create/show/step durable Ralph loop state.",
         "inputSchema": {
@@ -426,6 +444,29 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_ultrawork":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "ultrawork"]
+        if action == "create":
+            cmd += ["create", arguments.get("objective") or "Ultrawork objective"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("tasks"):
+                cmd += ["--tasks", arguments["tasks"]]
+        elif action == "update":
+            cmd += ["update", "--task", str(arguments.get("task") or 1), "--status", arguments.get("status") or "active"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("evidence"):
+                cmd += ["--evidence", arguments["evidence"]]
+        elif action == "show":
+            cmd += ["show"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
