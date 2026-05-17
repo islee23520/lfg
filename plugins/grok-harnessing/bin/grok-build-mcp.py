@@ -66,6 +66,22 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_worker",
+        "description": "Record/list worker ACK and result state for team mode.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["ack", "result", "status"]},
+                "worker": {"type": "string"},
+                "task": {"type": "string"},
+                "result": {"type": "string"},
+                "status": {"type": "string", "enum": ["complete", "blocked", "failed"]}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_cleanup",
         "description": "Create/list durable ai-slop-cleaner cleanup reports; no automatic edits in MVP.",
         "inputSchema": {
@@ -392,6 +408,23 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_worker":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "worker"]
+        if action == "ack":
+            cmd += ["ack", arguments.get("worker") or "worker-1", arguments.get("task") or "task"]
+        elif action == "result":
+            cmd += ["result", arguments.get("worker") or "worker-1", arguments.get("result") or "done"]
+            if arguments.get("status"):
+                cmd += ["--status", arguments["status"]]
+        elif action == "status":
+            cmd += ["status"]
+            if arguments.get("worker"):
+                cmd += [arguments["worker"]]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

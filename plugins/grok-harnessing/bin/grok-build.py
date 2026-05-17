@@ -136,6 +136,51 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def workers_dir() -> pathlib.Path:
+    return STATE_DIR / "workers"
+
+
+def worker_path(worker_id: str) -> pathlib.Path:
+    return workers_dir() / f"{slugify(worker_id)}.json"
+
+
+def worker_ack(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    wid = args.worker
+    rec = read_json(worker_path(wid), {"worker": wid, "events": []})
+    rec.update({"worker": wid, "status": "ack", "task": args.task, "updatedAt": now()})
+    rec.setdefault("events", []).append({"ts": now(), "type": "ack", "task": args.task})
+    write_json(worker_path(wid), rec)
+    rec["path"] = str(worker_path(wid))
+    return rec
+
+
+def worker_result(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    wid = args.worker
+    rec = read_json(worker_path(wid), {"worker": wid, "events": []})
+    rec.update({"worker": wid, "status": args.status, "result": args.result, "updatedAt": now()})
+    rec.setdefault("events", []).append({"ts": now(), "type": "result", "status": args.status, "result": args.result})
+    write_json(worker_path(wid), rec)
+    rec["path"] = str(worker_path(wid))
+    return rec
+
+
+def worker_status(args: argparse.Namespace) -> dict[str, Any]:
+    if args.worker:
+        rec = read_json(worker_path(args.worker))
+        if not rec:
+            raise SystemExit(f"worker not found: {args.worker}")
+        rec["path"] = str(worker_path(args.worker))
+        return rec
+    workers = []
+    for path in sorted(workers_dir().glob("*.json")) if workers_dir().exists() else []:
+        item = read_json(path)
+        item["path"] = str(path)
+        workers.append(item)
+    return {"count": len(workers), "workers": workers}
+
 def cleanup_dir() -> pathlib.Path:
     return RUNS_DIR / "ai-slop-cleaner"
 
@@ -1085,6 +1130,22 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    wp2 = sub.add_parser("worker")
+    w2sub = wp2.add_subparsers(dest="worker_cmd", required=True)
+    wa2 = w2sub.add_parser("ack")
+    wa2.add_argument("worker")
+    wa2.add_argument("task")
+    wa2.set_defaults(fn=worker_ack)
+    wr2 = w2sub.add_parser("result")
+    wr2.add_argument("worker")
+    wr2.add_argument("result")
+    wr2.add_argument("--status", default="complete", choices=["complete", "blocked", "failed"])
+    wr2.set_defaults(fn=worker_result)
+    ws2 = w2sub.add_parser("status")
+    ws2.add_argument("worker", nargs="?")
+    ws2.set_defaults(fn=worker_status)
 
     cleanp = sub.add_parser("ai-slop-cleaner")
     cleansub = cleanp.add_subparsers(dest="cleanup_cmd", required=True)
