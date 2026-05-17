@@ -66,6 +66,21 @@ TOOLS = [
         },
     },
     {
+        "name": "grok_build_design",
+        "description": "Add/list durable design decisions under plugin data.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["add", "list"]},
+                "title": {"type": "string"},
+                "decision": {"type": "string"},
+                "rationale": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
         "name": "grok_build_notifications",
         "description": "Set/show dry-run notification configuration under plugin data.",
         "inputSchema": {
@@ -330,6 +345,19 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+    if name == "grok_build_design":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "design"]
+        if action == "add":
+            cmd += ["add", arguments.get("title") or "Untitled", arguments.get("decision") or ""]
+            if arguments.get("rationale"):
+                cmd += ["--rationale", arguments["rationale"]]
+        elif action == "list":
+            cmd += ["list"]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)

@@ -132,6 +132,43 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+def design_dir() -> pathlib.Path:
+    return DATA / "design"
+
+
+def design_add(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    decision_id = f"design-{time.strftime('%Y%m%d-%H%M%S')}-{slugify(args.title)}"
+    record = {
+        "id": decision_id,
+        "title": args.title,
+        "decision": args.decision,
+        "rationale": args.rationale or "",
+        "createdAt": now(),
+        "updatedAt": now(),
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+    }
+    path = design_dir() / f"{decision_id}.json"
+    write_json(path, record)
+    write_json(STATE_DIR / "last-design.json", {"id": decision_id, "path": str(path), "updatedAt": now()})
+    record["path"] = str(path)
+    return record
+
+
+def design_list(args: argparse.Namespace) -> dict[str, Any]:
+    items = []
+    for path in sorted(design_dir().glob("*.json")) if design_dir().exists() else []:
+        try:
+            item = read_json(path)
+            item["path"] = str(path)
+            items.append(item)
+        except Exception:
+            pass
+    if args.limit:
+        items = items[-args.limit:]
+    return {"count": len(items), "decisions": items}
+
 def notifications_path() -> pathlib.Path:
     return STATE_DIR / "notifications.json"
 
@@ -879,6 +916,18 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
+
+
+    dp = sub.add_parser("design")
+    dsub = dp.add_subparsers(dest="design_cmd", required=True)
+    da = dsub.add_parser("add")
+    da.add_argument("title")
+    da.add_argument("decision")
+    da.add_argument("--rationale")
+    da.set_defaults(fn=design_add)
+    dl = dsub.add_parser("list")
+    dl.add_argument("--limit", type=int)
+    dl.set_defaults(fn=design_list)
 
     np = sub.add_parser("configure-notifications")
     nsub = np.add_subparsers(dest="notifications_cmd", required=True)

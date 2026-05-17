@@ -694,6 +694,37 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"enabled": true', payload["stdout"])
         self.assertIn('"dryRunOnly": true', payload["stdout"])
 
+    def test_design_add_list_persists_decision(self) -> None:
+        rec = self.run_lfg("design", "add", "Team backend", "Use tmux windows", "--rationale", "durable coordination")
+        self.assertEqual(rec["title"], "Team backend")
+        self.assertEqual(rec["decision"], "Use tmux windows")
+        self.assertTrue((pathlib.Path(self.tmp.name) / "state" / "last-design.json").exists())
+        listed = self.run_lfg("design", "list")
+        self.assertEqual(listed["count"], 1)
+        self.assertEqual(listed["decisions"][0]["rationale"], "durable coordination")
+
+    def test_mcp_design_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_design", "arguments": {"action": "add", "title": "MCP design", "decision": "Persist decisions", "rationale": "traceability"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        self.assertEqual(payload["returncode"], 0)
+        self.assertIn('"title": "MCP design"', payload["stdout"])
+        self.assertIn('"decision": "Persist decisions"', payload["stdout"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
