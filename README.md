@@ -160,6 +160,16 @@ claude --permission-mode bypassPermissions ...
 codex ...
 ```
 
+## Install `lfg` CLI symlink
+
+For local shell use, install `lfg` into PATH with:
+
+```sh
+scripts/install-lfg-symlink.sh
+```
+
+This creates symlinks for both `lfg` and its sibling `grok-build.py` wrapper target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status` and `lfg --json doctor`.
+
 ## Verify
 
 Run the plugin self-test:

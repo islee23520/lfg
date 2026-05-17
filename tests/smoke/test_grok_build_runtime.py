@@ -145,6 +145,13 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("inspect --json", script)
         self.assertIn("assert len(skills) == 28", script)
         self.assertIn("grok-install-smoke=ok skills=28", script)
+        install_lfg = REPO / "scripts" / "install-lfg-symlink.sh"
+        self.assertTrue(os.access(install_lfg, os.X_OK))
+        install_script = install_lfg.read_text(encoding="utf-8")
+        self.assertIn("ln -sfn", install_script)
+        self.assertIn("grok-build.py", install_script)
+        self.assertIn("lfg-status=ok", install_script)
+        self.assertIn("lfg-doctor=ok", install_script)
         remote_smoke = REPO / "scripts" / "verify-remote-smoke.sh"
         self.assertTrue(os.access(remote_smoke, os.X_OK))
         remote_script = remote_smoke.read_text(encoding="utf-8")

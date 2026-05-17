@@ -13,6 +13,12 @@ for rel in ["skills/grok-harnessing/SKILL.md", "agents/harness.toml", "hooks/scr
     assert (root / rel).exists(), rel
 assert (root / "bin/grok-install-smoke.sh").stat().st_mode & 0o111, "bin/grok-install-smoke.sh executable"
 repo = root.parents[1]
+install_lfg = (repo / "scripts/install-lfg-symlink.sh").read_text()
+assert "ln -sfn" in install_lfg
+assert "grok-build.py" in install_lfg
+assert "lfg-status=ok" in install_lfg
+assert "lfg-doctor=ok" in install_lfg
+assert (repo / "scripts/install-lfg-symlink.sh").stat().st_mode & 0o111, "scripts/install-lfg-symlink.sh executable"
 workflow = (repo / ".github/workflows/smoke.yml").read_text()
 assert "plugins/grok-harnessing/bin/self-test.sh" in workflow
 assert "sudo apt-get install -y tmux" in workflow
