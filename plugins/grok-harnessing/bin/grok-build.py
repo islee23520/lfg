@@ -1033,6 +1033,67 @@ def autoresearch_goal_show(args: argparse.Namespace) -> dict[str, Any]:
     record["path"] = str(autoresearch_goal_path(ref))
     return record
 
+
+def ralplan_dir() -> pathlib.Path:
+    return RUNS_DIR / "ralplan"
+
+
+def ralplan_path(rid: str) -> pathlib.Path:
+    return ralplan_dir() / f"{rid}.json"
+
+
+def ralplan_create(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    rid = args.id or f"ralplan-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    steps = [s.strip() for s in re.split(r"\n|;", args.steps or "") if s.strip()] or [
+        "state objective and constraints",
+        "propose implementation path",
+        "define verification evidence",
+    ]
+    record = {
+        "id": rid,
+        "title": args.title,
+        "status": "active",
+        "consensus": "pending",
+        "createdAt": now(),
+        "updatedAt": now(),
+        "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
+        "steps": [{"id": i + 1, "status": "pending", "text": step} for i, step in enumerate(steps)],
+        "reviews": [],
+    }
+    write_json(ralplan_path(rid), record)
+    write_json(STATE_DIR / "current-ralplan.json", {"id": rid, "path": str(ralplan_path(rid)), "updatedAt": now()})
+    record["path"] = str(ralplan_path(rid))
+    return record
+
+
+def ralplan_review(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-ralplan.json", {}) or {}).get("id")
+    if not ref:
+        raise SystemExit("no ralplan id and no current ralplan")
+    record = read_json(ralplan_path(ref))
+    if not record:
+        raise SystemExit(f"ralplan not found: {ref}")
+    review = {"ts": now(), "reviewer": args.reviewer or "architect", "verdict": args.verdict, "evidence": args.evidence or ""}
+    record.setdefault("reviews", []).append(review)
+    record["consensus"] = args.verdict
+    record["status"] = "complete" if args.verdict == "approve" else ("blocked" if args.verdict == "block" else "active")
+    record["updatedAt"] = now()
+    write_json(ralplan_path(ref), record)
+    record["path"] = str(ralplan_path(ref))
+    return record
+
+
+def ralplan_show(args: argparse.Namespace) -> dict[str, Any]:
+    ref = args.id or (read_json(STATE_DIR / "current-ralplan.json", {}) or {}).get("id")
+    if not ref:
+        return {"ralplans": []}
+    record = read_json(ralplan_path(ref))
+    if not record:
+        raise SystemExit(f"ralplan not found: {ref}")
+    record["path"] = str(ralplan_path(ref))
+    return record
+
 def skill_list(args: argparse.Namespace) -> dict[str, Any]:
     data = read_json(CATALOG_PATH, {"skills": []})
     skills = data.get("skills", [])
@@ -1815,6 +1876,24 @@ def main(argv: list[str] | None = None) -> int:
     gupd.add_argument("--status", choices=["active", "blocked", "complete", "cancelled"], required=True)
     gupd.add_argument("--note")
     gupd.set_defaults(fn=update_goal)
+
+
+    rlp = sub.add_parser("ralplan")
+    rlsub = rlp.add_subparsers(dest="ralplan_cmd", required=True)
+    rlc = rlsub.add_parser("create")
+    rlc.add_argument("title")
+    rlc.add_argument("--id")
+    rlc.add_argument("--steps")
+    rlc.set_defaults(fn=ralplan_create)
+    rlr = rlsub.add_parser("review")
+    rlr.add_argument("--id")
+    rlr.add_argument("--verdict", choices=["approve", "revise", "block"], required=True)
+    rlr.add_argument("--reviewer", default="architect")
+    rlr.add_argument("--evidence", default="")
+    rlr.set_defaults(fn=ralplan_review)
+    rls = rlsub.add_parser("show")
+    rls.add_argument("--id")
+    rls.set_defaults(fn=ralplan_show)
 
     pp = sub.add_parser("plan")
     psub = pp.add_subparsers(dest="plan_cmd", required=True)

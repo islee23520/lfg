@@ -209,6 +209,42 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(search_payload["returncode"], 0)
         self.assertIn('"count": 1', search_payload["stdout"])
 
+
+    def test_ralplan_create_review_show(self) -> None:
+        plan = self.run_lfg("ralplan", "create", "Consensus plan", "--id", "smoke-ralplan", "--steps", "design;verify")
+        self.assertEqual(plan["consensus"], "pending")
+        self.assertEqual([s["text"] for s in plan["steps"]], ["design", "verify"])
+        reviewed = self.run_lfg("ralplan", "review", "--id", "smoke-ralplan", "--verdict", "approve", "--reviewer", "architect", "--evidence", "looks safe")
+        self.assertEqual(reviewed["status"], "complete")
+        self.assertEqual(reviewed["consensus"], "approve")
+        shown = self.run_lfg("ralplan", "show", "--id", "smoke-ralplan")
+        self.assertEqual(shown["reviews"][0]["evidence"], "looks safe")
+
+    def test_mcp_ralplan_tool(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ralplan", "arguments": {"action": "create", "id": "mcp-ralplan", "title": "MCP consensus", "steps": "design;verify"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ralplan", "arguments": {"action": "review", "id": "mcp-ralplan", "verdict": "approve", "reviewer": "architect", "evidence": "ok"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        review_payload = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(create_payload["returncode"], 0)
+        self.assertEqual(review_payload["returncode"], 0)
+        self.assertIn('"id": "mcp-ralplan"', create_payload["stdout"])
+        self.assertIn('"consensus": "approve"', review_payload["stdout"])
+
     def test_plan_create_list_persists_steps(self) -> None:
         plan = self.run_lfg("plan", "create", "Ship plan", "--steps", "design;test;implement;verify")
         self.assertEqual(plan["title"], "Ship plan")

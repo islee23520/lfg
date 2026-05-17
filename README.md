@@ -112,6 +112,8 @@ plugins/grok-harnessing/bin/grok-build.py ultrawork create "ship batch" --tasks 
 plugins/grok-harnessing/bin/grok-build.py ultrawork update --task 1 --status complete --evidence "verified"
 plugins/grok-harnessing/bin/grok-build.py wiki add "Decision" "Use tmux backend" --tags team
 plugins/grok-harnessing/bin/grok-build.py wiki search tmux
+plugins/grok-harnessing/bin/grok-build.py ralplan create "Consensus plan" --steps "design;verify"
+plugins/grok-harnessing/bin/grok-build.py ralplan review --verdict approve --reviewer architect --evidence "looks safe"
 plugins/grok-harnessing/bin/grok-build.py plan create "ship grok-build MVP"
 plugins/grok-harnessing/bin/grok-build.py goal create "ship durable goal" --checklist "design;test;verify"
 plugins/grok-harnessing/bin/grok-build.py cancel --scope goal,plan

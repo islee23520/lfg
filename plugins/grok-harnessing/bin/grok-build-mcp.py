@@ -391,6 +391,25 @@ TOOLS = [
             "additionalProperties": False
         },
     },
+
+    {
+        "name": "grok_build_ralplan",
+        "description": "Create/show/review durable consensus planning state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "review", "show"]},
+                "id": {"type": "string"},
+                "title": {"type": "string"},
+                "steps": {"type": "string"},
+                "verdict": {"type": "string", "enum": ["approve", "revise", "block"]},
+                "reviewer": {"type": "string"},
+                "evidence": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
     {
         "name": "grok_build_plan",
         "description": "Create or list durable LFG plan state under plugin data.",
@@ -878,6 +897,32 @@ def handle_tool(name, arguments=None):
                 cmd += ["--id", arguments["id"]]
             if arguments.get("note"):
                 cmd += ["--note", arguments["note"]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+
+    if name == "grok_build_ralplan":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "ralplan"]
+        if action == "create":
+            cmd += ["create", arguments.get("title") or "Consensus plan"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("steps"):
+                cmd += ["--steps", arguments["steps"]]
+        elif action == "review":
+            cmd += ["review", "--verdict", arguments.get("verdict") or "revise"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
+            if arguments.get("reviewer"):
+                cmd += ["--reviewer", arguments["reviewer"]]
+            if arguments.get("evidence"):
+                cmd += ["--evidence", arguments["evidence"]]
+        elif action == "show":
+            cmd += ["show"]
+            if arguments.get("id"):
+                cmd += ["--id", arguments["id"]]
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
