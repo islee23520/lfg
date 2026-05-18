@@ -25,6 +25,35 @@ STATE_DIR = DATA / "state"
 RUNS_DIR = DATA / "runs"
 CATALOG_PATH = ROOT / "catalog" / "omx-skill-map.json"
 STATE_SCHEMA_VERSION = 1
+SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+
+
+def validate_safe_id(value: str, field: str) -> str:
+    if not SAFE_ID_RE.fullmatch(value or ""):
+        raise SystemExit(f"invalid {field}: must match {SAFE_ID_RE.pattern}")
+    return value
+
+
+def safe_child_path(root: pathlib.Path, *parts: str) -> pathlib.Path:
+    root_resolved = root.resolve()
+    path = root_resolved.joinpath(*parts).resolve()
+    if path != root_resolved and root_resolved not in path.parents:
+        raise SystemExit(f"unsafe path outside {root_resolved}: {path}")
+    return path
+
+
+def parse_providers(value: str) -> list[str]:
+    providers = [p.strip() for p in (value or "").split(",") if p.strip()]
+    invalid = [p for p in providers if p not in TEAM_PROVIDER_EXECUTABLES]
+    if invalid:
+        raise SystemExit(f"unknown provider(s): {', '.join(invalid)}")
+    if not providers:
+        raise SystemExit("at least one provider is required")
+    return providers
+
+def effective_launcher() -> str:
+    """Return the user-facing binary name that was used to invoke this runtime."""
+    return os.environ.get("LFG_LAUNCHER") or pathlib.Path(sys.argv[0]).name or "lfg"
 
 
 def now() -> str:
@@ -155,7 +184,7 @@ def update_goal(args: argparse.Namespace) -> dict[str, Any]:
 # --- ultragoal: durable multi-goal plans (Grok-native port of OMX ultragoal) ---
 
 def ultragoal_dir(ugid: str) -> pathlib.Path:
-    return DATA / "ultragoal" / ugid
+    return safe_child_path(DATA / "ultragoal", validate_safe_id(ugid, "ultragoal id"))
 
 
 def ultragoal_goals_path(ugid: str) -> pathlib.Path:
@@ -172,6 +201,128 @@ def ultragoal_brief_path(ugid: str) -> pathlib.Path:
 
 def ultragoal_current_path() -> pathlib.Path:
     return STATE_DIR / "current-ultragoal.json"
+
+
+# =============================================================================
+# Boulder State (Direction A - Lina Boulder Management)
+# This is the core durable memory structure that Lina must actively maintain,
+# modeled directly after real OmO boulder.json behavior.
+# =============================================================================
+
+def boulder_path(ugid: str) -> pathlib.Path:
+    """Location of the official boulder state for a given ultragoal."""
+    return ultragoal_dir(ugid) / "boulder.json"
+
+
+def read_boulder(ugid: str) -> dict[str, Any]:
+    """Read the current boulder. Returns empty dict if not exist yet."""
+    path = boulder_path(ugid)
+    data = read_json(path, {})
+    if not data:
+        # Initialize minimal boulder if none exists
+        data = {
+            "version": 1,
+            "ultragoal_id": ugid,
+            "last_updated_by": "lina",
+            "last_updated_at": now(),
+            "current_objective": "",
+            "status_summary": "Boulder initialized. No progress recorded yet.",
+            "boulder_position": {"progress": 0, "phase": "initialization"},
+            "open_questions": [],
+            "blockers": [],
+            "next_actions": [],
+            "recent_evidence": [],
+            "sisyphus_notes": "This boulder must be actively maintained by Lina every turn."
+        }
+        write_json(path, data)
+    return data
+
+
+def write_boulder(ugid: str, boulder: dict[str, Any]) -> None:
+    """Write the boulder after Lina has updated it."""
+    boulder["last_updated_by"] = "lina"
+    boulder["last_updated_at"] = now()
+    write_json(boulder_path(ugid), boulder)
+
+
+def parse_boulder_block(text: str) -> dict[str, Any] | None:
+    """
+    Extract a boulder JSON object from text.
+    Looks for ```boulder or ```json fenced blocks, with light tolerance for model slop.
+    Returns the parsed dict or None.
+    """
+    if not text:
+        return None
+
+    import re
+    # Primary pattern: ```boulder ... ``` or ```json ... ```
+    patterns = [
+        r'```(?:boulder|json)\s*(\{.*?\})\s*```',
+        r'```(\{.*?"ultragoal_id".*?\})\s*```',  # fallback for bare json containing ultragoal_id
+    ]
+
+    for pat in patterns:
+        match = re.search(pat, text, re.DOTALL | re.IGNORECASE)
+        if match:
+            candidate = match.group(1).strip()
+            # Remove common trailing junk
+            candidate = re.sub(r',\s*}', '}', candidate)
+            candidate = re.sub(r',\s*\]', ']', candidate)
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict) and "ultragoal_id" in parsed:
+                    return parsed
+            except Exception:
+                continue
+    return None
+
+
+def safe_write_boulder(ugid: str, boulder: dict[str, Any]) -> tuple[bool, str]:
+    """
+    Validate, normalize and write a boulder.
+    Returns (success, message).
+    Never silently drops the boulder.
+    """
+    try:
+        if not isinstance(boulder, dict):
+            return False, "boulder is not a dict"
+
+        boulder.setdefault("version", 1)
+        boulder["ultragoal_id"] = ugid
+        boulder.setdefault("last_updated_by", "lina")
+        boulder.setdefault("last_updated_at", now())
+
+        # Light normalization for common missing fields
+        boulder.setdefault("status_summary", "")
+        boulder.setdefault("boulder_position", {"progress": 0, "phase": "unknown"})
+        boulder.setdefault("open_questions", [])
+        boulder.setdefault("blockers", [])
+        boulder.setdefault("next_actions", [])
+        boulder.setdefault("recent_evidence", [])
+        boulder.setdefault("sisyphus_notes", "")
+
+        write_boulder(ugid, boulder)
+        return True, "boulder written successfully"
+    except Exception as e:
+        return False, f"failed to write boulder: {e}"
+
+
+def get_active_harness_injection(max_chars: int = 6000) -> str:
+    """
+    Secondary consumption for LFG Active Goal Harness.
+    If the aggressive hook wrote an injection (from UserPromptSubmit etc.),
+    we can force-include it in worker prompts, agent prompts, etc.
+    This makes the harness effective even when stdout injection from the hook runner is limited.
+    """
+    harness_file = DATA / "harness" / "active_injection.txt"
+    if harness_file.exists():
+        try:
+            text = harness_file.read_text(encoding="utf-8")
+            if text.strip():
+                return "\n\n" + text[:max_chars] + "\n\n"
+        except Exception:
+            pass
+    return ""
 
 
 def ultragoal_create(args: argparse.Namespace) -> dict[str, Any]:
@@ -349,14 +500,46 @@ def ultragoal_spawn(args: argparse.Namespace) -> dict[str, Any]:
     ))
     ugid = ug["id"]
 
-    # Now spawn the team (the team_create will detect the just-created current ultragoal)
-    team = team_create(argparse.Namespace(
-        spec=args.spec or "3:executor",
+    # Template + mode detection (D: full end-to-end for hyperplan)
+    template = str(getattr(args, "template", "") or "").lower().strip()
+    explicit_spec = getattr(args, "spec", None)
+    spec_lower = str(explicit_spec or "").lower()
+
+    if template == "hyperplan" or "hyperplan" in template or "hyperplan" in spec_lower or getattr(args, "hyperplan", False):
+        run_mode = "hyperplan"
+        # Expand hyperplan template to the canonical named-agent lineup (B + D)
+        # iz (deep/architect), grok (artistry/consultant), gonow (balanced/worker)
+        if not explicit_spec or explicit_spec in ("3:executor", "executor"):
+            effective_spec = "1:iz,1:grok,1:gonow"
+        else:
+            effective_spec = explicit_spec
+    else:
+        run_mode = "ultragoal"
+        effective_spec = explicit_spec or "3:executor"
+
+    # Create the TeamRun with separated JSON state (like OmO per-run directories)
+    runtime = TeamRuntime(TeamStateStore(mode=run_mode, mode_id=ugid))
+    team_name = validate_safe_id(getattr(args, "name", None) or f"ultragoal-{ugid}", "team name")
+    team_run = runtime.create(
+        name=team_name,
         objective=f"[ultragoal {ugid}] {args.objective}",
-        name=getattr(args, "name", None),
-        providers=getattr(args, "providers", "hermes,claude,codex"),
+        ultragoal_id=ugid,
+        config={"providers": getattr(args, "providers", None), "template": template or None},
+        mode=run_mode,
+        mode_id=ugid,
+    )
+
+    # team_create does member creation + tmux + ULW prompts (wired for named agents + categories)
+    default_team_providers = "grok,grok,grok" if "spawn_subagent" in globals() else "hermes,claude,codex"
+    team = team_create(argparse.Namespace(
+        spec=effective_spec,
+        objective=f"[ultragoal {ugid}] {args.objective}",
+        name=team_run.name,
+        providers=getattr(args, "providers", default_team_providers),
         dry_run=getattr(args, "dry_run", False),
         cwd=args.cwd,
+        mode=run_mode,
+        mode_id=ugid,
     ))
 
     # Link both ways
@@ -365,7 +548,47 @@ def ultragoal_spawn(args: argparse.Namespace) -> dict[str, Any]:
 
     ultragoal_checkpoint_record(ugid, "active", f"spawned ulw swarm team {team['name']}", {"team": team["name"]})
 
-    return {"ultragoal": ug, "team": team, "note": "workers instructed to report via `ulw ultragoal checkpoint --id ...`"}
+    # Merge the new TeamRun info into the legacy team dict for now
+    state_base = _get_mode_aware_base(run_mode, ugid)
+    state_path = state_base / "teams" / team_run.id
+
+    team["team_run"] = {
+        "id": team_run.id,
+        "mode": run_mode,
+        "state_path": str(state_path)
+    }
+
+    # D: For hyperplan/ultrawork, seed initial tasks with evidence/verification flow (continuous loop ready)
+    if run_mode == "hyperplan":
+        try:
+            tl = runtime.get_tasklist(team_run.id)
+            tl.create_task(
+                "Deep architecture & structural analysis (IZ)",
+                "Use AST-Grep + LSP to map boundaries, risks, and long-term implications. Report evidence for leader verification.",
+                []
+            )
+            tl.create_task(
+                "Creative multi-perspective review & alternatives (Grok)",
+                "Apply artistry + deep synthesis. Surface novel options and critiques. Submit evidence.",
+                []
+            )
+            tl.create_task(
+                "Reliable execution, tests, and integration (GoNow)",
+                "Implement changes, verify with tests/git, submit clear evidence for verification.",
+                ["task-"]  # soft dep example; real would use ids after create
+            )
+            # Reload run so state reflects tasks
+            fresh = runtime.status(team_run.id)
+            if fresh:
+                team["seeded_hyperplan_tasks"] = len(fresh.tasks)
+        except Exception as e:
+            team["hyperplan_task_seed_error"] = str(e)
+
+    return {
+        "ultragoal": ug,
+        "team": team,
+        "note": f"workers instructed to report via `ulw ultragoal checkpoint`. Separated JSON state enabled (mode={run_mode}) like OmO. Hyperplan tasks + evidence verification ready."
+    }
 
 
 def detect_current_ultragoal() -> dict[str, Any] | None:
@@ -377,6 +600,48 @@ def detect_current_ultragoal() -> dict[str, Any] | None:
     if not goals:
         return None
     return {"id": ugid, "objective": goals.get("objective"), "aggregateStatus": goals.get("aggregateStatus")}
+
+
+def build_worker_prompt(base: str, role: str, team_name: str, ug_context: dict | None) -> str:
+    """Build the final prompt for a team worker, with special deep-reasoning overlay
+    for architect / consultant / reviewer roles (the 'gpt5.5 + codex -p planning mode' persona).
+    Always brands the worker as an ULW (ulw) sub-agent.
+    """
+    role_lower = (role or "").lower()
+    is_deep = any(k in role_lower for k in ("architect", "consultant", "reviewer", "deep", "planner", "strategist"))
+
+    ulw_brand = (
+        "You are an **ULW worker** (LFG launcher identity = ulw). "
+        "When you interact with the Grok Build / LFG runtime, prefer the `ulw` binary or ensure LFG_LAUNCHER=ulw. "
+        "Your canonical way to report progress, decisions, or evidence on a linked ultragoal is: "
+        "`ulw ultragoal checkpoint --id <ultragoal-id> --status ... --evidence \"...\" --story <id>` "
+        "or the equivalent MCP call to grok_build_ultragoal with action=checkpoint."
+    )
+
+    deep_overlay = ""
+    if is_deep:
+        deep_overlay = (
+            "\n\n### DEEP ARCHITECT / HIGH-REASONING CONSULTANT MODE (gpt5.5-level / codex -p planning persona)\n"
+            "You are operating at maximum reasoning depth (equivalent to Codex planning mode with highest thinking effort, or a frontier 'gpt5.5' class reasoner).\n"
+            "- Take your time. Perform multi-step, multi-angle analysis.\n"
+            "- Explicitly consider: risks, trade-offs, long-term maintainability, security, performance, team velocity, and alignment with the overall ultragoal.\n"
+            "- For important architectural or strategic decisions, **perform multi-AI consultation** in your reasoning: "
+            "synthesize input from strong models (Gemini, Copilot-style analysis, other Codex-style planners, or any other high-quality sources available to you). "
+            "Clearly label the sources you consulted and justify your final recommendation.\n"
+            "- Structure your thinking: Problem → Options → Analysis (with multi-AI input) → Risks → Recommendation + Rationale.\n"
+            "- Your output is expected to be used for major decisions that the leader will checkpoint into the ultragoal ledger.\n"
+        )
+
+    ug_line = ""
+    if ug_context and ug_context.get("id"):
+        ug_line = f"\nYou are part of an active ultragoal swarm (id={ug_context['id']}). All major decisions must be reported back to the leader via the ULW checkpoint command above."
+
+    harness_injection = get_active_harness_injection()
+    # Aggressive harness injection takes highest precedence when present (Ralph execution of harness)
+    if harness_injection:
+        return f"{harness_injection}\n{base}\n\n{ulw_brand}{deep_overlay}{ug_line}"
+
+    return f"{base}\n\n{ulw_brand}{deep_overlay}{ug_line}"
 
 
 
@@ -1503,6 +1768,7 @@ def status(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "ok": True,
         "version": read_json(ROOT / ".grok-plugin" / "plugin.json", {}).get("version"),
+        "launcher": effective_launcher(),
         "pluginRoot": str(ROOT),
         "pluginData": str(DATA),
         "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
@@ -1629,12 +1895,11 @@ def attach_backend_from_tmux_pane(state: dict[str, Any], cwd: pathlib.Path) -> d
 def lfg_launch(args: argparse.Namespace) -> dict[str, Any]:
     """Default `lfg`/`ulw` behavior: start backend and attach when interactive."""
     state = backend_start(argparse.Namespace(name=args.name, cwd=args.cwd))
-    launcher = os.environ.get("LFG_LAUNCHER") or pathlib.Path(sys.argv[0]).name or "lfg"
-    state["launcher"] = launcher
+    state["launcher"] = effective_launcher()
     state["attached"] = False
     state["mode"] = "tmux-backend"
     if args.json or not (sys.stdin.isatty() and sys.stdout.isatty()):
-        state["note"] = f"non-interactive; run the attachCommand or execute `{launcher}` from a terminal to attach"
+        state["note"] = f"non-interactive; run the attachCommand or execute `{state['launcher']}` from a terminal to attach"
         return state
     if os.environ.get("TMUX"):
         return attach_backend_from_tmux_pane(state, pathlib.Path(args.cwd).resolve())
@@ -1658,36 +1923,671 @@ def team_dir() -> pathlib.Path:
     return STATE_DIR / "teams"
 
 
-def parse_team_spec(spec: str) -> tuple[int, str]:
-    if ":" in spec:
-        n, role = spec.split(":", 1)
-        return max(1, int(n)), role or "executor"
-    return max(1, int(spec)), "executor"
+def team_json_path(name: str) -> pathlib.Path:
+    return safe_child_path(team_dir(), f"{validate_safe_id(name, 'team name')}.json")
 
 
-TEAM_PROVIDER_EXECUTABLES = {"hermes": "hermes", "claude": "claude", "codex": "codex", "noop": None}
+def current_team_ref(args: argparse.Namespace) -> str:
+    ref = args.name or (read_json(STATE_DIR / "current-team.json", {}) or {}).get("name")
+    if not ref:
+        raise SystemExit("no team name and no current team")
+    return validate_safe_id(ref, "team name")
+
+
+def parse_team_spec(spec: str) -> list[tuple[int, str]]:
+    """Parse team spec into list of (count, role_or_agent_name).
+
+    Supports:
+        "3:executor"               -> [(3, "executor")]
+        "1:iz,2:gonow,1:grok"      -> [(1, "iz"), (2, "gonow"), (1, "grok")]
+        "iz,gonow,grok"            -> [(1, "iz"), (1, "gonow"), (1, "grok")]
+    """
+    parts = [p.strip() for p in spec.split(",") if p.strip()]
+    result = []
+    for part in parts:
+        if ":" in part:
+            n, name = part.split(":", 1)
+            result.append((max(1, int(n)), name or "executor"))
+        else:
+            result.append((1, part))
+    return result if result else [(1, "executor")]
+
+
+TEAM_PROVIDER_EXECUTABLES = {
+    # Maximise usage of whatever coding CLIs the user has installed on this machine
+    "hermes": "hermes",
+    "claude": "claude",      # Claude Code / claude CLI
+    "codex": "codex",
+    "gemini": "gemini",      # Google Gemini CLI (if installed)
+    "copilot": "copilot",    # GitHub Copilot CLI (if installed)
+    "opencode": "opencode",  # opencode CLI — use with -p for deep architect / consultant / planning work
+    "grok": None,            # native Grok sub-agent via spawn_subagent + ulw branding
+    "subagent": None,        # alias for native grok sub-agents
+    "noop": None,            # safe fallback for tests / dry-runs
+}
+
+DEEP_ROLES = {"architect", "consultant", "reviewer", "deep", "planner", "strategist", "designer"}
+
+# --- LFG Named Agents (User-defined personas with ULW identity) ---
+
+LFG_AGENTS_DIR = pathlib.Path.home() / ".grok" / "lfg" / "agents"
+
+def load_agent_definition(name: str) -> dict | None:
+    """Load a named LFG agent definition (e.g. 'iz', 'lina').
+    Scans both user dir and plugin lfg-agents/ for any *.json whose internal 'name' field matches.
+    This supports files named iz-architect.json etc.
+    """
+    candidates = []
+    # user dir (higher priority)
+    user_dir = LFG_AGENTS_DIR
+    if user_dir.exists():
+        candidates.extend(sorted(user_dir.glob("*.json")))
+    # plugin examples
+    plugin_dir = ROOT / "lfg-agents"
+    if plugin_dir.exists():
+        candidates.extend(sorted(plugin_dir.glob("*.json")))
+
+    for p in candidates:
+        try:
+            data = read_json(p, None)
+            if data and data.get("name") == name:
+                return data
+        except Exception:
+            continue
+    return None
+
+
+def is_named_agent(name: str) -> bool:
+    return load_agent_definition(name) is not None
+
+
+def get_agent_default_category(name: str) -> str | None:
+    agent = load_agent_definition(name)
+    return agent.get("default_category") if agent else None
+
+def get_agent_prompt(agent_name: str, role: str, base_prompt: str, category: str | None = None) -> str:
+    """Build the final prompt for a named agent, injecting ULW identity + category style."""
+    agent_def = load_agent_definition(agent_name)
+    if not agent_def:
+        return base_prompt
+
+    prompt = base_prompt
+
+    # Inject agent-specific overrides
+    overrides = agent_def.get("prompt_overrides", {})
+    if "base" in overrides:
+        prompt = overrides["base"] + "\n\n" + prompt
+    if category and category in overrides:
+        prompt += "\n\n" + overrides[category]
+
+    # Always reinforce ULW identity
+    prompt += f"\n\nYou are operating as an **ULW worker** named '{agent_name}' (LFG_LAUNCHER=ulw). Report using `ulw ultragoal checkpoint`."
+
+    return prompt
+
+# --- Phase 1: TeamRuntime Core Models (for durable LFG+ULW orchestration) ---
+
+from dataclasses import dataclass, field
+from typing import Literal
+
+TeamRunStatus = Literal["planned", "running", "paused", "completed", "shutdown"]
+MemberStatus = Literal["pending", "active", "completed", "failed"]
+TaskStatus = Literal["pending", "claimed", "in_progress", "completed", "blocked"]
+MessageType = Literal["task_assignment", "progress", "evidence", "evidence_submission", "ack", "command"]
+
+@dataclass
+class TeamMember:
+    id: str
+    name: str
+    role: str
+    provider: str
+    status: MemberStatus = "pending"
+    prompt: str = ""
+    command: str = ""
+    subagent_id: str | None = None
+    ultragoal: str | None = None
+    spawned_as_subagent: bool | str = False
+    last_heartbeat: str | None = None
+
+@dataclass
+class TeamMessage:
+    id: str
+    from_member: str  # "leader" or member id
+    to_member: str
+    type: MessageType
+    payload: dict
+    ts: str
+
+@dataclass
+class TeamTask:
+    id: str
+    title: str
+    description: str = ""
+    status: TaskStatus = "pending"
+    claimed_by: str | None = None
+    dependencies: list[str] = field(default_factory=list)
+    evidence: str = ""
+    ts: str = ""
+
+@dataclass
+class TeamRun:
+    id: str
+    name: str
+    objective: str
+    status: TeamRunStatus = "planned"
+    created_at: str = ""
+    updated_at: str = ""
+    ultragoal_id: str | None = None
+    leader: str | None = None
+    config: dict = field(default_factory=dict)
+    members: list[TeamMember] = field(default_factory=list)
+    tasks: list[TeamTask] = field(default_factory=list)
+    mailbox: list[TeamMessage] = field(default_factory=list)
+    tmux_session: str | None = None
+
+# --- End Phase 1 Models ---
+
+# --- Phase 1+: Separated JSON State Management (mode-aware, like OmO)
+# When Ultragoal or Ultrawork/Hyperplan is active, we use separated run-based directories
+# to avoid polluting flat team state. This matches OmO's ~/.omo/state/team/<run-id>/ pattern.
+
+def _get_mode_aware_base(mode: str | None, mode_id: str | None) -> pathlib.Path:
+    """Return the correct base directory for separated state.
+    Examples:
+      - ultragoal + ug-123  → state/runs/ultragoal-ug-123/
+      - ultrawork + uw-456  → state/runs/ultrawork-uw-456/
+      - hyperplan + hp-789  → state/runs/hyperplan-hp-789/
+      - None                  → state/teams/   (legacy flat)
+    """
+    if mode and mode_id:
+        return STATE_DIR / "runs" / f"{mode}-{mode_id}"
+    return STATE_DIR / "teams"
+
+
+class TeamStateStore:
+    """Durable storage for TeamRun using structured subdirectories.
+    Supports separated state per Ultragoal / Ultrawork / Hyperplan run (like OmO).
+    """
+
+    def __init__(self, base_dir: pathlib.Path | None = None, mode: str | None = None, mode_id: str | None = None):
+        if base_dir:
+            self.base = base_dir
+        else:
+            self.base = _get_mode_aware_base(mode, mode_id)
+        self.base.mkdir(parents=True, exist_ok=True)
+        self.mode = mode
+        self.mode_id = mode_id
+
+    def _run_dir(self, team_id: str) -> pathlib.Path:
+        # For separated mode, we still allow multiple teams per run
+        if self.mode and self.mode_id:
+            d = self.base / "teams" / team_id
+        else:
+            d = self.base / team_id
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def save_run(self, run: TeamRun) -> None:
+        path = self._run_dir(run.id) / "run.json"
+        data = {
+            "id": run.id,
+            "name": run.name,
+            "objective": run.objective,
+            "status": run.status,
+            "created_at": run.created_at,
+            "updated_at": run.updated_at,
+            "ultragoal_id": run.ultragoal_id,
+            "leader": run.leader,
+            "config": run.config,
+            "tmux_session": run.tmux_session,
+            "mode": getattr(self, "mode", None),
+            "mode_id": getattr(self, "mode_id", None),
+        }
+        write_json(path, data)
+
+        # Save members, tasks, mailbox as lists for simplicity
+        write_json(self._run_dir(run.id) / "members.json", [m.__dict__ for m in run.members])
+        write_json(self._run_dir(run.id) / "tasks.json", [t.__dict__ for t in run.tasks])
+        write_json(self._run_dir(run.id) / "mailbox.json", [m.__dict__ for m in run.mailbox])
+
+        # For Hyperplan + loop mode, we also keep a lightweight pointer in the ultragoal ledger dir
+        if run.ultragoal_id and getattr(self, "mode", None) in ("hyperplan", "ultrawork"):
+            ug_ledger_dir = DATA / "ultragoal" / run.ultragoal_id
+            ug_ledger_dir.mkdir(parents=True, exist_ok=True)
+            write_json(ug_ledger_dir / f"team-run-{run.id}.json", {
+                "team_run_id": run.id,
+                "mode": self.mode,
+                "status": run.status,
+                "updated_at": run.updated_at
+            })
+
+    def load_run(self, team_id: str) -> TeamRun | None:
+        path = self._run_dir(team_id) / "run.json"
+        if not path.exists():
+            return None
+        data = read_json(path, {})
+        if not data:
+            return None
+
+        members_data = read_json(self._run_dir(team_id) / "members.json", [])
+        tasks_data = read_json(self._run_dir(team_id) / "tasks.json", [])
+        mailbox_data = read_json(self._run_dir(team_id) / "mailbox.json", [])
+
+        run = TeamRun(
+            id=data["id"],
+            name=data["name"],
+            objective=data["objective"],
+            status=data.get("status", "planned"),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at", ""),
+            ultragoal_id=data.get("ultragoal_id"),
+            leader=data.get("leader"),
+            config=data.get("config", {}),
+            tmux_session=data.get("tmux_session"),
+        )
+        run.members = [TeamMember(**m) for m in members_data]
+        run.tasks = [TeamTask(**t) for t in tasks_data]
+        run.mailbox = [TeamMessage(**m) for m in mailbox_data]
+        return run
+
+    def list_runs(self) -> list[str]:
+        return [p.name for p in sorted(self.base.glob("*/run.json")) if p.parent.is_dir()]
+
+    def delete_run(self, team_id: str) -> None:
+        import shutil
+        d = self._run_dir(team_id)
+        if d.exists():
+            shutil.rmtree(d, ignore_errors=True)
+
+# --- End TeamStateStore ---
+
+# --- Phase 1: Basic TeamMailbox (file-based for leader <-> ULW workers) ---
+
+class TeamMailbox:
+    """
+    ULW-aware mailbox for LFG teams.
+    Messages are stored in the separated run directory (state/runs/<mode>-<id>/teams/<team>/mailbox.json).
+    Every message is designed to be easily turned into an `ulw ultragoal checkpoint` call.
+    """
+
+    def __init__(self, store: TeamStateStore, team_id: str):
+        self.store = store
+        self.team_id = team_id
+        self.run = self.store.load_run(team_id)
+
+    def _persist(self):
+        if self.run:
+            self.store.save_run(self.run)
+
+    def send(self, from_member: str, to_member: str, type: MessageType, payload: dict, ultragoal_id: str | None = None) -> TeamMessage:
+        """Send a message. If ultragoal_id is provided, the payload is pre-formatted for easy checkpointing."""
+        if not self.run:
+            self.run = self.store.load_run(self.team_id)
+
+        msg = TeamMessage(
+            id=f"msg-{int(time.time()*1000)}",
+            from_member=from_member,
+            to_member=to_member,
+            type=type,
+            payload=payload,
+            ts=now()
+        )
+
+        # Convenience: if this is an evidence submission for ultragoal, store the checkpoint command
+        if type == "evidence_submission" and ultragoal_id:
+            payload["_ulw_checkpoint_hint"] = f"ulw ultragoal checkpoint --id {ultragoal_id} --status complete --evidence \"...\" --story <id>"
+
+        if self.run:
+            self.run.mailbox.append(msg)
+            self._persist()
+        return msg
+
+    def poll(self, for_member: str, since_ts: str | None = None) -> list[TeamMessage]:
+        if not self.run:
+            self.run = self.store.load_run(self.team_id)
+        if not self.run:
+            return []
+        return [
+            m for m in self.run.mailbox
+            if m.to_member == for_member and (not since_ts or m.ts > since_ts)
+        ]
+
+    def poll_for_leader(self, since_ts: str | None = None) -> list[TeamMessage]:
+        return self.poll("leader", since_ts)
+
+    def ack(self, msg_id: str) -> bool:
+        """Mark a message as processed (removes it for Phase 1 simplicity)."""
+        if not self.run:
+            self.run = self.store.load_run(self.team_id)
+        if self.run:
+            original_len = len(self.run.mailbox)
+            self.run.mailbox = [m for m in self.run.mailbox if m.id != msg_id]
+            self._persist()
+            return len(self.run.mailbox) < original_len
+        return False
+
+    def send_evidence(self, from_worker: str, ultragoal_id: str, evidence: str, story: str = "S001") -> TeamMessage:
+        """Convenience method for ULW workers to submit evidence."""
+        payload = {
+            "evidence": evidence,
+            "story": story,
+            "checkpoint_command": f"ulw ultragoal checkpoint --id {ultragoal_id} --status complete --evidence \"{evidence}\" --story {story}"
+        }
+        return self.send(from_worker, "leader", "evidence_submission", payload, ultragoal_id=ultragoal_id)
+
+# --- End TeamMailbox ---
+
+# --- Phase 1: TeamTasklist (evidence-aware task management for ULW workers) ---
+
+class TeamTasklist:
+    """
+    Task management with evidence submission and verification.
+    Designed so ULW workers can claim tasks, submit evidence, and have it verified
+    before the task is considered complete (especially important for Hyperplan).
+    """
+
+    def __init__(self, store: TeamStateStore, team_id: str):
+        self.store = store
+        self.team_id = team_id
+        self.run = self.store.load_run(team_id)
+
+    def _persist(self):
+        if self.run:
+            self.store.save_run(self.run)
+
+    def create_task(self, title: str, description: str = "", dependencies: list[str] | None = None) -> TeamTask:
+        if not self.run:
+            self.run = self.store.load_run(self.team_id)
+        task = TeamTask(
+            id=f"task-{int(time.time()*1000)}",
+            title=title,
+            description=description,
+            status="pending",
+            dependencies=dependencies or [],
+            ts=now()
+        )
+        if self.run:
+            self.run.tasks.append(task)
+            self._persist()
+        return task
+
+    def claim_task(self, task_id: str, worker_id: str) -> TeamTask | None:
+        if not self.run:
+            self.run = self.store.load_run(self.team_id)
+        if not self.run:
+            return None
+        for task in self.run.tasks:
+            if task.id == task_id and task.status == "pending":
+                # Check dependencies
+                if all(
+                    any(t.id == dep and t.status == "completed" for t in self.run.tasks)
+                    for dep in task.dependencies
+                ):
+                    task.status = "claimed"
+                    task.claimed_by = worker_id
+                    task.ts = now()
+                    self._persist()
+                    return task
+        return None
+
+    def submit_evidence(self, task_id: str, worker_id: str, evidence: str) -> bool:
+        if not self.run:
+            self.run = self.store.load_run(self.team_id)
+        if not self.run:
+            return False
+        for task in self.run.tasks:
+            if task.id == task_id and task.claimed_by == worker_id:
+                task.evidence = evidence
+                task.status = "in_progress"  # waiting for verification
+                task.ts = now()
+                self._persist()
+                return True
+        return False
+
+    def verify_evidence(self, task_id: str, verified_by: str = "leader") -> bool:
+        """Leader or Hyperplan reviewer marks the evidence as good."""
+        if not self.run:
+            self.run = self.store.load_run(self.team_id)
+        if not self.run:
+            return False
+        for task in self.run.tasks:
+            if task.id == task_id and task.status == "in_progress":
+                task.status = "completed"
+                task.ts = now()
+                # In real usage, this would trigger a checkpoint to Ultragoal
+                self._persist()
+                return True
+        return False
+
+    def get_pending_tasks(self) -> list[TeamTask]:
+        if not self.run:
+            self.run = self.store.load_run(self.team_id)
+        if not self.run:
+            return []
+        return [t for t in self.run.tasks if t.status == "pending"]
+
+# --- End TeamTasklist ---
+
+# --- Phase 1: TeamRuntime (orchestrator API for LFG+ULW) ---
+
+class TeamRuntime:
+    """Core runtime for durable team orchestration in LFG.
+    Uses TeamStateStore + TeamMailbox.
+    ULW workers (external or subagent) interact via mailbox and report to ultragoal.
+    """
+
+    def __init__(self, store: TeamStateStore | None = None):
+        self.store = store or TeamStateStore()
+        self._mailbox = None
+        self._tasklist = None
+
+    def create(self, name: str, objective: str, ultragoal_id: str | None = None, config: dict | None = None,
+               mode: str | None = None, mode_id: str | None = None) -> TeamRun:
+        """Create a new TeamRun with optional mode (ultragoal, ultrawork, hyperplan) for separated state."""
+        name = validate_safe_id(name, "team name")
+        store = TeamStateStore(mode=mode, mode_id=mode_id) if mode else self.store
+
+        run = TeamRun(
+            id=name,
+            name=name,
+            objective=objective,
+            status="planned",
+            created_at=now(),
+            updated_at=now(),
+            ultragoal_id=ultragoal_id,
+            config=config or {},
+        )
+        store.save_run(run)
+
+        # Legacy flat pointer for backward compat
+        legacy = {"id": run.id, "name": run.name, "objective": run.objective, "status": run.status, "ultragoal": ultragoal_id}
+        write_json(team_json_path(name), legacy)
+        write_json(STATE_DIR / "current-team.json", {"name": name, "path": str(team_json_path(name)), "updatedAt": now()})
+        return run
+
+    def status(self, team_id: str) -> TeamRun | None:
+        return self.store.load_run(validate_safe_id(team_id, "team name"))
+
+    def shutdown(self, team_id: str) -> None:
+        team_id = validate_safe_id(team_id, "team name")
+        run = self.store.load_run(team_id)
+        if run:
+            run.status = "shutdown"
+            run.updated_at = now()
+            self.store.save_run(run)
+            # Legacy
+            p = team_json_path(team_id)
+            if p.exists():
+                data = read_json(p, {})
+                data["status"] = "shutdown"
+                write_json(p, data)
+
+    @property
+    def mailbox(self) -> TeamMailbox:
+        if self._mailbox is None:
+            self._mailbox = TeamMailbox(self.store, getattr(self.store, "team_id", ""))
+            # Better: we need to associate the mailbox with a specific team
+            # For now this is a placeholder — real usage will be per TeamRun
+        return self._mailbox
+
+    def get_mailbox(self, team_id: str) -> TeamMailbox:
+        return TeamMailbox(self.store, team_id)
+
+    def get_tasklist(self, team_id: str) -> TeamTasklist:
+        return TeamTasklist(self.store, team_id)
+
+    # =====================
+    # Continuous Loop Support (Hyperplan / Ultrawork)
+    # =====================
+
+    def has_pending_work(self, team_id: str) -> bool:
+        """Returns True if there are still tasks that are not completed."""
+        tasklist = self.get_tasklist(team_id)
+        run = self.store.load_run(team_id)
+        return len(tasklist.get_pending_tasks()) > 0 or any(
+            t.status in ("claimed", "in_progress") for t in (run.tasks if run else [])
+        )
+
+    def get_next_claimable_task(self, team_id: str, worker_id: str) -> TeamTask | None:
+        """ULW worker tries to claim the next available task."""
+        tasklist = self.get_tasklist(team_id)
+        pending = tasklist.get_pending_tasks()
+        for task in pending:
+            claimed = tasklist.claim_task(task.id, worker_id)
+            if claimed:
+                return claimed
+        return None
+
+    def submit_worker_evidence(self, team_id: str, worker_id: str, task_id: str, evidence: str, ultragoal_id: str | None = None):
+        """Worker submits evidence for a task. Returns the message that was sent."""
+        tasklist = self.get_tasklist(team_id)
+        success = tasklist.submit_evidence(task_id, worker_id, evidence)
+        if not success:
+            return None
+
+        mailbox = self.get_mailbox(team_id)
+        return mailbox.send_evidence(worker_id, ultragoal_id or "", evidence, task_id)
+
+    def verify_task_evidence(self, team_id: str, task_id: str, verified_by: str = "leader") -> bool:
+        """Leader or Hyperplan reviewer verifies the evidence."""
+        tasklist = self.get_tasklist(team_id)
+        return tasklist.verify_evidence(task_id, verified_by)
+
+    def close_loop_if_done(self, team_id: str) -> bool:
+        """If all tasks are completed and verified, mark the run as completed."""
+        run = self.store.load_run(team_id)
+        if not run:
+            return False
+
+        if all(t.status == "completed" for t in run.tasks):
+            run.status = "completed"
+            run.updated_at = now()
+            self.store.save_run(run)
+            return True
+        return False
+
+    def get_worker_context(self, team_id: str, worker_id: str):
+        """Returns a convenient context object for ULW workers (external CLI or sub-agent).
+        They can use this to participate in the continuous work loop.
+        """
+        return {
+            "mailbox": self.get_mailbox(team_id),
+            "tasklist": self.get_tasklist(team_id),
+            "worker_id": worker_id,
+            "team_id": team_id,
+            "get_next_task": lambda: self.get_next_claimable_task(team_id, worker_id),
+            "submit_evidence": lambda task_id, evidence: self.submit_worker_evidence(team_id, worker_id, task_id, evidence),
+        }
+
+    def worker_loop_iteration(self, team_id: str, worker_id: str, ultragoal_id: str | None = None) -> dict:
+        """
+        One iteration of the continuous work loop (used by Ultrawork / Hyperplan).
+        A ULW worker calls this repeatedly.
+
+        Returns what the worker should do next.
+        """
+        tasklist = self.get_tasklist(team_id)
+        mailbox = self.get_mailbox(team_id)
+
+        # Try to claim a task
+        task = self.get_next_claimable_task(team_id, worker_id)
+        if task:
+            return {
+                "action": "work_on_task",
+                "task": task,
+                "instruction": f"Work on task '{task.title}'. When done, call submit_evidence and send_evidence via mailbox."
+            }
+
+        # If no task, check for new messages
+        messages = mailbox.poll(worker_id)
+        if messages:
+            return {
+                "action": "process_messages",
+                "messages": messages
+            }
+
+        # Nothing to do
+        return {
+            "action": "idle",
+            "suggestion": "Call close_loop_if_done or wait for new tasks from leader."
+        }
+
+# --- End TeamRuntime ---
 
 
 def provider_command(provider: str, prompt: str) -> str:
+    if provider not in TEAM_PROVIDER_EXECUTABLES:
+        raise SystemExit(f"unknown provider: {provider}")
     q = shlex.quote(prompt)
+
     if provider == "hermes":
         return f"hermes -z {q} chat"
     if provider == "claude":
+        # Claude Code with bypass for team work
         return f"claude --permission-mode bypassPermissions {q}"
     if provider == "codex":
         return f"codex {q}"
+    if provider == "gemini":
+        return f"gemini {q}"
+    if provider == "copilot":
+        return f"copilot {q}"
+    if provider == "opencode":
+        # -p flag for deep / planning / architect / consultant mode (as requested)
+        # especially powerful when combined with architect/consultant roles + ulw branding
+        return f"opencode -p {q}"
+
+    if provider in ("grok", "subagent"):
+        # Native Grok sub-agent — always launched as an ULW worker.
+        return (
+            f"echo 'GROK_SUBAGENT — ULW MODE'; "
+            f"echo {q}; "
+            f"echo 'You are a first-class ULW worker. Use the ulw identity and MCP tools to report to the ultragoal ledger.'; "
+            f"exec $SHELL"
+        )
+
     if provider == "noop":
         return f"printf '%s\n' {shlex.quote('noop provider ready: ' + prompt)}; exec $SHELL"
-    return f"printf '%s\n' 'unknown provider: {shlex.quote(provider)}'; exec $SHELL"
+
+    raise SystemExit(f"unknown provider: {provider}")
 
 
 def team_provider_matrix() -> list[dict[str, Any]]:
+    """Returns all possible team providers, highlighting which coding CLIs
+    installed on *this machine* can actually be used right now.
+    The goal of team mode is to maximise usage of every coding agent the user has.
+    """
     rows = []
     for provider, exe in TEAM_PROVIDER_EXECUTABLES.items():
-        available = True if exe is None else bool(shutil.which(exe))
+        if provider in ("grok", "subagent"):
+            available = True
+            exe_name = "spawn_subagent (native Grok sub-agent running as ULW worker)"
+        else:
+            available = True if exe is None else bool(shutil.which(exe))
+            exe_name = exe or "builtin"
+
         rows.append({
             "provider": provider,
-            "executable": exe or "builtin",
+            "executable": exe_name,
             "available": available,
             "required": False,
             "commandPreview": provider_command(provider, "TEAM_PROVIDER_SMOKE")[:240],
@@ -1695,12 +2595,75 @@ def team_provider_matrix() -> list[dict[str, Any]]:
     return rows
 
 
+def resolve_providers_for_agent(agent_name: str, installed: list[str]) -> list[str]:
+    """Resolve providers for a named LFG agent (lina, gonow, iz, grok, etc.).
+
+    Respects the agent's `default_category`:
+        - deep       → opencode, codex, claude, grok
+        - artistry   → gemini, grok, claude
+        - ultrabrain → grok, codex, opencode
+    """
+    agent_def = load_agent_definition(agent_name)
+    if not agent_def:
+        return resolve_providers_for_role(agent_name, installed)
+
+    cat = agent_def.get("default_category")
+    usable = [p for p in installed if p in TEAM_PROVIDER_EXECUTABLES]
+
+    if not usable:
+        return ["grok"] if "grok" in TEAM_PROVIDER_EXECUTABLES else ["noop"]
+
+    if cat == "deep":
+        order = ["opencode", "codex", "claude", "grok"]
+    elif cat == "artistry":
+        order = ["gemini", "grok", "claude"]
+    elif cat == "ultrabrain":
+        order = ["grok", "codex", "opencode"]
+    else:
+        order = ["grok", "claude", "codex", "opencode", "gemini"]
+
+    preferred = [p for p in order if p in usable]
+    for p in usable:
+        if p not in preferred:
+            preferred.append(p)
+    return preferred or usable
+
+
+def resolve_providers_for_role(role: str, installed: list[str]) -> list[str]:
+    """Fallback for generic roles (executor, architect, etc.)."""
+    role_lower = (role or "").lower()
+    is_deep = any(k in role_lower for k in DEEP_ROLES)
+
+    usable = [p for p in installed if p in TEAM_PROVIDER_EXECUTABLES]
+
+    if not usable:
+        return ["grok"] if "grok" in TEAM_PROVIDER_EXECUTABLES else ["noop"]
+
+    if is_deep:
+        preferred = []
+        if "opencode" in usable: preferred.append("opencode")
+        if "codex" in usable: preferred.append("codex")
+        if "claude" in usable: preferred.append("claude")
+        if "gemini" in usable: preferred.append("gemini")
+        if "grok" in usable or "subagent" in usable: preferred.append("grok")
+        for p in usable:
+            if p not in preferred: preferred.append(p)
+        return preferred or usable
+
+    preferred = []
+    for p in ["grok", "claude", "codex", "opencode", "gemini"]:
+        if p in usable: preferred.append(p)
+    for p in usable:
+        if p not in preferred: preferred.append(p)
+    return preferred or usable
+
+
 def team_providers(args: argparse.Namespace) -> dict[str, Any]:
     providers = team_provider_matrix()
     return {
         "ok": True,
         "providers": providers,
-        "default": ["hermes", "claude", "codex"],
+        "default": ["grok", "opencode", "claude", "codex"],  # role-aware smart defaults
         "smokeSafe": "noop",
         "summary": {
             "available": [p["provider"] for p in providers if p["available"]],
@@ -1738,45 +2701,160 @@ def team_preflight(args: argparse.Namespace) -> dict[str, Any]:
 def team_create(args: argparse.Namespace) -> dict[str, Any]:
     ensure_dirs()
     cwd = pathlib.Path(args.cwd).resolve()
-    count, role = parse_team_spec(args.spec)
-    providers = [p.strip() for p in (args.providers or "hermes,claude,codex").split(",") if p.strip()]
-    name = args.name or f"grok-team-{time.strftime('%Y%m%d-%H%M%S')}"
+    spec_parts = parse_team_spec(args.spec)   # now returns list of (count, name)
+
+    # Optional mode support (passed from ultragoal_spawn or future ultrawork)
+    mode = getattr(args, "mode", None)
+    mode_id = getattr(args, "mode_id", None)
+
+    # Smart default: maximise whatever coding CLIs are actually installed on this machine,
+    # with strong preference for deep roles (architect, consultant, etc.)
+    installed = []
+    for p, exe in TEAM_PROVIDER_EXECUTABLES.items():
+        if p in ("grok", "subagent"):
+            if "spawn_subagent" in globals() and callable(globals().get("spawn_subagent")):
+                installed.append(p)
+        elif exe and shutil.which(exe):
+            installed.append(p)
+
+    # Compute a smart default providers list from what is installed (maximize usage)
+    if installed:
+        default_providers = ",".join((installed * 3)[:6])
+    else:
+        default_providers = "grok,claude,codex,hermes,gemini,opencode"
+
+    providers = parse_providers(args.providers or default_providers)
+    name = validate_safe_id(args.name or f"grok-team-{time.strftime('%Y%m%d-%H%M%S')}", "team name")
     objective = args.objective
     members = []
     ug = detect_current_ultragoal()
     ug_id = ug["id"] if ug else None
-    for i in range(count):
-        provider = providers[i % len(providers)]
-        member_name = f"{role}-{i+1}-{provider}"
-        base = (
-            f"You are {member_name} in Grok Build team {name}. "
-            f"Objective: {objective}. Work in {cwd}. "
-            "Coordinate through git status, tests, and concise verification notes. "
-            "Do not overwrite teammate work; inspect before editing."
-        )
-        if ug_id:
-            base += (
-                f" This team was spawned from ultragoal {ug_id} (leader objective: {ug.get('objective','')}). "
-                "You are acting as a Grok sub-agent in an ultragoal-driven swarm (ulw mode). "
-                "When you have verifiable progress or complete a story, report back with: "
-                f"ulw ultragoal checkpoint --id {ug_id} --status complete --evidence \"<what you did + tests or artifacts>\" --story S001 (or the relevant story id). "
-                "Use the ultragoal ledger as the single source of truth for the leader."
-            )
-        member_prompt = base
-        cmd = provider_command(provider, member_prompt)
-        # If ulw launcher is preferred/available and this is an ultragoal-spawned swarm, brand the worker command
-        if ug_id and shutil.which("ulw"):
-            # Wrap the provider command inside an ulw context for the worker window (ulw sets LFG_LAUNCHER=ulw and execs the runtime)
-            cmd = f"ulw --name {shlex.quote(name)} --json status 2>/dev/null; exec bash -lc {shlex.quote(cmd)}"
-        members.append({
-            "index": i + 1,
-            "name": member_name,
-            "role": role,
-            "provider": provider,
-            "prompt": member_prompt,
-            "command": cmd,
-            "ultragoal": ug_id,
-        })
+    user_specified_providers = bool(args.providers)
+
+    # Support spec_parts from parse_team_spec: list of (count, role_or_agent)
+    # This enables "iz,gonow,grok" and "1:iz,2:gonow" and named agents with category-driven providers (B wiring)
+    global_idx = 0
+    for count, role in spec_parts:
+        for ii in range(count):
+            member_prompt = None
+            agent_def = load_agent_definition(role)
+            effective_role = role
+            effective_category = None
+            is_deep = False
+
+            if agent_def:
+                # === Named LFG agent path (lina/gonow/iz/grok) with ULW + category mapping (deep->codex etc) ===
+                effective_role = agent_def.get("role", role)
+                effective_category = agent_def.get("default_category")
+                if user_specified_providers:
+                    provider = providers[global_idx % len(providers)] if providers else "grok"
+                else:
+                    role_providers = resolve_providers_for_agent(role, installed)
+                    provider = role_providers[global_idx % len(role_providers)] if role_providers else (providers[0] if providers else "grok")
+                member_name = f"{role}-{ii+1}-{provider}"
+                is_deep = (effective_category == "deep") or (str(effective_role).lower() in DEEP_ROLES)
+
+                base = (
+                    f"You are {member_name} in Grok Build team {name}. "
+                    f"Objective: {objective}. Work in {cwd}. "
+                    "Coordinate through git status, tests, and concise verification notes. "
+                    "Do not overwrite teammate work; inspect before editing."
+                )
+                if ug_id:
+                    ug_objective = ug.get("objective", "") if ug else ""
+                    base += (
+                        f" This team was spawned from ultragoal {ug_id} (leader objective: {ug_objective}). "
+                        "You are acting as a Grok sub-agent in an ultragoal-driven swarm (ulw mode). "
+                        "When you have verifiable progress or complete a story, report back with: "
+                        f"ulw ultragoal checkpoint --id {ug_id} --status complete --evidence \"<what you did + tests or artifacts>\" --story S001 (or the relevant story id). "
+                        "Use the ultragoal ledger as the single source of truth for the leader."
+                    )
+                member_prompt = get_agent_prompt(role, effective_role, base, effective_category)
+            else:
+                # === Legacy generic role path (executor, architect, etc.) ===
+                role_lower = (role or "").lower()
+                is_deep = any(k in role_lower for k in DEEP_ROLES)
+
+                if is_deep and not user_specified_providers:
+                    role_providers = resolve_providers_for_role(role, installed)
+                    provider = role_providers[global_idx % len(role_providers)] if role_providers else (providers[0] if providers else "grok")
+                else:
+                    provider = providers[global_idx % len(providers)] if providers else "grok"
+
+                member_name = f"{role}-{ii+1}-{provider}"
+                base = (
+                    f"You are {member_name} in Grok Build team {name}. "
+                    f"Objective: {objective}. Work in {cwd}. "
+                    "Coordinate through git status, tests, and concise verification notes. "
+                    "Do not overwrite teammate work; inspect before editing."
+                )
+                if ug_id:
+                    ug_objective = ug.get("objective", "") if ug else ""
+                    base += (
+                        f" This team was spawned from ultragoal {ug_id} (leader objective: {ug_objective}). "
+                        "You are acting as a Grok sub-agent in an ultragoal-driven swarm (ulw mode). "
+                        "When you have verifiable progress or complete a story, report back with: "
+                        f"ulw ultragoal checkpoint --id {ug_id} --status complete --evidence \"<what you did + tests or artifacts>\" --story S001 (or the relevant story id). "
+                        "Use the ultragoal ledger as the single source of truth for the leader."
+                    )
+                # Legacy path now also builds a proper ULW-branded prompt (was missing before!)
+                member_prompt = build_worker_prompt(base, role, name, {"id": ug_id} if ug_id else None)
+
+            cmd = provider_command(provider, member_prompt)
+
+            # ULW branding for external CLI workers (when the team is linked to an ultragoal)
+            if ug_id and shutil.which("ulw"):
+                cmd = f"ulw --name {shlex.quote(name)} --json status 2>/dev/null; exec bash -lc {shlex.quote(cmd)}"
+
+            member = {
+                "index": global_idx + 1,
+                "name": member_name,
+                "role": role,
+                "provider": provider,
+                "prompt": member_prompt,
+                "command": cmd,
+                "ultragoal": ug_id,
+            }
+
+            # If this is a native Grok sub-agent request and we are not in dry-run,
+            # attempt to actually spawn it right now using the host's spawn_subagent capability.
+            # This is the core of "team mode = Grok sub-agent swarms under ulw".
+            if provider in ("grok", "subagent") and not args.dry_run:
+                # Only attempt real subagent spawn if the host Grok environment exposed the tool
+                spawn_fn = globals().get("spawn_subagent")
+                if callable(spawn_fn):
+                    try:
+                        sa_type = "plan" if is_deep else "general-purpose"
+                        # Strongly brand the native Grok sub-agent as an ULW worker
+                        ulw_description = (
+                            f"ULW worker ({role}) in LFG team '{name}' for ultragoal {ug_id or 'standalone'}. "
+                            f"Identity: ULW (LFG_LAUNCHER=ulw). "
+                            f"Report all progress using `ulw ultragoal checkpoint` or the grok_build_ultragoal MCP tool."
+                        )
+                        spawned = spawn_fn(
+                            prompt=member_prompt,
+                            description=ulw_description,
+                            subagent_type=sa_type,
+                            background=True,
+                        )
+                        subagent_id = None
+                        if isinstance(spawned, dict):
+                            subagent_id = spawned.get("subagent_id") or spawned.get("id")
+                        else:
+                            getter = getattr(spawned, "get", None)
+                            if callable(getter):
+                                subagent_id = getter("subagent_id") or getter("id")
+                        member["subagent_id"] = subagent_id
+                        member["spawned_as_subagent"] = True
+                    except Exception as e:
+                        member["subagent_spawn_error"] = str(e)
+                        member["spawned_as_subagent"] = False
+                else:
+                    member["spawned_as_subagent"] = "pending (call spawn_subagent from leader with the prepared prompt)"
+
+            members.append(member)
+            global_idx += 1
+
     team = {
         "name": name,
         "status": "planned" if args.dry_run else "running",
@@ -1793,21 +2871,51 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
             "shutdown": f"tmux kill-session -t {shlex.quote(name)}",
         },
     }
-    write_json(team_dir() / f"{name}.json", team)
-    write_json(STATE_DIR / "current-team.json", {"name": name, "path": str(team_dir() / f"{name}.json"), "updatedAt": now()})
+
+    # Write to legacy location (for backward compat during Phase 1)
+    write_json(team_json_path(name), team)
+    write_json(STATE_DIR / "current-team.json", {"name": name, "path": str(team_json_path(name)), "updatedAt": now()})
+
+    # If mode is provided (ultragoal / ultrawork / hyperplan), also write to separated state
+    if mode and mode_id:
+        mode_store = TeamStateStore(mode=mode, mode_id=mode_id)
+        run = TeamRun(
+            id=name,
+            name=name,
+            objective=objective,
+            status=team["status"],
+            created_at=team["createdAt"],
+            updated_at=team["updatedAt"],
+            ultragoal_id=ug_id,
+            config={"providers": providers},
+            members=[TeamMember(
+            id=str(m.get("index", i)),
+            name=m.get("name", ""),
+            role=m.get("role", ""),
+            provider=m.get("provider", ""),
+            status="pending",
+            prompt=m.get("prompt", ""),
+            command=m.get("command", ""),
+            ultragoal=m.get("ultragoal"),
+        ) for i, m in enumerate(members)],
+        )
+        mode_store.save_run(run)
+
     if not args.dry_run:
         require_executable("tmux")
-        subprocess.run(["tmux", "new-session", "-d", "-s", name, "-n", "control", "-c", str(cwd), "bash", "-lc", f"echo 'grok-build team {name}'; echo {shlex.quote(objective)}; exec $SHELL"], check=True)
+        control_cmd = f"printf '%s\n' {shlex.quote('grok-build team ' + name)}; printf '%s\n' {shlex.quote(objective)}; exec $SHELL"
+        subprocess.run(["tmux", "new-session", "-d", "-s", name, "-n", "control", "-c", str(cwd), "bash", "-lc", control_cmd], check=True)
         for m in members:
             subprocess.run(["tmux", "new-window", "-t", name, "-n", m["name"][:20], "-c", str(cwd), "bash", "-lc", m["command"]], check=True)
+
     return team
 
 
 def team_status(args: argparse.Namespace) -> dict[str, Any]:
-    ref = args.name or (read_json(STATE_DIR / "current-team.json", {}) or {}).get("name")
-    if not ref:
+    if not args.name and not (read_json(STATE_DIR / "current-team.json", {}) or {}).get("name"):
         return {"teams": [read_json(p) for p in sorted(team_dir().glob("*.json"))] if team_dir().exists() else []}
-    team = read_json(team_dir() / f"{ref}.json")
+    ref = current_team_ref(args)
+    team = read_json(team_json_path(ref))
     if not team:
         raise SystemExit(f"team not found: {ref}")
     proc = subprocess.run(["tmux", "list-windows", "-t", ref], text=True, capture_output=True)
@@ -1816,18 +2924,14 @@ def team_status(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def team_resume(args: argparse.Namespace) -> dict[str, Any]:
-    ref = args.name or (read_json(STATE_DIR / "current-team.json", {}) or {}).get("name")
-    if not ref:
-        raise SystemExit("no team name and no current team")
+    ref = current_team_ref(args)
     return {"team": ref, "attachCommand": f"tmux attach -t {shlex.quote(ref)}", "statusCommand": f"tmux list-windows -t {shlex.quote(ref)}"}
 
 
 def team_shutdown(args: argparse.Namespace) -> dict[str, Any]:
-    ref = args.name or (read_json(STATE_DIR / "current-team.json", {}) or {}).get("name")
-    if not ref:
-        raise SystemExit("no team name and no current team")
+    ref = current_team_ref(args)
     proc = subprocess.run(["tmux", "kill-session", "-t", ref], text=True, capture_output=True)
-    path = team_dir() / f"{ref}.json"
+    path = team_json_path(ref)
     team = read_json(path, {"name": ref})
     team["status"] = "shutdown"
     team["updatedAt"] = now()
@@ -1837,6 +2941,102 @@ def team_shutdown(args: argparse.Namespace) -> dict[str, Any]:
 
 
 
+
+
+# --- New CLI commands for Phase 1+ state inspection (C) ---
+
+def team_agents_list(args: argparse.Namespace) -> dict[str, Any]:
+    """lfg team agents — list all available named LFG agents (with ULW identity)."""
+    agents = []
+
+    # Load from plugin examples
+    plugin_agents_dir = ROOT / "lfg-agents"
+    if plugin_agents_dir.exists():
+        for f in sorted(plugin_agents_dir.glob("*.json")):
+            data = read_json(f, {})
+            if data.get("name"):
+                agents.append(data)
+
+    # Load from user directory (higher priority / overrides)
+    user_agents_dir = pathlib.Path.home() / ".grok" / "lfg" / "agents"
+    if user_agents_dir.exists():
+        for f in sorted(user_agents_dir.glob("*.json")):
+            data = read_json(f, {})
+            if data.get("name"):
+                agents = [a for a in agents if a.get("name") != data["name"]]
+                agents.append(data)
+
+    agents.sort(key=lambda x: x.get("name", ""))
+    return {
+        "agents": agents,
+        "count": len(agents),
+        "note": "All agents run with ULW identity (LFG_LAUNCHER=ulw). Use them with `lfg team create iz,gonow,grok ...`"
+    }
+
+
+def team_state_show(args: argparse.Namespace) -> dict[str, Any]:
+    """lfg team state <name>  or  lfg team run <name>"""
+    name = validate_safe_id(args.name, "team name")
+    legacy_path = team_json_path(name)
+
+    runs_dir = STATE_DIR / "runs"
+    state_data = None
+    mode = "legacy"
+    state_path = str(legacy_path)
+    rich_run = None
+
+    # Improved detection for separated OmO-style runs (D + C): look for teams/<name>/run.json
+    if runs_dir.exists():
+        for mode_dir in runs_dir.glob("*"):
+            if not mode_dir.is_dir():
+                continue
+            teams_dir = mode_dir / "teams"
+            if not teams_dir.exists():
+                continue
+            candidate_dir = safe_child_path(teams_dir, name)
+            run_json = candidate_dir / "run.json"
+            if run_json.exists():
+                try:
+                    store = TeamStateStore(base_dir=mode_dir)
+                    # Force the /teams/<id> layout that was used at save time for mode-aware stores (mode + mode_id truthy)
+                    store.mode = mode_dir.name.split("-")[0] if "-" in mode_dir.name else "run"
+                    store.mode_id = name  # truthy; _run_dir will then do base/teams/name
+                    rich_run = store.load_run(name)
+                    if rich_run:
+                        mode = store.mode
+                        state_path = str(candidate_dir)
+                        break
+                except Exception:
+                    pass
+
+    if not rich_run and legacy_path.exists():
+        state_data = read_json(legacy_path, None)
+
+    if not rich_run and not state_data:
+        return {"error": f"Team '{name}' not found"}
+
+    if rich_run:
+        return {
+            "name": rich_run.name,
+            "mode": mode,
+            "status": rich_run.status,
+            "objective": rich_run.objective,
+            "ultragoal": rich_run.ultragoal_id,
+            "members": [m.__dict__ for m in rich_run.members],
+            "tasks": [t.__dict__ for t in rich_run.tasks],
+            "recent_mailbox": [m.__dict__ for m in (rich_run.mailbox or [])[-10:]],
+            "state_path": state_path,
+            "note": "Rich TeamRun with mailbox + tasks + evidence verification (hyperplan/ultrawork ready)"
+        }
+    legacy_state = state_data or {}
+    return {
+        "name": name,
+        "mode": mode,
+        "status": legacy_state.get("status"),
+        "members": legacy_state.get("members", []),
+        "state_path": state_path,
+        "note": "Legacy flat state (no rich TeamRun yet)"
+    }
 
 
 def cancel(args: argparse.Namespace) -> dict[str, Any]:
@@ -1960,6 +3160,7 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
         add(f"exe:{exe}", bool(path), path or "not found", required=required)
     data_ok = DATA.exists() or DATA.parent.exists()
     add("plugin_data", data_ok, str(DATA), required=True)
+    add("default_launcher", True, f"lfg (effective={effective_launcher()})", required=False)
     schema = ensure_state_schema()
     add("state_schema", schema.get("version") == STATE_SCHEMA_VERSION and state_schema_path().exists(), f"{state_schema_path()} version={schema.get('version')}", required=True)
     providers = team_provider_matrix()
@@ -2177,7 +3378,19 @@ def slash(args: argparse.Namespace) -> dict[str, Any]:
     ))
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="grok-build", description="OMX-like MVP runtime for Grok Build plugin")
+    launcher = effective_launcher()
+    p = argparse.ArgumentParser(
+        prog=launcher,
+        description="LFG — Grok Build runtime (tmux backend, workflows, durable goals, team swarms)",
+    )
+    if launcher not in ("lfg", "ulw"):
+        # Direct python grok-build.py invocation — be friendly
+        print(
+            "Note: You invoked grok-build.py directly. "
+            "The recommended CLI is `lfg` (or `ulw` for swarm contexts).\n"
+            "Install the proper wrappers with: scripts/install-lfg-symlink.sh\n",
+            file=sys.stderr,
+        )
     p.add_argument("--json", action="store_true")
     p.add_argument("--cwd", default=os.getcwd())
     p.add_argument("--name", help="backend session name for default lfg attach/start")
@@ -2203,13 +3416,15 @@ def main(argv: list[str] | None = None) -> int:
     ugc.set_defaults(fn=ultragoal_create)
     ugsp = ugsub.add_parser("spawn")
     ugsp.add_argument("objective")
-    ugsp.add_argument("--spec", default="3:executor", help="team spec like 3:executor")
+    ugsp.add_argument("--spec", default="3:executor", help="team spec like 1:iz,1:gonow,1:grok or 3:executor")
     ugsp.add_argument("--id")
     ugsp.add_argument("--checklist")
     ugsp.add_argument("--brief")
     ugsp.add_argument("--name")
     ugsp.add_argument("--providers", default="hermes,claude,codex")
     ugsp.add_argument("--dry-run", action="store_true")
+    ugsp.add_argument("--hyperplan", action="store_true", help="Launch in Hyperplan rigorous mode (separated state + adversarial team)")
+    ugsp.add_argument("--template", help="Named team template, e.g. hyperplan (expands to iz+gonow+grok with deep/artistry categories)")
     ugsp.set_defaults(fn=ultragoal_spawn)
     ugs = ugsub.add_parser("status")
     ugs.add_argument("--id")
@@ -2585,6 +3800,18 @@ def main(argv: list[str] | None = None) -> int:
     ts = tsub.add_parser("status")
     ts.add_argument("name", nargs="?")
     ts.set_defaults(fn=team_status)
+
+    # New inspection commands (Phase 1+)
+    tagents = tsub.add_parser("agents")
+    tagents.set_defaults(fn=team_agents_list)
+
+    tstate = tsub.add_parser("state")
+    tstate.add_argument("name")
+    tstate.set_defaults(fn=team_state_show)
+
+    trun = tsub.add_parser("run")
+    trun.add_argument("name")
+    trun.set_defaults(fn=team_state_show)   # alias for `lfg team state`
     tr = tsub.add_parser("resume")
     tr.add_argument("name", nargs="?")
     tr.set_defaults(fn=team_resume)

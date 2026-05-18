@@ -633,6 +633,9 @@ def handle_tool(name, arguments=None):
                 cmd += ["--name", arguments["team"]]
             if arguments.get("providers"):
                 cmd += ["--providers", arguments["providers"]]
+            else:
+                # Maximise installed coding CLIs on the machine + native grok sub-agents
+                cmd += ["--providers", "hermes,claude,codex,grok"]
             if arguments.get("dryRun", True):
                 cmd += ["--dry-run"]
         elif action in {"status", "resume", "shutdown"}:
