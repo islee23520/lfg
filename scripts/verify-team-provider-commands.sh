@@ -11,7 +11,8 @@ import json, pathlib
 obj=json.loads(pathlib.Path('/tmp/team-provider-matrix.json').read_text())
 assert obj['ok'], obj
 providers=[p['provider'] for p in obj['providers']]
-assert providers == ['hermes','claude','codex','noop'], providers
+expected={'hermes','claude','codex','gemini','copilot','opencode','grok','subagent','noop'}
+assert set(providers) == expected, providers
 assert obj['smokeSafe'] == 'noop', obj
 assert 'noop' in obj['summary']['available'], obj
 print('team-provider-matrix=ok providers=%s' % ','.join(providers))
@@ -21,7 +22,8 @@ python3 - <<'PY'
 import json, pathlib
 obj=json.loads(pathlib.Path('/tmp/team-provider-slash.json').read_text())
 assert obj['ok'], obj
-assert [p['provider'] for p in obj['providers']] == ['hermes','claude','codex','noop'], obj
+expected={'hermes','claude','codex','gemini','copilot','opencode','grok','subagent','noop'}
+assert {p['provider'] for p in obj['providers']} == expected, obj
 assert obj['smokeSafe'] == 'noop', obj
 print('team-provider-slash=ok')
 PY

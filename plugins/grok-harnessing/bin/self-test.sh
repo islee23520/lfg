@@ -13,8 +13,15 @@ for rel in ["skills/grok-harnessing/SKILL.md", "agents/harness.toml", "hooks/scr
     assert (root / rel).exists(), rel
 assert (root / "bin/grok-install-smoke.sh").stat().st_mode & 0o111, "bin/grok-install-smoke.sh executable"
 hooks = json.loads((root / "hooks/hooks.json").read_text())["hooks"]
-hook_commands = {h["command"] for entries in hooks.values() for entry in entries for h in entry["hooks"]}
+hook_commands = {
+    h["command"]
+    for entries in hooks.values()
+    if isinstance(entries, list)
+    for entry in entries
+    for h in entry["hooks"]
+}
 assert "scripts/grok-build-audit-hook.sh" in hook_commands, hook_commands
+assert "scripts/lfg-goal-harness.sh" in hook_commands, hook_commands
 repo = root.parents[1]
 install_lfg = (repo / "scripts/install-lfg-symlink.sh").read_text()
 launch_lfg = (repo / "scripts/verify-lfg-launch.sh").read_text()
@@ -186,7 +193,9 @@ TEAM_JSON="$TEAM_JSON" python3 - <<'PY'
 import json, os
 d=json.loads(os.environ["TEAM_JSON"])
 assert d["status"] == "planned"
-assert [m["provider"] for m in d["members"]] == ["hermes", "claude", "codex"]
+providers = [m["provider"] for m in d["members"]]
+assert len(providers) == 3, providers
+assert all(providers), providers
 PY
 echo "team-dry-run=ok"
 

@@ -27,11 +27,12 @@ Use this skill when the user wants durable team execution, especially commands l
 
 - Treat `/team` as a Grok slash-command frontdoor into the LFG tmux backend.
 - The backend creates durable tmux sessions/windows.
-- Default worker providers rotate through `hermes`, `claude`, and `codex`.
-- Hermes workers are launched with `hermes -z <prompt> chat`.
-- Claude workers are launched with `claude --permission-mode bypassPermissions <prompt>`.
-- Codex workers are launched with `codex <prompt>`.
-- Store team state under `~/.grok/plugin-data/grok-build/state/teams/`.
+- Supported providers: `hermes`, `claude`, `codex`, `grok` (and alias `subagent`), `noop`.
+  - The entire design goal of LFG team mode is to **maximise usage of every coding CLI the user has installed on this machine** (claude, codex, gemini, copilot, opencode, hermes, etc.) while still giving you the option of native Grok sub-agents (`grok` / `subagent` provider).
+  - `opencode -p` is especially recommended for `architect` / `consultant` / deep reasoning lanes (gives Codex -p style planning depth).
+- When you run `lfg team create` or `lfg ultragoal spawn`, it automatically detects installed tools via `which` and builds the best possible team from what is actually available.
+- `grok` / `subagent` = native Grok sub-agents (via `spawn_subagent`). These are **first-class ULW workers**. The prompt they receive explicitly tells them "You are an ULW worker" and instructs them to report using `ulw ultragoal checkpoint` or the MCP equivalent. This is the intended way to get real Grok sub-agents inside an LFG team.
+- Special roles (`architect`, `consultant`, `deep`, etc.) get the strong "gpt5.5 + codex -p style" high-reasoning persona with multi-AI consultation instructions.
 - When a current ultragoal is active (or `/ultragoal spawn` is used), the team is automatically linked to the ultragoal ledger. Workers are instructed to report via `ulw ultragoal checkpoint --id <ugid>`. This makes classic OMX team mode behave like Grok-native sub-agent swarm spawning tied to a durable goal.
 - Do not use this as the default for simple tasks; use it when tmux/worktree/durable coordination is explicitly desired.
 
