@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke/TDD coverage for the grok-build MVP runtime.
+"""Smoke/TDD coverage for the lfg MVP runtime.
 
 This is intentionally dependency-free so marketplace users can run it with the
 system Python.  The suite is organized as a feature coverage matrix; every item
@@ -19,14 +19,14 @@ import importlib.util
 import importlib
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-PLUGIN = REPO / "plugins" / "grok-harnessing"
+PLUGIN = REPO / "plugins" / "lfg"
 LFG = PLUGIN / "bin" / "lfg"
 ULW = PLUGIN / "bin" / "ulw"
-MCP = PLUGIN / "bin" / "grok-build-mcp.py"
+MCP = PLUGIN / "bin" / "lfg-mcp.py"
 
 
 def load_grok_build_module():
-    spec = importlib.util.spec_from_file_location("grok_build_runtime", PLUGIN / "bin" / "grok-build.py")
+    spec = importlib.util.spec_from_file_location("grok_build_runtime", PLUGIN / "bin" / "lfg.py")
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -107,7 +107,7 @@ class RuntimeSmoke(unittest.TestCase):
         skill_names = sorted(
             path.name
             for path in (PLUGIN / "skills").iterdir()
-            if path.is_dir() and path.name != "grok-harnessing"
+            if path.is_dir() and path.name != "lfg"
         )
         self.assertEqual(len(skill_names), 27)
         missing_rows = [name for name in skill_names if f"| `/{name}` " not in roadmap]
@@ -187,7 +187,7 @@ class RuntimeSmoke(unittest.TestCase):
 
     def test_ci_and_install_smoke_contracts(self) -> None:
         workflow = (REPO / ".github/workflows/smoke.yml").read_text(encoding="utf-8")
-        self.assertIn("plugins/grok-harnessing/bin/self-test.sh", workflow)
+        self.assertIn("plugins/lfg/bin/self-test.sh", workflow)
         self.assertIn("actions/checkout@v5", workflow)
         self.assertIn("sudo apt-get install -y tmux", workflow)
         self.assertIn("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24", workflow)
@@ -202,7 +202,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(os.access(install_lfg, os.X_OK))
         install_script = install_lfg.read_text(encoding="utf-8")
         self.assertIn("ln -sfn", install_script)
-        self.assertIn("grok-build.py", install_script)
+        self.assertIn("lfg.py", install_script)
         self.assertIn('ln -sfn "$SRC_DIR/ulw"', install_script)
         self.assertIn("lfg-status=ok", install_script)
         self.assertIn("ulw-status=ok", install_script)
@@ -213,7 +213,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("lfg-launch-smoke=ok", launch_script)
         self.assertIn("ulw-launch-json=ok", launch_script)
         self.assertIn("tmux has-session", launch_script)
-        runtime = (PLUGIN / "bin" / "grok-build.py").read_text(encoding="utf-8")
+        runtime = (PLUGIN / "bin" / "lfg.py").read_text(encoding="utf-8")
         self.assertIn("def attach_backend_from_tmux_pane", runtime)
         self.assertIn("split-window", runtime)
         all_ready = REPO / "scripts" / "verify-release-readiness-all.sh"
@@ -262,7 +262,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-plugins-list=ok", plugins_surface_script)
         self.assertIn("grok-plugins-surface=ok", plugins_surface_script)
         readme = (REPO / "README.md").read_text(encoding="utf-8")
-        self.assertNotIn("cp -R plugins/grok-harnessing ~/.grok/plugins/grok-build", readme)
+        self.assertNotIn("cp -R plugins/lfg ~/.grok/plugins/lfg", readme)
         self.assertIn("docs/SMOKE.md", readme)
         self.assertIn("/team providers", readme)
         self.assertIn("/team preflight", readme)
@@ -276,14 +276,14 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("release-tag=ok", release_tag_script)
         self.assertIn("release-tag-remote=ok", release_tag_script)
         release_tag_doc = (REPO / "docs" / "RELEASE_TAGS.md").read_text(encoding="utf-8")
-        self.assertIn("grok-build-v0.3.0-p1", release_tag_doc)
-        hook_bridge = REPO / "scripts" / "verify-grok-build-global-hook-bridge.sh"
+        self.assertIn("lfg-v0.3.0-p1", release_tag_doc)
+        hook_bridge = REPO / "scripts" / "verify-lfg-global-hook-bridge.sh"
         self.assertTrue(os.access(hook_bridge, os.X_OK))
         hook_bridge_script = hook_bridge.read_text(encoding="utf-8")
         self.assertIn("grok-global-hook-bridge=ok", hook_bridge_script)
-        install_bridge = REPO / "scripts" / "install-grok-build-global-hook-bridge.sh"
+        install_bridge = REPO / "scripts" / "install-lfg-global-hook-bridge.sh"
         self.assertTrue(os.access(install_bridge, os.X_OK))
-        self.assertIn("grok-build-audit-bridge.json", install_bridge.read_text(encoding="utf-8"))
+        self.assertIn("lfg-audit-bridge.json", install_bridge.read_text(encoding="utf-8"))
         installed_mcp = REPO / "scripts" / "verify-grok-installed-mcp-surface.sh"
         self.assertTrue(os.access(installed_mcp, os.X_OK))
         installed_mcp_script = installed_mcp.read_text(encoding="utf-8")
@@ -319,7 +319,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("hook-event-replay=ok", hook_discovery_script)
         self.assertIn("grok-headless-session=ok", hook_discovery_script)
         hook_doc = (REPO / "docs" / "HOOK_EVIDENCE.md").read_text(encoding="utf-8")
-        self.assertIn("scripts/grok-build-audit-hook.sh", hook_doc)
+        self.assertIn("scripts/lfg-audit-hook.sh", hook_doc)
         self.assertIn("lfg hook-bridge install", hook_doc)
         self.assertIn("grok_build_hook_bridge", hook_doc)
         smoke_doc = (REPO / "docs" / "SMOKE.md").read_text(encoding="utf-8")
@@ -338,8 +338,8 @@ class RuntimeSmoke(unittest.TestCase):
         release_notes_script = release_notes.read_text(encoding="utf-8")
         self.assertIn("release-notes=ok", release_notes_script)
         release_notes_doc = (REPO / "docs" / "MARKETPLACE_RELEASE_NOTES.md").read_text(encoding="utf-8")
-        self.assertIn("linalab-io-framework/grok-build", release_notes_doc)
-        self.assertIn("grok-build 0.3.0", release_notes_doc)
+        self.assertIn("linalab-io/lfg", release_notes_doc)
+        self.assertIn("lfg 0.3.0", release_notes_doc)
         self.assertIn("/plugins", release_notes_doc)
         release_checklist = (REPO / "docs" / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
         self.assertIn("release-readiness-local=ok", release_checklist)
@@ -372,14 +372,14 @@ class RuntimeSmoke(unittest.TestCase):
     def test_marketplace_metadata_points_to_plugin_package(self) -> None:
         for rel in [".grok/plugins/marketplace.json", ".agents/plugins/marketplace.json"]:
             data = json.loads((REPO / rel).read_text(encoding="utf-8"))
-            self.assertEqual(data["name"], "linalab-io-framework")
+            self.assertEqual(data["name"], "linalab-io")
             self.assertEqual(len(data["plugins"]), 1)
             plugin = data["plugins"][0]
-            self.assertEqual(plugin["name"], "grok-build")
+            self.assertEqual(plugin["name"], "lfg")
             self.assertEqual(plugin["source"]["source"], "git-subdir")
             self.assertEqual(plugin["source"]["url"], "https://github.com/islee23520/lfg.git")
-            self.assertEqual(plugin["source"]["path"], "plugins/grok-harnessing")
-            self.assertEqual(plugin["metadata"]["packageName"], "linalab-io-framework/grok-build")
+            self.assertEqual(plugin["source"]["path"], "plugins/lfg")
+            self.assertEqual(plugin["metadata"]["packageName"], "linalab-io/lfg")
             self.assertEqual(plugin["metadata"]["reference"], "https://github.com/Yeachan-Heo/oh-my-codex")
 
 
@@ -714,7 +714,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(pathlib.Path(installed["config"]).exists())
         self.assertTrue(os.access(installed["script"], os.X_OK))
         script = pathlib.Path(installed["script"]).read_text(encoding="utf-8")
-        self.assertIn("grok-build-audit-hook.sh", script)
+        self.assertIn("lfg-audit-hook.sh", script)
         doctor = self.run_lfg("doctor")
         bridge = next(check for check in doctor["checks"] if check["name"] == "global_hook_bridge")
         self.assertIn("installed=True valid=True", bridge["evidence"])
@@ -1135,7 +1135,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(hud["counts"]["activeGoals"], 1)
         self.assertEqual(hud["counts"]["plans"], 1)
         self.assertEqual(hud["counts"]["wikiNotes"], 1)
-        self.assertIn("grok-build", hud["text"])
+        self.assertIn("lfg", hud["text"])
 
     def test_mcp_hud_tool(self) -> None:
         self.run_lfg("goal", "create", "MCP HUD goal")
@@ -1167,7 +1167,7 @@ class RuntimeSmoke(unittest.TestCase):
         payload = json.loads(replies[1]["result"]["content"][0]["text"])
         self.assertEqual(payload["returncode"], 0)
         self.assertIn('"goals": 1', payload["stdout"])
-        self.assertIn('"text": "grok-build', payload["stdout"])
+        self.assertIn('"text": "lfg', payload["stdout"])
 
 
     def test_performance_goal_create_measure_show(self) -> None:
@@ -1281,17 +1281,17 @@ class RuntimeSmoke(unittest.TestCase):
         check = self.run_lfg("omx-setup", "check")
         self.assertEqual(check["status"], "ok")
         self.assertTrue(check["checks"]["manifestExists"])
-        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "linalab-io-framework/grok-build")
+        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "linalab-io/lfg")
         self.assertEqual(plan["status"], "planned")
         shown = self.run_lfg("omx-setup", "show")
-        self.assertEqual(shown["marketplace"], "linalab-io-framework/grok-build")
+        self.assertEqual(shown["marketplace"], "linalab-io/lfg")
 
     def test_mcp_omx_setup_tool(self) -> None:
         proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         assert proc.stdin and proc.stdout
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
-            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "install-plan", "marketplace": "linalab-io-framework/grok-build"}}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "install-plan", "marketplace": "linalab-io/lfg"}}},
             {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "show"}}},
         ]
         for msg in messages:
@@ -1309,7 +1309,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(plan_payload["returncode"], 0)
         self.assertEqual(show_payload["returncode"], 0)
         self.assertIn('"status": "planned"', plan_payload["stdout"])
-        self.assertIn('linalab-io-framework/grok-build', show_payload["stdout"])
+        self.assertIn('linalab-io/lfg', show_payload["stdout"])
 
     def test_skill_list_search_catalog(self) -> None:
         listed = self.run_lfg("skill", "list")
@@ -1879,7 +1879,7 @@ class IdentityAlignmentSmoke(unittest.TestCase):
     """Verify lina/gonow/iz are canonical primary identities; Sisyphus/Hephaestus/Oracle are lineage-only."""
 
     AGENTS_DIR = PLUGIN / "lfg-agents"
-    GROK_BUILD = PLUGIN / "bin" / "grok-build.py"
+    GROK_BUILD = PLUGIN / "bin" / "lfg.py"
     HARNESS = PLUGIN / "hooks" / "scripts" / "lfg-goal-harness.py"
 
     def _load_agent(self, filename: str) -> dict:
