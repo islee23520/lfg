@@ -1,7 +1,9 @@
 .DS_Store
 .omx/
 .omo/
+.grok/
 target/
 /tmp/
 *.log
-tests/smoke/__pycache__
+__pycache__
+.pytest_cache

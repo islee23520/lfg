@@ -1,5 +1,6 @@
 {
   "hooks": {
+    "comment": "LFG Active Goal Harness is the aggressive per-turn injector. Audit is kept for observability.",
     "SessionStart": [
       {
         "hooks": [
@@ -16,8 +17,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "scripts/grok-build-audit-hook.sh",
-            "timeout": 5
+            "command": "scripts/lfg-goal-harness.sh",
+            "timeout": 8
           }
         ]
       }
@@ -38,8 +39,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "scripts/grok-build-audit-hook.sh",
-            "timeout": 5
+            "command": "scripts/lfg-goal-harness.sh",
+            "timeout": 8
           }
         ]
       }
@@ -60,8 +61,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "scripts/grok-build-audit-hook.sh",
-            "timeout": 5
+            "command": "scripts/lfg-goal-harness.sh",
+            "timeout": 12
           }
         ]
       }
@@ -71,8 +72,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "scripts/grok-build-audit-hook.sh",
-            "timeout": 5
+            "command": "scripts/lfg-goal-harness.sh",
+            "timeout": 8
           }
         ]
       }
