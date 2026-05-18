@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# lfg — primary / default binary for the LFG LFG runtime (tmux backend, workflows, plugin)
+# Installed to ~/.grok/bin/lfg and ~/.local/bin/lfg by scripts/install-lfg-symlink.sh
+# Always invokes the wrapped lfg.py with the correct LFG_LAUNCHER identity.
+
+SOURCE="$0"
+while [[ -L "$SOURCE" ]]; do
+  DIR="$(CDPATH= cd -- "$(dirname -- "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" = /* ]] || SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$SOURCE")" && pwd)"
+
+if [[ -z "${GROK_PLUGIN_ROOT:-}" ]]; then
+  CANDIDATE="$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)"
+  if [[ -f "$CANDIDATE/plugins/lfg/.grok-plugin/plugin.json" ]]; then
+    export GROK_PLUGIN_ROOT="$CANDIDATE"
+  else
+    export GROK_PLUGIN_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+  fi
+fi
+
+export GROK_PLUGIN_DATA="${GROK_PLUGIN_DATA:-$PWD/.lfg}"
+
+export LFG_LAUNCHER="lfg"
+
+exec python3 "$SCRIPT_DIR/lfg.py" "$@"

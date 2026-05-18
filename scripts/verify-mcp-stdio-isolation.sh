@@ -7,7 +7,7 @@ OUT="$TMP/stdout.jsonl"
 ERR="$TMP/stderr.log"
 trap 'rm -rf "$TMP"' EXIT
 
-GROK_PLUGIN_DATA="$TMP/data" python3 plugins/grok-harnessing/bin/grok-build-mcp.py >"$OUT" 2>"$ERR" <<'JSON'
+GROK_PLUGIN_DATA="$TMP/data" python3 plugins/lfg/bin/lfg-mcp.py >"$OUT" 2>"$ERR" <<'JSON'
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
 {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"grok_build_team","arguments":{"action":"status","team":"definitely-missing-team"}}}
@@ -24,7 +24,7 @@ assert err_text == '', err_text
 lines = [line for line in out.read_text(encoding='utf-8').splitlines() if line.strip()]
 assert len(lines) == 4, lines
 msgs = [json.loads(line) for line in lines]
-assert msgs[0]['result']['serverInfo']['name'] == 'grok-build-harness', msgs[0]
+assert msgs[0]['result']['serverInfo']['name'] == 'lfg-harness', msgs[0]
 assert any(t['name'] == 'grok_build_team' for t in msgs[1]['result']['tools']), msgs[1]
 team_text = msgs[2]['result']['content'][0]['text']
 team_payload = json.loads(team_text)

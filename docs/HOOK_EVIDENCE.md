@@ -3,14 +3,14 @@
 This plugin bundles a fail-open passive audit hook at:
 
 ```text
-plugins/grok-harnessing/hooks/hooks.json
-plugins/grok-harnessing/hooks/scripts/grok-build-audit-hook.sh
+plugins/lfg/hooks/hooks.json
+plugins/lfg/hooks/scripts/lfg-audit-hook.sh
 ```
 
 Grok hook docs recommend command paths relative to the hook JSON file, so the plugin uses:
 
 ```text
-scripts/grok-build-audit-hook.sh
+scripts/lfg-audit-hook.sh
 ```
 
 ## Evidence gates
@@ -113,26 +113,26 @@ This proves Grok's hook engine fires for global hooks in the same headless/tool-
 
 ## Global hook bridge workaround
 
-Because Grok `0.1.211` fires global hooks but does not emit plugin hook audit records in the tested paths, `grok-build` includes an optional bridge installer:
+Because Grok `0.1.211` fires global hooks but does not emit plugin hook audit records in the tested paths, `lfg` includes an optional bridge installer:
 
 ```sh
-scripts/install-grok-build-global-hook-bridge.sh
+scripts/install-lfg-global-hook-bridge.sh
 ```
 
 Verify it with:
 
 ```sh
-scripts/verify-grok-build-global-hook-bridge.sh
+scripts/verify-lfg-global-hook-bridge.sh
 ```
 
 Expected evidence:
 
 ```text
-grok-build-global-hook-bridge=installed
+lfg-global-hook-bridge=installed
 grok-global-hook-bridge=ok
 ```
 
-This installs a global `~/.grok/hooks/grok-build-audit-bridge.json` that delegates to the installed plugin audit hook at `~/.grok/plugins/grok-build/hooks/scripts/grok-build-audit-hook.sh`. The verification runs a real Grok tool-use session and confirms `~/.grok/plugin-data/grok-build/events/audit.jsonl` is written.
+This installs a global `~/.grok/hooks/lfg-audit-bridge.json` that delegates to the installed plugin audit hook at `~/.grok/plugins/lfg/hooks/scripts/lfg-audit-hook.sh`. The verification runs a real Grok tool-use session and confirms `.lfg/events/audit.jsonl` is written.
 
 Runtime CLI support:
 

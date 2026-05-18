@@ -11,7 +11,7 @@ cleanup() {
 }
 trap cleanup EXIT
 tmux kill-session -t "$SESSION" 2>/dev/null || true
-tmux new-session -d -s "$SESSION" -c "$REPO_ROOT" "GROK_PLUGIN_ROOT='$REPO_ROOT/plugins/grok-harnessing' GROK_PLUGIN_DATA='$TMP_DATA' '$REPO_ROOT/plugins/grok-harnessing/bin/lfg'; sleep 4"
+tmux new-session -d -s "$SESSION" -c "$REPO_ROOT" "GROK_PLUGIN_ROOT='$REPO_ROOT/plugins/lfg' GROK_PLUGIN_DATA='$TMP_DATA' '$REPO_ROOT/plugins/lfg/bin/lfg'; sleep 4"
 tmux pipe-pane -t "$SESSION:0.0" -o "cat > '$CAPTURE'"
 # Wait for lfg to return and split an attach pane.
 for _ in $(seq 1 30); do

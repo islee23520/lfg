@@ -6,7 +6,7 @@ if ! command -v expect >/dev/null; then
   echo "grok-tui-hook-session=skipped reason=expect-missing"
   exit 0
 fi
-rm -rf "$HOME/.grok/plugin-data/grok-build/events"
+rm -rf "$PWD/.lfg/events"
 cat >/tmp/grok-tui-hook.expect <<'EXPECT'
 set timeout 45
 spawn /Users/ilseoblee/.grok/bin/grok --no-leader --cwd /tmp --no-alt-screen
@@ -28,7 +28,7 @@ if grep -q 'LFG_TUI_HOOK_SESSION\|Running: echo LFG_TUI_HOOK_SESSION' /tmp/grok-
 else
   echo "grok-tui-hook-session=not-observed reason=tui-automation-timeout"
 fi
-LOG="$HOME/.grok/plugin-data/grok-build/events/audit.jsonl"
+LOG="$PWD/.lfg/events/audit.jsonl"
 if [[ -s "$LOG" ]]; then
   echo "grok-tui-hook-emission=ok log=$LOG"
 else

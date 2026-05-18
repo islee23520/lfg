@@ -15,7 +15,10 @@ async fn fake_mcp_stdio_initialize() {
     let stdout = proc.child.stdout.take().unwrap();
 
     let req = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#;
-    stdin.write_all(format!("{}\n", req).as_bytes()).await.unwrap();
+    stdin
+        .write_all(format!("{}\n", req).as_bytes())
+        .await
+        .unwrap();
 
     let mut reader = BufReader::new(stdout);
     let mut line = String::new();
@@ -38,7 +41,10 @@ async fn fake_mcp_stdio_tools_list() {
     let stdout = proc.child.stdout.take().unwrap();
 
     let req = r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#;
-    stdin.write_all(format!("{}\n", req).as_bytes()).await.unwrap();
+    stdin
+        .write_all(format!("{}\n", req).as_bytes())
+        .await
+        .unwrap();
 
     let mut reader = BufReader::new(stdout);
     let mut line = String::new();
@@ -61,7 +67,10 @@ async fn fake_mcp_stdio_tools_call() {
     let stdout = proc.child.stdout.take().unwrap();
 
     let req = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"echo","arguments":{"text":"hello"}}}"#;
-    stdin.write_all(format!("{}\n", req).as_bytes()).await.unwrap();
+    stdin
+        .write_all(format!("{}\n", req).as_bytes())
+        .await
+        .unwrap();
 
     let mut reader = BufReader::new(stdout);
     let mut line = String::new();
@@ -83,7 +92,10 @@ async fn fake_mcp_stdio_error_response() {
     let stdout = proc.child.stdout.take().unwrap();
 
     let req = r#"{"jsonrpc":"2.0","id":99,"method":"bad/method"}"#;
-    stdin.write_all(format!("{}\n", req).as_bytes()).await.unwrap();
+    stdin
+        .write_all(format!("{}\n", req).as_bytes())
+        .await
+        .unwrap();
 
     let mut reader = BufReader::new(stdout);
     let mut line = String::new();
@@ -105,14 +117,20 @@ async fn fake_mcp_stdio_early_exit() {
     let stdout = proc.child.stdout.take().unwrap();
 
     let req = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#;
-    stdin.write_all(format!("{}\n", req).as_bytes()).await.unwrap();
+    stdin
+        .write_all(format!("{}\n", req).as_bytes())
+        .await
+        .unwrap();
 
     let mut reader = BufReader::new(stdout);
     let mut line = String::new();
     reader.read_line(&mut line).await.unwrap();
 
     let req2 = r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#;
-    stdin.write_all(format!("{}\n", req2).as_bytes()).await.unwrap();
+    stdin
+        .write_all(format!("{}\n", req2).as_bytes())
+        .await
+        .unwrap();
 
     let mut line2 = String::new();
     let n = reader.read_line(&mut line2).await.unwrap_or(0);

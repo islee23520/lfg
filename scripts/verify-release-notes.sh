@@ -5,7 +5,7 @@ cd "$REPO_ROOT"
 python3 - <<'PY'
 import json, pathlib
 root = pathlib.Path('.')
-plugin = json.loads((root / 'plugins/grok-harnessing/.grok-plugin/plugin.json').read_text())
+plugin = json.loads((root / 'plugins/lfg/.grok-plugin/plugin.json').read_text())
 market = json.loads((root / '.grok/plugins/marketplace.json').read_text())
 notes = (root / 'docs/MARKETPLACE_RELEASE_NOTES.md').read_text()
 entry = market['plugins'][0]
@@ -26,6 +26,6 @@ required = [
 ]
 missing = [x for x in required if x not in notes]
 assert not missing, missing
-assert 'grok-build 0.3.0' in notes, 'missing version heading'
+assert 'lfg 0.3.0' in notes, 'missing version heading'
 print('release-notes=ok version=%s package=%s' % (plugin['version'], plugin['metadata']['packageName']))
 PY

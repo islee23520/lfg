@@ -2,9 +2,9 @@
 set -euo pipefail
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$REPO_ROOT"
-DEST="${GROK_BUILD_PLUGIN_DEST:-$HOME/.grok/plugins/grok-build}"
-plugins/grok-harnessing/bin/grok-install-smoke.sh >/tmp/grok-installed-mcp-install.out
-MCP="$DEST/bin/grok-build-mcp.py"
+DEST="${LFG_PLUGIN_DEST:-$HOME/.grok/plugins/lfg}"
+plugins/lfg/bin/grok-install-smoke.sh >/tmp/grok-installed-mcp-install.out
+MCP="$DEST/bin/lfg-mcp.py"
 test -f "$MCP"
 TMP_HOME="$(mktemp -d)"
 TMP_DATA="$(mktemp -d)"

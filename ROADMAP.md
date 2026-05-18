@@ -1,27 +1,27 @@
-# Roadmap — `linalab-io-framework/grok-build`
+# Roadmap — `linalab-io/lfg`
 
 ## North star
 
-Build **OMX-like workflow/plugins for Grok Build**.
+Build **OMX-like workflow/plugins for LFG**.
 
-The product target is: **what [oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex) does for Codex, `grok-build` should do for Grok Build** — using Grok-native plugin, marketplace, skills, hooks, MCP, and state conventions.
+The product target is: **what [oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex) does for Codex, `lfg` should do for LFG** — using Grok-native plugin, marketplace, skills, hooks, MCP, and state conventions.
 
 ## Installation model
 
 The primary install flow is Grok-native marketplace installation:
 
-1. User opens Grok Build.
+1. User opens LFG.
 2. User opens `/plugins`.
 3. User adds the LinaLab marketplace source.
-4. User installs/adds `grok-build`.
+4. User installs/adds `lfg`.
 5. Grok discovers the plugin's skills, hooks, MCP server, and runtime helpers.
 
 Package identity:
 
 ```text
-Marketplace: linalab-io-framework
-Package:     linalab-io-framework/grok-build
-Plugin id:   grok-build
+Marketplace: linalab-io
+Package:     linalab-io/lfg
+Plugin id:   lfg
 Repo:        https://github.com/islee23520/lfg
 Reference:   https://github.com/Yeachan-Heo/oh-my-codex
 ```
@@ -31,22 +31,22 @@ Local copy/symlink install exists only as a development smoke path until the mar
 ## Architecture
 
 ```text
-Grok Build
-  └─ Marketplace install: linalab-io-framework/grok-build
-      └─ grok-build plugin
+LFG
+  └─ Marketplace install: linalab-io/lfg
+      └─ lfg plugin
           ├─ skills/*/SKILL.md              # slash workflow entrypoints
           ├─ hooks/hooks.json               # hook registration
           ├─ hooks/scripts/*.sh             # fail-open hook scripts
           ├─ .mcp.json                      # MCP registration
-          ├─ bin/grok-build-mcp.py          # stdio MCP server with runtime/team tools
-          ├─ bin/grok-build.py              # MVP workflow runtime
+          ├─ bin/lfg-mcp.py          # stdio MCP server with runtime/team tools
+          ├─ bin/lfg.py              # MVP workflow runtime
           ├─ catalog/omx-skill-map.json     # oh-my-codex mapping
-          └─ ~/.grok/plugin-data/grok-build # durable runtime state
+          └─ .lfg # durable runtime state
 ```
 
 ## Feature scope
 
-The feature scope is not a tiny demo. The goal is parity with the useful workflow layer exposed by oh-my-codex, adapted to Grok Build.
+The feature scope is not a tiny demo. The goal is parity with the useful workflow layer exposed by oh-my-codex, adapted to LFG.
 
 ### Workflow commands
 
@@ -86,7 +86,7 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 - Claude/Agents compatibility metadata where useful
 - Hooks with fail-open behavior and redaction
 - MCP tools for catalog/status/runtime entrypoints
-- Durable state under `~/.grok/plugin-data/grok-build/`
+- Durable state under `.lfg/`
 - Local self-test and Grok discovery smoke tests
 
 ## Milestones
@@ -110,9 +110,9 @@ The feature scope is not a tiny demo. The goal is parity with the useful workflo
 
 ### M2 — MVP runtime
 
-- [x] Add `bin/grok-build.py` runtime.
+- [x] Add `bin/lfg.py` runtime.
 - [x] Add runtime commands: `status`, `catalog`, `goal`, `plan`, `ultraqa`.
-- [x] Store state under `~/.grok/plugin-data/grok-build/`.
+- [x] Store state under `.lfg/`.
 - [x] Expose catalog/status via MCP tools.
 - [x] Expose runtime actions via MCP tools.
 
@@ -166,23 +166,23 @@ Target commands:
 Backend equivalent:
 
 ```sh
-plugins/grok-harnessing/bin/lfg backend start
-plugins/grok-harnessing/bin/lfg team create 3:executor "fix the failing tests with verification"
-plugins/grok-harnessing/bin/lfg team status <team-name>
-plugins/grok-harnessing/bin/lfg team resume <team-name>
-plugins/grok-harnessing/bin/lfg team shutdown <team-name>
+plugins/lfg/bin/lfg backend start
+plugins/lfg/bin/lfg team create 3:executor "fix the failing tests with verification"
+plugins/lfg/bin/lfg team status <team-name>
+plugins/lfg/bin/lfg team resume <team-name>
+plugins/lfg/bin/lfg team shutdown <team-name>
 ```
 
-Default providers are `hermes`, `claude`, and `codex`, launched in tmux windows with durable team state stored under `~/.grok/plugin-data/grok-build/state/teams/`.
+Default providers are `hermes`, `claude`, and `codex`, launched in tmux windows with durable team state stored under `.lfg/state/teams/`.
 
 ## TDD implementation track
 
 Each OMX-like feature should land with:
 
-1. a feature design note under `plugins/grok-harnessing/docs/features/`,
+1. a feature design note under `plugins/lfg/docs/features/`,
 2. a smoke coverage matrix,
 3. dependency-free tests under `tests/smoke/`,
-4. inclusion in `plugins/grok-harnessing/bin/self-test.sh`,
+4. inclusion in `plugins/lfg/bin/self-test.sh`,
 5. Grok install/inspect verification when plugin metadata changes.
 
 Current feature coverage:
@@ -242,11 +242,11 @@ Behavioral smoke gates now include real tmux lifecycle evidence: `team-create=ok
 
 ## Definition of done
 
-`grok-build` is ready when:
+`lfg` is ready when:
 
-1. A user can add the LinaLab marketplace from Grok `/plugins` and install `grok-build`.
+1. A user can add the LinaLab marketplace from Grok `/plugins` and install `lfg`.
 2. Grok discovers the full skill surface, hooks, and MCP server.
 3. The core OMX-like workflows run with Grok-native behavior, not only placeholder instructions.
-4. Workflow state is durable under `~/.grok/plugin-data/grok-build/`.
+4. Workflow state is durable under `.lfg/`.
 5. Self-tests and Grok smoke tests pass.
 6. The README explains what the plugin is, how to install it from marketplace, how to run it, and how to verify it.

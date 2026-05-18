@@ -1,16 +1,16 @@
-# linalab-io-framework/grok-build
+# linalab-io/lfg
 
-**OMX-like workflow/plugins for Grok Build.**
+**OMX-like workflow/plugins for LFG.**
 
-`grok-build` aims to bring to **Grok Build** what [oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex) brings to **Codex**: workflow skills, plugin packaging, hooks, MCP tools, durable state, diagnostics, QA loops, and agent/team-style execution patterns.
+`lfg` aims to bring to **LFG** what [oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex) brings to **Codex**: workflow skills, plugin packaging, hooks, MCP tools, durable state, diagnostics, QA loops, and agent/team-style execution patterns.
 
-This repo is the Grok Build adaptation. It is plugin-first: the plugin is installed through Grok's plugin/marketplace flow, then Grok discovers its skills, hooks, MCP server, and runtime helpers.
+This repo is the LFG adaptation. It is plugin-first: the plugin is installed through Grok's plugin/marketplace flow, then Grok discovers its skills, hooks, MCP server, and runtime helpers.
 
 ## Product scope
 
 The target scope is simple:
 
-> Implement an oh-my-codex-style workflow/plugin layer for Grok Build.
+> Implement an oh-my-codex-style workflow/plugin layer for LFG.
 
 That means Grok-native equivalents for the OMX-style surface:
 
@@ -18,29 +18,29 @@ That means Grok-native equivalents for the OMX-style surface:
 - repo/product support: `analyze`, `code-review`, `design`, `wiki`, `doctor`, `hud`
 - setup/ops: `omx-setup`, `configure-notifications`, `cancel`, `skill`
 - runtime services: hooks, MCP tools, plugin data, state files, smoke tests
-- marketplace install path: add LinaLab's marketplace in Grok, then install `grok-build`
+- marketplace install path: add LinaLab's marketplace in Grok, then install `lfg`
 
 ## Install through Grok marketplace
 
 The intended install path is inside Grok:
 
-1. Open Grok Build.
+1. Open LFG.
 2. Open the extensions modal with `/plugins`.
 3. Add the LinaLab marketplace source URL:
 
    ```text
    https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json
    ```
-4. Install/add `grok-build` from that marketplace.
+4. Install/add `lfg` from that marketplace.
 5. Enable the plugin.
 6. Verify it shows skills, hooks, and MCP server entries.
 
 Marketplace/package identity:
 
 ```text
-Marketplace: linalab-io-framework
-Package:     linalab-io-framework/grok-build
-Plugin id:   grok-build
+Marketplace: linalab-io
+Package:     linalab-io/lfg
+Plugin id:   lfg
 Repository:  https://github.com/islee23520/lfg
 Marketplace source repo: https://github.com/islee23520/lfg.git
 Reference:   https://github.com/Yeachan-Heo/oh-my-codex
@@ -71,55 +71,55 @@ After installation, features are invoked as Grok slash commands. Grok should dis
 /wiki
 /doctor
 /hud
-/grok-harnessing
+/lfg
 ```
 
 The `/team` slash command is backed by the same parser exposed through MCP tool `grok_build_slash`. The MVP runtime can also be exercised directly during development:
 
 ```sh
-plugins/grok-harnessing/bin/grok-build.py status
-plugins/grok-harnessing/bin/grok-build.py catalog
-plugins/grok-harnessing/bin/grok-build.py doctor
-plugins/grok-harnessing/bin/grok-build.py hud --text
-plugins/grok-harnessing/bin/grok-build.py omx-setup check
-plugins/grok-harnessing/bin/grok-build.py omx-setup install-plan --marketplace linalab-io-framework/grok-build
-plugins/grok-harnessing/bin/grok-build.py skill search ultraqa
-plugins/grok-harnessing/bin/grok-build.py pipeline create "ship feature" --stages "plan;build;verify"
-plugins/grok-harnessing/bin/grok-build.py autopilot create "ship strict loop"
-plugins/grok-harnessing/bin/grok-build.py autopilot advance --phase 1 --status complete --evidence "plan ok"
-plugins/grok-harnessing/bin/grok-build.py performance-goal create "reduce latency" --metrics "latency"
-plugins/grok-harnessing/bin/grok-build.py performance-goal measure --metric latency --baseline 120 --current 80 --target 100 --evidence "bench ok"
-plugins/grok-harnessing/bin/grok-build.py visual-ralph create "http://localhost:3000" --reference design.png --threshold 0.9
-plugins/grok-harnessing/bin/grok-build.py visual-ralph verdict --score 0.91 --status pass --evidence "pixel diff ok"
-plugins/grok-harnessing/bin/grok-build.py code-review create "review current changes"
-plugins/grok-harnessing/bin/grok-build.py analyze create --focus "plugin surface"
-plugins/grok-harnessing/bin/grok-build.py ask create "review this architecture" --provider codex --dry-run
-plugins/grok-harnessing/bin/grok-build.py configure-notifications set --channel console --target stdout --enabled
-plugins/grok-harnessing/bin/grok-build.py design add "Team backend" "Use tmux windows" --rationale "durable coordination"
-plugins/grok-harnessing/bin/grok-build.py deep-interview create "team mode requirements"
-plugins/grok-harnessing/bin/grok-build.py autoresearch create "How should team mode work?"
-plugins/grok-harnessing/bin/grok-build.py autoresearch-goal create "What is safest?" --hypotheses "A;B"
-plugins/grok-harnessing/bin/grok-build.py autoresearch-goal critique --verdict pass --critic professor --evidence "sources verified"
-plugins/grok-harnessing/bin/grok-build.py ai-slop-cleaner create --scope README.md --verification self-test
-plugins/grok-harnessing/bin/grok-build.py worker ack worker-1 "fix tests"
-plugins/grok-harnessing/bin/grok-build.py ralph create "iterate until tests pass" --max-iterations 3
-plugins/grok-harnessing/bin/grok-build.py ultrawork create "ship batch" --tasks "one;two"
-plugins/grok-harnessing/bin/grok-build.py ultrawork update --task 1 --status complete --evidence "verified"
-plugins/grok-harnessing/bin/grok-build.py wiki add "Decision" "Use tmux backend" --tags team
-plugins/grok-harnessing/bin/grok-build.py wiki search tmux
-plugins/grok-harnessing/bin/grok-build.py ralplan create "Consensus plan" --steps "design;verify"
-plugins/grok-harnessing/bin/grok-build.py ralplan review --verdict approve --reviewer architect --evidence "looks safe"
-plugins/grok-harnessing/bin/grok-build.py plan create "ship grok-build MVP"
-plugins/grok-harnessing/bin/grok-build.py goal create "ship durable goal" --checklist "design;test;verify"
-plugins/grok-harnessing/bin/grok-build.py cancel --scope goal,plan
-plugins/grok-harnessing/bin/grok-build.py ultraqa "verify plugin install and MCP smoke" --no-run
-plugins/grok-harnessing/bin/lfg slash '/team 3:executor "fix tests"' --dry-run
+plugins/lfg/bin/lfg.py status
+plugins/lfg/bin/lfg.py catalog
+plugins/lfg/bin/lfg.py doctor
+plugins/lfg/bin/lfg.py hud --text
+plugins/lfg/bin/lfg.py omx-setup check
+plugins/lfg/bin/lfg.py omx-setup install-plan --marketplace linalab-io/lfg
+plugins/lfg/bin/lfg.py skill search ultraqa
+plugins/lfg/bin/lfg.py pipeline create "ship feature" --stages "plan;build;verify"
+plugins/lfg/bin/lfg.py autopilot create "ship strict loop"
+plugins/lfg/bin/lfg.py autopilot advance --phase 1 --status complete --evidence "plan ok"
+plugins/lfg/bin/lfg.py performance-goal create "reduce latency" --metrics "latency"
+plugins/lfg/bin/lfg.py performance-goal measure --metric latency --baseline 120 --current 80 --target 100 --evidence "bench ok"
+plugins/lfg/bin/lfg.py visual-ralph create "http://localhost:3000" --reference design.png --threshold 0.9
+plugins/lfg/bin/lfg.py visual-ralph verdict --score 0.91 --status pass --evidence "pixel diff ok"
+plugins/lfg/bin/lfg.py code-review create "review current changes"
+plugins/lfg/bin/lfg.py analyze create --focus "plugin surface"
+plugins/lfg/bin/lfg.py ask create "review this architecture" --provider codex --dry-run
+plugins/lfg/bin/lfg.py configure-notifications set --channel console --target stdout --enabled
+plugins/lfg/bin/lfg.py design add "Team backend" "Use tmux windows" --rationale "durable coordination"
+plugins/lfg/bin/lfg.py deep-interview create "team mode requirements"
+plugins/lfg/bin/lfg.py autoresearch create "How should team mode work?"
+plugins/lfg/bin/lfg.py autoresearch-goal create "What is safest?" --hypotheses "A;B"
+plugins/lfg/bin/lfg.py autoresearch-goal critique --verdict pass --critic professor --evidence "sources verified"
+plugins/lfg/bin/lfg.py ai-slop-cleaner create --scope README.md --verification self-test
+plugins/lfg/bin/lfg.py worker ack worker-1 "fix tests"
+plugins/lfg/bin/lfg.py ralph create "iterate until tests pass" --max-iterations 3
+plugins/lfg/bin/lfg.py ultrawork create "ship batch" --tasks "one;two"
+plugins/lfg/bin/lfg.py ultrawork update --task 1 --status complete --evidence "verified"
+plugins/lfg/bin/lfg.py wiki add "Decision" "Use tmux backend" --tags team
+plugins/lfg/bin/lfg.py wiki search tmux
+plugins/lfg/bin/lfg.py ralplan create "Consensus plan" --steps "design;verify"
+plugins/lfg/bin/lfg.py ralplan review --verdict approve --reviewer architect --evidence "looks safe"
+plugins/lfg/bin/lfg.py plan create "ship lfg MVP"
+plugins/lfg/bin/lfg.py goal create "ship durable goal" --checklist "design;test;verify"
+plugins/lfg/bin/lfg.py cancel --scope goal,plan
+plugins/lfg/bin/lfg.py ultraqa "verify plugin install and MCP smoke" --no-run
+plugins/lfg/bin/lfg slash '/team 3:executor "fix tests"' --dry-run
 ```
 
 Runtime state is stored under:
 
 ```text
-~/.grok/plugin-data/grok-build/
+.lfg/
 ```
 
 ## LFG tmux backend / team mode
@@ -140,13 +140,13 @@ Example target flow inside Grok:
 Equivalent local runtime commands:
 
 ```sh
-plugins/grok-harnessing/bin/lfg backend start
-plugins/grok-harnessing/bin/lfg team providers
-plugins/grok-harnessing/bin/lfg team preflight
-plugins/grok-harnessing/bin/lfg team create 3:executor "fix the failing tests with verification"
-plugins/grok-harnessing/bin/lfg team status <team-name>
-plugins/grok-harnessing/bin/lfg team resume <team-name>
-plugins/grok-harnessing/bin/lfg team shutdown <team-name>
+plugins/lfg/bin/lfg backend start
+plugins/lfg/bin/lfg team providers
+plugins/lfg/bin/lfg team preflight
+plugins/lfg/bin/lfg team create 3:executor "fix the failing tests with verification"
+plugins/lfg/bin/lfg team status <team-name>
+plugins/lfg/bin/lfg team resume <team-name>
+plugins/lfg/bin/lfg team shutdown <team-name>
 ```
 
 Before starting a real team, run `/team preflight` or `lfg team preflight`. It checks tmux/backend readiness, lists provider availability, and returns actionable next commands including provider listing, backend attach/status, and a noop smoke team command.
@@ -167,7 +167,7 @@ noop
 
 ## `lfg` is the default binary
 
-`lfg` is the **official, default CLI binary** for grok-build / the LFG runtime.
+`lfg` is the **official, default CLI binary** for lfg / the LFG runtime.
 
 - `lfg` (no args from a terminal) → starts the durable tmux backend and attaches
 - `lfg status`, `lfg doctor`, `lfg ultragoal spawn 3:executor "..."`, `lfg team create ...` etc.
@@ -179,28 +179,28 @@ Install the symlinks (recommended):
 scripts/install-lfg-symlink.sh
 ```
 
-This places `lfg` and `ulw` (plus the internal `grok-build.py` for reference) under `~/.grok/bin/` and `~/.local/bin/`, then runs the smoke verification that `lfg` reports the correct launcher identity.
+This places `lfg` and `ulw` (plus the internal `lfg.py` for reference) under `~/.grok/bin/` and `~/.local/bin/`, then runs the smoke verification that `lfg` reports the correct launcher identity.
 
-After this, `lfg` on your PATH is the wrapped Grok Build experience.
+After this, `lfg` on your PATH is the wrapped LFG experience.
 
 ## Verify
 
 Run the plugin self-test:
 
 ```sh
-plugins/grok-harnessing/bin/self-test.sh
+plugins/lfg/bin/self-test.sh
 ```
 
 Run a real local Grok install/discovery smoke when `~/.grok/bin/grok` is available:
 
 ```sh
-plugins/grok-harnessing/bin/grok-install-smoke.sh
+plugins/lfg/bin/grok-install-smoke.sh
 ```
 
 Run the full local+remote release-readiness gate after pushing `p1` and updating the preview tag:
 
 ```sh
-scripts/verify-release-readiness-all.sh p1 grok-build-v0.3.0-p1
+scripts/verify-release-readiness-all.sh p1 lfg-v0.3.0-p1
 ```
 
 Expected evidence:
@@ -212,13 +212,13 @@ release-readiness-all=ok
 Expected Grok discovery signal after install:
 
 ```text
-grok-build v0.3.0
+lfg v0.3.0
   28 skills, hooks: active, 1 MCP servers
 ```
 
 The self-test checks manifests, required files, hook smoke, token-like redaction, MCP initialization, MCP tool listing, installed `lfg` symlink entrypoints, team preflight/provider gates, and the runtime smoke matrix.
 
-Runtime smoke coverage tracks the implemented OMX-like feature matrices under `plugins/grok-harnessing/docs/features/`; all matrix rows must pass for `runtime-smoke-coverage=100%`.
+Runtime smoke coverage tracks the implemented OMX-like feature matrices under `plugins/lfg/docs/features/`; all matrix rows must pass for `runtime-smoke-coverage=100%`.
 
 See [`docs/SMOKE.md`](docs/SMOKE.md) for the complete local, real-Grok, and GitHub Actions smoke procedure.
 See [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) for the release gate checklist.
@@ -228,24 +228,24 @@ See [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) for the release gat
 ```text
 .grok/plugins/marketplace.json           # local Grok marketplace metadata
 .agents/plugins/marketplace.json         # Agents-compatible marketplace metadata
-plugins/grok-harnessing/
+plugins/lfg/
   .grok-plugin/plugin.json               # Grok plugin manifest
   .claude-plugin/plugin.json             # compatibility manifest
   .mcp.json                              # MCP server config
   .lsp.json                              # LSP placeholder
   agents/harness.toml
-  bin/grok-build.py                      # OMX-like MVP runtime
+  bin/lfg.py                      # OMX-like MVP runtime
   bin/lfg                                # tmux backend wrapper
   bin/ulw                                # short alias for the same backend
-  bin/grok-build-mcp.py                  # stdio JSON-RPC MCP server
+  bin/lfg-mcp.py                  # stdio JSON-RPC MCP server
   bin/self-test.sh                       # local smoke test
   catalog/omx-skill-map.json             # oh-my-codex to Grok skill map
   docs/omx-feature-map.md                # design map from OMX to Grok
   hooks/hooks.json
-  hooks/scripts/grok-build-audit-hook.sh
+  hooks/scripts/lfg-audit-hook.sh
   skills/*/SKILL.md                      # Grok skill surface
 ```
 
 ## Attribution
 
-Built with [Yeachan-Heo/oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex) as the public reference for the workflow/plugin model. `grok-build` is a separate Grok Build plugin implementation that adapts those ideas to Grok's marketplace, skills, hooks, MCP, and plugin-data conventions.
+Built with [Yeachan-Heo/oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex) as the public reference for the workflow/plugin model. `lfg` is a separate LFG plugin implementation that adapts those ideas to Grok's marketplace, skills, hooks, MCP, and plugin-data conventions.

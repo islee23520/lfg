@@ -28,7 +28,10 @@ async fn oauth_fixture_server_device_authorization_pending() {
     let url = server.http_url();
     let resp = reqwest::get(&url).await.unwrap();
     let body = resp.text().await.unwrap();
-    println!("oauth_fixture_server_device_authorization_pending: body={}", body);
+    println!(
+        "oauth_fixture_server_device_authorization_pending: body={}",
+        body
+    );
     let v: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(v["error"], "authorization_pending");
 }
@@ -62,7 +65,10 @@ async fn oauth_fixture_server_pkce_state_mismatch() {
     let resp = reqwest::get(&url).await.unwrap();
     let status = resp.status().as_u16();
     let body = resp.text().await.unwrap();
-    println!("oauth_fixture_server_pkce_state_mismatch: status={} body={}", status, body);
+    println!(
+        "oauth_fixture_server_pkce_state_mismatch: status={} body={}",
+        status, body
+    );
     assert_eq!(status, 400);
     let v: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(v["error"], "invalid_request");

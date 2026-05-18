@@ -9,20 +9,20 @@ import json, os
 runs = json.loads(os.environ["RUN_JSON"])
 head = os.environ["HEAD_SHA"]
 for run in runs:
-    if run.get("headSha") == head and run.get("workflowName") == "grok-build smoke":
+    if run.get("headSha") == head and run.get("workflowName") == "lfg smoke":
         print(run["databaseId"])
         break
 else:
-    raise SystemExit(f"no grok-build smoke run found for {head}")
+    raise SystemExit(f"no lfg smoke run found for {head}")
 PY
 )"
-gh run view "$RUN_ID" --json databaseId,headSha,status,conclusion,workflowName,jobs,url > /tmp/grok-build-remote-smoke.json
-python3 - <<'PY' /tmp/grok-build-remote-smoke.json "$HEAD_SHA" "$SHORT_SHA"
+gh run view "$RUN_ID" --json databaseId,headSha,status,conclusion,workflowName,jobs,url > /tmp/lfg-remote-smoke.json
+python3 - <<'PY' /tmp/lfg-remote-smoke.json "$HEAD_SHA" "$SHORT_SHA"
 import json, sys
 run = json.load(open(sys.argv[1]))
 head, short = sys.argv[2], sys.argv[3]
 assert run["headSha"] == head, (run["headSha"], head)
-assert run["workflowName"] == "grok-build smoke", run["workflowName"]
+assert run["workflowName"] == "lfg smoke", run["workflowName"]
 assert run["status"] == "completed", run["status"]
 assert run["conclusion"] == "success", run["conclusion"]
 jobs = run.get("jobs", [])

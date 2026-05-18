@@ -6,7 +6,7 @@ scripts/install-lfg-symlink.sh >/tmp/lfg-symlink-install.out
 for bin in "$HOME/.local/bin/lfg" "$HOME/.grok/bin/lfg"; do
   test -L "$bin"
   target="$(readlink "$bin")"
-  test "$target" = "$REPO_ROOT/plugins/grok-harnessing/bin/lfg"
+  test "$target" = "$REPO_ROOT/plugins/lfg/bin/lfg"
   "$bin" --json status >/tmp/lfg-installed-status.json
   python3 - <<'PY'
 import json
@@ -48,7 +48,7 @@ done
 for bin in "$HOME/.local/bin/ulw" "$HOME/.grok/bin/ulw"; do
   test -L "$bin"
   target="$(readlink "$bin")"
-  test "$target" = "$REPO_ROOT/plugins/grok-harnessing/bin/ulw"
+  test "$target" = "$REPO_ROOT/plugins/lfg/bin/ulw"
   "$bin" --json status >/tmp/ulw-installed-status.json
   python3 - <<'PY'
 import json
@@ -66,10 +66,10 @@ assert obj['mode']=='tmux-backend', obj
 assert obj['attachCommand'].startswith('tmux attach -t '), obj
 PY
 done
-for bin in "$HOME/.local/bin/grok-build.py" "$HOME/.grok/bin/grok-build.py"; do
+for bin in "$HOME/.local/bin/lfg.py" "$HOME/.grok/bin/lfg.py"; do
   test -L "$bin"
   target="$(readlink "$bin")"
-  test "$target" = "$REPO_ROOT/plugins/grok-harnessing/bin/grok-build.py"
+  test "$target" = "$REPO_ROOT/plugins/lfg/bin/lfg.py"
 done
 if tmux has-session -t lfg-backend 2>/dev/null; then
   echo "lfg-installed-symlink-surface=ok backend=lfg-backend aliases=lfg,ulw slash=/team-providers,/team-preflight commands=ok"

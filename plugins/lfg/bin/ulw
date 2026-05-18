@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ulw — specialized launcher for ultrawork / ultragoal-driven swarms (LFG team workers)
+# Sets LFG_LAUNCHER=ulw so the runtime and spawned sub-agents identify as the ulw swarm mode.
+
+SOURCE="$0"
+while [[ -L "$SOURCE" ]]; do
+  DIR="$(CDPATH= cd -- "$(dirname -- "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" = /* ]] || SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$SOURCE")" && pwd)"
+
+if [[ -z "${GROK_PLUGIN_ROOT:-}" ]]; then
+  CANDIDATE="$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)"
+  if [[ -f "$CANDIDATE/plugins/lfg/.grok-plugin/plugin.json" ]]; then
+    export GROK_PLUGIN_ROOT="$CANDIDATE"
+  else
+    export GROK_PLUGIN_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+  fi
+fi
+
+export GROK_PLUGIN_DATA="${GROK_PLUGIN_DATA:-$PWD/.lfg}"
+export LFG_LAUNCHER="ulw"
+
+exec python3 "$SCRIPT_DIR/lfg.py" "$@"

@@ -1,13 +1,13 @@
 # Smoke verification
 
-This repository treats smoke verification as the release gate for `linalab-io-framework/grok-build`.
+This repository treats smoke verification as the release gate for `linalab-io/lfg`.
 
 ## Local runtime smoke
 
 Run from the repository root:
 
 ```sh
-plugins/grok-harnessing/bin/self-test.sh
+plugins/lfg/bin/self-test.sh
 ```
 
 Expected terminal evidence:
@@ -71,7 +71,7 @@ lfg-installed-symlink-surface=ok
 lfg-inside-tmux-attach=ok
 ```
 
-The script creates symlinks for `lfg`, `ulw`, and the sibling `grok-build.py` target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status`, `lfg --json doctor`, and `ulw --json status`. `scripts/verify-installed-lfg-symlink-surface.sh` additionally proves both installed symlink locations point at the repo runtime and that launching installed `lfg` creates the `lfg-backend` tmux session and that installed `lfg --json slash '/team providers'` returns the provider matrix and installed `lfg --json slash '/team preflight'` verifies tmux/provider readiness and includes actionable next commands. `scripts/verify-lfg-inside-tmux-attach.sh` launches `lfg` from inside a real tmux pane and verifies it opens a split-window attach pane instead of stealing the current client.
+The script creates symlinks for `lfg`, `ulw`, and the sibling `lfg.py` target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status`, `lfg --json doctor`, and `ulw --json status`. `scripts/verify-installed-lfg-symlink-surface.sh` additionally proves both installed symlink locations point at the repo runtime and that launching installed `lfg` creates the `lfg-backend` tmux session and that installed `lfg --json slash '/team providers'` returns the provider matrix and installed `lfg --json slash '/team preflight'` verifies tmux/provider readiness and includes actionable next commands. `scripts/verify-lfg-inside-tmux-attach.sh` launches `lfg` from inside a real tmux pane and verifies it opens a split-window attach pane instead of stealing the current client.
 
 For a focused default-launch check, run:
 
@@ -100,7 +100,7 @@ grok-plugins-list=ok
 grok-plugins-surface=ok
 ```
 
-The script syncs the plugin into `~/.grok/plugins/grok-build`, runs a real Grok headless `/plugins list` slash command, and asserts Grok reports `grok-build v0.3.0 (user)` with `28 skills, hooks: active, 1 MCP servers`.
+The script syncs the plugin into `~/.grok/plugins/lfg`, runs a real Grok headless `/plugins list` slash command, and asserts Grok reports `lfg v0.3.0 (user)` with `28 skills, hooks: active, 1 MCP servers`.
 
 ## Focused global hook bridge smoke
 
@@ -110,7 +110,7 @@ Run the optional global hook bridge workaround gate:
 lfg --json hook-bridge status
 lfg --json hook-bridge install
 lfg --json slash '/hook-bridge status'
-scripts/verify-grok-build-global-hook-bridge.sh
+scripts/verify-lfg-global-hook-bridge.sh
 scripts/verify-grok-installed-mcp-surface.sh
 ```
 
@@ -121,22 +121,22 @@ grok-global-hook-bridge=ok
 grok-installed-mcp-surface=ok
 ```
 
-This proves Grok `0.1.211` can execute the same audit hook through a global hook bridge while plugin hook scope remains blocked. The runtime command `lfg hook-bridge install` writes `~/.grok/hooks/grok-build-audit-bridge.{json,sh}`. `lfg hook-bridge status` is surfaced through `doctor` as `global_hook_bridge`, through `/hook-bridge status`, and through the MCP tools `grok_build_runtime`/`grok_build_hook_bridge`. `scripts/verify-grok-installed-mcp-surface.sh` first syncs the plugin into `~/.grok/plugins/grok-build`, then invokes the installed MCP server over stdio to prove the installed package exposes `grok_build_hook_bridge`, `grok_build_team(action=providers)`, and `grok_build_team(action=preflight)`, including actionable preflight commands.
+This proves Grok `0.1.211` can execute the same audit hook through a global hook bridge while plugin hook scope remains blocked. The runtime command `lfg hook-bridge install` writes `~/.grok/hooks/lfg-audit-bridge.{json,sh}`. `lfg hook-bridge status` is surfaced through `doctor` as `global_hook_bridge`, through `/hook-bridge status`, and through the MCP tools `grok_build_runtime`/`grok_build_hook_bridge`. `scripts/verify-grok-installed-mcp-surface.sh` first syncs the plugin into `~/.grok/plugins/lfg`, then invokes the installed MCP server over stdio to prove the installed package exposes `grok_build_hook_bridge`, `grok_build_team(action=providers)`, and `grok_build_team(action=preflight)`, including actionable preflight commands.
 
 ## Focused release tag smoke
 
 After creating/pushing a release tag, run:
 
 ```sh
-scripts/verify-release-tag.sh grok-build-v0.3.0-p1
-scripts/verify-release-tag.sh --remote grok-build-v0.3.0-p1
+scripts/verify-release-tag.sh lfg-v0.3.0-p1
+scripts/verify-release-tag.sh --remote lfg-v0.3.0-p1
 ```
 
 Expected terminal evidence:
 
 ```text
-release-tag=ok tag=grok-build-v0.3.0-p1
-release-tag-remote=ok tag=grok-build-v0.3.0-p1
+release-tag=ok tag=lfg-v0.3.0-p1
+release-tag-remote=ok tag=lfg-v0.3.0-p1
 ```
 
 ## Focused Grok hook discovery smoke
@@ -295,7 +295,7 @@ The script uses a `noop` provider so it verifies tmux session/window lifecycle w
 Run when the local Grok binary is available at `~/.grok/bin/grok`:
 
 ```sh
-plugins/grok-harnessing/bin/grok-install-smoke.sh
+plugins/lfg/bin/grok-install-smoke.sh
 ```
 
 Expected terminal evidence:
@@ -305,7 +305,7 @@ plugin-sync=ok
 grok-install-smoke=ok skills=28 key_skills_present
 ```
 
-The script syncs `plugins/grok-harnessing/` into `~/.grok/plugins/grok-build/`, runs `grok --cwd /tmp inspect --json`, and asserts the installed plugin exposes 28 skills including the team, ultrawork, autopilot, ralplan, visual-ralph, performance-goal, autoresearch-goal, omx-setup, doctor, and wiki surfaces.
+The script syncs `plugins/lfg/` into `~/.grok/plugins/lfg/`, runs `grok --cwd /tmp inspect --json`, and asserts the installed plugin exposes 28 skills including the team, ultrawork, autopilot, ralplan, visual-ralph, performance-goal, autoresearch-goal, omx-setup, doctor, and wiki surfaces.
 
 
 ## Aggregated remote release-readiness smoke
@@ -313,7 +313,7 @@ The script syncs `plugins/grok-harnessing/` into `~/.grok/plugins/grok-build/`, 
 After pushing and force-updating the preview tag, verify the remote CI run and remote tag together:
 
 ```sh
-scripts/verify-release-readiness-remote.sh p1 grok-build-v0.3.0-p1
+scripts/verify-release-readiness-remote.sh p1 lfg-v0.3.0-p1
 ```
 
 Expected terminal evidence:
@@ -322,7 +322,7 @@ Expected terminal evidence:
 release-readiness-remote=ok
 ```
 
-This wraps `scripts/verify-remote-smoke.sh p1` and `scripts/verify-release-tag.sh --remote grok-build-v0.3.0-p1`.
+This wraps `scripts/verify-remote-smoke.sh p1` and `scripts/verify-release-tag.sh --remote lfg-v0.3.0-p1`.
 
 
 ## Full release-readiness aggregate
@@ -330,7 +330,7 @@ This wraps `scripts/verify-remote-smoke.sh p1` and `scripts/verify-release-tag.s
 Run this after the branch and preview tag are pushed:
 
 ```sh
-scripts/verify-release-readiness-all.sh p1 grok-build-v0.3.0-p1
+scripts/verify-release-readiness-all.sh p1 lfg-v0.3.0-p1
 ```
 
 Expected terminal evidence:
@@ -352,10 +352,10 @@ The workflow lives at:
 It runs on pushes to `main` and `p1`, and on pull requests targeting `main`. The workflow installs `tmux`, checks Python syntax, then runs:
 
 ```sh
-plugins/grok-harnessing/bin/self-test.sh
+plugins/lfg/bin/self-test.sh
 ```
 
-A passing run must show the `grok-build smoke` workflow with the `smoke` job completed successfully.
+A passing run must show the `lfg smoke` workflow with the `smoke` job completed successfully.
 
 You can verify the latest pushed `p1` commit from a machine with GitHub CLI auth:
 

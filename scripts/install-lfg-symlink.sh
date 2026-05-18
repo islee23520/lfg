@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-SRC_DIR="$REPO_ROOT/plugins/grok-harnessing/bin"
+SRC_DIR="$REPO_ROOT/plugins/lfg/bin"
 TARGET_DIRS=("${LFG_BIN_DIR:-$HOME/.local/bin}" "$HOME/.grok/bin")
 
-chmod +x "$SRC_DIR/lfg" "$SRC_DIR/ulw" "$SRC_DIR/grok-build.py"
+chmod +x "$SRC_DIR/lfg" "$SRC_DIR/ulw" "$SRC_DIR/lfg.py"
 for dir in "${TARGET_DIRS[@]}"; do
   mkdir -p "$dir"
   ln -sfn "$SRC_DIR/lfg" "$dir/lfg"
   ln -sfn "$SRC_DIR/ulw" "$dir/ulw"
-  ln -sfn "$SRC_DIR/grok-build.py" "$dir/grok-build.py"
+  ln -sfn "$SRC_DIR/lfg.py" "$dir/lfg.py"
   echo "lfg-symlink=$dir/lfg -> $(readlink "$dir/lfg")"
   echo "ulw-symlink=$dir/ulw -> $(readlink "$dir/ulw")"
-  echo "grok-build-symlink=$dir/grok-build.py -> $(readlink "$dir/grok-build.py")"
+  echo "lfg-symlink=$dir/lfg.py -> $(readlink "$dir/lfg.py")"
 done
 
 if ! command -v lfg >/dev/null 2>&1; then
