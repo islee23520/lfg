@@ -1,5 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+# lfg — primary / default binary for the LFG Grok Build runtime (tmux backend, workflows, plugin)
+# Installed to ~/.grok/bin/lfg and ~/.local/bin/lfg by scripts/install-lfg-symlink.sh
+# Always invokes the wrapped grok-build.py with the correct LFG_LAUNCHER identity.
+
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-export LFG_LAUNCHER="$(basename -- "$0")"
+
+if [[ -z "${GROK_PLUGIN_ROOT:-}" ]]; then
+  CANDIDATE="$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)"
+  if [[ -f "$CANDIDATE/plugins/grok-harnessing/.grok-plugin/plugin.json" ]]; then
+    export GROK_PLUGIN_ROOT="$CANDIDATE"
+  else
+    export GROK_PLUGIN_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+  fi
+fi
+
+export GROK_PLUGIN_DATA="${GROK_PLUGIN_DATA:-$HOME/.grok/plugin-data/grok-build}"
+
+export LFG_LAUNCHER="lfg"
+
 exec python3 "$SCRIPT_DIR/grok-build.py" "$@"

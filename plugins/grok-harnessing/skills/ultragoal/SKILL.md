@@ -82,20 +82,21 @@ When the user invokes `/ultragoal` (or "create durable multi-goal plan", "comple
    - Use `lfg ultragoal show --id my-ug-1` for full brief + goals + ledger tail.
    - The ledger is the durable source of truth for the multi-goal run.
 
-6. **Team + Ultragoal (ulw Swarm Spawning)**
+6. **Team + Ultragoal (ulw Swarm Spawning) — with native Grok sub-agents**
    - Leader (the /ultragoal invoker) owns the ultragoal ledger.
-   - Launch `/team` / `lfg team create ...` for parallel workers, or use the native swarm form:
+   - The powerful native form:
      ```text
-     /ultragoal spawn 3:executor "implement the next story in parallel"
+     /ultragoal spawn 3:grok "implement the next story in parallel"
      # or
-     lfg ultragoal spawn "..." --spec 3:executor
+     lfg ultragoal spawn "..." --spec 3:grok
+
+     # Deep architect / multi-AI consultation lane (gpt5.5-level reasoning + codex -p style planning)
+     /ultragoal spawn 1:architect "perform architecture review and multi-AI synthesis for the core design decisions"
+     lfg ultragoal spawn "..." --spec 1:consultant
      ```
-   - When an active ultragoal is detected, `team create` (and `spawn`) automatically:
-     - Links the tmux team to the ultragoal id.
-     - Brands the workers as "Grok sub-agents in an ultragoal-driven ulw swarm".
-     - Gives every worker the exact command to report progress: `ulw ultragoal checkpoint --id <ugid> ...`
-   - This makes the classic OMX "team mode" feel like Grok's native sub-agent swarm spawning, while keeping everything durable in the ultragoal ledger (the "single source of truth").
-   - Prefer `ulw` as the launcher binary for these swarms (it sets LFG_LAUNCHER=ulw and participates in the same runtime).
+     Using the `grok` (or `subagent`) provider tells the system to spawn **real Grok sub-agents as first-class ULW workers**. The prompt and spawn description explicitly brand them as ULW, and they are expected to report progress using the `ulw ultragoal checkpoint` command (or the MCP tool) back into the leader's durable ledger.
+   - When an active ultragoal is detected, `team create` / `spawn` automatically links everything and injects the reporting command into every worker prompt.
+   - Team mode is deliberately designed to **maximise every coding CLI installed on your machine** (claude, codex, gemini, copilot, hermes…) while also supporting native Grok sub-agents. The durable ultragoal ledger + ulw reporting protocol gives you coordination and traceability no matter which backends you use.
 
 7. **MCP / Grok Integration**
    - Skills and the MCP server expose `grok_build_ultragoal` (actions: create/status/checkpoint/show/spawn).
