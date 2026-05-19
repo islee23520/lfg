@@ -122,7 +122,14 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(spawn["manual_gate_required"])
         self.assertEqual(spawn["oracleReview"], {
             "required": True,
-            "provider": "xai",
+            "provider": "openai",
+            "model": "openai/gpt-5.5",
+            "variant": "high",
+            "fallback_models": [
+                {"model": "github-copilot/gpt-5.5", "variant": "high"},
+                {"model": "google/gemini-3.1-pro-preview", "variant": "high"},
+                {"model": "zai-coding-plan/glm-5.1"},
+            ],
             "role": "oracle",
             "strict": True,
             "mode": "local-smoke",
@@ -133,21 +140,36 @@ class RuntimeSmoke(unittest.TestCase):
     def test_models_and_auth_login_commands(self) -> None:
         models = self.run_lfg("models")
         self.assertTrue(models["ok"], models)
-        self.assertEqual(models["defaultProvider"], "xai")
-        self.assertEqual(models["providers"]["xai"]["model"], "xai/grok-4.3")
+        self.assertEqual(models["defaultProvider"], "openai")
+        self.assertEqual(models["providers"]["openai"]["model"], "openai/gpt-5.5")
         self.assertEqual(models["secretStorage"], "env-name-only")
         self.assertIn("deep", models["categoryModelProfiles"])
 
-        logged_in = self.run_lfg("auth", "login", "xai", "--id", "xai-main", "--env", "XAI_API_KEY", "--model", "xai/grok-4.3")
+        logged_in = self.run_lfg("auth", "login", "openai", "--id", "openai-main", "--env", "OPENAI_API_KEY", "--model", "openai/gpt-5.5")
         self.assertTrue(logged_in["ok"], logged_in)
         self.assertTrue(logged_in["auth"]["login"])
         self.assertFalse(logged_in["auth"]["secretStored"])
-        self.assertEqual(logged_in["provider"]["id"], "xai-main")
-        self.assertEqual(logged_in["provider"]["kind"], "xai")
+        self.assertEqual(logged_in["provider"]["id"], "openai-main")
+        self.assertEqual(logged_in["provider"]["kind"], "openai")
 
-        filtered = self.run_lfg("models", "--provider", "xai")
-        self.assertTrue(filtered["providers"]["xai"]["configured"], filtered)
-        self.assertEqual(filtered["providers"]["xai"]["id"], "xai-main")
+        filtered = self.run_lfg("models", "--provider", "openai")
+        self.assertTrue(filtered["providers"]["openai"]["configured"], filtered)
+        self.assertEqual(filtered["providers"]["openai"]["id"], "openai-main")
+
+        selected = subprocess.run(
+            [str(LFG), "--json", "auth", "login"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            input="1\n",
+            capture_output=True,
+            check=True,
+            timeout=20,
+        )
+        selected_obj = json.loads(selected.stdout)
+        self.assertIn("LFG auth login", selected.stderr)
+        self.assertEqual(selected_obj["provider"]["id"], "openai-main")
+        self.assertEqual(selected_obj["auth"]["provider"], "openai")
 
     def test_provider_add_and_setup_install_plugin(self) -> None:
         added = self.run_lfg("provider", "add", "--id", "zai-main", "--kind", "zai", "--env", "ZAI_API_KEY", "--model", "glm-4.6")
@@ -188,18 +210,46 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(setup["providers"]["count"], 2)
         self.assertTrue((pathlib.Path(self.tmp.name) / "state" / "setup.json").exists())
 
+    def test_setup_wizard_non_interactive_provider_flags(self) -> None:
+        setup = self.run_lfg("setup", "--no-tui", "--openai", "yes", "--zai", "yes", "--copilot", "no", "--google", "no", "--codex", "no")
+        self.assertTrue(setup["ok"], setup)
+        self.assertEqual(setup["setupWizard"]["mode"], "non-interactive")
+        self.assertEqual(setup["setupWizard"]["configuredProviderIds"], ["openai-main", "zai-main"])
+        self.assertEqual(setup["providers"]["count"], 2)
+
+        providers = self.run_lfg("provider", "list")
+        self.assertEqual({p["id"] for p in providers["providers"]}, {"openai-main", "zai-main"})
+        self.assertTrue(all(not p["secretStored"] for p in providers["providers"]))
+
+    def test_setup_wizard_interactive_provider_prompts(self) -> None:
+        interactive = subprocess.run(
+            [str(LFG), "--json", "setup", "--interactive"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            input="y\nn\nn\ny\nn\n",
+            capture_output=True,
+            check=True,
+            timeout=20,
+        )
+        setup = json.loads(interactive.stdout)
+        self.assertIn("LFG OMO-style setup wizard", interactive.stderr)
+        self.assertEqual(setup["setupWizard"]["mode"], "interactive")
+        self.assertEqual(setup["setupWizard"]["configuredProviderIds"], ["openai-main", "copilot-main"])
+        self.assertEqual(setup["providers"]["count"], 2)
+
     def test_status_and_catalog(self) -> None:
         status = self.run_lfg("status")
         self.assertTrue(status["ok"])
         self.assertEqual(status["version"], "0.3.0")
-        self.assertGreaterEqual(status["catalogSkills"], 28)
+        self.assertEqual(status["catalogSkills"], 17)
 
         catalog = self.run_lfg("catalog")
         names = {skill["name"] for skill in catalog["skills"]}
-        self.assertIn("team", names)
-        self.assertIn("ultraqa", names)
+        self.assertIn("hyperplan", names)
+        self.assertIn("review-work", names)
 
-    def test_all_skill_surfaces_have_roadmap_and_feature_docs(self) -> None:
+    def test_omo_skill_surfaces_have_catalog_entries_without_plugin_docs(self) -> None:
         roadmap = (REPO / "ROADMAP.md").read_text(encoding="utf-8")
         self.assertIn("- [x] Add behavioral smoke tests per workflow.", roadmap)
         self.assertIn("- [x] MCP stderr isolation.", roadmap)
@@ -235,15 +285,28 @@ class RuntimeSmoke(unittest.TestCase):
             for path in (PLUGIN / "skills").iterdir()
             if path.is_dir() and path.name != "lfg"
         )
-        self.assertEqual(len(skill_names), 27)
-        missing_rows = [name for name in skill_names if f"| `/{name}` " not in roadmap]
-        self.assertEqual(missing_rows, [])
-        missing_docs = [
-            name
-            for name in skill_names
-            if not (PLUGIN / "docs" / "features" / f"{name}-runtime.md").exists()
+        expected = [
+            "agent-browser",
+            "ai-slop-remover",
+            "dev-browser",
+            "frontend-ui-ux",
+            "get-unpublished-changes",
+            "git-master",
+            "github-triage",
+            "hyperplan",
+            "omomomo",
+            "playwright",
+            "pre-publish-review",
+            "publish",
+            "remove-deadcode",
+            "review-work",
+            "team-mode",
+            "work-with-pr",
         ]
-        self.assertEqual(missing_docs, [])
+        self.assertEqual(skill_names, expected)
+        catalog_names = [skill["name"] for skill in json.loads((PLUGIN / "catalog" / "omo-skill-map.json").read_text(encoding="utf-8"))["skills"]]
+        self.assertEqual(catalog_names, [*expected[:8], "lfg", *expected[8:]])
+        self.assertFalse((PLUGIN / "docs").exists(), "obsolete plugin-local docs were removed")
 
     def test_mcp_exposes_runtime_tools_for_skill_surface(self) -> None:
         proc = subprocess.Popen(
@@ -330,8 +393,8 @@ class RuntimeSmoke(unittest.TestCase):
         script = install_smoke.read_text(encoding="utf-8")
         self.assertIn("rsync -a --delete", script)
         self.assertIn("inspect --json", script)
-        self.assertIn("assert len(skills) == 28", script)
-        self.assertIn("grok-install-smoke=ok skills=28", script)
+        self.assertIn("assert len(skills) == 17", script)
+        self.assertIn("grok-install-smoke=ok skills=17", script)
 
         runtime = (PLUGIN / "bin" / "lfg.py").read_text(encoding="utf-8")
         self.assertIn("def attach_backend_from_tmux_pane", runtime)
@@ -391,7 +454,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("https://raw.githubusercontent.com/islee23520/lfg/p1/.grok/plugins/marketplace.json", marketplace_install_doc)
 
         release_notes_doc = (REPO / "docs" / "MARKETPLACE_RELEASE_NOTES.md").read_text(encoding="utf-8")
-        self.assertIn("linalab-io/lfg", release_notes_doc)
+        self.assertIn("islee23520/lfg", release_notes_doc)
         self.assertIn("lfg 0.3.0", release_notes_doc)
         self.assertIn("/plugins", release_notes_doc)
 
@@ -410,7 +473,7 @@ class RuntimeSmoke(unittest.TestCase):
             "/team providers",
             "/team preflight",
             "grok_build_team.preflight",
-            "linalab-io/lfg",
+            "islee23520/lfg",
             "grok_marketplace",
             "agents_marketplace",
         ]:
@@ -460,15 +523,15 @@ class RuntimeSmoke(unittest.TestCase):
     def test_marketplace_metadata_points_to_plugin_package(self) -> None:
         for rel in [".grok/plugins/marketplace.json", ".agents/plugins/marketplace.json"]:
             data = json.loads((REPO / rel).read_text(encoding="utf-8"))
-            self.assertEqual(data["name"], "linalab-io")
+            self.assertEqual(data["name"], "islee23520")
             self.assertEqual(len(data["plugins"]), 1)
             plugin = data["plugins"][0]
             self.assertEqual(plugin["name"], "lfg")
             self.assertEqual(plugin["source"]["source"], "git-subdir")
             self.assertEqual(plugin["source"]["url"], "https://github.com/islee23520/lfg.git")
             self.assertEqual(plugin["source"]["path"], "plugins/lfg")
-            self.assertEqual(plugin["metadata"]["packageName"], "linalab-io/lfg")
-            self.assertEqual(plugin["metadata"]["reference"], "https://github.com/Yeachan-Heo/oh-my-codex")
+            self.assertEqual(plugin["metadata"]["packageName"], "islee23520/lfg")
+            self.assertEqual(plugin["metadata"]["reference"], "https://github.com/code-yeongyu/oh-my-openagent")
 
 
     def test_lfg_default_execs_grok_cli(self) -> None:
@@ -1539,17 +1602,17 @@ esac
         check = self.run_lfg("omx-setup", "check")
         self.assertEqual(check["status"], "ok")
         self.assertTrue(check["checks"]["manifestExists"])
-        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "linalab-io/lfg")
+        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "islee23520/lfg")
         self.assertEqual(plan["status"], "planned")
         shown = self.run_lfg("omx-setup", "show")
-        self.assertEqual(shown["marketplace"], "linalab-io/lfg")
+        self.assertEqual(shown["marketplace"], "islee23520/lfg")
 
     def test_mcp_omx_setup_tool(self) -> None:
         proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         assert proc.stdin and proc.stdout
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
-            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "install-plan", "marketplace": "linalab-io/lfg"}}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "install-plan", "marketplace": "islee23520/lfg"}}},
             {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "show"}}},
         ]
         for msg in messages:
@@ -1567,16 +1630,16 @@ esac
         self.assertEqual(plan_payload["returncode"], 0)
         self.assertEqual(show_payload["returncode"], 0)
         self.assertIn('"status": "planned"', plan_payload["stdout"])
-        self.assertIn('linalab-io/lfg', show_payload["stdout"])
+        self.assertIn('islee23520/lfg', show_payload["stdout"])
 
     def test_skill_list_search_catalog(self) -> None:
         listed = self.run_lfg("skill", "list")
-        self.assertGreaterEqual(listed["count"], 28)
+        self.assertEqual(listed["count"], 17)
         names = {skill["name"] for skill in listed["skills"]}
-        self.assertIn("ultraqa", names)
-        found = self.run_lfg("skill", "search", "ultraqa")
+        self.assertIn("hyperplan", names)
+        found = self.run_lfg("skill", "search", "hyperplan")
         self.assertGreaterEqual(found["count"], 1)
-        self.assertIn("ultraqa", {skill["name"] for skill in found["matches"]})
+        self.assertIn("hyperplan", {skill["name"] for skill in found["matches"]})
 
     def test_mcp_skill_tool(self) -> None:
         proc = subprocess.Popen(
@@ -1590,7 +1653,7 @@ esac
         assert proc.stdin and proc.stdout
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
-            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_skill", "arguments": {"action": "search", "query": "ultraqa"}}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_skill", "arguments": {"action": "search", "query": "hyperplan"}}},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1606,7 +1669,7 @@ esac
         proc.stdout.close()
         payload = json.loads(replies[1]["result"]["content"][0]["text"])
         self.assertEqual(payload["returncode"], 0)
-        self.assertIn('"name": "ultraqa"', payload["stdout"])
+        self.assertIn('"name": "hyperplan"', payload["stdout"])
 
     def test_pipeline_create_list_update_persists_state(self) -> None:
         pipe = self.run_lfg("pipeline", "create", "Ship pipeline", "--id", "smoke-pipeline", "--stages", "plan;build;verify")
@@ -1935,7 +1998,7 @@ esac
         rec = self.run_lfg("autoresearch", "create", "How should team mode work?", "--id", "smoke-research")
         self.assertEqual(rec["status"], "open")
         self.assertEqual(rec["sources"], [])
-        sourced = self.run_lfg("autoresearch", "add-source", "https://github.com/Yeachan-Heo/oh-my-codex", "--id", "smoke-research", "--note", "reference workflow")
+        sourced = self.run_lfg("autoresearch", "add-source", "https://github.com/code-yeongyu/oh-my-openagent", "--id", "smoke-research", "--note", "reference workflow")
         self.assertEqual(sourced["sources"][0]["note"], "reference workflow")
         shown = self.run_lfg("autoresearch", "show", "--id", "smoke-research")
         self.assertEqual(shown["id"], "smoke-research")

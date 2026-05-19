@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dependency-free runtime for the linalab LFG Grok Build plugin.
+"""Dependency-free runtime for the LFG Grok Build plugin.
 
 It gives Grok skills and MCP tools a concrete runtime for stateful
 goal, plan, team, and QA loops under .lfg.
@@ -29,8 +29,10 @@ RUNS_DIR = DATA / "runs"
 PLANS_DIR = DATA / "plans"
 CATALOG_PATH = ROOT / "catalog" / "omo-skill-map.json"
 STATE_SCHEMA_VERSION = 1
-APPROVED_MODEL_PROVIDERS = {"xai", "grok", "codex", "copilot", "zai"}
+APPROVED_MODEL_PROVIDERS = {"openai", "google", "xai", "grok", "codex", "copilot", "zai"}
 PROVIDER_DEFAULT_MODELS = {
+    "openai": "openai/gpt-5.5",
+    "google": "google/gemini-3.1-pro-preview",
     "xai": "xai/grok-4.3",
     "grok": "xai/grok-4.3",
     "codex": "openai-codex",
@@ -42,7 +44,14 @@ ZAI_GENERAL_BASE_URL = "https://api.z.ai/api/paas/v4"
 ZAI_DEFAULT_MODEL = "glm-4.6"
 GROK_ORACLE_REVIEW = {
     "required": True,
-    "provider": "xai",
+    "provider": "openai",
+    "model": "openai/gpt-5.5",
+    "variant": "high",
+    "fallback_models": [
+        {"model": "github-copilot/gpt-5.5", "variant": "high"},
+        {"model": "google/gemini-3.1-pro-preview", "variant": "high"},
+        {"model": "zai-coding-plan/glm-5.1"},
+    ],
     "role": "oracle",
     "strict": True,
     "mode": "local-smoke",
@@ -1153,6 +1162,8 @@ def read_provider_state() -> dict[str, Any]:
 def default_provider_env(kind: str) -> str:
     defaults = {
         "zai": "ZAI_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "google": "GEMINI_API_KEY",
         "xai": "XAI_API_KEY",
         "grok": "XAI_API_KEY",
         "codex": "CODEX_API_KEY",
@@ -1172,6 +1183,15 @@ def prompt_provider_field(label: str, default: str | None = None) -> str:
     print(f"{label}{suffix}: ", end="", file=sys.stderr, flush=True)
     value = input().strip()
     return value or (default or "")
+
+
+def prompt_yes_no(label: str, default: bool = False) -> bool:
+    suffix = "Y/n" if default else "y/N"
+    print(f"{label} [{suffix}]: ", end="", file=sys.stderr, flush=True)
+    value = input().strip().lower()
+    if not value:
+        return default
+    return value in {"y", "yes", "1", "true", "on"}
 
 
 def provider_add(args: argparse.Namespace) -> dict[str, Any]:
@@ -1198,7 +1218,7 @@ def provider_add(args: argparse.Namespace) -> dict[str, Any]:
         "kind": kind,
         "env": env_name,
         "model": model,
-        "transport": "http" if kind in ("xai", "zai") else ("builtin" if kind in ("grok", "subagent", "noop") else "cli"),
+        "transport": "http" if kind in ("openai", "google", "xai", "zai") else ("builtin" if kind in ("grok", "subagent", "noop") else "cli"),
         "secretStored": False,
         "addedAt": now(),
     }
@@ -1262,7 +1282,7 @@ def models_show(args: argparse.Namespace) -> dict[str, Any]:
     selected = {provider: defaults[provider]} if provider else defaults
     return {
         "ok": True,
-        "defaultProvider": "xai",
+        "defaultProvider": "openai",
         "providers": selected,
         "configuredProviders": configured,
         "categoryModelProfiles": OMO_CATEGORY_MODEL_PROFILES,
@@ -1273,12 +1293,26 @@ def models_show(args: argparse.Namespace) -> dict[str, Any]:
 
 def auth_login(args: argparse.Namespace) -> dict[str, Any]:
     provider = getattr(args, "provider", None) or getattr(args, "kind", None)
-    provider_id = getattr(args, "id", None) or (f"{provider}-main" if provider else None)
+    state = read_provider_state()
+    configured = sorted(state.get("providers", {}).values(), key=lambda item: item.get("id", ""))
+    selected = None
+    if not provider and configured:
+        print("LFG auth login", file=sys.stderr)
+        for index, item in enumerate(configured, 1):
+            model = item.get("model") or PROVIDER_DEFAULT_MODELS.get(item.get("kind"), "")
+            print(f"{index}. {item.get('id')} ({item.get('kind')}, {model})", file=sys.stderr)
+        choice = prompt_provider_field("Select configured provider", "1")
+        try:
+            selected = configured[max(1, int(choice)) - 1]
+        except (ValueError, IndexError):
+            raise SystemExit(f"invalid provider selection: {choice}")
+        provider = selected.get("kind")
+    provider_id = getattr(args, "id", None) or (selected.get("id") if selected else None) or (f"{provider}-main" if provider else None)
     forwarded = argparse.Namespace(
         id=provider_id,
         kind=provider,
-        env=getattr(args, "env", None),
-        model=getattr(args, "model", None),
+        env=getattr(args, "env", None) or (selected.get("env") if selected else None),
+        model=getattr(args, "model", None) or (selected.get("model") if selected else None),
         interactive=bool(getattr(args, "interactive", False)) or not provider,
     )
     result = provider_add(forwarded)
@@ -1313,11 +1347,105 @@ def copy_plugin_tree(src: pathlib.Path, dest: pathlib.Path) -> None:
     shutil.copytree(src, dest, dirs_exist_ok=True, ignore=ignore)
 
 
+SETUP_PROVIDER_WIZARD = [
+    {
+        "flag": "openai",
+        "kind": "openai",
+        "id": "openai-main",
+        "question": "Do you have OpenAI access for Oracle GPT-5.5?",
+        "default": True,
+    },
+    {
+        "flag": "google",
+        "kind": "google",
+        "id": "google-main",
+        "question": "Do you have Google/Gemini access for Oracle fallback?",
+        "default": False,
+    },
+    {
+        "flag": "zai",
+        "kind": "zai",
+        "id": "zai-main",
+        "question": "Do you have a Z.ai Coding Plan subscription?",
+        "default": False,
+    },
+    {
+        "flag": "copilot",
+        "kind": "copilot",
+        "id": "copilot-main",
+        "question": "Do you have a GitHub Copilot subscription?",
+        "default": False,
+    },
+    {
+        "flag": "codex",
+        "kind": "codex",
+        "id": "codex-main",
+        "question": "Do you have Codex CLI access for execution lanes?",
+        "default": False,
+    },
+]
+
+
+def setup_choice_enabled(value: str | None) -> bool:
+    return (value or "no").lower() in {"yes", "y", "true", "1", "on"}
+
+
+def setup_add_provider(kind: str, provider_id: str) -> dict[str, Any]:
+    return provider_add(argparse.Namespace(
+        id=provider_id,
+        kind=kind,
+        env=default_provider_env(kind),
+        model=PROVIDER_DEFAULT_MODELS.get(kind),
+        interactive=False,
+    ))["provider"]
+
+
+def run_setup_wizard(args: argparse.Namespace) -> dict[str, Any] | None:
+    forced = bool(getattr(args, "interactive", False))
+    no_tui = bool(getattr(args, "no_tui", False))
+    flag_values = {str(item["flag"]): getattr(args, str(item["flag"]), None) for item in SETUP_PROVIDER_WIZARD}
+    has_flag_values = any(value is not None for value in flag_values.values())
+    can_prompt = sys.stdin.isatty() and sys.stdout.isatty()
+
+    if not forced and not no_tui and not has_flag_values and not can_prompt:
+        return None
+    if forced and not can_prompt:
+        print("LFG OMO-style setup wizard", file=sys.stderr)
+    elif can_prompt and not no_tui and not has_flag_values:
+        print("LFG OMO-style setup wizard", file=sys.stderr)
+
+    configured = []
+    if no_tui or has_flag_values:
+        mode = "non-interactive"
+        for item in SETUP_PROVIDER_WIZARD:
+            if setup_choice_enabled(flag_values[str(item["flag"])]):
+                configured.append(setup_add_provider(str(item["kind"]), str(item["id"])))
+    else:
+        mode = "interactive"
+        for item in SETUP_PROVIDER_WIZARD:
+            if prompt_yes_no(str(item["question"]), bool(item["default"])):
+                configured.append(setup_add_provider(str(item["kind"]), str(item["id"])))
+
+    return {
+        "mode": mode,
+        "configuredProviderIds": [item["id"] for item in configured],
+        "configuredProviders": configured,
+        "authHints": [
+            "Grok Build/xAI login is assumed by the host before LFG runs; setup does not ask for it.",
+            "Oracle defaults to openai/gpt-5.5 high, then Copilot GPT-5.5, Gemini 3.1 Pro, and Z.ai GLM fallback.",
+            "LFG stores environment variable names only; put secrets in your shell environment.",
+            "Run `lfg models` to verify configured model providers.",
+            "Run `grok --cwd /tmp inspect --json` after plugin install to verify Grok discovery.",
+        ],
+    }
+
+
 def setup(args: argparse.Namespace) -> dict[str, Any]:
     """Install/sync the LFG Grok plugin and record setup state."""
     ensure_dirs()
     dest = plugin_install_dest(args)
     dry_run = bool(getattr(args, "dry_run", False))
+    setup_wizard = run_setup_wizard(args)
     provider_state = read_provider_state()
     if not dry_run:
         copy_plugin_tree(ROOT, dest)
@@ -1338,10 +1466,15 @@ def setup(args: argparse.Namespace) -> dict[str, Any]:
         "commands": {
             "providerAdd": "lfg provider add",
             "providerAddZai": "lfg provider add --id zai-main --kind zai --env ZAI_API_KEY",
+            "setupInteractive": "lfg setup",
+            "setupForceInteractive": "lfg setup --interactive",
+            "setupNoTui": "lfg setup --no-tui --openai yes --zai yes --copilot no --google no --codex no",
             "pluginInspect": "grok --cwd /tmp inspect --json",
         },
         "updatedAt": now(),
     }
+    if setup_wizard is not None:
+        record["setupWizard"] = setup_wizard
     write_json(setup_path(), record)
     record["path"] = str(setup_path())
     return record
@@ -2033,7 +2166,7 @@ def omx_setup_plan(args: argparse.Namespace) -> dict[str, Any]:
     ensure_dirs()
     steps = [
         "add marketplace source in Grok /plugins",
-        "install linalab-io/lfg",
+        "install islee23520/lfg",
         "enable plugin skills, hooks, and MCP server",
         "run /omx-setup check",
         "run runtime self-test and Grok inspect smoke",
@@ -2041,7 +2174,7 @@ def omx_setup_plan(args: argparse.Namespace) -> dict[str, Any]:
     record = {
         "status": "planned",
         "updatedAt": now(),
-        "marketplace": args.marketplace or "linalab-io/lfg",
+        "marketplace": args.marketplace or "islee23520/lfg",
         "steps": [{"id": i + 1, "status": "pending", "text": step} for i, step in enumerate(steps)],
     }
     write_json(omx_setup_path(), record)
@@ -3891,10 +4024,10 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
     add("mcp_config", mcp_config.exists(), str(mcp_config))
     catalog_file = ROOT / "catalog" / "omo-skill-map.json"
     catalog_data = read_json(catalog_file, {"skills": []})
-    add("catalog", catalog_file.exists() and len(catalog_data.get("skills", [])) >= 28, f"{catalog_file} skills={len(catalog_data.get('skills', []))}")
+    add("catalog", catalog_file.exists() and len(catalog_data.get("skills", [])) >= 17, f"{catalog_file} skills={len(catalog_data.get('skills', []))}")
     skills_dir = ROOT / "skills"
     skill_count = len(list(skills_dir.glob("*/SKILL.md"))) if skills_dir.exists() else 0
-    add("skills", skill_count >= 28, f"{skills_dir} skill_count={skill_count}")
+    add("skills", skill_count >= 17, f"{skills_dir} skill_count={skill_count}")
     repo_root = ROOT.parents[1] if len(ROOT.parents) > 1 else ROOT
     for name, rel in [("grok_marketplace", ".grok/plugins/marketplace.json"), ("agents_marketplace", ".agents/plugins/marketplace.json")]:
         path = repo_root / rel
@@ -3904,7 +4037,7 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
             path.exists()
             and plugin.get("name") == "lfg"
             and plugin.get("source", {}).get("path") == "plugins/lfg"
-            and plugin.get("metadata", {}).get("packageName") == "linalab-io/lfg"
+            and plugin.get("metadata", {}).get("packageName") == "islee23520/lfg"
         )
         add(name, ok, f"{path} package={plugin.get('metadata', {}).get('packageName')}")
     for exe, required in [("tmux", True), ("hermes", False), ("claude", False), ("codex", False), ("grok", False)]:
@@ -4395,6 +4528,10 @@ def main(argv: list[str] | None = None) -> int:
     setupp = sub.add_parser("setup", help="Install/sync the LFG Grok plugin and prepare provider state")
     setupp.add_argument("--plugin-dir", help="destination plugin directory, defaults to ~/.grok/plugins/lfg")
     setupp.add_argument("--dry-run", action="store_true")
+    setupp.add_argument("--interactive", action="store_true", help="run the OMO-style provider setup wizard")
+    setupp.add_argument("--no-tui", action="store_true", help="skip prompts and use explicit provider flags")
+    for provider_flag in ("openai", "zai", "copilot", "google", "codex"):
+        setupp.add_argument(f"--{provider_flag}", choices=["yes", "no"], help=f"enable {provider_flag} provider metadata during setup")
     setupp.set_defaults(fn=setup)
 
     askp = sub.add_parser("ask")

@@ -57,7 +57,7 @@ assert "sudo apt-get install -y tmux" in workflow
 assert "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24" in workflow
 
 release_notes = (repo / "docs/MARKETPLACE_RELEASE_NOTES.md").read_text()
-assert "linalab-io/lfg" in release_notes
+assert "islee23520/lfg" in release_notes
 assert "lfg 0.3.0" in release_notes
 assert "/plugins" in release_notes
 assert (repo / "docs/MARKETPLACE_INSTALL.md").exists()
@@ -69,8 +69,8 @@ for rel in [".grok/plugins/marketplace.json", ".agents/plugins/marketplace.json"
     plugin = plugins[0]
     assert plugin["name"] == "lfg", rel
     assert plugin["source"]["path"] == "plugins/lfg", rel
-    assert plugin["metadata"]["packageName"] == "linalab-io/lfg", rel
-    assert plugin["metadata"]["reference"] == "https://github.com/Yeachan-Heo/oh-my-codex", rel
+    assert plugin["metadata"]["packageName"] == "islee23520/lfg", rel
+    assert plugin["metadata"]["reference"] == "https://github.com/code-yeongyu/oh-my-openagent", rel
 
 print("manifest-and-file-checks=ok")
 print("marketplace-metadata=ok")

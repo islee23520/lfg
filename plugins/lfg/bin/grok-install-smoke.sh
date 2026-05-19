@@ -16,12 +16,12 @@ import json, sys
 obj = json.load(open(sys.argv[1]))
 skills = [s.get("name") for s in obj.get("skills", []) if "lfg" in json.dumps(s) or "/lfg/" in json.dumps(s)]
 required = {
-    "team", "ultrawork", "autopilot", "ralplan", "autoresearch-goal",
-    "performance-goal", "visual-ralph", "omx-setup", "doctor", "wiki",
+    "agent-browser", "ai-slop-remover", "frontend-ui-ux", "git-master",
+    "hyperplan", "playwright", "review-work", "team-mode", "work-with-pr",
 }
 missing = sorted(required - set(skills))
 assert not missing, missing
-assert len(skills) == 28, (len(skills), sorted(skills))
-print("grok-install-smoke=ok skills=28 key_skills_present")
+assert len(skills) == 17, (len(skills), sorted(skills))
+print("grok-install-smoke=ok skills=17 key_skills_present")
 PY
 echo "inspect-json=$OUT"

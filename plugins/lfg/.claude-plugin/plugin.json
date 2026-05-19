@@ -1,15 +1,15 @@
 {
   "name": "lfg",
   "version": "0.3.0",
-  "description": "OMX-like workflow/plugins for LFG, inspired by oh-my-codex.",
+  "description": "OMO agent hierarchy parity runtime for Grok Build.",
   "author": {
-    "name": "linalab-io"
+    "name": "islee23520"
   },
   "homepage": "https://github.com/islee23520/lfg",
   "repository": "https://github.com/islee23520/lfg",
   "metadata": {
-    "packageName": "linalab-io/lfg",
-    "reference": "https://github.com/Yeachan-Heo/oh-my-codex",
-    "scope": "Match what oh-my-codex brings to Codex, adapted for LFG."
+    "packageName": "islee23520/lfg",
+    "reference": "https://github.com/code-yeongyu/oh-my-openagent",
+    "scope": "Port the OMO agent hierarchy and orchestration model into LFG/Grok Build."
   }
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Minimal stdio MCP server for linalab-io/lfg.
+"""Minimal stdio MCP server for islee23520/lfg.
 
-Provides catalog/status tools for the Grok adaptation of oh-my-codex.
+Provides catalog/status tools for the OMO-native Grok Build adaptation.
 """
 import json
 import os
@@ -16,7 +16,7 @@ DATA = pathlib.Path(os.environ.get("GROK_PLUGIN_DATA") or pathlib.Path.cwd() / "
 TOOLS = [
     {
         "name": "grok_build_catalog",
-        "description": "Return the OMX-to-Grok skill catalog for linalab-io/lfg.",
+        "description": "Return the OMX-to-Grok skill catalog for islee23520/lfg.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {

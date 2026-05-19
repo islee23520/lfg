@@ -1,174 +1,125 @@
 {
-  "sourceRepo": "https://github.com/Yeachan-Heo/oh-my-codex",
-  "sourceCommit": "ffef59333bccc0fc3175439f1c4892522412d29e",
+  "sourceRepo": "https://github.com/code-yeongyu/oh-my-openagent",
+  "sourcePath": "local OMO reference tree",
   "skills": [
     {
-      "name": "ai-slop-cleaner",
-      "description": "Run an anti-slop cleanup/refactor/deslop workflow",
-      "source": "plugins/oh-my-codex/skills/ai-slop-cleaner/SKILL.md",
-      "grokPath": "skills/ai-slop-cleaner/SKILL.md"
+      "name": "agent-browser",
+      "description": "Automates browser interactions for web testing, form filling, screenshots, and data extraction. Use when the user needs to navigate websites, interact with web pages, fill forms, take screenshots, test web applications, or extract information from web pages.",
+      "source": "src/features/builtin-skills/agent-browser/SKILL.md",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/agent-browser/SKILL.md"
     },
     {
-      "name": "analyze",
-      "description": "Run read-only deep repository analysis and return a ranked synthesis with explicit confidence, concrete file references, and clear evidence-vs-inference boundaries. Use when a user says 'analyze', 'investigate', 'why does', 'what's causing', or needs grounded cross-file explanation before any changes are proposed.",
-      "source": "plugins/oh-my-codex/skills/analyze/SKILL.md",
-      "grokPath": "skills/analyze/SKILL.md"
+      "name": "ai-slop-remover",
+      "description": "Removes AI-generated code smells from a SINGLE file while preserving functionality. For multiple files, call in PARALLEL per file.",
+      "source": "src/features/builtin-skills/skills/ai-slop-remover.ts",
+      "sourceType": "builtin-generated",
+      "grokPath": "skills/ai-slop-remover/SKILL.md"
     },
     {
-      "name": "ask",
-      "description": "Ask a local external advisor CLI (Claude or Gemini) and capture a reusable artifact",
-      "source": "plugins/oh-my-codex/skills/ask/SKILL.md",
-      "grokPath": "skills/ask/SKILL.md"
+      "name": "dev-browser",
+      "description": "Browser automation with persistent page state. Use when users ask to navigate websites, fill forms, take screenshots, extract web data, test web apps, or automate browser workflows. Trigger phrases include \"go to [url]\", \"click on\", \"fill out the form\", \"take a screenshot\", \"scrape\", \"automate\", \"test the website\", \"log into\", or any browser interaction request.",
+      "source": "src/features/builtin-skills/dev-browser/SKILL.md",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/dev-browser/SKILL.md"
     },
     {
-      "name": "autopilot",
-      "description": "[OMX] Strict autonomous loop: $ralplan -> $ralph -> $code-review",
-      "source": "plugins/oh-my-codex/skills/autopilot/SKILL.md",
-      "grokPath": "skills/autopilot/SKILL.md"
+      "name": "frontend-ui-ux",
+      "description": "Designer-turned-developer who crafts stunning UI/UX even without design mockups",
+      "source": "src/features/builtin-skills/frontend-ui-ux/SKILL.md",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/frontend-ui-ux/SKILL.md"
     },
     {
-      "name": "autoresearch",
-      "description": "Stateful validator-gated research loop with native-hook persistence",
-      "source": "plugins/oh-my-codex/skills/autoresearch/SKILL.md",
-      "grokPath": "skills/autoresearch/SKILL.md"
+      "name": "get-unpublished-changes",
+      "description": "Compare HEAD with the latest published npm version and list all unpublished changes. Triggers: unpublished changes, changelog, what changed, whats new.",
+      "source": ".agents/skills/get-unpublished-changes/SKILL.md",
+      "sourceType": "agent",
+      "grokPath": "skills/get-unpublished-changes/SKILL.md"
     },
     {
-      "name": "autoresearch-goal",
-      "description": "Durable professor-critic research workflow over Codex goal mode without reviving deprecated omx autoresearch",
-      "source": "plugins/oh-my-codex/skills/autoresearch-goal/SKILL.md",
-      "grokPath": "skills/autoresearch-goal/SKILL.md"
+      "name": "git-master",
+      "description": "MUST USE for ANY git operations. Atomic commits, rebase/squash, history search (blame, bisect, log -S). STRONGLY RECOMMENDED: Use with task(category='quick', load_skills=['git-master'], ...) to save context. Triggers: 'commit', 'rebase', 'squash', 'who wrote', 'when was X added', 'find the commit that'.",
+      "source": "src/features/builtin-skills/git-master/SKILL.md",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/git-master/SKILL.md"
     },
     {
-      "name": "cancel",
-      "description": "Cancel any active OMX mode (autopilot, ralph, ultrawork, ecomode, ultraqa, swarm, ultrapilot, pipeline, team)",
-      "source": "plugins/oh-my-codex/skills/cancel/SKILL.md",
-      "grokPath": "skills/cancel/SKILL.md"
+      "name": "github-triage",
+      "description": "Read-only GitHub triage for issues AND PRs. 1 item = 1 background task (category: quick). Analyzes all open items and writes evidence-backed reports to /tmp/{datetime}/. Every claim requires a GitHub permalink as proof. NEVER takes any action on GitHub - no comments, no merges, no closes, no labels. Reports only. Triggers: 'triage', 'triage issues', 'triage PRs', 'github triage'.",
+      "source": ".agents/skills/github-triage/SKILL.md",
+      "sourceType": "agent",
+      "grokPath": "skills/github-triage/SKILL.md"
     },
     {
-      "name": "code-review",
-      "description": "Run a comprehensive code review",
-      "source": "plugins/oh-my-codex/skills/code-review/SKILL.md",
-      "grokPath": "skills/code-review/SKILL.md"
-    },
-    {
-      "name": "configure-notifications",
-      "description": "Configure OMX notifications - unified entry point for all platforms",
-      "source": "plugins/oh-my-codex/skills/configure-notifications/SKILL.md",
-      "grokPath": "skills/configure-notifications/SKILL.md"
-    },
-    {
-      "name": "deep-interview",
-      "description": "Socratic deep interview with mathematical ambiguity gating before execution",
-      "source": "plugins/oh-my-codex/skills/deep-interview/SKILL.md",
-      "grokPath": "skills/deep-interview/SKILL.md"
-    },
-    {
-      "name": "design",
-      "description": "Canonical repo-local DESIGN.md workflow for product, UI/UX, and frontend decision source of truth",
-      "source": "plugins/oh-my-codex/skills/design/SKILL.md",
-      "grokPath": "skills/design/SKILL.md"
-    },
-    {
-      "name": "doctor",
-      "description": "Diagnose and fix oh-my-codex installation issues",
-      "source": "plugins/oh-my-codex/skills/doctor/SKILL.md",
-      "grokPath": "skills/doctor/SKILL.md"
-    },
-    {
-      "name": "hud",
-      "description": "Show or configure the OMX HUD (two-layer statusline)",
-      "source": "plugins/oh-my-codex/skills/hud/SKILL.md",
-      "grokPath": "skills/hud/SKILL.md"
-    },
-    {
-      "name": "omx-setup",
-      "description": "Setup and configure oh-my-codex using current CLI behavior",
-      "source": "plugins/oh-my-codex/skills/omx-setup/SKILL.md",
-      "grokPath": "skills/omx-setup/SKILL.md"
-    },
-    {
-      "name": "performance-goal",
-      "description": "Run an evaluator-gated performance optimization workflow over Codex goal mode with durable OMX artifacts and safe goal handoffs.",
-      "source": "plugins/oh-my-codex/skills/performance-goal/SKILL.md",
-      "grokPath": "skills/performance-goal/SKILL.md"
-    },
-    {
-      "name": "pipeline",
-      "description": "Configurable pipeline orchestrator for sequencing stages",
-      "source": "plugins/oh-my-codex/skills/pipeline/SKILL.md",
-      "grokPath": "skills/pipeline/SKILL.md"
-    },
-    {
-      "name": "plan",
-      "description": "Strategic planning with optional interview workflow",
-      "source": "plugins/oh-my-codex/skills/plan/SKILL.md",
-      "grokPath": "skills/plan/SKILL.md"
-    },
-    {
-      "name": "ralph",
-      "description": "Self-referential loop until task completion with architect verification",
-      "source": "plugins/oh-my-codex/skills/ralph/SKILL.md",
-      "grokPath": "skills/ralph/SKILL.md"
-    },
-    {
-      "name": "ralplan",
-      "description": "Alias for $plan --consensus",
-      "source": "plugins/oh-my-codex/skills/ralplan/SKILL.md",
-      "grokPath": "skills/ralplan/SKILL.md"
-    },
-    {
-      "name": "skill",
-      "description": "Manage local skills - list, add, remove, search, edit, setup wizard",
-      "source": "plugins/oh-my-codex/skills/skill/SKILL.md",
-      "grokPath": "skills/skill/SKILL.md"
-    },
-    {
-      "name": "team",
-      "description": "N coordinated agents on shared task list using tmux-based orchestration",
-      "source": "plugins/oh-my-codex/skills/team/SKILL.md",
-      "grokPath": "skills/team/SKILL.md"
-    },
-    {
-      "name": "ultragoal",
-      "description": "Create and execute durable repo-native multi-goal plans over Codex goal mode artifacts.",
-      "source": "plugins/oh-my-codex/skills/ultragoal/SKILL.md",
-      "grokPath": "skills/ultragoal/SKILL.md"
-    },
-    {
-      "name": "ultraqa",
-      "description": "Adversarial dynamic e2e QA workflow - generate hostile scenarios, test, verify, fix, report, and clean up",
-      "source": "plugins/oh-my-codex/skills/ultraqa/SKILL.md",
-      "grokPath": "skills/ultraqa/SKILL.md"
-    },
-    {
-      "name": "ultrawork",
-      "description": "Parallel execution engine for high-throughput task completion",
-      "source": "plugins/oh-my-codex/skills/ultrawork/SKILL.md",
-      "grokPath": "skills/ultrawork/SKILL.md"
-    },
-    {
-      "name": "visual-ralph",
-      "description": "Visual Ralph orchestration for frontend UI from generated references, static references, or live URL targets, using $ralph with built-in visual verdict and pixel-diff evidence until the implementation matches and leaves a reproducible design system.",
-      "source": "plugins/oh-my-codex/skills/visual-ralph/SKILL.md",
-      "grokPath": "skills/visual-ralph/SKILL.md"
-    },
-    {
-      "name": "wiki",
-      "description": "Persistent markdown project wiki stored under repository omx_wiki with keyword search and lifecycle capture",
-      "source": "plugins/oh-my-codex/skills/wiki/SKILL.md",
-      "grokPath": "skills/wiki/SKILL.md"
-    },
-    {
-      "name": "worker",
-      "description": "Team worker protocol (ACK, mailbox, task lifecycle) for tmux-based OMX teams",
-      "source": "plugins/oh-my-codex/skills/worker/SKILL.md",
-      "grokPath": "skills/worker/SKILL.md"
+      "name": "hyperplan",
+      "description": "Adversarial multi-agent planning skill. Self-orchestrates 5 hostile category members (unspecified-low, unspecified-high, deep, ultrabrain, artistry) via team-mode for ruthless cross-critique debate, distills only the defensible insights, then MANDATORILY hands the distilled insight bundle to the `plan` agent for executable plan formalization. Use when planning needs maximum rigor and surfacing of weak assumptions, blind spots, and over-engineering. Triggers: 'hyperplan', 'hpp', '/hyperplan', 'adversarial plan', 'hostile planning', 'cross-critique plan', '하이퍼플랜', '적대적 계획', '교차 비평'.",
+      "source": ".agents/skills/hyperplan/SKILL.md",
+      "sourceType": "agent",
+      "grokPath": "skills/hyperplan/SKILL.md"
     },
     {
       "name": "lfg",
-      "description": "Validate the lfg plugin package itself",
+      "description": "Stress-test and harden LFG-compatible plugin surfaces: skills, hooks, MCP/LSP configs, marketplace metadata, and Claude Code / AGENTS compatibility.",
       "source": "local",
+      "sourceType": "local",
       "grokPath": "skills/lfg/SKILL.md"
+    },
+    {
+      "name": "omomomo",
+      "description": "Easter egg command - about oh-my-opencode. Triggers: omomomo, about, easter egg.",
+      "source": ".agents/skills/omomomo/SKILL.md",
+      "sourceType": "agent",
+      "grokPath": "skills/omomomo/SKILL.md"
+    },
+    {
+      "name": "playwright",
+      "description": "MUST USE for any browser-related tasks. Browser automation via Playwright MCP - verification, browsing, information gathering, web scraping, testing, screenshots, and all browser interactions.",
+      "source": "src/features/builtin-skills/skills/playwright.ts",
+      "sourceType": "builtin-generated",
+      "grokPath": "skills/playwright/SKILL.md"
+    },
+    {
+      "name": "pre-publish-review",
+      "description": "Nuclear-grade 16-agent pre-publish release gate. Runs /get-unpublished-changes to detect all changes since last npm release, spawns up to 10 ultrabrain agents for deep per-change analysis, invokes /review-work (5 agents) for holistic review, and 1 oracle for overall release synthesis. Use before EVERY npm publish. Triggers: 'pre-publish review', 'review before publish', 'release review', 'pre-release review', 'ready to publish?', 'can I publish?', 'pre-publish', 'safe to publish', 'publishing review', 'pre-publish check'.",
+      "source": ".agents/skills/pre-publish-review/SKILL.md",
+      "sourceType": "agent",
+      "grokPath": "skills/pre-publish-review/SKILL.md"
+    },
+    {
+      "name": "publish",
+      "description": "Publish oh-my-opencode to npm via GitHub Actions workflow. Argument: <patch|minor|major>. Triggers: publish, release, deploy, npm publish.",
+      "source": ".agents/skills/publish/SKILL.md",
+      "sourceType": "agent",
+      "grokPath": "skills/publish/SKILL.md"
+    },
+    {
+      "name": "remove-deadcode",
+      "description": "Remove unused code from this project with ultrawork mode, LSP-verified safety, atomic commits. Triggers: remove dead code, dead code, cleanup, remove unused.",
+      "source": ".agents/skills/remove-deadcode/SKILL.md",
+      "sourceType": "agent",
+      "grokPath": "skills/remove-deadcode/SKILL.md"
+    },
+    {
+      "name": "review-work",
+      "description": "Post-implementation review orchestrator. Launches 5 parallel background sub-agents: Oracle (goal/constraint verification), Oracle (code quality), Oracle (security), unspecified-high (hands-on QA execution), unspecified-high (context mining from GitHub/git/Slack/Notion). All must pass for review to pass. MUST USE after completing any significant implementation work. Triggers: 'review work', 'review my work', 'review changes', 'QA my work', 'verify implementation', 'check my work', 'validate changes', 'post-implementation review'.",
+      "source": "src/features/builtin-skills/skills/review-work.ts",
+      "sourceType": "builtin-generated",
+      "grokPath": "skills/review-work/SKILL.md"
+    },
+    {
+      "name": "team-mode",
+      "description": "Team orchestration — create and manage parallel agent teams (OFF by default; enable via team_mode.enabled in config). Loading this skill provides usage documentation; the team_* tools are registered globally when team_mode.enabled=true and access-gated by team role.",
+      "source": "src/features/builtin-skills/skills/team-mode.ts",
+      "sourceType": "builtin-generated",
+      "grokPath": "skills/team-mode/SKILL.md"
+    },
+    {
+      "name": "work-with-pr",
+      "description": "Full PR lifecycle: git worktree → implement → atomic commits → PR creation → verification loop (CI + review-work + Cubic approval) → merge. Keeps iterating until ALL gates pass and PR is merged. Worktree auto-cleanup after merge. Use whenever implementation work needs to land as a PR. Triggers: 'create a PR', 'implement and PR', 'work on this and make a PR', 'implement issue', 'land this as a PR', 'work-with-pr', 'PR workflow', 'implement end to end', even when user just says 'implement X' if the context implies PR delivery.",
+      "source": ".agents/skills/work-with-pr/SKILL.md",
+      "sourceType": "agent",
+      "grokPath": "skills/work-with-pr/SKILL.md"
     }
   ]
 }

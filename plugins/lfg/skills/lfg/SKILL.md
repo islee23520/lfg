@@ -4,12 +4,12 @@ description: Stress-test and harden LFG-compatible plugin surfaces: skills, hook
 user_invocable: true
 metadata:
   short-description: "Hammer Grok extension surfaces"
-  package: "linalab-io/lfg"
+  package: "islee23520/lfg"
 ---
 
 # LFG
 
-Use this skill when validating the `linalab-io/lfg` plugin package.
+Use this skill when validating the `islee23520/lfg` plugin package.
 
 ## Mission
 
