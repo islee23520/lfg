@@ -68,10 +68,10 @@ lfg-status=ok version=0.3.0
 lfg-doctor=ok
 ulw-status=ok version=0.3.0
 lfg-installed-symlink-surface=ok
-lfg-inside-tmux-attach=ok
+lfg-inside-tmux-status=ok
 ```
 
-The script creates symlinks for `lfg`, `ulw`, and the sibling `lfg.py` target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status`, `lfg --json doctor`, and `ulw --json status`. `scripts/verify-installed-lfg-symlink-surface.sh` additionally proves both installed symlink locations point at the repo runtime and that launching installed `lfg` creates the `lfg-backend` tmux session and that installed `lfg --json slash '/team providers'` returns the provider matrix and installed `lfg --json slash '/team preflight'` verifies tmux/provider readiness and includes actionable next commands. `scripts/verify-lfg-inside-tmux-attach.sh` launches `lfg` from inside a real tmux pane and verifies it opens a split-window attach pane instead of stealing the current client.
+The script creates symlinks for `lfg`, `ulw`, and the sibling `lfg.py` target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg --json status`, `lfg --json doctor`, and `ulw --json status`. `scripts/verify-installed-lfg-symlink-surface.sh` additionally proves both installed symlink locations point at the repo runtime, that no-arg installed `lfg`/`ulw` report `lfg-runtime`, that installed `lfg --json slash '/team providers'` returns the provider matrix, and that installed `lfg --json slash '/team preflight'` verifies tmux/provider readiness and includes actionable next commands. `scripts/verify-lfg-inside-tmux-attach.sh` launches no-arg `lfg` from inside a real tmux pane and verifies it reports runtime status without opening an implicit attach pane.
 
 For a focused default-launch check, run:
 
@@ -269,7 +269,7 @@ team-preflight-slash=ok
 team-preflight-mcp=ok
 ```
 
-This verifies `lfg team preflight`, `/team preflight`, and MCP `grok_build_team(action=preflight)` all check tmux backend availability and provider readiness before starting a team, and return actionable next commands for provider listing, backend attach/status, and noop team smoke creation.
+This verifies `lfg team preflight`, `/team preflight`, and MCP `grok_build_team(action=preflight)` all check explicit tmux/team availability and provider readiness before starting a team, and return actionable next commands for provider listing, backend attach/status, and noop team smoke creation.
 
 Provider command smoke:
 

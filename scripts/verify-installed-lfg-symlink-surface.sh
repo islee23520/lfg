@@ -19,17 +19,18 @@ PY
   python3 - <<'PY'
 import json
 obj=json.load(open('/tmp/lfg-installed-launch.json'))
-assert obj['status']=='running', obj
+assert obj['status']=='ready', obj
 assert obj['launcher']=='lfg', obj
-assert obj['mode']=='tmux-backend', obj
-assert obj['attachCommand'].startswith('tmux attach -t '), obj
+assert obj['mode']=='lfg-runtime', obj
+assert 'attachCommand' not in obj, obj
 PY
   "$bin" --json slash '/team providers' >/tmp/lfg-installed-team-providers.json
   python3 - <<'PY'
 import json
 obj=json.load(open('/tmp/lfg-installed-team-providers.json'))
 assert obj['ok'], obj
-assert [p['provider'] for p in obj['providers']] == ['hermes','claude','codex','noop'], obj
+expected={'hermes','claude','codex','gemini','copilot','opencode','grok','subagent','noop'}
+assert {p['provider'] for p in obj['providers']} == expected, obj
 assert obj['smokeSafe'] == 'noop', obj
 PY
   "$bin" --json slash '/team preflight' --name lfg-installed-preflight >/tmp/lfg-installed-team-preflight.json
@@ -60,10 +61,10 @@ PY
   python3 - <<'PY'
 import json
 obj=json.load(open('/tmp/ulw-installed-launch.json'))
-assert obj['status']=='running', obj
+assert obj['status']=='ready', obj
 assert obj['launcher']=='ulw', obj
-assert obj['mode']=='tmux-backend', obj
-assert obj['attachCommand'].startswith('tmux attach -t '), obj
+assert obj['mode']=='lfg-runtime', obj
+assert 'attachCommand' not in obj, obj
 PY
 done
 for bin in "$HOME/.local/bin/lfg.py" "$HOME/.grok/bin/lfg.py"; do
@@ -71,9 +72,4 @@ for bin in "$HOME/.local/bin/lfg.py" "$HOME/.grok/bin/lfg.py"; do
   target="$(readlink "$bin")"
   test "$target" = "$REPO_ROOT/plugins/lfg/bin/lfg.py"
 done
-if tmux has-session -t lfg-backend 2>/dev/null; then
-  echo "lfg-installed-symlink-surface=ok backend=lfg-backend aliases=lfg,ulw slash=/team-providers,/team-preflight commands=ok"
-else
-  echo "lfg-installed-symlink-surface=missing-backend" >&2
-  exit 1
-fi
+echo "lfg-installed-symlink-surface=ok runtime=lfg-runtime aliases=lfg,ulw slash=/team-providers,/team-preflight commands=ok"

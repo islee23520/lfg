@@ -1,6 +1,11 @@
 # A. Agent Definition System (Named Purpose-Specific Agents)
 
-## Goal
+> **Historical / Design note (2026-05)**: This document captured the original proposal for custom LFG agents (`lina`, `gonow`, `iz`, `grok`).  
+> The current canonical first-class implementation is the OMO hierarchy (`sisyphus` + family) living in `plugins/lfg/src/agents/*.json`, loaded via `load_omo_agent_registry()` in `lfg.py`.  
+> See the "Current Runtime Implementation" section of [docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) and `plugins/lfg/src/agents/README.md` for the live state.  
+> Legacy definitions are kept only in `src/agents/legacy/` for backward compatibility with existing team specs.
+
+## Goal (Original Design)
 Allow users to define, register, and reuse **named agents** with clear identity, role, and behavior — similar to OmO's subagent_type + category system, but tailored to LFG + ULW.
 
 ## Core Requirements
@@ -12,7 +17,7 @@ Allow users to define, register, and reuse **named agents** with clear identity,
 
 ## Proposed Agent Definition Format (JSON)
 
-Location: `~/.grok/lfg/agents/<name>.json` (or project-local `lfg-agents/`)
+Location: `~/.grok/lfg/agents/<name>.json`; bundled compatibility definitions live in `plugins/lfg/src/agents/legacy/`.
 
 Example: `iz-architect.json`
 

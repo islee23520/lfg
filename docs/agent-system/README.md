@@ -5,9 +5,11 @@
 - **LFG** = Main orchestrator / conductor (leader)
 - **ULW** = Worker identity for all team members (external CLIs and native Grok sub-agents)
 
-This document series covers the design for custom agent system requested by the user.
+**Current status (omo-parity branch)**: The canonical first-class runtime registry is the six OMO agents (`sisyphus`, `sisyphus-junior`, `prometheus`, `hephaestus`, `atlas`, `builtin-agents`) defined in `plugins/lfg/src/agents/*.json`. They are loaded by `load_omo_agent_registry()` and exposed via `lfg agents list` / `lfg spawn`. See the "Current Runtime Implementation" section of [docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) for the as-built wiring.
 
-## Desired Custom Agent Lineup
+The older custom lineup below is preserved only for backward compatibility with existing team specs.
+
+## Legacy / Compatibility Agent Lineup (pre-OMO)
 
 | Agent Name | Role                  | Philosophy / Strength                  | Preferred Category | Notes |
 |------------|-----------------------|----------------------------------------|--------------------|-------|
@@ -16,11 +18,12 @@ This document series covers the design for custom agent system requested by the 
 | **iz**     | Architect             | Deep structural thinking, long-term design | deep (codex)       | High reasoning architecture work |
 | **grok**   | Consultant            | High-quality advice, multi-angle review | deep + artistry    | Strong reasoning + creative input |
 
-## Category Mapping (from OmO)
+## Category Mapping (Grok-native OMO)
 
-- `deep` → **codex** (or high-reasoning Codex-style)
-- `artistry` → **gemini** (creative, novel perspectives)
-- Other categories to be defined (ultrabrain, quick, etc.)
+- All first-class agents resolve to Grok models only.
+- `deep` / `ultrabrain` → high reasoning Grok profiles
+- `artistry` → creative Grok profiles
+- Other categories map to appropriate Grok reasoning levels.
 
 ## Structure of this Design
 
@@ -28,5 +31,6 @@ This document series covers the design for custom agent system requested by the 
 - `categories.md` — Category system and model mapping (B)
 - `hyperplan-teams.md` — Rigorous adversarial team templates inspired by OmO Hyperplan (C)
 - `omo-parity-comparison.md` — Side-by-side comparison of OmO philosophy/agents vs LFG custom system
+- `omo-runtime-implementation-plan.md` — Test-first execution plan for ROADMAP M3-M13 OMO runtime slices
 
 This work will live on a dedicated feature branch for a clean PR.

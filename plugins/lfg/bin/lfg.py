@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""OMX-like MVP runtime for the linalab LFG plugin.
+"""Dependency-free runtime for the linalab LFG Grok Build plugin.
 
-Dependency-free by design.  It gives Grok skills/MCP tools a concrete runtime for
-stateful goal/plan/QA loops under .lfg.
+It gives Grok skills and MCP tools a concrete runtime for stateful
+goal, plan, team, and QA loops under .lfg.
 """
 from __future__ import annotations
 
@@ -20,9 +20,11 @@ import shlex
 from typing import Any
 
 ROOT = pathlib.Path(os.environ.get("GROK_PLUGIN_ROOT") or pathlib.Path(__file__).resolve().parents[1])
+
 DATA = pathlib.Path(os.environ.get("GROK_PLUGIN_DATA") or pathlib.Path.cwd() / ".lfg")
 STATE_DIR = DATA / "state"
 RUNS_DIR = DATA / "runs"
+PLANS_DIR = DATA / "plans"
 CATALOG_PATH = ROOT / "catalog" / "omx-skill-map.json"
 STATE_SCHEMA_VERSION = 1
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -43,7 +45,7 @@ def safe_child_path(root: pathlib.Path, *parts: str) -> pathlib.Path:
 
 
 def parse_providers(value: str) -> list[str]:
-    providers = [p.strip() for p in (value or "").split(",") if p.strip()]
+    providers: list[str] = [p.strip() for p in (value or "").split(",") if p.strip()]
     invalid = [p for p in providers if p not in TEAM_PROVIDER_EXECUTABLES]
     if invalid:
         raise SystemExit(f"unknown provider(s): {', '.join(invalid)}")
@@ -86,7 +88,7 @@ def ensure_state_schema() -> dict[str, Any]:
 
 
 def ensure_dirs() -> None:
-    for p in (DATA, STATE_DIR, RUNS_DIR):
+    for p in (DATA, STATE_DIR, RUNS_DIR, PLANS_DIR):
         p.mkdir(parents=True, exist_ok=True)
     ensure_state_schema()
 
@@ -1387,7 +1389,7 @@ def performance_measure(args: argparse.Namespace) -> dict[str, Any]:
         matched["target"] = args.target
     if matched.get("current") is None or matched.get("target") is None:
         matched["status"] = "pending"
-    elif float(matched["current"]) <= float(matched["target"]):
+    elif float(str(matched["current"])) <= float(str(matched["target"])):
         matched["status"] = "pass"
     else:
         matched["status"] = "fail"
@@ -1678,7 +1680,7 @@ def skill_search(args: argparse.Namespace) -> dict[str, Any]:
 
 def list_plans() -> list[dict[str, Any]]:
     plans = []
-    for path in sorted((STATE_DIR / "plans").glob("*.json")) if (STATE_DIR / "plans").exists() else []:
+    for path in sorted(PLANS_DIR.glob("*.json")) if PLANS_DIR.exists() else []:
         try:
             plan = read_json(path)
             plan["path"] = str(path)
@@ -1706,16 +1708,56 @@ def mk_plan(args: argparse.Namespace) -> dict[str, Any]:
             "install into ~/.grok/plugins/lfg and inspect with real Grok",
             "commit and push evidence",
         ]
+    plan_id = f"plan-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
     plan = {
-        "id": f"plan-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}",
+        "id": plan_id,
         "title": args.title,
         "createdAt": now(),
         "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
         "steps": [{"id": i + 1, "status": "pending", "text": step} for i, step in enumerate(steps)],
     }
-    path = STATE_DIR / "plans" / f"{plan['id']}.json"
-    write_json(path, plan)
-    write_json(STATE_DIR / "current-plan.json", {"id": plan["id"], "path": str(path), "updatedAt": now()})
+
+    # Write structured JSON (machine + durable record)
+    json_path = PLANS_DIR / f"{plan_id}.json"
+    write_json(json_path, plan)
+
+    # Also write a human-usable Markdown version inside .lfg/plans/
+    # so the user (and agents) have something concrete to open and work on.
+    md_lines = [
+        f"# Plan: {args.title}",
+        "",
+        f"**ID**: `{plan_id}`",
+        f"**Created**: {plan['createdAt']}",
+        f"**Repo**: {plan.get('repo', 'unknown')}",
+        "",
+        "## Steps",
+        "",
+    ]
+    for step in plan["steps"]:
+        status_icon = "☐" if step["status"] == "pending" else "☑"
+        md_lines.append(f"{step['id']}. {status_icon} {step['text']}")
+
+    md_lines.extend([
+        "",
+        "## Notes",
+        "",
+        "_Add evidence, blockers, and updates here. This file lives in `.lfg/plans/` so it is durable across sessions._",
+        "",
+    ])
+
+    md_path = PLANS_DIR / f"{plan_id}.md"
+    md_path.write_text("\n".join(md_lines), encoding="utf-8")
+
+    # Pointer for quick access
+    write_json(STATE_DIR / "current-plan.json", {
+        "id": plan_id,
+        "json": str(json_path),
+        "markdown": str(md_path),
+        "updatedAt": now()
+    })
+
+    plan["json_path"] = str(json_path)
+    plan["markdown_path"] = str(md_path)
     return plan
 
 
@@ -1858,7 +1900,7 @@ def backend_start(args: argparse.Namespace) -> dict[str, Any]:
     if not exists:
         subprocess.run([
             "tmux", "new-session", "-d", "-s", name, "-n", "lfg", "-c", str(cwd),
-            "bash", "-lc", "echo 'lfg tmux backend ready'; echo 'use: lfg team create 3:executor \"task\"'; exec $SHELL"
+            "bash", "-lc", "echo 'lfg explicit team tmux session ready'; echo 'use: lfg team create 3:executor \"task\"'; exec $SHELL"
         ], check=True)
     state = {"name": name, "status": "running", "cwd": str(cwd), "updatedAt": now(), "attachCommand": f"tmux attach -t {shlex.quote(name)}"}
     write_json(STATE_DIR / "backend.json", state)
@@ -1893,18 +1935,11 @@ def attach_backend_from_tmux_pane(state: dict[str, Any], cwd: pathlib.Path) -> d
 
 
 def lfg_launch(args: argparse.Namespace) -> dict[str, Any]:
-    """Default `lfg`/`ulw` behavior: start backend and attach when interactive."""
-    state = backend_start(argparse.Namespace(name=args.name, cwd=args.cwd))
-    state["launcher"] = effective_launcher()
-    state["attached"] = False
-    state["mode"] = "tmux-backend"
-    if args.json or not (sys.stdin.isatty() and sys.stdout.isatty()):
-        state["note"] = f"non-interactive; run the attachCommand or execute `{state['launcher']}` from a terminal to attach"
-        return state
-    if os.environ.get("TMUX"):
-        return attach_backend_from_tmux_pane(state, pathlib.Path(args.cwd).resolve())
-    os.execvp("tmux", ["tmux", "attach", "-t", state["name"]])
-    raise SystemExit(0)
+    """Default `lfg`/`ulw` behavior: report the Grok-native LFG runtime status."""
+    state = status(args)
+    state["status"] = "ready"
+    state["mode"] = "lfg-runtime"
+    return state
 
 def backend_status(args: argparse.Namespace) -> dict[str, Any]:
     name = backend_name(args)
@@ -1974,7 +2009,7 @@ LFG_AGENTS_DIR = pathlib.Path.home() / ".grok" / "lfg" / "agents"
 
 def load_agent_definition(name: str) -> dict | None:
     """Load a named LFG agent definition (e.g. 'iz', 'lina').
-    Scans both user dir and plugin lfg-agents/ for any *.json whose internal 'name' field matches.
+    Scans the user dir and plugin src/agents/legacy/ for any *.json whose internal 'name' field matches.
     This supports files named iz-architect.json etc.
     """
     candidates = []
@@ -1982,10 +2017,15 @@ def load_agent_definition(name: str) -> dict | None:
     user_dir = LFG_AGENTS_DIR
     if user_dir.exists():
         candidates.extend(sorted(user_dir.glob("*.json")))
-    # plugin examples
-    plugin_dir = ROOT / "lfg-agents"
+    # plugin examples (new canonical location)
+    plugin_dir = ROOT / "src" / "agents"
     if plugin_dir.exists():
         candidates.extend(sorted(plugin_dir.glob("*.json")))
+
+    # legacy named agents (compatibility layer)
+    legacy_dir = ROOT / "src" / "agents" / "legacy"
+    if legacy_dir.exists():
+        candidates.extend(sorted(legacy_dir.glob("*.json")))
 
     for p in candidates:
         try:
@@ -2571,6 +2611,153 @@ def provider_command(provider: str, prompt: str) -> str:
     raise SystemExit(f"unknown provider: {provider}")
 
 
+def spawn_agent(
+    agent_id: str,
+    category: str | None = None,
+    task: str | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Grok-native spawn adapter (lfg-native implementation)."""
+    agent = _OMO_REGISTRY_INDEX.get(agent_id)
+    if agent is None:
+        return {
+            "ok": False,
+            "error": f"unknown agent: {agent_id!r}",
+            "known": sorted(_OMO_REGISTRY_INDEX.keys()),
+        }
+
+    if category and category not in agent.get("categories", []):
+        return {
+            "ok": False,
+            "error": "category not supported for agent",
+            "agent": agent_id,
+            "category": category,
+            "supported": agent.get("categories", []),
+        }
+
+    resolved = resolve_omo_model_profile(
+        agent,
+        category=category,
+        provider="xai",
+        model="xai/grok-4.3",
+    )
+    if not resolved.get("ok"):
+        return resolved
+
+    model_profile = resolved["modelProfile"]
+    model_profile["provider"] = "xai"
+    model_profile["model"] = "xai/grok-4.3"
+
+    result = {
+        "ok": True,
+        "status": "fallback_manual_gate",
+        "agent_id": agent_id,
+        "category": category,
+        "task": task,
+        "model_profile": model_profile,
+        "evidence": f"manual-gated fallback spawn for {agent_id} (category={category})",
+        "task_id": str(uuid.uuid4()),
+        "session_id": str(uuid.uuid4()),
+        "touched_files": [],
+        "blockers": [],
+        "children": [],
+        "manual_gate_required": True,
+    }
+
+    # Robust persist for full coverage (lfg-native)
+    try:
+        runs_dir = RUNS_DIR / "spawns"
+        runs_dir.mkdir(parents=True, exist_ok=True)
+        record_path = runs_dir / f"{uuid.uuid4()}.json"
+        result["record_path"] = str(record_path)
+        record_path.write_text(jdump(result), encoding="utf-8")
+    except Exception as e:
+        result["persist_error"] = str(e)
+
+    return result
+
+
+def spawn_wave(agents: list[dict], **kwargs: Any) -> dict[str, Any]:
+    """spawn_wave with actual per-agent spawn_agent calls (full coverage direction)."""
+    wave_id = str(uuid.uuid4())
+    results = []
+    mode = kwargs.get("mode", "parallel")
+
+    for a in agents:
+        agent_id = a.get("agent_id", a) if isinstance(a, dict) else a
+        category = a.get("category") if isinstance(a, dict) else None
+        task = a.get("task") if isinstance(a, dict) else None
+        r = spawn_agent(agent_id, category=category, task=task)
+        results.append(r)
+
+    return {
+        "ok": True,
+        "status": "wave_executed",
+        "wave_id": wave_id,
+        "mode": mode,
+        "results": results,
+        "manual_gate_required": True,
+    }
+
+
+def run_dependency_graph(plan: list[dict], **kwargs: Any) -> dict[str, Any]:
+    """run_dependency_graph with basic depends_on evaluation (full coverage direction)."""
+    graph_id = str(uuid.uuid4())
+    id_to_task = {t.get("id"): t for t in plan if isinstance(t, dict) and t.get("id")}
+    blocked = []
+    ready = []
+
+    for t in plan:
+        if not isinstance(t, dict):
+            continue
+        tid = t.get("id")
+        deps = t.get("depends_on", []) or []
+        if any(d not in id_to_task or id_to_task[d].get("status") != "done" for d in deps):
+            blocked.append(tid)
+        else:
+            ready.append(tid)
+
+    return {
+        "ok": True,
+        "status": "graph_evaluated",
+        "graph_id": graph_id,
+        "tasks": [t.get("id") for t in plan if isinstance(t, dict)],
+        "blocked": blocked,
+        "ready": ready,
+        "manual_gate_required": True,
+    }
+
+
+def synthesize(results: list[dict], **kwargs: Any) -> dict[str, Any]:
+    """synthesize with basic evidence/blocker aggregation (full coverage direction)."""
+    all_evidence = []
+    all_blockers = []
+    all_touched = []
+    success_count = 0
+    fail_count = 0
+
+    for r in results:
+        if r.get("ok"):
+            success_count += 1
+        else:
+            fail_count += 1
+        all_evidence.append(r.get("evidence", ""))
+        all_blockers.extend(r.get("blockers", []))
+        all_touched.extend(r.get("touched_files", []))
+
+    return {
+        "ok": fail_count == 0,
+        "status": "synthesized",
+        "synthesis_id": str(uuid.uuid4()),
+        "success_count": success_count,
+        "fail_count": fail_count,
+        "evidence": all_evidence,
+        "blockers": list(set(all_blockers)),
+        "touched_files": list(set(all_touched)),
+        "manual_gate_required": True,
+    }
+
+
 def team_provider_matrix() -> list[dict[str, Any]]:
     """Returns all possible team providers, highlighting which coding CLIs
     installed on *this machine* can actually be used right now.
@@ -2614,13 +2801,13 @@ def resolve_providers_for_agent(agent_name: str, installed: list[str]) -> list[s
         return ["grok"] if "grok" in TEAM_PROVIDER_EXECUTABLES else ["noop"]
 
     if cat == "deep":
-        order = ["opencode", "codex", "claude", "grok"]
+        order = ["grok", "subagent"]
     elif cat == "artistry":
-        order = ["gemini", "grok", "claude"]
+        order = ["grok", "subagent"]
     elif cat == "ultrabrain":
-        order = ["grok", "codex", "opencode"]
+        order = ["grok", "subagent"]
     else:
-        order = ["grok", "claude", "codex", "opencode", "gemini"]
+        order = ["grok", "subagent"]
 
     preferred = [p for p in order if p in usable]
     for p in usable:
@@ -2949,8 +3136,8 @@ def team_agents_list(args: argparse.Namespace) -> dict[str, Any]:
     """lfg team agents — list all available named LFG agents (with ULW identity)."""
     agents = []
 
-    # Load from plugin examples
-    plugin_agents_dir = ROOT / "lfg-agents"
+    # Load from plugin examples (new canonical location)
+    plugin_agents_dir = ROOT / "src" / "agents"
     if plugin_agents_dir.exists():
         for f in sorted(plugin_agents_dir.glob("*.json")):
             data = read_json(f, {})
@@ -2974,46 +3161,151 @@ def team_agents_list(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+CANONICAL_OMO_AGENT_IDS = (
+    "sisyphus",
+    "sisyphus-junior",
+    "prometheus",
+    "hephaestus",
+    "atlas",
+    "builtin-agents",
+)
+
+
+def load_omo_agent_registry() -> list[dict[str, Any]]:
+    """Load first-class OMO agents from the canonical plugin agent directory."""
+    agents_dir = ROOT / "src" / "agents"
+    agents: list[dict[str, Any]] = []
+    for agent_id in CANONICAL_OMO_AGENT_IDS:
+        path = agents_dir / f"{agent_id}.json"
+        data = read_json(path, {})
+        if not isinstance(data, dict) or data.get("id") != agent_id:
+            raise SystemExit(f"invalid OMO agent definition: {path}")
+        agents.append(data)
+    return agents
+
+
+OMO_AGENT_REGISTRY: list[dict[str, Any]] = load_omo_agent_registry()
+_OMO_REGISTRY_INDEX: dict[str, dict[str, Any]] = {a["id"]: a for a in OMO_AGENT_REGISTRY}
+
+OMO_CATEGORY_MODEL_PROFILES: dict[str, dict[str, str]] = {
+    "quick": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
+    "unspecified-low": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "medium"},
+    "unspecified-high": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
+    "ultrabrain": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
+    "artistry": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
+    "deep": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "xhigh"},
+    "writing": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "medium"},
+    "visual-engineering": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
+    "planning": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
+    "policy": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
+    "configuration": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
+}
+
+OMO_REASONING_LEVELS = {"low", "medium", "high", "xhigh"}
+
+
+def resolve_omo_model_profile(
+    agent: dict[str, Any],
+    *,
+    category: str | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    reasoning: str | None = None,
+) -> dict[str, Any]:
+    if provider and provider not in ("grok", "xai"):
+        return {"ok": False, "error": "non-grok primary model provider is not allowed for OMO agents", "provider": provider}
+
+    if category:
+        if category not in OMO_CATEGORY_MODEL_PROFILES:
+            return {"ok": False, "error": "unknown OMO category", "category": category, "known": sorted(OMO_CATEGORY_MODEL_PROFILES)}
+        if category not in agent.get("categories", []):
+            return {"ok": False, "error": "category not supported for agent", "agent": agent["id"], "category": category, "supported": agent.get("categories", [])}
+        profile = dict(OMO_CATEGORY_MODEL_PROFILES[category])
+    else:
+        profile = dict(agent["modelProfile"])
+
+    profile["provider"] = "xai"
+    if model:
+        profile["model"] = model
+    if reasoning:
+        if reasoning not in OMO_REASONING_LEVELS:
+            return {"ok": False, "error": "unknown Grok reasoning level", "reasoning": reasoning, "known": sorted(OMO_REASONING_LEVELS)}
+        profile["reasoning"] = reasoning
+    return {"ok": True, "modelProfile": profile}
+
+
+def agents_list(args: argparse.Namespace) -> dict[str, Any]:
+    """lfg agents list — list all OMO first-class agents."""
+    return {
+        "ok": True,
+        "agents": OMO_AGENT_REGISTRY,
+        "count": len(OMO_AGENT_REGISTRY),
+        "categoryModelProfiles": OMO_CATEGORY_MODEL_PROFILES,
+    }
+
+
+def agents_inspect(args: argparse.Namespace) -> dict[str, Any]:
+    """lfg agents inspect <id> — show full registry entry for one agent."""
+    agent_id = args.agent_id
+    agent = _OMO_REGISTRY_INDEX.get(agent_id)
+    if agent is None:
+        known = sorted(_OMO_REGISTRY_INDEX.keys())
+        return {"ok": False, "error": f"unknown agent: {agent_id!r}", "known": known}
+
+    resolved = resolve_omo_model_profile(
+        agent,
+        category=getattr(args, "category", None),
+        provider=getattr(args, "provider", None),
+        model=getattr(args, "model", None),
+        reasoning=getattr(args, "reasoning", None),
+    )
+    if not resolved.get("ok"):
+        return resolved
+
+    return {
+        "ok": True,
+        "agent": {**agent, "modelProfile": resolved["modelProfile"]},
+        "resolvedModelProfile": resolved["modelProfile"],
+    }
+
+
+def spawn_cmd(args: argparse.Namespace) -> dict[str, Any]:
+    """lfg spawn <agent_id> — spawn an OMO agent via Grok Spawn Adapter."""
+    return spawn_agent(
+        args.agent_id,
+        category=getattr(args, "category", None),
+        task=getattr(args, "task", None),
+    )
+
+
 def team_state_show(args: argparse.Namespace) -> dict[str, Any]:
-    """lfg team state <name>  or  lfg team run <name>"""
+    """lfg team state <name> or lfg team run <name>."""
     name = validate_safe_id(args.name, "team name")
     legacy_path = team_json_path(name)
-
-    runs_dir = STATE_DIR / "runs"
-    state_data = None
-    mode = "legacy"
     state_path = str(legacy_path)
+    mode = "legacy"
     rich_run = None
 
-    # Improved detection for separated OmO-style runs (D + C): look for teams/<name>/run.json
+    runs_dir = STATE_DIR / "runs"
     if runs_dir.exists():
-        for mode_dir in runs_dir.glob("*"):
+        for mode_dir in sorted(runs_dir.glob("*")):
             if not mode_dir.is_dir():
                 continue
-            teams_dir = mode_dir / "teams"
-            if not teams_dir.exists():
-                continue
-            candidate_dir = safe_child_path(teams_dir, name)
+            candidate_dir = mode_dir / "teams" / name
             run_json = candidate_dir / "run.json"
-            if run_json.exists():
-                try:
-                    store = TeamStateStore(base_dir=mode_dir)
-                    # Force the /teams/<id> layout that was used at save time for mode-aware stores (mode + mode_id truthy)
-                    store.mode = mode_dir.name.split("-")[0] if "-" in mode_dir.name else "run"
-                    store.mode_id = name  # truthy; _run_dir will then do base/teams/name
-                    rich_run = store.load_run(name)
-                    if rich_run:
-                        mode = store.mode
-                        state_path = str(candidate_dir)
-                        break
-                except Exception:
-                    pass
-
-    if not rich_run and legacy_path.exists():
-        state_data = read_json(legacy_path, None)
-
-    if not rich_run and not state_data:
-        return {"error": f"Team '{name}' not found"}
+            if not run_json.exists():
+                continue
+            try:
+                store = TeamStateStore(base_dir=mode_dir)
+                store.mode = mode_dir.name.split("-")[0] if "-" in mode_dir.name else "run"
+                store.mode_id = name
+                rich_run = store.load_run(name)
+                if rich_run:
+                    mode = store.mode or "run"
+                    state_path = str(candidate_dir)
+                    break
+            except Exception:
+                continue
 
     if rich_run:
         return {
@@ -3026,16 +3318,20 @@ def team_state_show(args: argparse.Namespace) -> dict[str, Any]:
             "tasks": [t.__dict__ for t in rich_run.tasks],
             "recent_mailbox": [m.__dict__ for m in (rich_run.mailbox or [])[-10:]],
             "state_path": state_path,
-            "note": "Rich TeamRun with mailbox + tasks + evidence verification (hyperplan/ultrawork ready)"
+            "note": "Rich TeamRun with mailbox + tasks + evidence verification",
         }
-    legacy_state = state_data or {}
+
+    if not legacy_path.exists():
+        return {"error": f"Team {name!r} not found"}
+
+    legacy_state = read_json(legacy_path, {}) or {}
     return {
         "name": name,
         "mode": mode,
         "status": legacy_state.get("status"),
         "members": legacy_state.get("members", []),
         "state_path": state_path,
-        "note": "Legacy flat state (no rich TeamRun yet)"
+        "note": "Legacy flat team state",
     }
 
 
@@ -3381,7 +3677,7 @@ def main(argv: list[str] | None = None) -> int:
     launcher = effective_launcher()
     p = argparse.ArgumentParser(
         prog=launcher,
-        description="LFG — LFG runtime (tmux backend, workflows, durable goals, team swarms)",
+        description="LFG — Grok-native runtime helper (workflows, durable goals, team swarms)",
     )
     if launcher not in ("lfg", "ulw"):
         # Direct python lfg.py invocation — be friendly
@@ -3393,12 +3689,32 @@ def main(argv: list[str] | None = None) -> int:
         )
     p.add_argument("--json", action="store_true")
     p.add_argument("--cwd", default=os.getcwd())
-    p.add_argument("--name", help="backend session name for default lfg attach/start")
+    p.add_argument("--name", help="backend session name for explicit backend/team commands")
     sub = p.add_subparsers(dest="cmd")
 
     sub.add_parser("catalog").set_defaults(fn=catalog)
     sub.add_parser("status").set_defaults(fn=status)
     sub.add_parser("doctor").set_defaults(fn=doctor)
+
+    # Grok Spawn Adapter (lfg-native OMO parity)
+    sp = sub.add_parser("spawn")
+    sp.add_argument("agent_id")
+    sp.add_argument("--category")
+    sp.add_argument("--task")
+    sp.set_defaults(fn=spawn_cmd)
+
+    agp = sub.add_parser("agents")
+    agsub = agp.add_subparsers(dest="agents_cmd", required=True)
+    agl = agsub.add_parser("list")
+    agl.set_defaults(fn=agents_list)
+    agi = agsub.add_parser("inspect")
+    agi.add_argument("agent_id")
+    agi.add_argument("--category")
+    agi.add_argument("--provider")
+    agi.add_argument("--model")
+    agi.add_argument("--reasoning")
+    agi.set_defaults(fn=agents_inspect)
+
     hp = sub.add_parser("hud")
     hp.add_argument("--text", action="store_true")
     hp.set_defaults(fn=hud)
@@ -3760,7 +4076,7 @@ def main(argv: list[str] | None = None) -> int:
     sp = sub.add_parser("slash")
     sp.add_argument("command", help='slash command, e.g. /team 3:executor "fix tests"')
     sp.add_argument("--name")
-    sp.add_argument("--providers", default="hermes,claude,codex")
+    sp.add_argument("--providers", default="grok,subagent")
     sp.add_argument("--dry-run", action="store_true")
     sp.set_defaults(fn=slash)
 
@@ -3794,7 +4110,7 @@ def main(argv: list[str] | None = None) -> int:
     tc.add_argument("spec", help="team spec like 3:executor")
     tc.add_argument("objective")
     tc.add_argument("--name")
-    tc.add_argument("--providers", default="hermes,claude,codex", help="comma list, default hermes,claude,codex")
+    tc.add_argument("--providers", default="grok,subagent", help="comma list, default grok,subagent (Grok-first)")
     tc.add_argument("--dry-run", action="store_true")
     tc.set_defaults(fn=team_create)
     ts = tsub.add_parser("status")
@@ -3811,7 +4127,8 @@ def main(argv: list[str] | None = None) -> int:
 
     trun = tsub.add_parser("run")
     trun.add_argument("name")
-    trun.set_defaults(fn=team_state_show)   # alias for `lfg team state`
+    trun.set_defaults(fn=team_state_show)
+
     tr = tsub.add_parser("resume")
     tr.add_argument("name", nargs="?")
     tr.set_defaults(fn=team_resume)

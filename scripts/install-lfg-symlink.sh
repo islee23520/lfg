@@ -23,10 +23,11 @@ lfg --json >/tmp/lfg-launch.json
 python3 - <<'PY'
 import json
 obj=json.load(open('/tmp/lfg-launch.json'))
-assert obj['status'] == 'running', obj
+assert obj['status'] == 'ready', obj
 assert obj['launcher'] == 'lfg', obj
-assert obj['mode'] == 'tmux-backend', obj
-print('lfg-launch=ok attachCommand=%s' % obj['attachCommand'])
+assert obj['mode'] == 'lfg-runtime', obj
+assert 'attachCommand' not in obj, obj
+print('lfg-launch=ok mode=%s launcher=%s' % (obj['mode'], obj['launcher']))
 PY
 lfg --json status >/tmp/lfg-status.json
 python3 - <<'PY'

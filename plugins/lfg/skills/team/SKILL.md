@@ -1,15 +1,15 @@
 ---
 name: team
-description: "Create and manage an LFG tmux backend team for LFG, using hermes -z, Claude Code, and Codex workers."
+description: "Create and manage an explicit LFG team lifecycle, using hermes -z, Claude Code, and Codex workers."
 user_invocable: true
 metadata:
   package: "linalab-io/lfg"
   source: "oh-my-codex/plugins/oh-my-codex/skills/team/SKILL.md"
   source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
-  port_kind: "grok-tmux-backend"
+  port_kind: "grok-team-lifecycle"
 ---
 
-# Team — LFG tmux backend
+# Team — LFG team lifecycle
 
 Use this skill when the user wants durable team execution, especially commands like:
 
@@ -25,9 +25,9 @@ Use this skill when the user wants durable team execution, especially commands l
 
 ## Behavior
 
-- Treat `/team` as a Grok slash-command frontdoor into the LFG tmux backend.
-- The backend creates durable tmux sessions/windows.
-- Supported providers: `hermes`, `claude`, `codex`, `grok` (and alias `subagent`), `noop`.
+- Treat `/team` as a Grok slash-command frontdoor into explicit LFG team lifecycle commands.
+- The team lifecycle can create durable tmux sessions/windows when a real team is launched.
+- Supported providers: `hermes`, `claude`, `codex`, `gemini`, `copilot`, `opencode`, `grok` (and alias `subagent`), `noop`.
   - The entire design goal of LFG team mode is to **maximise usage of every coding CLI the user has installed on this machine** (claude, codex, gemini, copilot, opencode, hermes, etc.) while still giving you the option of native Grok sub-agents (`grok` / `subagent` provider).
   - `opencode -p` is especially recommended for `architect` / `consultant` / deep reasoning lanes (gives Codex -p style planning depth).
 - When you run `lfg team create` or `lfg ultragoal spawn`, it automatically detects installed tools via `which` and builds the best possible team from what is actually available.
@@ -38,7 +38,7 @@ Use this skill when the user wants durable team execution, especially commands l
 
 ## Grok slash-command handling
 
-When the user invokes `/team`, map the slash string to the LFG backend. Prefer the MCP tool `grok_build_slash` when available; otherwise run `bin/lfg slash` from the plugin root.
+When the user invokes `/team`, map the slash string to the LFG runtime. Prefer the MCP tool `grok_build_slash` when available; otherwise run `bin/lfg slash` from the plugin root.
 
 Examples:
 

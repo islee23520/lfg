@@ -14,7 +14,7 @@ Reference model: [Yeachan-Heo/oh-my-codex](https://github.com/Yeachan-Heo/oh-my-
 ### What ships
 
 - OMX-like LFG workflow skills: `team`, `worker`, `ultrawork`, `ultragoal`, `ultraqa`, `ralph`, `ralplan`, `autopilot`, `pipeline`, `wiki`, `doctor`, and companion workflow surfaces.
-- `/team` slash flow backed by the `lfg` tmux backend.
+- `/team` slash flow backed by explicit `lfg` team lifecycle commands.
 - Mixed provider planning for Hermes, Claude Code, and Codex worker teams.
 - Real Grok install/discovery smoke against `~/.grok/bin/grok inspect --json`.
 - MCP tools for runtime, team, slash, and workflow state surfaces.

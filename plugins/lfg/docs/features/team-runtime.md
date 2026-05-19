@@ -1,8 +1,8 @@
-# Feature: `/team` tmux backend runtime
+# Feature: `/team` team lifecycle runtime
 
 ## Goal
 
-Make `/team` the Grok-facing entrypoint for durable tmux-backed worker teams.
+Make `/team` the Grok-facing entrypoint for explicit durable worker team lifecycle commands.
 
 ## Reference
 

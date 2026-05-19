@@ -8,7 +8,7 @@
   "homepage": "https://github.com/islee23520/lfg",
   "repository": "https://github.com/islee23520/lfg",
   "skills": "./skills",
-  "agents": "./agents",
+  "agents": "./src/agents",
   "mcpServers": "./.mcp.json",
   "lspServers": "./.lsp.json",
   "metadata": {

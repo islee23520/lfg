@@ -1,0 +1,14 @@
+{
+  "id": "builtin-agents",
+  "name": "builtin-agents",
+  "family": "policy",
+  "role": "Factory and policy layer. Resolves model profile, category, skill availability, overrides, blocked tools, and registration conditions.",
+  "mode": "policy",
+  "modelProfile": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
+  "reasoningLevel": "low",
+  "promptSource": "plugins/lfg/src/agents/builtin-agents.json",
+  "tools": [],
+  "blockedTools": [],
+  "enabled": true,
+  "categories": ["policy", "configuration"]
+}

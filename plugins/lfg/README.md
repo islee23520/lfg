@@ -1,19 +1,20 @@
 # lfg plugin
 
-Grok plugin package for **OMX-like workflow/plugins for LFG**.
+Grok plugin package for **OMO agent hierarchy parity for Grok Build**.
 
-Inspired by [Yeachan-Heo/oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex), this package adapts the workflow/plugin idea to LFG skills, hooks, MCP servers, and plugin data.
+This package is the marketplace plugin surface for porting oh-my-openagent-style agent orchestration into LFG/Grok: Grok-model agents, Grok-native sub-agent spawning, durable `.lfg/` state, skills, hooks, MCP servers, and plugin data.
 
 ## Contents
 
 - `.grok-plugin/plugin.json` — Grok manifest
 - `.claude-plugin/plugin.json` — Claude Code compatibility manifest
-- `skills/*/SKILL.md` — slash-invocable workflow skills
+- `skills/*/SKILL.md` — slash-invocable surfaces migrating to OMO semantics
 - `hooks/hooks.json` — hook registration
 - `hooks/scripts/lfg-audit-hook.sh` — fail-open audit hook
 - `.mcp.json` + `bin/lfg-mcp.py` — MCP server
-- `bin/lfg.py` — dependency-free MVP runtime
-- `catalog/omx-skill-map.json` — oh-my-codex to Grok skill map
+- `bin/lfg.py` — dependency-free runtime and future Grok spawn adapter
+- `src/agents/harness.toml` — agent harness metadata (canonical)
+- `src/agents/*.json` — named team agent definitions (canonical)
 
 ## Smoke test
 
@@ -26,8 +27,8 @@ bin/self-test.sh
 ```sh
 bin/lfg.py status
 bin/lfg.py catalog
-bin/lfg.py plan "ship lfg MVP"
-bin/lfg.py ultraqa "verify plugin install"
+bin/lfg.py doctor
+bin/lfg.py team preflight
 ```
 
 Runtime state is stored under `.lfg/`.

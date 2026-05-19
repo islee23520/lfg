@@ -38,6 +38,7 @@ TOOLS = [
             "additionalProperties": False
         },
     },
+
     {
         "name": "grok_build_doctor",
         "description": "Run LFG doctor diagnostics.",
@@ -55,7 +56,7 @@ TOOLS = [
     },
     {
         "name": "grok_build_backend_start",
-        "description": "Start the LFG tmux backend session used by /team.",
+        "description": "Start the explicit LFG team tmux session used by /team.",
         "inputSchema": {
             "type": "object",
             "properties": {"name": {"type": "string"}},
@@ -73,7 +74,7 @@ TOOLS = [
                 "objective": {"type": "string"},
                 "team": {"type": "string"},
                 "query": {"type": "string"},
-                "providers": {"type": "string", "description": "comma list, default hermes,claude,codex"},
+                "providers": {"type": "string", "description": "comma list, default grok,subagent"},
                 "dryRun": {"type": "boolean", "default": True}
             },
             "required": ["action"],
@@ -93,6 +94,23 @@ TOOLS = [
                 "task": {"type": "integer"},
                 "status": {"type": "string", "enum": ["pending", "active", "complete", "blocked"]},
                 "evidence": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_agents",
+        "description": "List or inspect OMO first-class agents in the LFG registry.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["list", "inspect"]},
+                "agent": {"type": "string", "description": "agent id for inspect, e.g. sisyphus"},
+                "category": {"type": "string"},
+                "provider": {"type": "string"},
+                "model": {"type": "string"},
+                "reasoning": {"type": "string"}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -490,6 +508,20 @@ TOOLS = [
     },
     {
         "name": "grok_build_plan",
+        "description": "Create or list plans using the LFG runtime. Plans are written into the project's .lfg/plans/ (both structured JSON and human-readable Markdown) so they are durable and visible inside the project.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "list"]},
+                "title": {"type": "string"},
+                "steps": {"type": "string"}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_plan",
         "description": "Create or list durable LFG plan state under plugin data.",
         "inputSchema": {
             "type": "object",
@@ -529,6 +561,72 @@ TOOLS = [
                 "dryRun": {"type": "boolean", "default": True}
             },
             "required": ["command"],
+            "additionalProperties": False
+        },
+    },
+
+    {
+        "name": "grok_build_omo_agent_catalog",
+        "description": "Return the lfg-native canonical first-class agent catalog from plugins/lfg/src/agents.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "include_prompt_hints": {"type": "boolean", "default": True},
+                "filter": {"type": "string", "enum": ["all", "eligible_team_members", "lead_agents", "hyperplan"], "default": "all"},
+                "with_eligibility": {"type": "boolean", "default": True}
+            },
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_omo_team_create",
+        "description": "Create (or dry-run) an OMO-powered team using the full agent hierarchy or hyperplan adversarial roster. Supports named agents (sisyphus, hephaestus, ...) and first-class hyperplan template.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "objective": {"type": "string"},
+                "spec": {"type": "string", "default": "hyperplan"},
+                "name": {"type": "string"},
+                "providers": {"type": "string", "default": "grok,subagent"},
+                "hyperplan": {"type": "boolean", "default": False},
+                "template": {"type": "string"},
+                "dryRun": {"type": "boolean", "default": True},
+                "ultragoal_id": {"type": "string"}
+            },
+            "required": ["objective"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_omo_ulw",
+        "description": "OMO Ultrawork / ULW entrypoint. Create durable ultrawork, apply OMO IntentGate preambles (Sisyphus lead + parallel delegation), or run hyperplan simulation using the full agent catalog.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create", "run", "intent", "hyperplan-sim", "show"], "default": "create"},
+                "objective": {"type": "string"},
+                "id": {"type": "string"},
+                "tasks": {"type": "string"},
+                "message": {"type": "string"},
+                "model": {"type": "string", "default": "grok"},
+                "hyperplan": {"type": "boolean", "default": False},
+                "deep": {"type": "boolean", "default": False},
+                "dryRun": {"type": "boolean", "default": True}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_omo_doctor",
+        "description": "Run the lfg-native doctor for plugin, state, MCP, and team readiness.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "json": {"type": "boolean", "default": True},
+                "project_root": {"type": "string"},
+                "include_hyperplan_roster": {"type": "boolean", "default": True}
+            },
             "additionalProperties": False
         },
     },
@@ -597,6 +695,21 @@ def handle_tool(name, arguments=None):
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+
+    if name == "grok_build_agents":
+        action = arguments.get("action")
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "agents"]
+        if action == "list":
+            cmd += ["list"]
+        elif action == "inspect":
+            cmd += ["inspect", arguments.get("agent") or "sisyphus"]
+            for key, flag in (("category", "--category"), ("provider", "--provider"), ("model", "--model"), ("reasoning", "--reasoning")):
+                if arguments.get(key):
+                    cmd += [flag, arguments[key]]
+        else:
+            raise KeyError(action)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_doctor":
         cmd = [str(ROOT / "bin" / "lfg"), "--json", "doctor"]
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
@@ -635,7 +748,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--providers", arguments["providers"]]
             else:
                 # Maximise installed coding CLIs on the machine + native grok sub-agents
-                cmd += ["--providers", "hermes,claude,codex,grok"]
+                cmd += ["--providers", "grok,subagent"]
             if arguments.get("dryRun", True):
                 cmd += ["--dry-run"]
         elif action in {"status", "resume", "shutdown"}:
@@ -1128,14 +1241,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--reviewer", arguments["reviewer"]]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
-        elif action == "show":
-            cmd += ["show"]
-            if arguments.get("id"):
-                cmd += ["--id", arguments["id"]]
-        else:
-            raise KeyError(action)
-        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
-        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+
     if name == "grok_build_plan":
         action = arguments.get("action")
         cmd = [str(ROOT / "bin" / "lfg"), "--json", "plan"]
@@ -1148,7 +1254,13 @@ def handle_tool(name, arguments=None):
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
-        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+        return text_result({
+            "cmd": cmd,
+            "note": "Plan written to .lfg/plans/ (both .json and .md). Open the .md file to work on the plan.",
+            "returncode": proc.returncode,
+            "stdout": proc.stdout,
+            "stderr": proc.stderr
+        })
     if name == "grok_build_wiki":
         action = arguments.get("action")
         cmd = [str(ROOT / "bin" / "lfg"), "--json", "wiki"]
@@ -1172,6 +1284,54 @@ def handle_tool(name, arguments=None):
             cmd += ["--dry-run"]
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+
+    if name == "grok_build_omo_agent_catalog":
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "agents", "list"]
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
+        return text_result({"cmd": cmd, "source": "plugins/lfg/src/agents", "filter": arguments.get("filter", "all"), "stdout": proc.stdout, "stderr": proc.stderr, "returncode": proc.returncode})
+
+    if name == "grok_build_omo_team_create":
+        objective = arguments.get("objective") or "OMO huge orchestration"
+        spec = arguments.get("spec") or ("hyperplan" if arguments.get("hyperplan") else "3:executor")
+        cmd = [str(ROOT / "bin" / "ulw"), "--json", "team", "create", spec, objective]
+        if arguments.get("name"):
+            cmd += ["--name", arguments["name"]]
+        if arguments.get("providers"):
+            cmd += ["--providers", arguments["providers"]]
+        if arguments.get("dryRun", True):
+            cmd += ["--dry-run"]
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=45)
+        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr, "note": "Hyperplan/OMO agent expansion handled by lfg team_create + TeamRuntime when spec contains hyperplan or template"})
+
+    if name == "grok_build_omo_ulw":
+        act = arguments.get("action", "create")
+        if act in ("create", "show"):
+            cmd = [str(ROOT / "bin" / "ulw"), "--json", "ultrawork"]
+            if act == "create":
+                cmd += ["create", arguments.get("objective") or "lfg ultrawork via MCP"]
+                if arguments.get("id"):
+                    cmd += ["--id", arguments["id"]]
+                if arguments.get("tasks"):
+                    cmd += ["--tasks", arguments["tasks"]]
+            else:
+                cmd += ["show"]
+                if arguments.get("id"):
+                    cmd += ["--id", arguments["id"]]
+            proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+            return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+        if act == "hyperplan-sim":
+            cmd = [str(ROOT / "bin" / "ulw"), "--json", "team", "create", "3:executor", arguments.get("objective") or "hyperplan simulation via lfg MCP", "--providers", "grok,subagent", "--dry-run"]
+            proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
+            return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+        if act == "intent":
+            return text_result({"ok": True, "source": "lfg-native", "message": arguments.get("message") or "", "model": arguments.get("model", "grok"), "note": "Intent preamble handling is provided by the lfg/ulw runtime, not an archived reference tree."})
+        return text_result({"error": "unsupported omo_ulw action", "action": act})
+
+    if name == "grok_build_omo_doctor":
+        cmd = [str(ROOT / "bin" / "lfg"), "--json", "doctor"]
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=25)
+        return text_result({"cmd": cmd, "source": "lfg doctor", "stdout": proc.stdout, "stderr": proc.stderr, "returncode": proc.returncode})
+
     raise KeyError(name)
 
 
