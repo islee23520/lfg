@@ -1,0 +1,14 @@
+{
+  "id": "prometheus",
+  "name": "prometheus",
+  "family": "planner",
+  "role": "Strategic planner. Interviews, clarifies scope, reads context, and produces a verifiable plan before implementation starts.",
+  "mode": "plan-only",
+  "modelProfile": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
+  "reasoningLevel": "high",
+  "promptSource": "plugins/lfg/src/agents/prometheus.json",
+  "tools": ["read", "glob", "grep", "bash", "todowrite"],
+  "blockedTools": ["edit", "write"],
+  "enabled": true,
+  "categories": ["planning", "deep", "ultrabrain"]
+}

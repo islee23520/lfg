@@ -1,4 +1,4 @@
-name: grok-build smoke
+name: lfg smoke
 
 on:
   push:
@@ -22,11 +22,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y tmux
 
+      - name: Install Python dev tools
+        run: python3 -m pip install ruff
+
       - name: Verify Python syntax
         run: |
           python3 -m py_compile \
-            plugins/grok-harnessing/bin/grok-build.py \
-            plugins/grok-harnessing/bin/grok-build-mcp.py
+            plugins/lfg/bin/lfg.py \
+            plugins/lfg/bin/lfg-mcp.py \
+            tests/smoke/test_grok_build_runtime.py
 
       - name: Run plugin self-test
-        run: plugins/grok-harnessing/bin/self-test.sh
+        run: plugins/lfg/bin/self-test.sh

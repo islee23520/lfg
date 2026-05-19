@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "grok-build-harness": {
-      "command": "python3",
-      "args": ["${GROK_PLUGIN_ROOT}/bin/grok-build-mcp.py"],
-      "env": {}
-    }
-  }
-}

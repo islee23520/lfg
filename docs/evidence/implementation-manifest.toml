@@ -1,0 +1,48 @@
+# Implementation Manifest
+# Provenance: binary=/Users/ilseoblee/.grok/bin/grok sha256=677fe9b629674bdc8e47f7ed01a640158cfbcf93bf735f07b02fd0308cf19bac captured=2026-05-18T07:04:12Z
+
+[binary]
+path = "/Users/ilseoblee/.grok/bin/grok"
+sha256 = "677fe9b629674bdc8e47f7ed01a640158cfbcf93bf735f07b02fd0308cf19bac"
+version = "grok 0.1.211 (2f2cd6d5c2)"
+captured = "2026-05-18T07:04:12Z"
+
+[cli.commands]
+root = "grok"
+subcommands = ["agent", "help", "import", "inspect", "leader", "login", "mcp", "memory", "models", "sessions", "setup", "share", "ssh", "trace", "update", "version", "worktree"]
+
+[cli.agent_subcommands]
+subcommands = ["stdio", "headless", "serve", "leader"]
+
+[cli.mcp_subcommands]
+subcommands = ["list", "add", "remove", "doctor"]
+
+[cli.sessions_subcommands]
+subcommands = ["list", "search"]
+
+[cli.flags]
+single_prompt = "-p / --single"
+model = "-m / --model"
+continue_session = "-c / --continue"
+resume = "-r / --resume"
+output_format = "--output-format"
+output_format_values = ["plain", "json", "streaming-json"]
+effort = "--effort"
+effort_values = ["low", "medium", "high", "xhigh", "max"]
+permission_mode = "--permission-mode"
+permission_mode_values = ["default", "acceptEdits", "auto", "dontAsk", "bypassPermissions", "plan"]
+
+[api.ws_relay]
+flag = "--grok-ws-url"
+origin_flag = "--grok-ws-origin"
+
+[api.model_base_url]
+flag = "--xai-api-base-url"
+
+[api.cli_chat_proxy]
+flag = "--cli-chat-proxy-base-url"
+
+[security]
+no_secrets_in_tests = true
+auth_dir_mode = "0o700"
+auth_file_mode = "0o600"

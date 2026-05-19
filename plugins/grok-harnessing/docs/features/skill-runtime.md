@@ -16,7 +16,7 @@ Provide an OMX-like skill management entrypoint for Grok Build that can list and
 - Runtime command: `bin/lfg skill list/search`
 - MCP tool: `grok_build_skill`
 - MCP runtime query: `grok_build_runtime` with `skill_list` or `skill_search`
-- Source data: `catalog/omx-skill-map.json`
+- Source data: `catalog/omo-skill-map.json`
 
 ## Smoke coverage matrix
 

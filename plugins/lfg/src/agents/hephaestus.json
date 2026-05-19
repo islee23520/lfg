@@ -1,0 +1,14 @@
+{
+  "id": "hephaestus",
+  "name": "hephaestus",
+  "family": "deep-worker",
+  "role": "Autonomous deep worker. Receives goals, not recipes. Researches, implements, and verifies difficult work with strong evidence discipline.",
+  "mode": "autonomous",
+  "modelProfile": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
+  "reasoningLevel": "high",
+  "promptSource": "plugins/lfg/src/agents/hephaestus.json",
+  "tools": ["task", "bash", "read", "edit", "write", "glob", "grep", "todowrite"],
+  "blockedTools": [],
+  "enabled": true,
+  "categories": ["deep", "ultrabrain", "artistry"]
+}

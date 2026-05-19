@@ -1,6 +1,10 @@
 .DS_Store
 .omx/
 .omo/
+.grok/
 target/
 /tmp/
 *.log
+__pycache__
+.pytest_cache
+.lfg/

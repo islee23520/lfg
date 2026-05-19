@@ -1,0 +1,286 @@
+{
+  "version": "1.0.0",
+  "generated": "2026-05-19",
+  "root": "docs/",
+  "description": "LFG 프로젝트 공식 문서 JSON 인덱스. @docs/ 또는 AGENTS.md를 통해 문서를 참조하는 모든 에이전트(Sisyphus, Prometheus 등)는 반드시 이 파일을 먼저 읽은 후, 필요한 실제 문서를 Read 해야 한다. 이는 docs/를 서버처럼 동작하게 만드는 인덱스 계층이다.",
+  "lookup_rules": {
+    "when_agent_sees": ["@docs/", "docs/", "AGENTS.md", "documentation", "reference"],
+    "must_first_read": "docs/docs-index.json",
+    "then": "index에서 path를 찾아 Read tool로 실제 파일을 조회",
+    "enforcement": "이 규칙을 따르지 않으면 문서 참조가 무효로 간주된다."
+  },
+  "sections": {
+    "root": "docs/ 최상위 문서 (릴리스, 아키텍처, 규칙)",
+    "agent-system": "에이전트 계층, 카테고리, Hyperplan, OMO parity 관련 설계 문서",
+    "wiki": "운영 가이드, 릴리스 프로세스, 검증 가이드",
+    "evidence": "구현 증거, 감사 로그, manifest 파일"
+  },
+  "files": [
+    {
+      "path": "ARCHITECTURE.md",
+      "title": "Architecture & Goal — linalab-io/lfg",
+      "section": "root",
+      "summary": "OMO agent hierarchy 포팅의 전체 아키텍처. Grok spawn adapter, 현재 런타임 구현(as-built), state layout, Team Mode, Hyperplan을 설명. OMO parity 작업의 핵심 참조 문서.",
+      "keywords": ["architecture", "omo", "spawn", "runtime", "state", "team-mode", "hyperplan"],
+      "priority": "critical",
+      "cross_refs": ["AGENTS.md", "docs/AGENTS.md", "ROADMAP.md"]
+    },
+    {
+      "path": "AGENTS.md",
+      "title": "docs/AGENTS.md — Documentation Evidence Contract",
+      "section": "root",
+      "summary": "docs/ 디렉터리의 증거 계약서. WHERE TO LOOK, CONVENTIONS, ANTI-PATTERNS, COMMANDS를 정의. OMO-to-Grok Build 포팅 시 문서가 따라야 할 규칙.",
+      "keywords": ["agents", "evidence", "contract", "conventions"],
+      "priority": "critical",
+      "cross_refs": ["ARCHITECTURE.md", "TEST_RULES.md", "SMOKE.md"]
+    },
+    {
+      "path": "TEST_RULES.md",
+      "title": "Test Rules",
+      "section": "root",
+      "summary": "Gate 클래스, deterministic test 규칙, 의존성 없는 smoke test vs repo-native integration test 구분. 모든 테스트 변경 시 참조.",
+      "keywords": ["test", "gate", "smoke", "deterministic"],
+      "priority": "high"
+    },
+    {
+      "path": "SMOKE.md",
+      "title": "Smoke Test Procedures",
+      "section": "root",
+      "summary": "Local, focused, real Grok, remote, full release-readiness smoke 절차. *=ok 증거 문자열 규약 포함.",
+      "keywords": ["smoke", "release", "evidence", "grok"],
+      "priority": "high"
+    },
+    {
+      "path": "RELEASE_CHECKLIST.md",
+      "title": "Release Checklist",
+      "section": "root",
+      "summary": "머지/태그 전 중단 조건과 필수 증거 문자열. 릴리스 준비 시 최종 확인 목록.",
+      "keywords": ["release", "checklist", "evidence"],
+      "priority": "high"
+    },
+    {
+      "path": "RELEASE_TAGS.md",
+      "title": "Release Tags Policy",
+      "section": "root",
+      "summary": "태그 정책과 검증 명령어.",
+      "keywords": ["tag", "release", "policy"],
+      "priority": "medium"
+    },
+    {
+      "path": "MARKETPLACE_INSTALL.md",
+      "title": "Marketplace Installation",
+      "section": "root",
+      "summary": "Stable / preview marketplace 소스 URL과 설치 경로.",
+      "keywords": ["marketplace", "install", "grok"],
+      "priority": "medium"
+    },
+    {
+      "path": "MARKETPLACE_RELEASE_NOTES.md",
+      "title": "Marketplace Release Notes",
+      "section": "root",
+      "summary": "사용자向け 릴리스 노트와 설치 경로 증거.",
+      "keywords": ["release-notes", "marketplace"],
+      "priority": "medium"
+    },
+    {
+      "path": "HOOK_EVIDENCE.md",
+      "title": "Hook Evidence",
+      "section": "root",
+      "summary": "Hook discovery와 replay 증거. 5-tier safeCreateHook 관련.",
+      "keywords": ["hook", "evidence", "safeCreateHook"],
+      "priority": "medium"
+    },
+    {
+      "path": "HOW-IT-WORKS.md",
+      "title": "How It Works",
+      "section": "root",
+      "summary": "LFG 동작 원리 설명 (레거시 문서, 현재 ARCHITECTURE.md로 대체 중).",
+      "keywords": ["how-it-works"],
+      "priority": "low"
+    },
+    {
+      "path": "reference.md",
+      "title": "Grok Build / xAI Platform Reference",
+      "section": "root",
+      "summary": "https://docs.x.ai/overview 를 Single Source of Truth로 하는 공식 참조 문서. Grok-native 동작 주장 시 반드시 확인.",
+      "keywords": ["reference", "xai", "grok", "responses-api"],
+      "priority": "critical"
+    },
+    {
+      "path": "GROK-BUILD-PROMPT-STAGES.md",
+      "title": "Grok Build Prompt Stages — How LFG Responds",
+      "section": "root",
+      "summary": "Grok Build에 사용자 프롬프트가 들어온 뒤 xAI Responses API 계층과 LFG/OMO 오케스트레이션 계층이 어떻게 이어지는지 Mermaid 그림과 단계표로 설명.",
+      "keywords": ["prompt-stages", "grok-build", "responses-api", "sisyphus", "spawn-adapter", "team-mode", "verification"],
+      "priority": "high",
+      "cross_refs": ["ARCHITECTURE.md", "HOW-IT-WORKS.md", "reference.md", "evidence/grok-subagent-spawning.md"]
+    },
+    {
+      "path": "agent-system/README.md",
+      "title": "LFG Agent Orchestration System",
+      "section": "agent-system",
+      "summary": "에이전트 계층 구조 설계 문서. OMO parity, 카테고리 매핑, legacy vs first-class 구분 설명.",
+      "keywords": ["agent-system", "omo", "category", "hyperplan"],
+      "priority": "high",
+      "cross_refs": ["ARCHITECTURE.md"]
+    },
+    {
+      "path": "agent-system/agent-definitions.md",
+      "title": "Agent Definitions",
+      "section": "agent-system",
+      "summary": "Named agent 상세 스펙 (Sisyphus, Prometheus 등).",
+      "keywords": ["agent-definitions", "sisyphus", "prometheus"],
+      "priority": "high"
+    },
+    {
+      "path": "agent-system/categories.md",
+      "title": "Category System",
+      "section": "agent-system",
+      "summary": "카테고리 시스템과 Grok model profile 매핑.",
+      "keywords": ["category", "model-profile", "reasoning"],
+      "priority": "high"
+    },
+    {
+      "path": "agent-system/hyperplan-teams.md",
+      "title": "Hyperplan Teams",
+      "section": "agent-system",
+      "summary": "OmO Hyperplan에서 영감을 받은 adversarial team 템플릿.",
+      "keywords": ["hyperplan", "adversarial", "team"],
+      "priority": "medium"
+    },
+    {
+      "path": "agent-system/omo-parity-comparison.md",
+      "title": "OMO Parity Comparison",
+      "section": "agent-system",
+      "summary": "OmO 철학과 LFG 커스텀 시스템의 side-by-side 비교.",
+      "keywords": ["omo-parity", "comparison"],
+      "priority": "medium"
+    },
+    {
+      "path": "agent-system/omo-runtime-implementation-plan.md",
+      "title": "OMO Runtime Implementation Plan",
+      "section": "agent-system",
+      "summary": "ROADMAP M3-M13 OMO runtime 슬라이스 실행 계획 (test-first).",
+      "keywords": ["implementation-plan", "roadmap", "m3-m13"],
+      "priority": "high"
+    },
+    {
+      "path": "wiki/Home.md",
+      "title": "Wiki Home",
+      "section": "wiki",
+      "summary": "운영 가이드 모음의 홈.",
+      "keywords": ["wiki", "guide"],
+      "priority": "low"
+    },
+    {
+      "path": "wiki/Agent-Hierarchy.md",
+      "title": "Agent Hierarchy",
+      "section": "wiki",
+      "summary": "에이전트 계층 구조 운영 가이드.",
+      "keywords": ["agent-hierarchy"],
+      "priority": "medium"
+    },
+    {
+      "path": "wiki/Team-Mode.md",
+      "title": "Team Mode",
+      "section": "wiki",
+      "summary": "Team Mode 운영 및 tmux + Grok spawn 결합 가이드.",
+      "keywords": ["team-mode", "tmux"],
+      "priority": "medium"
+    },
+    {
+      "path": "wiki/Development-Guide.md",
+      "title": "Development Guide",
+      "section": "wiki",
+      "summary": "개발 가이드.",
+      "keywords": ["development", "guide"],
+      "priority": "low"
+    },
+    {
+      "path": "wiki/Release-Process.md",
+      "title": "Release Process",
+      "section": "wiki",
+      "summary": "릴리스 프로세스.",
+      "keywords": ["release-process"],
+      "priority": "medium"
+    },
+    {
+      "path": "wiki/Verification.md",
+      "title": "Verification",
+      "section": "wiki",
+      "summary": "검증 가이드.",
+      "keywords": ["verification"],
+      "priority": "medium"
+    },
+    {
+      "path": "evidence/omo-legacy-audit.md",
+      "title": "OMO Legacy Audit",
+      "section": "evidence",
+      "summary": "레거시 Codex-derived 워크플로우 감사 로그.",
+      "keywords": ["audit", "legacy"],
+      "priority": "medium"
+    },
+    {
+      "path": "evidence/oh-my-openagent-doc-diff.md",
+      "title": "Document Diff — LFG vs Local Oh My OpenAgent Reference",
+      "section": "evidence",
+      "summary": "로컬 Oh My OpenAgent 참조 트리와 LFG @docs/ 문서를 비교해 에이전트 수, 모델 철학, delegation, Team Mode, Boulder, prompt-stage 문서화 차이를 정리.",
+      "keywords": ["omo", "oh-my-openagent", "doc-diff", "parity", "team-mode", "boulder", "delegation"],
+      "priority": "high",
+      "cross_refs": ["ARCHITECTURE.md", "GROK-BUILD-PROMPT-STAGES.md", "agent-system/omo-parity-comparison.md", "agent-system/omo-runtime-implementation-plan.md"]
+    },
+    {
+      "path": "evidence/m0-legacy-audit.md",
+      "title": "M0 Legacy Audit",
+      "section": "evidence",
+      "summary": "M0 단계 레거시 감사.",
+      "keywords": ["m0", "audit"],
+      "priority": "medium"
+    },
+    {
+      "path": "evidence/m1-grok-spawning-evidence-plan.md",
+      "title": "M1 Grok Spawning Evidence Plan",
+      "section": "evidence",
+      "summary": "Grok-native spawning 증거 수집 계획.",
+      "keywords": ["m1", "grok-spawning"],
+      "priority": "high"
+    },
+    {
+      "path": "evidence/grok-subagent-spawning.md",
+      "title": "Grok Sub-agent Spawning",
+      "section": "evidence",
+      "summary": "Grok sub-agent spawning 관련 증거 및 구현 현황.",
+      "keywords": ["grok", "subagent", "spawning"],
+      "priority": "high"
+    },
+    {
+      "path": "evidence/cli-surface.md",
+      "title": "CLI Surface",
+      "section": "evidence",
+      "summary": "CLI 표면 증거.",
+      "keywords": ["cli"],
+      "priority": "low"
+    },
+    {
+      "path": "evidence/api-strings.txt",
+      "title": "API Strings Evidence",
+      "section": "evidence",
+      "summary": "API 문자열 증거 (텍스트 파일).",
+      "keywords": ["api", "strings"],
+      "priority": "low"
+    },
+    {
+      "path": "evidence/implementation-manifest.toml",
+      "title": "Implementation Manifest",
+      "section": "evidence",
+      "summary": "구현 manifest (TOML).",
+      "keywords": ["manifest", "toml"],
+      "priority": "medium"
+    }
+  ],
+  "stats": {
+    "total_files": 32,
+    "critical_files": 5,
+    "last_updated": "2026-05-19"
+  }
+}

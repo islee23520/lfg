@@ -1,0 +1,14 @@
+{
+  "id": "sisyphus",
+  "name": "sisyphus",
+  "family": "orchestrator",
+  "role": "Main orchestrator. Owns user intent, dispatches specialists, tracks completion, enforces verification, and persists progress through Boulder state.",
+  "mode": "orchestrator",
+  "modelProfile": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
+  "reasoningLevel": "high",
+  "promptSource": "plugins/lfg/src/agents/sisyphus.json",
+  "tools": ["task", "todowrite", "bash", "read", "edit", "write", "glob", "grep"],
+  "blockedTools": [],
+  "enabled": true,
+  "categories": ["quick", "unspecified-low", "unspecified-high", "ultrabrain", "artistry", "deep", "writing", "visual-engineering", "planning"]
+}

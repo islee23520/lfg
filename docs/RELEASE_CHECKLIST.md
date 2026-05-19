@@ -1,63 +1,28 @@
 # Release checklist
 
-Use this checklist before merging or tagging `linalab-io-framework/grok-build`.
+Use this checklist before merging or tagging `linalab-io/lfg`.
 
-## Required release gates
+## Required gates
 
-- [ ] Local smoke passes with `runtime-smoke-coverage=100%`.
-- [ ] Aggregated local release-readiness smoke passes with `release-readiness-local=ok`.
-- [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=28 key_skills_present`.
-- [ ] Local `lfg` symlink installer passes with `lfg-launch=ok
-lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
-- [ ] Installed `lfg` symlink surface smoke passes with `lfg-installed-symlink-surface=ok` and confirms `/team providers`, `/team preflight`, and preflight `commands=ok`.
-- [ ] Inside-tmux `lfg` attach smoke passes with `lfg-inside-tmux-attach=ok`.
-- [ ] Team preflight smoke passes with `team-preflight-cli=ok`, `team-preflight-commands=ok`, `team-preflight-slash=ok`, and `team-preflight-mcp=ok`.
-- [ ] Team provider command smoke passes with `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, and `team-provider-doctor=ok`.
-- [ ] Team tmux lifecycle smoke passes with `team-tmux-lifecycle=ok`.
-- [ ] MCP stdio isolation smoke passes with `mcp-stdio-isolation=ok`.
-- [ ] State schema/versioning smoke passes with `state-schema-versioning=ok`.
-- [ ] Marketplace release notes smoke passes with `release-notes=ok`.
-- [ ] Marketplace source smoke passes with `marketplace-source=ok` and preview remote smoke passes with `marketplace-remote-source=ok branch=p1`.
-- [ ] Grok hook discovery/replay smoke passes with `grok-hook-discovery=ok`, `hook-event-replay=ok`, and `grok-headless-session=ok`.
-- [ ] Optional global hook bridge workaround smoke passes with `grok-global-hook-bridge=ok`.
-- [ ] Installed MCP surface smoke passes with `grok-installed-mcp-surface=ok` and confirms `grok_build_hook_bridge`, `grok_build_team.providers`, `grok_build_team.preflight`, and preflight `commands=ok`.
-- [ ] Release tag smoke passes with `release-tag=ok` and `release-tag-remote=ok`.
-- [ ] Grok `/plugins` installed-surface smoke passes with `grok-plugins-surface=ok`.
-- [ ] Remote GitHub Actions smoke passes with `remote-smoke=ok` for the latest pushed commit.
-- [ ] Aggregated remote release-readiness smoke passes with `release-readiness-remote=ok`.
-- [ ] Full release-readiness aggregate passes with `release-readiness-all=ok`.
-- [ ] Roadmap coverage guard confirms `roadmap=27/27` non-harness skill surfaces.
-- [ ] Feature-doc coverage guard confirms `feature_docs=27/27` non-harness skill surfaces.
-- [ ] Marketplace metadata still points to `linalab-io-framework/grok-build`.
-- [ ] Doctor diagnostics include `grok_marketplace` and `agents_marketplace` checks.
+- [ ] Python syntax passes for runtime, MCP, and smoke tests.
+- [ ] Plugin self-test passes and emits `runtime-smoke-coverage=100%`.
+- [ ] Manifest/catalog/docs check emits `manifest-and-file-checks=ok`.
+- [ ] Marketplace metadata check emits `marketplace-metadata=ok` and still points to `linalab-io/lfg`.
+- [ ] Release notes/source docs checks emit `release-notes=ok` and `marketplace-source=ok`.
+- [ ] MCP stdio check emits `mcp-stdio-isolation=ok` and `mcp-stderr-isolated=ok`.
+- [ ] State schema checks emit `state-schema-versioning=ok` and `state-schema-doctor=ok`.
+- [ ] Team checks emit `team-dry-run=ok` and `team-tmux-lifecycle=ok`.
+- [ ] Slash/MCP team surfaces still expose `/team providers`, `/team preflight`, and `grok_build_team.preflight` with preflight `commands=ok`.
+- [ ] Doctor diagnostics include `grok_marketplace` and `agents_marketplace`.
+- [ ] Real Grok install smoke emits `grok-install-smoke=ok skills=28 key_skills_present` when a Grok install is available.
 
 ## Commands
 
 ```sh
-plugins/grok-harnessing/bin/self-test.sh
-scripts/verify-release-readiness-local.sh
-scripts/install-lfg-symlink.sh
-scripts/verify-installed-lfg-symlink-surface.sh
-scripts/verify-lfg-inside-tmux-attach.sh
-scripts/verify-lfg-launch.sh
-scripts/verify-team-preflight.sh
-scripts/verify-team-provider-commands.sh
-scripts/verify-team-tmux-lifecycle.sh
-scripts/verify-mcp-stdio-isolation.sh
-scripts/verify-state-schema.sh
-scripts/verify-release-notes.sh
-scripts/verify-marketplace-source.sh
-scripts/verify-marketplace-source.sh --remote p1
-scripts/verify-grok-hook-discovery.sh
-scripts/verify-grok-build-global-hook-bridge.sh
-scripts/verify-grok-installed-mcp-surface.sh
-scripts/verify-release-tag.sh grok-build-v0.3.0-p1
-scripts/verify-release-tag.sh --remote grok-build-v0.3.0-p1
-scripts/verify-grok-plugins-surface.sh
-plugins/grok-harnessing/bin/grok-install-smoke.sh
-scripts/verify-remote-smoke.sh p1
-scripts/verify-release-readiness-remote.sh p1 grok-build-v0.3.0-p1
-scripts/verify-release-readiness-all.sh p1 grok-build-v0.3.0-p1
+python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py tests/smoke/test_grok_build_runtime.py
+plugins/lfg/bin/self-test.sh
+python3 -m ruff check .
+plugins/lfg/bin/grok-install-smoke.sh
 ```
 
 ## Expected installed surface
@@ -79,4 +44,4 @@ wiki
 
 ## Stop condition
 
-Do not tag or merge unless all commands above pass and the latest GitHub Actions `grok-build smoke` run is `completed` with conclusion `success`.
+Do not tag or merge unless the required local gate passes. Remote marketplace or Grok UI evidence is environment/manual and should be recorded separately when release scope requires it.

@@ -1,252 +1,318 @@
-# Roadmap — `linalab-io-framework/grok-build`
+# Roadmap — `linalab-io/lfg`
 
-## North star
+## North Star
 
-Build **OMX-like workflow/plugins for Grok Build**.
+Build **full OMO agent hierarchy parity for Grok Build**.
 
-The product target is: **what [oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex) does for Codex, `grok-build` should do for Grok Build** — using Grok-native plugin, marketplace, skills, hooks, MCP, and state conventions.
+`lfg` is no longer a Codex-workflow adaptation. The product target is to port the core [oh-my-openagent](https://github.com/sst/opencode/tree/dev/packages/oh-my-openagent) agent hierarchy and orchestration model into **Grok Build**, using Grok as the orchestrator/reviewer, approved optional coding providers for execution lanes, and Grok-native sub-agent spawning where available.
 
-## Installation model
+Core constraints:
 
-The primary install flow is Grok-native marketplace installation:
+- First-class agents default to Grok model profiles, while approved optional providers (`codex`, `copilot`, `zai`) may execute bounded lanes; Z.ai/Zhipu runs through an optional HTTP adapter.
+- Grok Oracle review is mandatory before completion or Boulder advancement; Grok Build native sub-agent spawning remains the preferred execution mechanism where supported.
+- Legacy Codex-derived workflow logic is being removed, renamed, or migrated.
+- OMO's agent hierarchy is the behavioral source of truth: Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, and builtin-agents.
+- The implementation remains Grok marketplace-first, dependency-light, and verifiable through deterministic smoke gates.
 
-1. User opens Grok Build.
+## Product Goal
+
+A user should install `lfg` from Grok `/plugins` and get an OMO-style agent operating system inside Grok Build:
+
+- Sisyphus orchestrates the work.
+- Prometheus plans before execution.
+- Atlas drives checklist and dependency-wave execution.
+- Hephaestus performs autonomous deep work.
+- Sisyphus-Junior executes focused category-routed tasks.
+- builtin-agents resolve model, category, skill, permission, and override policy.
+- Team Mode, Hyperplan, Boulder, mailbox, continuation, and quality gates are durable under `.lfg/`.
+
+## Installation Model
+
+Primary install flow remains Grok-native marketplace installation:
+
+1. User opens LFG / Grok Build.
 2. User opens `/plugins`.
 3. User adds the LinaLab marketplace source.
-4. User installs/adds `grok-build`.
-5. Grok discovers the plugin's skills, hooks, MCP server, and runtime helpers.
+4. User installs `lfg`.
+5. Grok discovers agent definitions, skills, hooks, MCP server, and runtime helpers.
 
 Package identity:
 
 ```text
-Marketplace: linalab-io-framework
-Package:     linalab-io-framework/grok-build
-Plugin id:   grok-build
+Marketplace: linalab-io
+Package:     linalab-io/lfg
+Plugin id:   lfg
 Repo:        https://github.com/islee23520/lfg
-Reference:   https://github.com/Yeachan-Heo/oh-my-codex
+Reference:   oh-my-openagent agent hierarchy and orchestration model
 ```
 
-Local copy/symlink install exists only as a development smoke path until the marketplace source is published and stable.
+Local copy/symlink install is development-only. Marketplace install is the product path.
 
-## Architecture
+## Target Architecture
 
 ```text
-Grok Build
-  └─ Marketplace install: linalab-io-framework/grok-build
-      └─ grok-build plugin
-          ├─ skills/*/SKILL.md              # slash workflow entrypoints
-          ├─ hooks/hooks.json               # hook registration
-          ├─ hooks/scripts/*.sh             # fail-open hook scripts
-          ├─ .mcp.json                      # MCP registration
-          ├─ bin/grok-build-mcp.py          # stdio MCP server with runtime/team tools
-          ├─ bin/grok-build.py              # MVP workflow runtime
-          ├─ catalog/omx-skill-map.json     # oh-my-codex mapping
-          └─ ~/.grok/plugin-data/grok-build # durable runtime state
+LFG / Grok Build
+  └─ Marketplace install: linalab-io/lfg
+      └─ lfg plugin
+          ├─ agents/
+          │   ├─ sisyphus/              # main orchestrator
+          │   ├─ sisyphus-junior/       # category-spawned focused executor
+          │   ├─ prometheus/            # interview-mode strategic planner
+          │   ├─ hephaestus/            # autonomous deep worker
+          │   ├─ atlas/                 # todo-list orchestrator
+          │   └─ builtin-agents/        # model/category/skill/override factory layer
+          ├─ skills/*/SKILL.md          # Grok slash entrypoints backed by OMO semantics
+          ├─ hooks/hooks.json           # fail-open hooks and bridge surfaces
+          ├─ .mcp.json                  # MCP registration
+          ├─ bin/lfg-mcp.py             # stdio MCP server with agent/runtime/team tools
+          ├─ bin/lfg.py                 # dependency-light runtime and Grok spawn adapter
+          ├─ bin/lfg + bin/ulw          # default runtime wrappers
+          └─ .lfg/                      # Boulder, mailbox, teams, plans, notepads, run state
 ```
 
-## Feature scope
+## Feature Scope
 
-The feature scope is not a tiny demo. The goal is parity with the useful workflow layer exposed by oh-my-codex, adapted to Grok Build.
+### Agent Hierarchy
 
-### Workflow commands
+- `Sisyphus`: primary orchestrator, persistence, delegation, quality discipline, completion enforcement.
+- `Sisyphus-Junior`: focused executor spawned by category routing; executes directly and verifies.
+- `Prometheus`: interview-mode planner; produces verifiable plans before work starts.
+- `Hephaestus`: autonomous deep worker; goal-oriented, not recipe-oriented.
+- `Atlas`: checklist orchestrator; runs dependency waves until every checkbox is complete.
+- `builtin-agents`: factory layer for model resolution, skill filtering, overrides, and policy gates.
 
-- `plan` / `ralplan` — planning and verification checklist
-- `ralph` — bounded execution loop with explicit stop conditions
-- `ultragoal` — durable multi-goal plans, ledger, quality-gate enforcement (OMX parity)
-- `ultraqa` — adversarial QA/smoke/e2e loop
-- `ultrawork` — high-throughput task execution pattern
-- `pipeline` — staged workflow orchestration
-- `team` / `worker` — tmux-backed durable coordination across Hermes, Claude Code, and Codex
-- `autoresearch` / `autoresearch-goal` — stateful research workflow
-- `performance-goal` — evaluator-gated optimization workflow
+### OMO Runtime Patterns
 
-### Repo/product commands
-
-- `analyze` — grounded repo analysis
-- `code-review` — comprehensive review pass
-- `ai-slop-cleaner` — cleanup/deslop workflow
-- `design` — design/product source of truth workflow
-- `deep-interview` — ambiguity-gated requirement intake
-- `visual-ralph` — visual implementation loop where applicable
-- `wiki` — durable project notes
-
-### Ops commands
-
-- `doctor` — plugin install/runtime diagnostics
-- `hud` — workflow status surface
-- `cancel` — cancel/clear active workflow state
-- `skill` — manage local skills
-- `omx-setup` — setup-equivalent flow for Grok
-- `configure-notifications` — notification setup equivalent
-
-### Runtime/services
-
-- Grok plugin manifest
-- Grok marketplace metadata
-- Claude/Agents compatibility metadata where useful
-- Hooks with fail-open behavior and redaction
-- MCP tools for catalog/status/runtime entrypoints
-- Durable state under `~/.grok/plugin-data/grok-build/`
-- Local self-test and Grok discovery smoke tests
+- Grok-native sub-agent spawning adapter plus approved multi-provider execution lanes.
+- Category routing: `quick`, `deep`, `ultrabrain`, `artistry`, `visual-engineering`, `writing`, `unspecified-low`, `unspecified-high`.
+- Boulder state: current goal, evidence, blockers, continuation notes, recent attempts.
+- Mailbox and shared tasklist for team execution.
+- Hyperplan: hostile critics plus lead synthesis.
+- Ultrawork: persistent autonomous execution until acceptance criteria pass.
+- Prometheus plus Atlas: plan first, then execute every dependency wave.
+- Quality gates: critic review, evidence strings, tests, manual verification.
 
 ## Milestones
 
-### M0 — Plugin package foundation
+### M0 — Contract Freeze and Audit
 
-- [x] Plugin-only repository structure.
-- [x] Grok manifest `.grok-plugin/plugin.json`.
-- [x] Compatibility manifest `.claude-plugin/plugin.json`.
-- [x] Hook registration and fail-open audit hook.
-- [x] MCP registration and stdio MCP server.
-- [x] Local marketplace metadata.
-- [x] Self-test script.
+- [ ] Inventory every legacy Codex-derived reference in docs, skills, tests, metadata, scripts, runtime state, and release evidence.
+- [ ] Inventory current OMO groundwork under `docs/agent-system/`, `plugins/lfg/src/agents/`, and `plugins/lfg/bin/lfg.py`.
+- [ ] Decide which legacy commands are deleted, renamed, or temporarily migrated.
+- [ ] Produce an evidence-backed removal map before implementation.
 
-### M1 — oh-my-codex surface map
+### M1 — Grok Sub-Agent Spawning Verification
 
-- [x] Use [Yeachan-Heo/oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex) as the reference.
-- [x] Generate `catalog/omx-skill-map.json`.
-- [x] Port workflow names into Grok skill folders.
-- [x] Confirm Grok lists `28 skills, hooks: active, 1 MCP servers`.
+- [ ] Confirm official xAI/Grok Build support for native sub-agent spawning.
+- [ ] Document the equivalent of OMO `task()` and `call_omo_agent` in Grok terms.
+- [ ] Define fallback behavior if native spawning is unavailable in a local environment.
+- [ ] Add a focused manual gate for real Grok spawning evidence.
 
-### M2 — MVP runtime
+### M2 — OMO-First Documentation Rewrite
 
-- [x] Add `bin/grok-build.py` runtime.
-- [x] Add runtime commands: `status`, `catalog`, `goal`, `plan`, `ultraqa`.
-- [x] Store state under `~/.grok/plugin-data/grok-build/`.
-- [x] Expose catalog/status via MCP tools.
-- [x] Expose runtime actions via MCP tools.
+- [ ] Rewrite `ROADMAP.md` around OMO parity.
+- [ ] Rewrite `README.md` around Grok Build plus OMO agent hierarchy.
+- [ ] Rewrite `docs/ARCHITECTURE.md` around OMO agents, Grok spawn adapter, Boulder, and Team Mode.
+- [ ] Rewrite `docs/AGENTS.md` and root `AGENTS.md` to guide future work.
 
-### M3 — Marketplace-first install
+### M3 — Agent Registry Contracts
+
+- [ ] Add tests for the six required agent families.
+- [ ] Add tests that every agent resolves to a Grok model.
+- [ ] Add tests for category-to-agent routing.
+- [ ] Add tests for disabled-agent and override policy.
+
+### M4 — Grok-Only OMO Agent Registry
+
+- [ ] Implement canonical registry entries for Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, and builtin-agents.
+- [ ] Encode model, reasoning level, tool access, blocked tools, and prompt source for each agent.
+- [ ] Expose registry through CLI and MCP.
+
+### M5 — Grok Spawn Adapter
+
+- [ ] Implement a runtime adapter that spawns Grok sub-agents from registry entries.
+- [ ] Support parallel and sequential execution modes.
+- [ ] Support dependency-aware fan-out and lead synthesis.
+- [ ] Preserve deterministic no-network smoke behavior through a local fallback.
+
+### M6 — Category Routing and Sisyphus-Junior
+
+- [ ] Port OMO category routing.
+- [ ] Ensure category tasks spawn Sisyphus-Junior with the correct Grok model profile.
+- [ ] Enforce no recursive uncontrolled delegation.
+- [ ] Add verification gates for category decisions.
+
+### M7 — Boulder, Continuation, Mailbox, Tasklist
+
+- [ ] Port Boulder schema under `.lfg/boulder/`.
+- [ ] Port notepad and accumulated-wisdom files under `.lfg/notepads/`.
+- [ ] Port mailbox and shared tasklist structures under `.lfg/teams/`.
+- [ ] Add schema versioning and `doctor` validation.
+
+### M8 — Team Mode
+
+- [ ] Port member kinds, eligibility, mailbox delivery, task lifecycle, and shutdown protocol.
+- [ ] Keep tmux-backed execution for local observability.
+- [ ] Add Grok sub-agent team spawning where supported.
+- [ ] Preserve smoke-safe provider behavior.
+
+### M9 — Hyperplan
+
+- [ ] Port adversarial planning with hostile critics and lead synthesis.
+- [ ] Add task graph creation, critique rounds, revision rounds, and final plan artifact.
+- [ ] Store Hyperplan artifacts under `.lfg/hyperplan/`.
+- [ ] Add smoke coverage for plan completeness and critique evidence.
+
+### M10 — Prometheus and Atlas
+
+- [ ] Port Prometheus interview-mode planning into `.lfg/plans/`.
+- [ ] Port Atlas checkbox execution and dependency waves.
+- [ ] Enforce plan read-back, checkbox update, and next-wave dispatch.
+- [ ] Add tests for incomplete checkbox prevention.
+
+### M11 — Hephaestus and Ultrawork
+
+- [ ] Port Hephaestus as the autonomous deep worker.
+- [ ] Port Ultrawork execution loops with explicit stop conditions.
+- [ ] Require evidence before Boulder advancement.
+- [ ] Add completion detection and blocker escalation.
+
+### M12 — Runtime, MCP, Skills, Hooks Rewrite
+
+- [ ] Replace command semantics with OMO agent semantics.
+- [ ] Expose agent registry, spawn, team, Boulder, and Hyperplan through MCP.
+- [ ] Update slash skills to call the OMO runtime paths.
+- [ ] Update hooks to inject OMO execution discipline and recovery context.
+
+### M13 — Release QA and Documentation Lock
+
+- [ ] Run dependency-free smoke tests.
+- [ ] Run repo-native integration checks.
+- [ ] Run real Grok manual gates where available.
+- [ ] Update release checklist and smoke docs with exact evidence strings.
+- [ ] Perform post-implementation review before release.
+
+## Parallel Execution Graph
+
+```text
+Wave 1: M0 audit + M1 Grok spawning verification
+Wave 2: M2 docs rewrite + M3 test contracts
+Wave 3: M4 registry + M5 spawn adapter + M6 categories
+Wave 4: M7 state + M8 team mode + M9 hyperplan
+Wave 5: M10 Prometheus/Atlas + M11 Hephaestus/Ultrawork
+Wave 6: M12 runtime surface + M13 release QA
+```
+
+
+## Preserved Release Evidence Contracts
+
+These evidence strings are retained during the OMO parity migration because scripts and smoke tests treat them as product contracts. They do not define the new north star; they define the currently verified marketplace/runtime baseline that the OMO port must preserve or explicitly migrate.
 
 - [x] Publish/host marketplace metadata so users can add it from Grok `/plugins`.
 - [x] Document exact marketplace source URL.
 - [x] Verify install from Grok UI/TUI marketplace flow.
 - [x] Remove local-dev install from primary docs once marketplace flow is stable.
-
-### M4 — Deep workflow parity
-
-- [x] Implement Grok-native `plan` behavior.
-- [x] Implement Grok-native `ralplan` consensus planning foundation.
-- [x] Implement Grok-native `ultragoal` (create/status/checkpoint/show + ledger + quality gate + MCP) — full OMX parity for multi-goal durable plans.
-- [x] Implement Grok-native `ultraqa` planned-run behavior.
-- [x] Implement MVP tmux backend for `team create/status/resume/shutdown`.
-- [x] Wire `/team` arguments directly to the `lfg team` backend through `lfg slash` and MCP `grok_build_slash`.
-- [x] Implement Grok-native `ralph` loop-state foundation.
-- [x] Implement Grok-native `autopilot` strict loop-state foundation.
-- [x] Implement Grok-native `performance-goal` evaluator-state foundation.
-- [x] Implement Grok-native `visual-ralph` visual loop-state foundation.
-- [x] Implement Grok-native `autoresearch-goal` professor-critic foundation.
-- [x] Implement Grok-native `ultrawork` batch task-state foundation.
-- [x] Implement Grok-native `wiki` storage/search.
-- [x] Implement `doctor` diagnostics.
-- [x] Implement `omx-setup` setup-state diagnostics.
 - [x] Add behavioral smoke tests per workflow.
-
-### M5 — Hardening
-
-- [ ] Hook event evidence from real Grok sessions. **Blocked on Grok 0.1.211 plugin hook execution scope**: `grok-real-tool-session=ok` and `grok-global-hook-engine=ok` pass, but `grok-plugin-hook-scope=not-observed while-global-hooks-ok`; deterministic coverage remains `grok-hook-discovery=ok` + `hook-event-replay=ok`; workaround coverage is `grok-global-hook-bridge=ok` plus productized `lfg hook-bridge status/install`, `/hook-bridge`, MCP `grok_build_hook_bridge`, installed MCP surface evidence `grok-installed-mcp-surface=ok`, and `doctor` `global_hook_bridge` evidence.
 - [x] MCP stderr isolation.
 - [x] State migration/versioning.
 - [x] Release tags.
 - [x] Marketplace release notes.
 
-## Team backend design
-
-`/team` is the Grok slash-command surface. `bin/lfg` is the local tmux backend.
-
-Target commands:
+Required evidence strings currently asserted by smoke/release gates:
 
 ```text
-/team 3:executor "fix the failing tests with verification"
-/team status <team-name>
-/team resume <team-name>
-/team shutdown <team-name>
+marketplace-source=ok
+grok-plugins-surface=ok
+grok-plugin-hook-scope=not-observed
+grok-global-hook-bridge=ok
+grok-installed-mcp-surface=ok
+lfg-installed-symlink-surface=ok
+aliases=lfg,ulw
+lfg-inside-tmux-status=ok
 ```
 
-Backend equivalent:
 
-```sh
-plugins/grok-harnessing/bin/lfg backend start
-plugins/grok-harnessing/bin/lfg team create 3:executor "fix the failing tests with verification"
-plugins/grok-harnessing/bin/lfg team status <team-name>
-plugins/grok-harnessing/bin/lfg team resume <team-name>
-plugins/grok-harnessing/bin/lfg team shutdown <team-name>
-```
+lfg hook-bridge status/install
+MCP `grok_build_hook_bridge`
+release-tag=ok
+release-notes=ok
+state-schema-versioning=ok
+mcp-stdio-isolation=ok
+team-tmux-lifecycle=ok
+team-preflight-cli=ok
+team-preflight-commands=ok
+team-provider-matrix=ok
+team-provider-slash=ok
+team-provider-commands=ok
 
-Default providers are `hermes`, `claude`, and `codex`, launched in tmux windows with durable team state stored under `~/.grok/plugin-data/grok-build/state/teams/`.
+### Preserved Skill Coverage Matrix
 
-## TDD implementation track
+This table preserves current skill-surface smoke contracts during the OMO migration. Rows will be renamed or replaced only with matching test/script changes.
 
-Each OMX-like feature should land with:
+| Feature | Migration status |
+| --- | --- |
+| `/ai-slop-cleaner` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/analyze` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/ask` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/autopilot` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/autoresearch` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/autoresearch-goal` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/cancel` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/code-review` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/configure-notifications` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/deep-interview` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/design` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/doctor` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/hud` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/omx-setup` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/performance-goal` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/pipeline` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/plan` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/ralph` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/ralplan` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/skill` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/team` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/ultragoal` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/ultraqa` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/ultrawork` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/visual-ralph` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/wiki` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/worker` | Preserved transition surface; migrate to OMO semantics in M12 |
 
-1. a feature design note under `plugins/grok-harnessing/docs/features/`,
-2. a smoke coverage matrix,
-3. dependency-free tests under `tests/smoke/`,
-4. inclusion in `plugins/grok-harnessing/bin/self-test.sh`,
-5. Grok install/inspect verification when plugin metadata changes.
+## Definition of Done
 
-Current feature coverage:
+`lfg` is ready when:
 
-Behavioral smoke gates now include team preflight evidence across CLI/slash/MCP: `team-preflight-cli=ok`, `team-preflight-commands=ok`, `team-preflight-slash=ok`, and `team-preflight-mcp=ok`.
+1. All six OMO agent families are registered, default to Grok profiles, and require Grok Oracle review before completion.
+2. Grok native sub-agent spawning is the preferred delegation mechanism, with approved external providers allowed for execution lanes.
+3. Sisyphus, Prometheus, Hephaestus, Atlas, Sisyphus-Junior, and builtin-agents have runtime semantics, not just documentation.
+4. Boulder, continuation, mailbox, tasklist, Team Mode, Hyperplan, and Ultrawork state are durable under `.lfg/`.
+5. Legacy Codex-derived workflow identity is removed or explicitly migrated.
+6. README, architecture docs, agent docs, smoke docs, and release docs describe the same product.
+7. Self-tests, smoke gates, and real Grok verification pass with exact evidence strings.
 
-Behavioral smoke gates now include team provider matrix/command evidence: `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, `team-provider-doctor=ok`, and installed MCP team provider/preflight surface evidence via `grok-installed-mcp-surface=ok`, including actionable preflight commands.
+## Open Decisions
 
-Behavioral smoke gates now include installed `lfg`/`ulw` symlink launch evidence: `lfg-installed-symlink-surface=ok` including `aliases=lfg,ulw`, installed `/team providers` and `/team preflight` actionable commands, plus inside-tmux attach evidence `lfg-inside-tmux-attach=ok`.
+1. Should existing `.lfg/` user state be migrated or can the OMO parity port break compatibility?
+2. Should legacy command names be deleted immediately or retained as deprecated aliases for one release?
+3. Should every agent use one Grok model profile or should categories map to different Grok reasoning levels?
+4. Which Grok Build spawning API is stable enough to make mandatory in release gates?
 
-Behavioral smoke gates now include global hook bridge workaround evidence: `grok-global-hook-bridge=ok`, plus runtime bridge management via `lfg hook-bridge status/install`, `/hook-bridge`, MCP `grok_build_hook_bridge`, installed MCP surface evidence `grok-installed-mcp-surface=ok`, and `doctor` `global_hook_bridge`.
+## Atomic Commit Strategy
 
-Behavioral smoke gates now include Grok `/plugins` surface evidence: `grok-plugins-list=ok` and `grok-plugins-surface=ok`.
+1. `docs: define omo grok build roadmap`
+2. `docs: rewrite readme for omo agent parity`
+3. `docs: replace architecture with omo hierarchy`
+4. `docs: update agent guidance for omo port`
+5. `test: add omo agent registry contracts`
+6. `feat: add Grok-reviewed OMO agent registry`
+7. `test: add multi-provider spawn adapter and Grok Oracle review contracts`
+8. `feat: add Grok-reviewed multi-provider spawn adapter`
+9. `feat: port omo categories and junior executor`
+10. `feat: add omo boulder runtime state`
+11. `feat: port omo team mode and hyperplan`
+12. `feat: port prometheus atlas hephaestus ultrawork`
+13. `feat: replace runtime mcp skills and hooks`
+14. `test: update omo smoke and release gates`
 
-Behavioral smoke gates now include release tag evidence: `release-tag=ok` and `release-tag-remote=ok`.
-
-Behavioral smoke gates now include hosted marketplace source evidence: `marketplace-source=ok` and remote raw GitHub evidence `marketplace-remote-source=ok`.
-
-Behavioral smoke gates now include marketplace release-note evidence: `release-notes=ok`.
-
-Behavioral smoke gates now include state schema/versioning evidence: `state-schema-file=ok`, `state-schema-doctor=ok`, and `state-schema-versioning=ok`.
-
-Behavioral smoke gates now include MCP stdio isolation evidence: `mcp-stdout-jsonrpc=ok`, `mcp-stderr-isolated=ok`, and `mcp-stdio-isolation=ok`.
-
-Behavioral smoke gates now include real tmux lifecycle evidence: `team-create=ok`, `team-status=ok`, `team-resume=ok`, `team-shutdown=ok`, and `team-tmux-lifecycle=ok`.
-
-
-| Feature | Design | Smoke tests | Coverage target | Status |
-| --- | --- | --- | --- | --- |
-| `/team` tmux backend | `docs/features/team-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 4/4 matrix rows | 100% passing |
-| `/plan` structured state | `docs/features/plan-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/ralplan` consensus planning state | `docs/features/ralplan-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/ultragoal` multi-goal plans + ledger + gate | `docs/features/ultragoal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/ultraqa` adversarial smoke | `docs/features/ultraqa-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/cancel` pointer clear | `docs/features/cancel-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/hud` status summary | `docs/features/hud-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/skill` catalog search | `docs/features/skill-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/pipeline` staged workflow | `docs/features/pipeline-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/autopilot` strict workflow state | `docs/features/autopilot-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/performance-goal` evaluator state | `docs/features/performance-goal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/visual-ralph` visual loop state | `docs/features/visual-ralph-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/code-review` lightweight report | `docs/features/code-review-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/analyze` lightweight repo analysis | `docs/features/analyze-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/ask` advisor request log | `docs/features/ask-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/configure-notifications` config | `docs/features/configure-notifications-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/design` decision state | `docs/features/design-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/deep-interview` requirement intake | `docs/features/deep-interview-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/autoresearch` research state | `docs/features/autoresearch-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/autoresearch-goal` professor-critic state | `docs/features/autoresearch-goal-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/ai-slop-cleaner` cleanup report | `docs/features/ai-slop-cleaner-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/worker` task status | `docs/features/worker-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/ralph` loop state | `docs/features/ralph-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/ultrawork` batch task state | `docs/features/ultrawork-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/doctor` diagnostics | `docs/features/doctor-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/omx-setup` setup state | `docs/features/omx-setup-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-| `/wiki` durable notes | `docs/features/wiki-runtime.md` | `tests/smoke/test_grok_build_runtime.py` | 2/2 matrix rows | 100% passing |
-
-## Definition of done
-
-`grok-build` is ready when:
-
-1. A user can add the LinaLab marketplace from Grok `/plugins` and install `grok-build`.
-2. Grok discovers the full skill surface, hooks, and MCP server.
-3. The core OMX-like workflows run with Grok-native behavior, not only placeholder instructions.
-4. Workflow state is durable under `~/.grok/plugin-data/grok-build/`.
-5. Self-tests and Grok smoke tests pass.
-6. The README explains what the plugin is, how to install it from marketplace, how to run it, and how to verify it.
+This roadmap supersedes all previous Codex-workflow-centered versions.

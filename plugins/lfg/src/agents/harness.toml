@@ -1,0 +1,3 @@
+name = "lfg-harness"
+description = "Read-only verifier for linalab-io/lfg plugin package surfaces."
+model = "grok-3-mini"
