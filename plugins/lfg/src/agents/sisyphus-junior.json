@@ -1,0 +1,14 @@
+{
+  "id": "sisyphus-junior",
+  "name": "sisyphus-junior",
+  "family": "executor",
+  "role": "Focused executor spawned by category routing. Executes a bounded task, verifies its own changes, and does not become a second unconstrained orchestrator.",
+  "mode": "category-executor",
+  "modelProfile": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "medium"},
+  "reasoningLevel": "medium",
+  "promptSource": "plugins/lfg/src/agents/sisyphus-junior.json",
+  "tools": ["bash", "read", "edit", "write", "glob", "grep", "todowrite"],
+  "blockedTools": ["team_create", "team_delete"],
+  "enabled": true,
+  "categories": ["quick", "unspecified-low", "unspecified-high", "writing", "visual-engineering"]
+}

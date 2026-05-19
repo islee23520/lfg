@@ -5,27 +5,29 @@ cd "$REPO_ROOT"
 TMP="$(mktemp -d)"
 cleanup() { rm -rf "$TMP"; }
 trap cleanup EXIT
-GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json team providers >/tmp/team-provider-matrix.json
+GROK_PLUGIN_DATA="$TMP" plugins/lfg/bin/lfg --json team providers >/tmp/team-provider-matrix.json
 python3 - <<'PY'
 import json, pathlib
 obj=json.loads(pathlib.Path('/tmp/team-provider-matrix.json').read_text())
 assert obj['ok'], obj
 providers=[p['provider'] for p in obj['providers']]
-assert providers == ['hermes','claude','codex','noop'], providers
+expected={'hermes','claude','codex','gemini','copilot','opencode','grok','subagent','noop'}
+assert set(providers) == expected, providers
 assert obj['smokeSafe'] == 'noop', obj
 assert 'noop' in obj['summary']['available'], obj
 print('team-provider-matrix=ok providers=%s' % ','.join(providers))
 PY
-GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json slash '/team providers' >/tmp/team-provider-slash.json
+GROK_PLUGIN_DATA="$TMP" plugins/lfg/bin/lfg --json slash '/team providers' >/tmp/team-provider-slash.json
 python3 - <<'PY'
 import json, pathlib
 obj=json.loads(pathlib.Path('/tmp/team-provider-slash.json').read_text())
 assert obj['ok'], obj
-assert [p['provider'] for p in obj['providers']] == ['hermes','claude','codex','noop'], obj
+expected={'hermes','claude','codex','gemini','copilot','opencode','grok','subagent','noop'}
+assert {p['provider'] for p in obj['providers']} == expected, obj
 assert obj['smokeSafe'] == 'noop', obj
 print('team-provider-slash=ok')
 PY
-GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json team create 4:executor "provider command smoke" --providers hermes,claude,codex,noop --dry-run >/tmp/team-provider-smoke.json
+GROK_PLUGIN_DATA="$TMP" plugins/lfg/bin/lfg --json team create 4:executor "provider command smoke" --providers hermes,claude,codex,noop --dry-run >/tmp/team-provider-smoke.json
 python3 - <<'PY'
 import json, pathlib
 obj=json.loads(pathlib.Path('/tmp/team-provider-smoke.json').read_text())
@@ -39,7 +41,7 @@ assert commands['codex'].startswith('codex '), commands
 assert 'noop provider ready' in commands['noop'], commands
 print('team-provider-commands=ok providers=%s' % ','.join(providers))
 PY
-GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json doctor >/tmp/team-provider-doctor.json
+GROK_PLUGIN_DATA="$TMP" plugins/lfg/bin/lfg --json doctor >/tmp/team-provider-doctor.json
 python3 - <<'PY'
 import json, pathlib
 obj=json.loads(pathlib.Path('/tmp/team-provider-doctor.json').read_text())

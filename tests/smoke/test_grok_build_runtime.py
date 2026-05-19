@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke/TDD coverage for the grok-build MVP runtime.
+"""Smoke/TDD coverage for the lfg MVP runtime.
 
 This is intentionally dependency-free so marketplace users can run it with the
 system Python.  The suite is organized as a feature coverage matrix; every item
@@ -10,23 +10,26 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import sys
 import subprocess
 import tempfile
 import unittest
 import argparse
 import importlib.util
+import importlib
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-PLUGIN = REPO / "plugins" / "grok-harnessing"
+PLUGIN = REPO / "plugins" / "lfg"
 LFG = PLUGIN / "bin" / "lfg"
 ULW = PLUGIN / "bin" / "ulw"
-MCP = PLUGIN / "bin" / "grok-build-mcp.py"
+MCP = PLUGIN / "bin" / "lfg-mcp.py"
 
 
 def load_grok_build_module():
-    spec = importlib.util.spec_from_file_location("grok_build_runtime", PLUGIN / "bin" / "grok-build.py")
+    spec = importlib.util.spec_from_file_location("grok_build_runtime", PLUGIN / "bin" / "lfg.py")
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -59,6 +62,41 @@ class RuntimeSmoke(unittest.TestCase):
         )
         return json.loads(proc.stdout)
 
+
+    def test_omo_agent_registry_cli(self) -> None:
+        registry = self.run_lfg("agents", "list")
+        self.assertTrue(registry["ok"], registry)
+        expected = {"sisyphus", "sisyphus-junior", "prometheus", "hephaestus", "atlas", "builtin-agents"}
+        self.assertEqual({agent["id"] for agent in registry["agents"]}, expected)
+        self.assertIn("deep", registry["categoryModelProfiles"])
+        for profile in registry["categoryModelProfiles"].values():
+            self.assertEqual(profile["provider"], "xai")
+        for agent in registry["agents"]:
+            self.assertEqual(agent["modelProfile"]["provider"], "xai")
+            for key in {"id", "family", "role", "mode", "modelProfile", "reasoningLevel", "promptSource", "tools", "blockedTools", "enabled"}:
+                self.assertIn(key, agent)
+
+        sisyphus = self.run_lfg("agents", "inspect", "sisyphus")
+        self.assertTrue(sisyphus["ok"], sisyphus)
+        self.assertEqual(sisyphus["agent"]["id"], "sisyphus")
+        self.assertEqual(sisyphus["agent"]["family"], "orchestrator")
+        self.assertEqual(sisyphus["agent"]["modelProfile"]["provider"], "xai")
+        self.assertEqual(sisyphus["resolvedModelProfile"]["provider"], "xai")
+
+        deep = self.run_lfg("agents", "inspect", "hephaestus", "--category", "deep")
+        self.assertTrue(deep["ok"], deep)
+        self.assertEqual(deep["resolvedModelProfile"], {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "xhigh"})
+
+        override = self.run_lfg("agents", "inspect", "sisyphus", "--model", "grok-custom", "--reasoning", "medium")
+        self.assertTrue(override["ok"], override)
+        self.assertEqual(override["resolvedModelProfile"]["provider"], "xai")
+        self.assertEqual(override["resolvedModelProfile"]["model"], "grok-custom")
+        self.assertEqual(override["resolvedModelProfile"]["reasoning"], "medium")
+
+        rejected = self.run_lfg("agents", "inspect", "sisyphus", "--provider", "claude")
+        self.assertFalse(rejected["ok"], rejected)
+        self.assertIn("non-grok primary model provider", rejected["error"])
+
     def test_status_and_catalog(self) -> None:
         status = self.run_lfg("status")
         self.assertTrue(status["ok"])
@@ -88,7 +126,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-installed-mcp-surface=ok", roadmap)
         self.assertIn("lfg-installed-symlink-surface=ok", roadmap)
         self.assertIn("aliases=lfg,ulw", roadmap)
-        self.assertIn("lfg-inside-tmux-attach=ok", roadmap)
+        self.assertIn("lfg-inside-tmux-status=ok", roadmap)
         self.assertIn("lfg hook-bridge status/install", roadmap)
         self.assertIn("MCP `grok_build_hook_bridge`", roadmap)
         self.assertIn("release-tag=ok", roadmap)
@@ -104,7 +142,7 @@ class RuntimeSmoke(unittest.TestCase):
         skill_names = sorted(
             path.name
             for path in (PLUGIN / "skills").iterdir()
-            if path.is_dir() and path.name != "grok-harnessing"
+            if path.is_dir() and path.name != "lfg"
         )
         self.assertEqual(len(skill_names), 27)
         missing_rows = [name for name in skill_names if f"| `/{name}` " not in roadmap]
@@ -184,7 +222,7 @@ class RuntimeSmoke(unittest.TestCase):
 
     def test_ci_and_install_smoke_contracts(self) -> None:
         workflow = (REPO / ".github/workflows/smoke.yml").read_text(encoding="utf-8")
-        self.assertIn("plugins/grok-harnessing/bin/self-test.sh", workflow)
+        self.assertIn("plugins/lfg/bin/self-test.sh", workflow)
         self.assertIn("actions/checkout@v5", workflow)
         self.assertIn("sudo apt-get install -y tmux", workflow)
         self.assertIn("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24", workflow)
@@ -199,7 +237,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(os.access(install_lfg, os.X_OK))
         install_script = install_lfg.read_text(encoding="utf-8")
         self.assertIn("ln -sfn", install_script)
-        self.assertIn("grok-build.py", install_script)
+        self.assertIn("lfg.py", install_script)
         self.assertIn('ln -sfn "$SRC_DIR/ulw"', install_script)
         self.assertIn("lfg-status=ok", install_script)
         self.assertIn("ulw-status=ok", install_script)
@@ -208,9 +246,9 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(os.access(launch_lfg, os.X_OK))
         launch_script = launch_lfg.read_text(encoding="utf-8")
         self.assertIn("lfg-launch-smoke=ok", launch_script)
-        self.assertIn("ulw-launch-json=ok", launch_script)
-        self.assertIn("tmux has-session", launch_script)
-        runtime = (PLUGIN / "bin" / "grok-build.py").read_text(encoding="utf-8")
+        self.assertIn("ulw-launch-runtime=ok", launch_script)
+        self.assertIn("lfg-runtime", launch_script)
+        runtime = (PLUGIN / "bin" / "lfg.py").read_text(encoding="utf-8")
         self.assertIn("def attach_backend_from_tmux_pane", runtime)
         self.assertIn("split-window", runtime)
         all_ready = REPO / "scripts" / "verify-release-readiness-all.sh"
@@ -259,7 +297,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("grok-plugins-list=ok", plugins_surface_script)
         self.assertIn("grok-plugins-surface=ok", plugins_surface_script)
         readme = (REPO / "README.md").read_text(encoding="utf-8")
-        self.assertNotIn("cp -R plugins/grok-harnessing ~/.grok/plugins/grok-build", readme)
+        self.assertNotIn("cp -R plugins/lfg ~/.grok/plugins/lfg", readme)
         self.assertIn("docs/SMOKE.md", readme)
         self.assertIn("/team providers", readme)
         self.assertIn("/team preflight", readme)
@@ -273,14 +311,14 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("release-tag=ok", release_tag_script)
         self.assertIn("release-tag-remote=ok", release_tag_script)
         release_tag_doc = (REPO / "docs" / "RELEASE_TAGS.md").read_text(encoding="utf-8")
-        self.assertIn("grok-build-v0.3.0-p1", release_tag_doc)
-        hook_bridge = REPO / "scripts" / "verify-grok-build-global-hook-bridge.sh"
+        self.assertIn("lfg-v0.3.0-p1", release_tag_doc)
+        hook_bridge = REPO / "scripts" / "verify-lfg-global-hook-bridge.sh"
         self.assertTrue(os.access(hook_bridge, os.X_OK))
         hook_bridge_script = hook_bridge.read_text(encoding="utf-8")
         self.assertIn("grok-global-hook-bridge=ok", hook_bridge_script)
-        install_bridge = REPO / "scripts" / "install-grok-build-global-hook-bridge.sh"
+        install_bridge = REPO / "scripts" / "install-lfg-global-hook-bridge.sh"
         self.assertTrue(os.access(install_bridge, os.X_OK))
-        self.assertIn("grok-build-audit-bridge.json", install_bridge.read_text(encoding="utf-8"))
+        self.assertIn("lfg-audit-bridge.json", install_bridge.read_text(encoding="utf-8"))
         installed_mcp = REPO / "scripts" / "verify-grok-installed-mcp-surface.sh"
         self.assertTrue(os.access(installed_mcp, os.X_OK))
         installed_mcp_script = installed_mcp.read_text(encoding="utf-8")
@@ -298,12 +336,12 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("/team providers", installed_lfg_script)
         self.assertIn("/team preflight", installed_lfg_script)
         self.assertIn("createNoopSmoke", installed_lfg_script)
-        self.assertIn("tmux has-session -t lfg-backend", installed_lfg_script)
+        self.assertIn("lfg-runtime", installed_lfg_script)
         inside_tmux = REPO / "scripts" / "verify-lfg-inside-tmux-attach.sh"
         self.assertTrue(os.access(inside_tmux, os.X_OK))
         inside_tmux_script = inside_tmux.read_text(encoding="utf-8")
-        self.assertIn("lfg-inside-tmux-attach=ok", inside_tmux_script)
-        self.assertIn("split-window", inside_tmux_script)
+        self.assertIn("lfg-inside-tmux-status=ok", inside_tmux_script)
+        self.assertIn("lfg-runtime", inside_tmux_script)
         hook_limitation = REPO / "scripts" / "verify-grok-hook-headless-limitation.sh"
         self.assertTrue(os.access(hook_limitation, os.X_OK))
         hook_limitation_script = hook_limitation.read_text(encoding="utf-8")
@@ -316,7 +354,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("hook-event-replay=ok", hook_discovery_script)
         self.assertIn("grok-headless-session=ok", hook_discovery_script)
         hook_doc = (REPO / "docs" / "HOOK_EVIDENCE.md").read_text(encoding="utf-8")
-        self.assertIn("scripts/grok-build-audit-hook.sh", hook_doc)
+        self.assertIn("scripts/lfg-audit-hook.sh", hook_doc)
         self.assertIn("lfg hook-bridge install", hook_doc)
         self.assertIn("grok_build_hook_bridge", hook_doc)
         smoke_doc = (REPO / "docs" / "SMOKE.md").read_text(encoding="utf-8")
@@ -335,8 +373,8 @@ class RuntimeSmoke(unittest.TestCase):
         release_notes_script = release_notes.read_text(encoding="utf-8")
         self.assertIn("release-notes=ok", release_notes_script)
         release_notes_doc = (REPO / "docs" / "MARKETPLACE_RELEASE_NOTES.md").read_text(encoding="utf-8")
-        self.assertIn("linalab-io-framework/grok-build", release_notes_doc)
-        self.assertIn("grok-build 0.3.0", release_notes_doc)
+        self.assertIn("linalab-io/lfg", release_notes_doc)
+        self.assertIn("lfg 0.3.0", release_notes_doc)
         self.assertIn("/plugins", release_notes_doc)
         release_checklist = (REPO / "docs" / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
         self.assertIn("release-readiness-local=ok", release_checklist)
@@ -366,63 +404,145 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("gh run view", remote_script)
         self.assertIn("remote-smoke=ok", remote_script)
 
+    def test_test_rules_doc_contract(self) -> None:
+        rules = (REPO / "docs" / "TEST_RULES.md").read_text(encoding="utf-8")
+        required_markers = [
+            "# Test rules",
+            "TR-001",
+            "TR-002",
+            "TR-003",
+            "TR-004",
+            "TR-005",
+            "TR-006",
+            "TR-007",
+            "TR-008",
+            "Dependency-free unit/smoke tests",
+            "Repo-native integration tests",
+            "Environment/manual gates",
+            "tests/smoke/test_grok_build_runtime.py",
+            "plugins/lfg/bin/self-test.sh",
+            "scripts/verify-release-readiness-local.sh",
+            "cargo test",
+        ]
+        for marker in required_markers:
+            self.assertIn(marker, rules)
+
     def test_marketplace_metadata_points_to_plugin_package(self) -> None:
         for rel in [".grok/plugins/marketplace.json", ".agents/plugins/marketplace.json"]:
             data = json.loads((REPO / rel).read_text(encoding="utf-8"))
-            self.assertEqual(data["name"], "linalab-io-framework")
+            self.assertEqual(data["name"], "linalab-io")
             self.assertEqual(len(data["plugins"]), 1)
             plugin = data["plugins"][0]
-            self.assertEqual(plugin["name"], "grok-build")
+            self.assertEqual(plugin["name"], "lfg")
             self.assertEqual(plugin["source"]["source"], "git-subdir")
             self.assertEqual(plugin["source"]["url"], "https://github.com/islee23520/lfg.git")
-            self.assertEqual(plugin["source"]["path"], "plugins/grok-harnessing")
-            self.assertEqual(plugin["metadata"]["packageName"], "linalab-io-framework/grok-build")
+            self.assertEqual(plugin["source"]["path"], "plugins/lfg")
+            self.assertEqual(plugin["metadata"]["packageName"], "linalab-io/lfg")
             self.assertEqual(plugin["metadata"]["reference"], "https://github.com/Yeachan-Heo/oh-my-codex")
 
 
-    def test_lfg_default_starts_backend_non_interactive(self) -> None:
-        proc = subprocess.run([str(LFG), "--json"], cwd=str(REPO), env=self.env, text=True, capture_output=True, check=True, timeout=20)
-        launched = json.loads(proc.stdout)
-        self.assertEqual(launched["status"], "running")
-        self.assertEqual(launched["launcher"], "lfg")
-        self.assertEqual(launched["mode"], "tmux-backend")
-        self.assertFalse(launched["attached"])
-        self.assertIn("tmux attach -t", launched["attachCommand"])
+    def test_lfg_default_execs_grok_cli(self) -> None:
+        fake_bin = pathlib.Path(self.tmp.name) / "bin"
+        fake_bin.mkdir()
+        fake_grok = fake_bin / "grok"
+        fake_grok.write_text(
+            """#!/usr/bin/env bash
+if [[ "${1:-}" == "update" && "${2:-}" == "--check" ]]; then exit 0; fi
+printf 'fake-grok-launched args=%s\n' "$*"
+""",
+            encoding="utf-8",
+        )
+        fake_grok.chmod(0o755)
+        env = dict(self.env)
+        env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
 
-    def test_ulw_alias_matches_lfg_backend_launcher(self) -> None:
+        proc = subprocess.run([str(LFG)], cwd=str(REPO), env=env, text=True, capture_output=True, check=True, timeout=20)
+        self.assertIn("fake-grok-launched", proc.stdout)
+
+        runtime = subprocess.run([str(LFG), "--json", "status"], cwd=str(REPO), env=self.env, text=True, capture_output=True, check=True, timeout=20)
+        launched = json.loads(runtime.stdout)
+        self.assertTrue(launched["ok"])
+        self.assertEqual(launched["launcher"], "lfg")
+        self.assertEqual(launched["version"], "0.3.0")
+        self.assertNotIn("attachCommand", launched)
+
+    def test_lfg_default_asks_before_grok_update_and_restart(self) -> None:
+        fake_bin = pathlib.Path(self.tmp.name) / "bin-update"
+        fake_bin.mkdir()
+        log = pathlib.Path(self.tmp.name) / "grok-update.log"
+        fake_grok = fake_bin / "grok"
+        fake_grok.write_text(
+            f"""#!/usr/bin/env bash
+log={str(log)!r}
+case "${{1:-}}" in
+  --version) printf 'grok 1.0.0\n' ;;
+  update)
+    if [[ "${{2:-}}" == "--check" ]]; then printf 'Update available: 1.0.0 -> 1.1.0\n'; exit 0; fi
+    printf 'update\n' >> "$log"
+    printf 'updated grok\n'
+    ;;
+  *) printf 'launch\n' >> "$log"; printf 'fake-grok-launched\n' ;;
+esac
+""",
+            encoding="utf-8",
+        )
+        fake_grok.chmod(0o755)
+        env = dict(self.env)
+        env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+
+        yes_proc = subprocess.run(
+            [str(LFG)],
+            cwd=str(REPO),
+            env={**env, "LFG_GROK_UPDATE_CONFIRM": "y"},
+            text=True,
+            capture_output=True,
+            check=True,
+            timeout=20,
+        )
+        self.assertIn("fake-grok-launched", yes_proc.stdout)
+        self.assertEqual(log.read_text(encoding="utf-8"), "update\nlaunch\n")
+
+        log.write_text("", encoding="utf-8")
+        no_proc = subprocess.run(
+            [str(LFG)],
+            cwd=str(REPO),
+            env={**env, "LFG_GROK_UPDATE_CONFIRM": "n"},
+            text=True,
+            capture_output=True,
+            check=True,
+            timeout=20,
+        )
+        self.assertIn("fake-grok-launched", no_proc.stdout)
+        self.assertIn("Grok update skipped", no_proc.stderr)
+        self.assertEqual(log.read_text(encoding="utf-8"), "launch\n")
+
+    def test_ulw_alias_matches_lfg_runtime_launcher(self) -> None:
         proc = subprocess.run([str(ULW), "--json"], cwd=str(REPO), env=self.env, text=True, capture_output=True, check=True, timeout=20)
         launched = json.loads(proc.stdout)
-        self.assertEqual(launched["status"], "running")
+        self.assertTrue(launched["ok"])
+        self.assertEqual(launched["status"], "ready")
         self.assertEqual(launched["launcher"], "ulw")
-        self.assertEqual(launched["mode"], "tmux-backend")
-        self.assertFalse(launched["attached"])
-        self.assertIn("tmux attach -t", launched["attachCommand"])
+        self.assertEqual(launched["mode"], "lfg-runtime")
+        self.assertNotIn("attachCommand", launched)
         status = subprocess.run([str(ULW), "--json", "status"], cwd=str(REPO), env=self.env, text=True, capture_output=True, check=True, timeout=20)
         self.assertTrue(json.loads(status.stdout)["ok"])
 
-    def test_lfg_inside_tmux_respects_triggering_pane(self) -> None:
+    def test_attach_backend_from_tmux_pane_respects_triggering_pane(self) -> None:
         module = load_grok_build_module()
         calls: list[list[str]] = []
-        original_backend_start = module.backend_start
         original_subprocess_run = module.subprocess.run
-        original_stdin = module.sys.stdin
-        original_stdout = module.sys.stdout
         original_tmux = os.environ.get("TMUX")
         original_tmux_pane = os.environ.get("TMUX_PANE")
         try:
-            module.backend_start = lambda args: {"name": args.name or "lfg-backend", "status": "running", "cwd": args.cwd, "attachCommand": "tmux attach -t lfg-backend"}
-
             def fake_run(argv, **kwargs):
                 calls.append(list(argv))
                 return subprocess.CompletedProcess(argv, 0, "", "")
 
             module.subprocess.run = fake_run
-            module.sys.stdin = FakeTty()
-            module.sys.stdout = FakeTty()
             os.environ["TMUX"] = "/tmp/tmux-test/default,1,0"
             os.environ["TMUX_PANE"] = "%42"
 
-            result = module.lfg_launch(argparse.Namespace(name=None, cwd=str(REPO), json=False))
+            result = module.attach_backend_from_tmux_pane({"name": "lfg-backend", "status": "running"}, REPO)
 
             self.assertTrue(result["attached"])
             self.assertEqual(result["attachMethod"], "split-window")
@@ -430,10 +550,7 @@ class RuntimeSmoke(unittest.TestCase):
             self.assertIn(["tmux", "split-window", "-h", "-t", "%42", "-c", str(REPO), "env -u TMUX tmux attach-session -t lfg-backend"], calls)
             self.assertFalse(any(call[:2] == ["tmux", "switch-client"] for call in calls))
         finally:
-            module.backend_start = original_backend_start
             module.subprocess.run = original_subprocess_run
-            module.sys.stdin = original_stdin
-            module.sys.stdout = original_stdout
             if original_tmux is None:
                 os.environ.pop("TMUX", None)
             else:
@@ -443,18 +560,13 @@ class RuntimeSmoke(unittest.TestCase):
             else:
                 os.environ["TMUX_PANE"] = original_tmux_pane
 
-    def test_lfg_inside_tmux_recovers_current_pane_when_env_pane_is_malformed(self) -> None:
+    def test_attach_backend_from_tmux_pane_recovers_current_pane_when_env_pane_is_malformed(self) -> None:
         module = load_grok_build_module()
         calls: list[list[str]] = []
-        original_backend_start = module.backend_start
         original_subprocess_run = module.subprocess.run
-        original_stdin = module.sys.stdin
-        original_stdout = module.sys.stdout
         original_tmux = os.environ.get("TMUX")
         original_tmux_pane = os.environ.get("TMUX_PANE")
         try:
-            module.backend_start = lambda args: {"name": "lfg-backend", "status": "running", "cwd": args.cwd, "attachCommand": "tmux attach -t lfg-backend"}
-
             def fake_run(argv, **kwargs):
                 calls.append(list(argv))
                 if list(argv)[:3] == ["tmux", "display-message", "-p"]:
@@ -462,22 +574,17 @@ class RuntimeSmoke(unittest.TestCase):
                 return subprocess.CompletedProcess(argv, 0, "", "")
 
             module.subprocess.run = fake_run
-            module.sys.stdin = FakeTty()
-            module.sys.stdout = FakeTty()
             os.environ["TMUX"] = "/tmp/tmux-test/default,1,0"
             os.environ["TMUX_PANE"] = "../../bad"
 
-            result = module.lfg_launch(argparse.Namespace(name=None, cwd=str(REPO), json=False))
+            result = module.attach_backend_from_tmux_pane({"name": "lfg-backend", "status": "running"}, REPO)
 
             self.assertTrue(result["attached"])
             self.assertEqual(result["triggerPane"], "%77")
             self.assertIn(["tmux", "split-window", "-h", "-t", "%77", "-c", str(REPO), "env -u TMUX tmux attach-session -t lfg-backend"], calls)
             self.assertFalse(any("switch-client" in call for call in calls))
         finally:
-            module.backend_start = original_backend_start
             module.subprocess.run = original_subprocess_run
-            module.sys.stdin = original_stdin
-            module.sys.stdout = original_stdout
             if original_tmux is None:
                 os.environ.pop("TMUX", None)
             else:
@@ -491,7 +598,7 @@ class RuntimeSmoke(unittest.TestCase):
         team = self.run_lfg("slash", '/team 3:executor "fix tests"', "--dry-run")
         self.assertEqual(team["status"], "planned")
         self.assertEqual(team["objective"], "fix tests")
-        self.assertEqual([m["provider"] for m in team["members"]], ["hermes", "claude", "codex"])
+        self.assertEqual([m["provider"] for m in team["members"]], ["grok", "subagent", "grok"])
         self.assertTrue(all("Do not overwrite teammate work" in m["prompt"] for m in team["members"]))
 
     def test_team_lifecycle_state_dry_run(self) -> None:
@@ -502,6 +609,200 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(current.exists())
         current_team = json.loads(current.read_text())
         self.assertEqual(current_team["name"], team["name"])
+
+    def test_team_spawn_inherits_current_ultragoal_context(self) -> None:
+        ug = self.run_lfg("ultragoal", "create", "coordinate swarm", "--id", "team-ulw-ug", "--checklist", "plan;execute;verify")
+        self.assertEqual(ug["id"], "team-ulw-ug")
+        team = self.run_lfg("team", "create", "2:executor", "ship swarm slice", "--providers", "noop", "--dry-run")
+        self.assertEqual(team["ultragoal"], "team-ulw-ug")
+        self.assertEqual([m["ultragoal"] for m in team["members"]], ["team-ulw-ug", "team-ulw-ug"])
+        self.assertIn("ultragoal team-ulw-ug", team["members"][0]["prompt"])
+        self.assertIn("ulw ultragoal checkpoint --id team-ulw-ug", team["members"][0]["prompt"])
+
+    def test_ultragoal_spawn_creates_linked_ulw_team(self) -> None:
+        spawned = self.run_lfg("ultragoal", "spawn", "coordinate swarm", "--id", "spawn-ulw-ug", "--spec", "2:executor", "--providers", "noop", "--dry-run")
+        self.assertEqual(spawned["ultragoal"]["id"], "spawn-ulw-ug")
+        self.assertEqual(spawned["team"]["status"], "planned")
+        self.assertEqual(spawned["team"]["ultragoal"], "spawn-ulw-ug")
+        self.assertEqual(len(spawned["team"]["members"]), 2)
+        self.assertIn("ulw ultragoal checkpoint --id spawn-ulw-ug", spawned["team"]["members"][0]["prompt"])
+        slash = self.run_lfg("slash", '/ultragoal spawn 2:executor "slash swarm"', "--providers", "noop", "--dry-run")
+        self.assertEqual(slash["team"]["status"], "planned")
+        self.assertTrue(slash["team"]["ultragoal"].startswith("ultragoal-"))
+
+    def test_named_agent_provider_override_is_respected(self) -> None:
+        team = self.run_lfg("team", "create", "iz,gonow,grok", "provider override", "--providers", "noop", "--dry-run")
+        self.assertEqual([m["provider"] for m in team["members"]], ["noop", "noop", "noop"])
+        self.assertTrue(all("noop provider ready" in m["command"] for m in team["members"]))
+
+    def test_rejects_unsafe_provider_and_team_name(self) -> None:
+        bad_provider = subprocess.run(
+            [str(LFG), "--json", "team", "create", "1:iz", "bad provider", "--providers", "noop;touch /tmp/pwn", "--dry-run"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            timeout=20,
+        )
+        self.assertNotEqual(bad_provider.returncode, 0)
+        self.assertIn("unknown provider", bad_provider.stderr)
+
+        bad_name = subprocess.run(
+            [str(LFG), "--json", "team", "create", "1:iz", "bad name", "--name", "bad'name", "--providers", "noop", "--dry-run"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            timeout=20,
+        )
+        self.assertNotEqual(bad_name.returncode, 0)
+        self.assertIn("invalid team name", bad_name.stderr)
+
+    def test_rejects_unsafe_ultragoal_id_before_path_write(self) -> None:
+        bad_id = subprocess.run(
+            [str(LFG), "--json", "ultragoal", "create", "bad id", "--id", "../escape"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            timeout=20,
+        )
+        self.assertNotEqual(bad_id.returncode, 0)
+        self.assertIn("invalid ultragoal id", bad_id.stderr)
+
+    def test_rejects_unsafe_team_refs_for_read_and_shutdown(self) -> None:
+        for args in (
+            ["team", "status", "../escape"],
+            ["team", "resume", "../escape"],
+            ["team", "shutdown", "../escape"],
+            ["team", "state", "../escape"],
+        ):
+            proc = subprocess.run(
+                [str(LFG), "--json", *args],
+                cwd=str(REPO),
+                env=self.env,
+                text=True,
+                capture_output=True,
+                timeout=20,
+            )
+            self.assertNotEqual(proc.returncode, 0, args)
+            self.assertTrue(
+                "invalid team name" in proc.stderr or "invalid choice" in proc.stderr,
+                args,
+            )
+
+    def test_rejects_unsafe_current_team_pointer(self) -> None:
+        state = pathlib.Path(self.tmp.name) / "state"
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "current-team.json").write_text(json.dumps({"name": "../escape"}), encoding="utf-8")
+        for args in (["team", "status"], ["team", "resume"], ["team", "shutdown"]):
+            proc = subprocess.run(
+                [str(LFG), "--json", *args],
+                cwd=str(REPO),
+                env=self.env,
+                text=True,
+                capture_output=True,
+                timeout=20,
+            )
+            self.assertNotEqual(proc.returncode, 0, args)
+            self.assertIn("invalid team name", proc.stderr, args)
+
+
+    def test_mcp_exposes_omo_agent_registry(self) -> None:
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "grok_build_agents", "arguments": {"action": "list"}},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {"name": "grok_build_agents", "arguments": {"action": "inspect", "agent": "atlas"}},
+            },
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+
+        tools = replies[1]["result"]["tools"]
+        tool_names = {tool["name"] for tool in tools}
+        self.assertIn("grok_build_agents", tool_names)
+        self.assertEqual(sum(1 for tool in tools if tool["name"] == "grok_build_agents"), 1)
+        agents_schema = next(tool["inputSchema"] for tool in tools if tool["name"] == "grok_build_agents")
+        for key in {"category", "provider", "model", "reasoning"}:
+            self.assertIn(key, agents_schema["properties"])
+        listing = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(listing["returncode"], 0)
+        self.assertIn('"sisyphus-junior"', listing["stdout"])
+        atlas = json.loads(replies[3]["result"]["content"][0]["text"])
+        self.assertEqual(atlas["returncode"], 0)
+        self.assertIn('"id": "atlas"', atlas["stdout"])
+
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "grok_build_agents", "arguments": {"action": "inspect", "agent": "hephaestus", "category": "deep"}},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "grok_build_agents", "arguments": {"action": "inspect", "agent": "sisyphus", "provider": "claude"}},
+            },
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        proc.stdout.close()
+
+        deep = json.loads(json.loads(replies[1]["result"]["content"][0]["text"])["stdout"])
+        self.assertEqual(deep["resolvedModelProfile"], {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "xhigh"})
+        rejected = json.loads(json.loads(replies[2]["result"]["content"][0]["text"])["stdout"])
+        self.assertFalse(rejected["ok"], rejected)
+        self.assertIn("non-grok primary model provider", rejected["error"])
 
     def test_mcp_exposes_runtime_and_team_tools(self) -> None:
         proc = subprocess.Popen(
@@ -589,14 +890,18 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("noop provider ready", module.provider_command("noop", "hello"))
         matrix = module.team_provider_matrix()
         providers = {row["provider"] for row in matrix}
-        self.assertEqual({"hermes", "claude", "codex", "noop"}, providers)
+        expected = {"hermes", "claude", "codex", "gemini", "copilot", "opencode", "grok", "subagent", "noop"}
+        self.assertEqual(expected, providers)
         self.assertTrue(next(row for row in matrix if row["provider"] == "noop")["available"])
         listed = self.run_lfg("team", "providers")
         self.assertTrue(listed["ok"])
-        self.assertEqual([row["provider"] for row in listed["providers"]], ["hermes", "claude", "codex", "noop"])
+        listed_providers = [row["provider"] for row in listed["providers"]]
+        self.assertIn("grok", listed_providers)
+        self.assertIn("subagent", listed_providers)
         self.assertEqual(listed["smokeSafe"], "noop")
         slash_listed = self.run_lfg("slash", "/team providers")
-        self.assertEqual([row["provider"] for row in slash_listed["providers"]], ["hermes", "claude", "codex", "noop"])
+        slash_providers = [row["provider"] for row in slash_listed["providers"]]
+        self.assertIn("grok", slash_providers)
         self.assertEqual(slash_listed["smokeSafe"], "noop")
         team = self.run_lfg("team", "create", "4:executor", "provider smoke", "--providers", "hermes,claude,codex,noop", "--dry-run")
         self.assertEqual([m["provider"] for m in team["members"]], ["hermes", "claude", "codex", "noop"])
@@ -613,7 +918,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(pathlib.Path(installed["config"]).exists())
         self.assertTrue(os.access(installed["script"], os.X_OK))
         script = pathlib.Path(installed["script"]).read_text(encoding="utf-8")
-        self.assertIn("grok-build-audit-hook.sh", script)
+        self.assertIn("lfg-audit-hook.sh", script)
         doctor = self.run_lfg("doctor")
         bridge = next(check for check in doctor["checks"] if check["name"] == "global_hook_bridge")
         self.assertIn("installed=True valid=True", bridge["evidence"])
@@ -690,7 +995,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn('"status": "pass"', payload["stdout"])
 
     def test_wiki_add_list_search_persists_notes(self) -> None:
-        note = self.run_lfg("wiki", "add", "Team decision", "Use tmux backend for team mode", "--tags", "team,architecture")
+        note = self.run_lfg("wiki", "add", "Team decision", "Use explicit tmux team lifecycle", "--tags", "team,architecture")
         self.assertEqual(note["title"], "Team decision")
         self.assertTrue(pathlib.Path(note["path"]).exists())
         listed = self.run_lfg("wiki", "list")
@@ -900,7 +1205,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("brief", sh)
         self.assertTrue(len(sh.get("recentLedger", [])) >= 1)
 
-    def test_mcp_ultragoal_tool(self) -> None:
+    def test_mcp_ultragoal_tool_detailed(self) -> None:
         proc = subprocess.Popen(
             ["python3", str(MCP)],
             cwd=str(REPO),
@@ -1034,7 +1339,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(hud["counts"]["activeGoals"], 1)
         self.assertEqual(hud["counts"]["plans"], 1)
         self.assertEqual(hud["counts"]["wikiNotes"], 1)
-        self.assertIn("grok-build", hud["text"])
+        self.assertIn("lfg", hud["text"])
 
     def test_mcp_hud_tool(self) -> None:
         self.run_lfg("goal", "create", "MCP HUD goal")
@@ -1066,7 +1371,7 @@ class RuntimeSmoke(unittest.TestCase):
         payload = json.loads(replies[1]["result"]["content"][0]["text"])
         self.assertEqual(payload["returncode"], 0)
         self.assertIn('"goals": 1', payload["stdout"])
-        self.assertIn('"text": "grok-build', payload["stdout"])
+        self.assertIn('"text": "lfg', payload["stdout"])
 
 
     def test_performance_goal_create_measure_show(self) -> None:
@@ -1180,17 +1485,17 @@ class RuntimeSmoke(unittest.TestCase):
         check = self.run_lfg("omx-setup", "check")
         self.assertEqual(check["status"], "ok")
         self.assertTrue(check["checks"]["manifestExists"])
-        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "linalab-io-framework/grok-build")
+        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "linalab-io/lfg")
         self.assertEqual(plan["status"], "planned")
         shown = self.run_lfg("omx-setup", "show")
-        self.assertEqual(shown["marketplace"], "linalab-io-framework/grok-build")
+        self.assertEqual(shown["marketplace"], "linalab-io/lfg")
 
     def test_mcp_omx_setup_tool(self) -> None:
         proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         assert proc.stdin and proc.stdout
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
-            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "install-plan", "marketplace": "linalab-io-framework/grok-build"}}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "install-plan", "marketplace": "linalab-io/lfg"}}},
             {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "show"}}},
         ]
         for msg in messages:
@@ -1208,7 +1513,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(plan_payload["returncode"], 0)
         self.assertEqual(show_payload["returncode"], 0)
         self.assertIn('"status": "planned"', plan_payload["stdout"])
-        self.assertIn('linalab-io-framework/grok-build', show_payload["stdout"])
+        self.assertIn('linalab-io/lfg', show_payload["stdout"])
 
     def test_skill_list_search_catalog(self) -> None:
         listed = self.run_lfg("skill", "list")
@@ -1748,6 +2053,7 @@ class RuntimeSmoke(unittest.TestCase):
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "create", "id": "mcp-ultragoal", "objective": "MCP durable", "checklist": "design;verify"}}},
             {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "checkpoint", "id": "mcp-ultragoal", "status": "complete", "evidence": "forced smoke gate", "forceGate": True}}},
             {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "show", "id": "mcp-ultragoal"}}},
+            {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "spawn", "id": "mcp-spawn-ultragoal", "objective": "MCP swarm", "spec": "2:executor", "providers": "noop", "dryRun": True}}},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1762,12 +2068,168 @@ class RuntimeSmoke(unittest.TestCase):
         create_payload = json.loads(replies[1]["result"]["content"][0]["text"])
         checkpoint_payload = json.loads(replies[2]["result"]["content"][0]["text"])
         show_payload = json.loads(replies[3]["result"]["content"][0]["text"])
+        spawn_payload = json.loads(replies[4]["result"]["content"][0]["text"])
         self.assertEqual(create_payload["returncode"], 0)
         self.assertEqual(checkpoint_payload["returncode"], 0)
         self.assertEqual(show_payload["returncode"], 0)
+        self.assertEqual(spawn_payload["returncode"], 0)
         self.assertIn('"id": "mcp-ultragoal"', create_payload["stdout"])
         self.assertIn('"status": "complete"', checkpoint_payload["stdout"])
         self.assertIn('"brief"', show_payload["stdout"])
+        self.assertIn('"ultragoal": "mcp-spawn-ultragoal"', spawn_payload["stdout"])
+
+
+class IdentityAlignmentSmoke(unittest.TestCase):
+    """Verify lina/gonow/iz are canonical primary identities; Sisyphus/Hephaestus/Oracle are lineage-only."""
+
+    AGENTS_DIR = PLUGIN / "src" / "agents"
+    GROK_BUILD = PLUGIN / "bin" / "lfg.py"
+    HARNESS = PLUGIN / "hooks" / "scripts" / "lfg-goal-harness.py"
+
+    def _load_agent(self, filename: str) -> dict:
+        return json.loads((self.AGENTS_DIR / filename).read_text(encoding="utf-8"))
+
+    def test_lina_prompt_primary_identity(self) -> None:
+        agent = self._load_agent("legacy/lina-orchestrator.json")
+        base = agent["prompt_overrides"]["base"]
+        self.assertIn("You are Lina", base)
+        self.assertNotIn("but in your deepest identity you are Sisyphus", base)
+
+    def test_gonow_prompt_primary_identity(self) -> None:
+        agent = self._load_agent("legacy/gonow-worker.json")
+        base = agent["prompt_overrides"]["base"]
+        self.assertIn("You are GoNow", base)
+        self.assertNotIn("but in your deepest identity you are Hephaestus", base)
+
+    def test_iz_prompt_primary_identity(self) -> None:
+        agent = self._load_agent("legacy/iz-architect.json")
+        base = agent["prompt_overrides"]["base"]
+        deep = agent["prompt_overrides"]["deep"]
+        self.assertIn("You are IZ", base)
+        self.assertNotIn("but in your deepest identity you are the Oracle", base)
+        self.assertNotIn("You are the Oracle in full vision", deep)
+        self.assertIn("You are IZ in full vision", deep)
+
+    def test_lina_gonow_iz_retain_lineage_notes(self) -> None:
+        lina = self._load_agent("legacy/lina-orchestrator.json")
+        gonow = self._load_agent("legacy/gonow-worker.json")
+        iz = self._load_agent("legacy/iz-architect.json")
+        self.assertIn("Sisyphus", lina["prompt_overrides"]["base"])
+        self.assertIn("Hephaestus", gonow["prompt_overrides"]["base"])
+        self.assertIn("Oracle", iz["prompt_overrides"]["base"])
+
+    def test_boulder_last_updated_by_is_lina(self) -> None:
+        src = self.GROK_BUILD.read_text(encoding="utf-8")
+        self.assertIn('"last_updated_by": "lina"', src)
+        self.assertNotIn('"last_updated_by": "Sisyphus"', src)
+
+    def test_harness_injection_uses_lina(self) -> None:
+        src = self.HARNESS.read_text(encoding="utf-8")
+        self.assertIn("You are Lina", src)
+        self.assertNotIn("You are Sisyphus", src)
+        self.assertNotIn('"last_updated_by": "Sisyphus"', src)
+        self.assertNotIn('owner": "Hephaestus | Oracle | Sisyphus"', src)
+        self.assertNotIn("operating as Sisyphus", src)
+        self.assertIn('"last_updated_by": "lina"', src)
+        self.assertIn('owner": "gonow | iz | lina"', src)
+
+    def test_harness_uses_local_boulder_helpers(self) -> None:
+        src = self.HARNESS.read_text(encoding="utf-8")
+        self.assertIn("def read_boulder", src)
+        self.assertIn("def write_boulder", src)
+        self.assertNotIn("from grok_build import read_boulder", src)
+        self.assertNotIn("from grok_build import write_boulder", src)
+        self.assertNotIn("from grok_build import boulder_path", src)
+
+    def test_no_forbidden_primary_identity_phrases(self) -> None:
+        forbidden = [
+            "but in your deepest identity you are Sisyphus",
+            "but in your deepest identity you are Hephaestus",
+            "but in your deepest identity you are the Oracle",
+            "You are the Oracle in full vision",
+        ]
+        for agent_file in self.AGENTS_DIR.glob("*.json"):
+            text = agent_file.read_text(encoding="utf-8")
+            for phrase in forbidden:
+                self.assertNotIn(phrase, text, f"Forbidden phrase found in {agent_file.name}: {phrase!r}")
+
+
+class TeamSpecAndAgentLoadingSmoke(unittest.TestCase):
+    """Verify parse_team_spec and bundled agent definition loading."""
+
+    def setUp(self) -> None:
+        self.mod = load_grok_build_module()
+
+    def test_parse_team_spec_named_no_count(self) -> None:
+        result = self.mod.parse_team_spec("iz,gonow,grok")
+        self.assertEqual(result, [(1, "iz"), (1, "gonow"), (1, "grok")])
+
+    def test_parse_team_spec_named_with_count(self) -> None:
+        result = self.mod.parse_team_spec("1:iz,2:gonow,1:grok")
+        self.assertEqual(result, [(1, "iz"), (2, "gonow"), (1, "grok")])
+
+    def test_parse_team_spec_generic(self) -> None:
+        result = self.mod.parse_team_spec("3:executor")
+        self.assertEqual(result, [(3, "executor")])
+
+    def test_bundled_agent_lina_loads(self) -> None:
+        agent = self.mod.load_agent_definition("lina")
+        self.assertIsNotNone(agent)
+        self.assertEqual(agent["name"], "lina")
+        self.assertEqual(agent["role"], "orchestrator")
+
+    def test_bundled_agent_gonow_loads(self) -> None:
+        agent = self.mod.load_agent_definition("gonow")
+        self.assertIsNotNone(agent)
+        self.assertEqual(agent["name"], "gonow")
+        self.assertEqual(agent["role"], "worker")
+
+    def test_bundled_agent_iz_loads(self) -> None:
+        agent = self.mod.load_agent_definition("iz")
+        self.assertIsNotNone(agent)
+        self.assertEqual(agent["name"], "iz")
+        self.assertEqual(agent["role"], "architect")
+
+    def test_bundled_agent_grok_loads(self) -> None:
+        agent = self.mod.load_agent_definition("grok")
+        self.assertIsNotNone(agent, "grok legacy agent definition should exist under src/agents/legacy/")
+
+
+class HarnessRuntimeSmoke(unittest.TestCase):
+    """Verify hook helper behavior without relying on grok_build import aliases."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.original_env = os.environ.copy()
+        os.environ["GROK_PLUGIN_DATA"] = self.tmp.name
+        self.module_name = "lfg_goal_harness_test"
+        spec = importlib.util.spec_from_file_location(self.module_name, PLUGIN / "hooks" / "scripts" / "lfg-goal-harness.py")
+        assert spec and spec.loader
+        self.harness = importlib.util.module_from_spec(spec)
+        sys.modules[self.module_name] = self.harness
+        spec.loader.exec_module(self.harness)
+
+    def tearDown(self) -> None:
+        os.environ.clear()
+        os.environ.update(self.original_env)
+        sys.modules.pop(self.module_name, None)
+        self.tmp.cleanup()
+
+    def test_boulder_read_write_without_runtime_import(self) -> None:
+        self.harness.write_boulder("ug-test", {"version": 1, "ultragoal_id": "ug-test", "status_summary": "ok"})
+        boulder = self.harness.read_boulder("ug-test")
+        self.assertEqual(boulder["last_updated_by"], "lina")
+        self.assertEqual(boulder["status_summary"], "ok")
+
+    def test_boulder_path_rejects_traversal(self) -> None:
+        with self.assertRaises(ValueError):
+            self.harness.boulder_path("../escape")
+
+    def test_task_and_evidence_status_helpers_match_runtime(self) -> None:
+        self.assertFalse(self.harness.task_is_pending({"status": "completed"}))
+        self.assertFalse(self.harness.task_is_pending({"status": "done"}))
+        self.assertTrue(self.harness.task_is_pending({"status": "in_progress"}))
+        self.assertTrue(self.harness.message_is_evidence({"type": "evidence_submission"}))
 
 
 if __name__ == "__main__":

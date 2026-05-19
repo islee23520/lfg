@@ -44,32 +44,32 @@ trap - EXIT
 
 # 2) In the same Grok version/path, plugin hooks are discovered and listed active,
 # but plugin hook commands do not emit audit records in headless/tool-use mode.
-plugins/grok-harnessing/bin/grok-install-smoke.sh >/tmp/grok-plugin-scope-install.log
-INST="$HOME/.grok/plugins/grok-build/hooks/hooks.json"
-cp "$INST" /tmp/grok-build-hooks.scope.backup.json
+plugins/lfg/bin/grok-install-smoke.sh >/tmp/grok-plugin-scope-install.log
+INST="$HOME/.grok/plugins/lfg/hooks/hooks.json"
+cp "$INST" /tmp/lfg-hooks.scope.backup.json
 python3 - <<'PY'
 import json, pathlib
-p=pathlib.Path('/Users/ilseoblee/.grok/plugins/grok-build/hooks/hooks.json')
+p=pathlib.Path('/Users/ilseoblee/.grok/plugins/lfg/hooks/hooks.json')
 data=json.loads(p.read_text())
-cmd='/Users/ilseoblee/.grok/plugins/grok-build/hooks/scripts/grok-build-audit-hook.sh'
+cmd='/Users/ilseoblee/.grok/plugins/lfg/hooks/scripts/lfg-audit-hook.sh'
 for entries in data['hooks'].values():
     for entry in entries:
         for hook in entry['hooks']:
             hook['command']=cmd
 p.write_text(json.dumps(data, indent=2)+"\n")
 PY
-rm -rf "$HOME/.grok/plugin-data/grok-build/events"
+rm -rf "$PWD/.lfg/events"
 "$GROK_BIN" --no-leader --cwd /tmp --no-alt-screen --always-approve --max-turns 12 --output-format json \
   -p 'Use the terminal tool to run: echo LFG_PLUGIN_ABS_HOOK_SESSION. Then answer exactly DONE.' \
   >/tmp/grok-plugin-hook-scope.json 2>/tmp/grok-plugin-hook-scope.err || true
-mv /tmp/grok-build-hooks.scope.backup.json "$INST"
+mv /tmp/lfg-hooks.scope.backup.json "$INST"
 python3 - <<'PY'
 import json, pathlib
 obj=json.loads(pathlib.Path('/tmp/grok-plugin-hook-scope.json').read_text())
 assert obj.get('text','').strip().startswith('DONE'), obj
 assert 'LFG_PLUGIN_ABS_HOOK_SESSION' in obj.get('thought',''), obj
 PY
-if [ -s "$HOME/.grok/plugin-data/grok-build/events/audit.jsonl" ]; then
+if [ -s "$PWD/.lfg/events/audit.jsonl" ]; then
   echo "grok-plugin-hook-scope=ok"
 else
   echo "grok-plugin-hook-scope=not-observed while-global-hooks-ok"

@@ -8,27 +8,20 @@ lfg --json >/tmp/lfg-launch.json
 python3 - <<'PY'
 import json
 obj=json.load(open('/tmp/lfg-launch.json'))
-assert obj['status'] == 'running', obj
+assert obj['status'] == 'ready', obj
 assert obj['launcher'] == 'lfg', obj
-assert obj['mode'] == 'tmux-backend', obj
-assert obj['attachCommand'].startswith('tmux attach -t '), obj
-print('lfg-launch-json=ok attachCommand=%s' % obj['attachCommand'])
+assert obj['mode'] == 'lfg-runtime', obj
+assert 'attachCommand' not in obj, obj
+print('lfg-launch-runtime=ok mode=%s' % obj['mode'])
 PY
 ulw --json >/tmp/ulw-launch.json
 python3 - <<'PY'
 import json
 obj=json.load(open('/tmp/ulw-launch.json'))
-assert obj['status'] == 'running', obj
+assert obj['status'] == 'ready', obj
 assert obj['launcher'] == 'ulw', obj
-assert obj['mode'] == 'tmux-backend', obj
-assert obj['attachCommand'].startswith('tmux attach -t '), obj
-print('ulw-launch-json=ok attachCommand=%s' % obj['attachCommand'])
+assert obj['mode'] == 'lfg-runtime', obj
+assert 'attachCommand' not in obj, obj
+print('ulw-launch-runtime=ok mode=%s' % obj['mode'])
 PY
-SESSION="$(python3 - <<'PY'
-import json
-print(json.load(open('/tmp/lfg-launch.json'))['name'])
-PY
-)"
-tmux has-session -t "$SESSION"
-echo "lfg-tmux-session=ok $SESSION"
 echo "lfg-launch-smoke=ok alias=ulw"

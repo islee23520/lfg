@@ -1,29 +1,29 @@
 # Release tags
 
-The plugin uses explicit Grok Build release tags so marketplace installs and release notes can refer to immutable points in history.
+The plugin uses explicit LFG release tags so marketplace installs and release notes can refer to immutable points in history.
 
 ## Current preview tag
 
 ```text
-grok-build-v0.3.0-p1
+lfg-v0.3.0-p1
 ```
 
 This tag points at the `p1` hardening preview for package:
 
 ```text
-linalab-io-framework/grok-build
+linalab-io/lfg
 ```
 
 ## Stable release tag format
 
 ```text
-grok-build-v<plugin-version>
+lfg-v<plugin-version>
 ```
 
 Example after `p1` is merged to `main`:
 
 ```text
-grok-build-v0.3.0
+lfg-v0.3.0
 ```
 
 ## Verification
@@ -31,13 +31,13 @@ grok-build-v0.3.0
 Before publishing or announcing a tag, run:
 
 ```sh
-scripts/verify-release-tag.sh grok-build-v0.3.0-p1
-scripts/verify-release-tag.sh --remote grok-build-v0.3.0-p1
+scripts/verify-release-tag.sh lfg-v0.3.0-p1
+scripts/verify-release-tag.sh --remote lfg-v0.3.0-p1
 ```
 
 Expected evidence:
 
 ```text
-release-tag=ok tag=grok-build-v0.3.0-p1
-release-tag-remote=ok tag=grok-build-v0.3.0-p1
+release-tag=ok tag=lfg-v0.3.0-p1
+release-tag-remote=ok tag=lfg-v0.3.0-p1
 ```

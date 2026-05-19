@@ -1,6 +1,6 @@
 # Release checklist
 
-Use this checklist before merging or tagging `linalab-io-framework/grok-build`.
+Use this checklist before merging or tagging `linalab-io/lfg`.
 
 ## Required release gates
 
@@ -10,7 +10,7 @@ Use this checklist before merging or tagging `linalab-io-framework/grok-build`.
 - [ ] Local `lfg` symlink installer passes with `lfg-launch=ok
 lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 - [ ] Installed `lfg` symlink surface smoke passes with `lfg-installed-symlink-surface=ok` and confirms `/team providers`, `/team preflight`, and preflight `commands=ok`.
-- [ ] Inside-tmux `lfg` attach smoke passes with `lfg-inside-tmux-attach=ok`.
+- [ ] Inside-tmux no-arg `lfg` status smoke passes with `lfg-inside-tmux-status=ok`.
 - [ ] Team preflight smoke passes with `team-preflight-cli=ok`, `team-preflight-commands=ok`, `team-preflight-slash=ok`, and `team-preflight-mcp=ok`.
 - [ ] Team provider command smoke passes with `team-provider-matrix=ok`, `team-provider-slash=ok`, `team-provider-commands=ok`, and `team-provider-doctor=ok`.
 - [ ] Team tmux lifecycle smoke passes with `team-tmux-lifecycle=ok`.
@@ -28,13 +28,13 @@ lfg-status=ok version=0.3.0` and `lfg-doctor=ok`.
 - [ ] Full release-readiness aggregate passes with `release-readiness-all=ok`.
 - [ ] Roadmap coverage guard confirms `roadmap=27/27` non-harness skill surfaces.
 - [ ] Feature-doc coverage guard confirms `feature_docs=27/27` non-harness skill surfaces.
-- [ ] Marketplace metadata still points to `linalab-io-framework/grok-build`.
+- [ ] Marketplace metadata still points to `linalab-io/lfg`.
 - [ ] Doctor diagnostics include `grok_marketplace` and `agents_marketplace` checks.
 
 ## Commands
 
 ```sh
-plugins/grok-harnessing/bin/self-test.sh
+plugins/lfg/bin/self-test.sh
 scripts/verify-release-readiness-local.sh
 scripts/install-lfg-symlink.sh
 scripts/verify-installed-lfg-symlink-surface.sh
@@ -49,15 +49,15 @@ scripts/verify-release-notes.sh
 scripts/verify-marketplace-source.sh
 scripts/verify-marketplace-source.sh --remote p1
 scripts/verify-grok-hook-discovery.sh
-scripts/verify-grok-build-global-hook-bridge.sh
+scripts/verify-lfg-global-hook-bridge.sh
 scripts/verify-grok-installed-mcp-surface.sh
-scripts/verify-release-tag.sh grok-build-v0.3.0-p1
-scripts/verify-release-tag.sh --remote grok-build-v0.3.0-p1
+scripts/verify-release-tag.sh lfg-v0.3.0-p1
+scripts/verify-release-tag.sh --remote lfg-v0.3.0-p1
 scripts/verify-grok-plugins-surface.sh
-plugins/grok-harnessing/bin/grok-install-smoke.sh
+plugins/lfg/bin/grok-install-smoke.sh
 scripts/verify-remote-smoke.sh p1
-scripts/verify-release-readiness-remote.sh p1 grok-build-v0.3.0-p1
-scripts/verify-release-readiness-all.sh p1 grok-build-v0.3.0-p1
+scripts/verify-release-readiness-remote.sh p1 lfg-v0.3.0-p1
+scripts/verify-release-readiness-all.sh p1 lfg-v0.3.0-p1
 ```
 
 ## Expected installed surface
@@ -79,4 +79,4 @@ wiki
 
 ## Stop condition
 
-Do not tag or merge unless all commands above pass and the latest GitHub Actions `grok-build smoke` run is `completed` with conclusion `success`.
+Do not tag or merge unless all commands above pass and the latest GitHub Actions `lfg smoke` run is `completed` with conclusion `success`.

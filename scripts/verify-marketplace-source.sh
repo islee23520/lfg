@@ -11,10 +11,10 @@ import json, pathlib, sys, urllib.request
 branch = sys.argv[1]
 root = pathlib.Path('.')
 expected = {
-    'marketplace': 'linalab-io-framework',
-    'package': 'linalab-io-framework/grok-build',
-    'plugin': 'grok-build',
-    'path': 'plugins/grok-harnessing',
+    'marketplace': 'linalab-io',
+    'package': 'linalab-io/lfg',
+    'plugin': 'lfg',
+    'path': 'plugins/lfg',
     'repo': 'https://github.com/islee23520/lfg.git',
     'reference': 'https://github.com/Yeachan-Heo/oh-my-codex',
     'main_url': 'https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json',

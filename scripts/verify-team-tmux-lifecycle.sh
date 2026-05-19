@@ -11,7 +11,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-CREATE_JSON="$(GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json team create 2:executor "tmux lifecycle smoke" --name "$TEAM" --providers noop)"
+CREATE_JSON="$(GROK_PLUGIN_DATA="$TMP" plugins/lfg/bin/lfg --json team create 2:executor "tmux lifecycle smoke" --name "$TEAM" --providers noop)"
 CREATE_JSON="$CREATE_JSON" TEAM="$TEAM" python3 - <<'PY'
 import json, os
 obj=json.loads(os.environ['CREATE_JSON'])
@@ -24,7 +24,7 @@ print('team-create=ok name=%s members=%s' % (obj['name'], len(obj['members'])))
 PY
 
 tmux has-session -t "$TEAM"
-STATUS_JSON="$(GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json team status "$TEAM")"
+STATUS_JSON="$(GROK_PLUGIN_DATA="$TMP" plugins/lfg/bin/lfg --json team status "$TEAM")"
 STATUS_JSON="$STATUS_JSON" python3 - <<'PY'
 import json, os
 obj=json.loads(os.environ['STATUS_JSON'])
@@ -34,7 +34,7 @@ assert 'control' in obj['tmux']['stdout'], obj
 print('team-status=ok windows=%s' % len(obj['tmux']['stdout'].splitlines()))
 PY
 
-RESUME_JSON="$(GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json team resume "$TEAM")"
+RESUME_JSON="$(GROK_PLUGIN_DATA="$TMP" plugins/lfg/bin/lfg --json team resume "$TEAM")"
 RESUME_JSON="$RESUME_JSON" python3 - <<'PY'
 import json, os
 obj=json.loads(os.environ['RESUME_JSON'])
@@ -43,7 +43,7 @@ assert obj['statusCommand'].startswith('tmux list-windows -t '), obj
 print('team-resume=ok attachCommand=%s' % obj['attachCommand'])
 PY
 
-SHUTDOWN_JSON="$(GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json team shutdown "$TEAM")"
+SHUTDOWN_JSON="$(GROK_PLUGIN_DATA="$TMP" plugins/lfg/bin/lfg --json team shutdown "$TEAM")"
 SHUTDOWN_JSON="$SHUTDOWN_JSON" python3 - <<'PY'
 import json, os
 obj=json.loads(os.environ['SHUTDOWN_JSON'])

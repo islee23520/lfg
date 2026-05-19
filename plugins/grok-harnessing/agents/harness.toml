@@ -1,3 +1,0 @@
-name = "grok-build-harness"
-description = "Read-only verifier for linalab-io-framework/grok-build plugin package surfaces."
-model = "grok-3-mini"

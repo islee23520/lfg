@@ -7,16 +7,16 @@ if [[ "${1:-}" == "--remote" ]]; then
   REMOTE=1
   shift
 fi
-TAG="${1:-grok-build-v0.3.0-p1}"
+TAG="${1:-lfg-v0.3.0-p1}"
 python3 - <<'PY' "$TAG"
 import json, pathlib, re, subprocess, sys
 root=pathlib.Path('.')
 tag=sys.argv[1]
-plugin=json.loads((root/'plugins/grok-harnessing/.grok-plugin/plugin.json').read_text())
+plugin=json.loads((root/'plugins/lfg/.grok-plugin/plugin.json').read_text())
 version=plugin['version']
 package=plugin['metadata']['packageName']
-assert package == 'linalab-io-framework/grok-build', package
-assert tag in {f'grok-build-v{version}', f'grok-build-v{version}-p1'}, (tag, version)
+assert package == 'linalab-io/lfg', package
+assert tag in {f'lfg-v{version}', f'lfg-v{version}-p1'}, (tag, version)
 notes=(root/'docs/RELEASE_TAGS.md').read_text()
 release=(root/'docs/MARKETPLACE_RELEASE_NOTES.md').read_text()
 for text_name, text in [('docs/RELEASE_TAGS.md', notes), ('docs/MARKETPLACE_RELEASE_NOTES.md', release)]:

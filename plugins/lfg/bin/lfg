@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# lfg — primary / default binary for the LFG runtime (workflows, plugin, team helpers)
+# Installed to ~/.grok/bin/lfg and ~/.local/bin/lfg by scripts/install-lfg-symlink.sh
+# Always invokes the wrapped lfg.py with the correct LFG_LAUNCHER identity.
+
+SOURCE="$0"
+while [[ -L "$SOURCE" ]]; do
+  DIR="$(CDPATH= cd -- "$(dirname -- "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" = /* ]] || SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$SOURCE")" && pwd)"
+
+if [[ -z "${GROK_PLUGIN_ROOT:-}" ]]; then
+  CANDIDATE="$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)"
+  if [[ -f "$CANDIDATE/plugins/lfg/.grok-plugin/plugin.json" ]]; then
+    export GROK_PLUGIN_ROOT="$CANDIDATE"
+  else
+    export GROK_PLUGIN_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+  fi
+fi
+
+export GROK_PLUGIN_DATA="${GROK_PLUGIN_DATA:-$PWD/.lfg}"
+
+export LFG_LAUNCHER="lfg"
+
+grok_update_check() {
+  local grok_bin="$1"
+  [[ "${LFG_SKIP_GROK_UPDATE_CHECK:-}" == "1" ]] && return 0
+
+  local current_version=""
+  current_version="$("$grok_bin" --version 2>/dev/null || true)"
+
+  local check_output=""
+  if ! check_output="$("$grok_bin" update --check 2>&1)"; then
+    return 0
+  fi
+
+  local signal
+  signal="$(printf '%s' "$check_output" | tr '[:upper:]' '[:lower:]')"
+  case "$signal" in
+    *"update available"*|*"upgrade available"*|*"new version"*|*"out of date"*) ;;
+    *) return 0 ;;
+  esac
+
+  local answer="${LFG_GROK_UPDATE_CONFIRM:-}"
+  if [[ -z "$answer" ]]; then
+    if [[ ! -t 0 ]]; then
+      echo "lfg: Grok update available, skipping prompt because stdin is not interactive" >&2
+      return 0
+    fi
+    echo "lfg: Grok update available." >&2
+    [[ -n "$current_version" ]] && echo "lfg: current $current_version" >&2
+    [[ -n "$check_output" ]] && echo "$check_output" >&2
+    read -r -p "Update Grok and restart now? [y/N] " answer
+  fi
+
+  case "$answer" in
+    [yY]|[yY][eE][sS])
+      "$grok_bin" update
+      ;;
+    *)
+      echo "lfg: Grok update skipped" >&2
+      ;;
+  esac
+}
+
+if [[ $# -eq 0 ]]; then
+  if command -v grok >/dev/null 2>&1; then
+    GROK_BIN="$(command -v grok)"
+    grok_update_check "$GROK_BIN"
+    exec "$GROK_BIN"
+  fi
+  echo "lfg: grok executable not found; install Grok CLI or run 'lfg status' for the runtime helper" >&2
+  exit 127
+fi
+
+exec python3 "$SCRIPT_DIR/lfg.py" "$@"

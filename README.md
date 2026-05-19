@@ -1,132 +1,170 @@
-# linalab-io-framework/grok-build
+# linalab-io/lfg
 
-**OMX-like workflow/plugins for Grok Build.**
+**OMO agent hierarchy parity for Grok Build — Full Real Port in Progress.**
 
-`grok-build` aims to bring to **Grok Build** what [oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex) brings to **Codex**: workflow skills, plugin packaging, hooks, MCP tools, durable state, diagnostics, QA loops, and agent/team-style execution patterns.
+`lfg` is a Grok marketplace plugin that ports the **complete, authentic production oh-my-openagent (OMO)** agent hierarchy and orchestration engine into LFG / Grok Build. 
 
-This repo is the Grok Build adaptation. It is plugin-first: the plugin is installed through Grok's plugin/marketplace flow, then Grok discovers its skills, hooks, MCP server, and runtime helpers.
+**The goal is not a lightweight command demo.** The goal is a Grok-native agent operating system with real Sisyphus orchestration, Prometheus planning, Atlas checklist execution, Hephaestus deep work, Sisyphus-Junior category execution, Hyperplan adversarial teams, Boulder + Ralph "never stops" persistence, 5-tier defensive hooks, IntentGate `ulw` bootstrap, and full Team Mode — powered by Grok models and Grok-native sub-agent spawning.
 
-## Product scope
+The canonical implementation is now lfg-native under `plugins/lfg/src/agents/`, `plugins/lfg/bin/`, skills, hooks, MCP, and `.lfg/` runtime state.
 
-The target scope is simple:
+Every first-class agent is expected to use a Grok model. Grok Build native sub-agent spawning is the primary delegation path.
 
-> Implement an oh-my-codex-style workflow/plugin layer for Grok Build.
+## Product Scope
 
-That means Grok-native equivalents for the OMX-style surface:
+`lfg` provides an OMO-style runtime surface for Grok Build:
 
-- workflow skills: `plan`, `ralph`, `ultraqa`, `ultragoal`, `ultrawork`, `pipeline`, `team`, `worker`
-- repo/product support: `analyze`, `code-review`, `design`, `wiki`, `doctor`, `hud`
-- setup/ops: `omx-setup`, `configure-notifications`, `cancel`, `skill`
-- runtime services: hooks, MCP tools, plugin data, state files, smoke tests
-- marketplace install path: add LinaLab's marketplace in Grok, then install `grok-build`
+- Agent hierarchy: Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, builtin-agents (plus the full 11 from real OMO)
+- Orchestration: task delegation, category routing, dependency waves, hostile critique, lead synthesis, hyperplan 3-round adversarial
+- Durable state: Boulder, continuation (Ralph-loop + TodoContinuationEnforcer), mailbox, shared tasklist, notepads, plans, team runtime
+- Team execution: tmux-backed local observability plus Grok sub-agent spawning where available
+- "Magic" entrypoints: `ulw` / `ultrawork` keyword + IntentGate + model-specific Grok preambles
+- Quality gates: evidence strings (`*=ok`), critic review, tests, manual verification, release gates
+- Integration surfaces: Grok skills, hooks (5-tier safeCreateHook), MCP tools, CLI wrappers, marketplace metadata
 
-## Install through Grok marketplace
+## Install Through Grok Marketplace
 
 The intended install path is inside Grok:
 
-1. Open Grok Build.
+1. Open LFG / Grok Build.
 2. Open the extensions modal with `/plugins`.
 3. Add the LinaLab marketplace source URL:
 
    ```text
    https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json
    ```
-4. Install/add `grok-build` from that marketplace.
+
+4. Install/add `lfg` from that marketplace.
 5. Enable the plugin.
-6. Verify it shows skills, hooks, and MCP server entries.
+6. Verify it discovers agent definitions, skills, hooks, MCP server, and runtime helpers.
 
 Marketplace/package identity:
 
 ```text
-Marketplace: linalab-io-framework
-Package:     linalab-io-framework/grok-build
-Plugin id:   grok-build
+Marketplace: linalab-io
+Package:     linalab-io/lfg
+Plugin id:   lfg
 Repository:  https://github.com/islee23520/lfg
 Marketplace source repo: https://github.com/islee23520/lfg.git
-Reference:   https://github.com/Yeachan-Heo/oh-my-codex
+Reference:   oh-my-openagent agent hierarchy and orchestration model (full real port)
+Current marketplace metadata reference retained for release compatibility: https://github.com/Yeachan-Heo/oh-my-codex
 ```
 
-Marketplace source file:
+Developer smoke commands live in [`docs/SMOKE.md`](docs/SMOKE.md). Marketplace installation remains the product path.
+
+## Agent Hierarchy
+
+### Sisyphus
+
+Main orchestrator. Owns user intent, dispatches specialists, tracks completion, enforces verification, and persists progress through Boulder state. The default lead for `ulw`.
+
+### Sisyphus-Junior
+
+Focused executor spawned by category routing. It executes a bounded task, verifies its own changes, and does not become a second unconstrained orchestrator.
+
+### Prometheus
+
+Strategic planner. Interviews, clarifies scope, reads context, and produces a verifiable plan before implementation starts. (Plan-only; hard-reject as team member per eligibility contract.)
+
+### Hephaestus
+
+Autonomous deep worker. Receives goals, not recipes. It researches, implements, and verifies difficult work with strong evidence discipline. (Conditional teammate.)
+
+### Atlas
+
+Todo-list orchestrator. Reads a plan, executes dependency waves, updates checkboxes, verifies every step, and continues until the checklist is complete.
+
+### builtin-agents
+
+Factory and policy layer. Resolves model profile, category, skill availability, overrides, blocked tools, and registration conditions. Enforces the real `AGENT_ELIGIBILITY_REGISTRY`.
+
+### Full 11-Agent Catalog (Phase 2 Ported)
+
+The lfg-native registry starts with Sisyphus, Atlas, Sisyphus-Junior, Hephaestus, Prometheus, and builtin-agents, with legacy named agents kept only for compatibility under `plugins/lfg/src/agents/legacy/`.
+
+## Grok Build Execution Model
+
+`lfg` maps OMO-style delegation onto Grok Build:
 
 ```text
-.grok/plugins/marketplace.json
-.agents/plugins/marketplace.json
+Sisyphus receives request
+  ├─ Prometheus plans if scope is non-trivial
+  ├─ Atlas executes plan waves
+  ├─ Sisyphus-Junior handles category tasks
+  ├─ Hephaestus handles autonomous deep goals
+  ├─ Hyperplan spawns hostile critics for adversarial planning
+  └─ Sisyphus synthesizes, verifies, and advances Boulder
 ```
 
-Developer smoke commands live in [`docs/SMOKE.md`](docs/SMOKE.md); the primary install path is the Grok `/plugins` marketplace flow above.
+All agent entries resolve to Grok models. Category routing may map to different Grok reasoning levels, but not to non-Grok primary models.
 
-## Use
+The next integration focus is replacing fallback/manual-gated spawn evidence with verified Grok-native sub-agent spawning while keeping `.lfg/` state and agent registry contracts stable.
 
-After installation, features are invoked as Grok slash commands. Grok should discover commands including:
+## Full Real OMO Port — Phase 2 Complete (Big Synthesis)
 
-```text
-/plan
-/ralph
-/ultraqa
-/ultragoal
-/ultrawork
-/pipeline
-/team
-/worker
-/wiki
-/doctor
-/hud
-/grok-harnessing
-```
+**Official Ultragoal**: `omo-full-real-port-20260518` ("full real OMO as-is, ulw ulw with team mode on").
 
-The `/team` slash command is backed by the same parser exposed through MCP tool `grok_build_slash`. The MVP runtime can also be exercised directly during development:
+After a massive 14+ parallel ULW explorer swarm mapped the entire production OMO engine, the Huge Orchestration Team (ULW) executed Phase 2: shipping **7 core modules** of portable, high-fidelity logic:
+
+1. **Eligibility Contracts** (`contracts/eligibility.json` + `team/eligibility.py`) — verbatim `AGENT_ELIGIBILITY_REGISTRY` + hyperplan roster (`eligibility-contract-shipped=ok`)
+2. **Agents Catalog** (`agents/`) — all 11 real agents with identities and prompt loading (`agent-catalog-impl=ok`)
+3. **Ultrawork IntentGate** (`ultrawork/`) — keyword detection + Grok-4-3 harness preambles + bootstrap (`ultrawork-intentgate-impl=ok`)
+4. **BackgroundManager + Tmux Viz** (`background/`) — parallel delegation engine + live visibility (`background-manager-impl=ok`)
+5. **5-Tier Hooks** (`hooks/`) — `safeCreateHook` + defensive validators (`hooks-5tier-impl=ok`)
+6. **Team Runtime** (`team/`) — Hyperplan executor (exact 3-round adversarial + handoff), Mailbox, Tasklist (`team-runtime-hyperplan-impl=ok`)
+7. **Config / Doctor / Named Teams** (`config/`) — 3-layer loading, discovery, self-diagnostics, `team create hyperplan` (`doctor-named-teams-impl=ok`)
+
+**Plus cross-cutting Persistence** (`persistence/`) — Boulder + Ralph-loop + `TodoContinuationEnforcer` + `SYSTEM DIRECTIVE` ("never stops until done") — `persistence-boulder-ralph-impl=ok`
+
+All modules are dependency-light Python, directly portable into `~/.grok/plugins/grok-build/omo/`, and exercised with live evidence strings.
+
+**"The boulder is moving. The real OMO engine is here."**
+
+## Runtime Commands
+
+The current CLI is a transition surface while the OMO parity runtime lands. The expected product commands are:
 
 ```sh
-plugins/grok-harnessing/bin/grok-build.py status
-plugins/grok-harnessing/bin/grok-build.py catalog
-plugins/grok-harnessing/bin/grok-build.py doctor
-plugins/grok-harnessing/bin/grok-build.py hud --text
-plugins/grok-harnessing/bin/grok-build.py omx-setup check
-plugins/grok-harnessing/bin/grok-build.py omx-setup install-plan --marketplace linalab-io-framework/grok-build
-plugins/grok-harnessing/bin/grok-build.py skill search ultraqa
-plugins/grok-harnessing/bin/grok-build.py pipeline create "ship feature" --stages "plan;build;verify"
-plugins/grok-harnessing/bin/grok-build.py autopilot create "ship strict loop"
-plugins/grok-harnessing/bin/grok-build.py autopilot advance --phase 1 --status complete --evidence "plan ok"
-plugins/grok-harnessing/bin/grok-build.py performance-goal create "reduce latency" --metrics "latency"
-plugins/grok-harnessing/bin/grok-build.py performance-goal measure --metric latency --baseline 120 --current 80 --target 100 --evidence "bench ok"
-plugins/grok-harnessing/bin/grok-build.py visual-ralph create "http://localhost:3000" --reference design.png --threshold 0.9
-plugins/grok-harnessing/bin/grok-build.py visual-ralph verdict --score 0.91 --status pass --evidence "pixel diff ok"
-plugins/grok-harnessing/bin/grok-build.py code-review create "review current changes"
-plugins/grok-harnessing/bin/grok-build.py analyze create --focus "plugin surface"
-plugins/grok-harnessing/bin/grok-build.py ask create "review this architecture" --provider codex --dry-run
-plugins/grok-harnessing/bin/grok-build.py configure-notifications set --channel console --target stdout --enabled
-plugins/grok-harnessing/bin/grok-build.py design add "Team backend" "Use tmux windows" --rationale "durable coordination"
-plugins/grok-harnessing/bin/grok-build.py deep-interview create "team mode requirements"
-plugins/grok-harnessing/bin/grok-build.py autoresearch create "How should team mode work?"
-plugins/grok-harnessing/bin/grok-build.py autoresearch-goal create "What is safest?" --hypotheses "A;B"
-plugins/grok-harnessing/bin/grok-build.py autoresearch-goal critique --verdict pass --critic professor --evidence "sources verified"
-plugins/grok-harnessing/bin/grok-build.py ai-slop-cleaner create --scope README.md --verification self-test
-plugins/grok-harnessing/bin/grok-build.py worker ack worker-1 "fix tests"
-plugins/grok-harnessing/bin/grok-build.py ralph create "iterate until tests pass" --max-iterations 3
-plugins/grok-harnessing/bin/grok-build.py ultrawork create "ship batch" --tasks "one;two"
-plugins/grok-harnessing/bin/grok-build.py ultrawork update --task 1 --status complete --evidence "verified"
-plugins/grok-harnessing/bin/grok-build.py wiki add "Decision" "Use tmux backend" --tags team
-plugins/grok-harnessing/bin/grok-build.py wiki search tmux
-plugins/grok-harnessing/bin/grok-build.py ralplan create "Consensus plan" --steps "design;verify"
-plugins/grok-harnessing/bin/grok-build.py ralplan review --verdict approve --reviewer architect --evidence "looks safe"
-plugins/grok-harnessing/bin/grok-build.py plan create "ship grok-build MVP"
-plugins/grok-harnessing/bin/grok-build.py goal create "ship durable goal" --checklist "design;test;verify"
-plugins/grok-harnessing/bin/grok-build.py cancel --scope goal,plan
-plugins/grok-harnessing/bin/grok-build.py ultraqa "verify plugin install and MCP smoke" --no-run
-plugins/grok-harnessing/bin/lfg slash '/team 3:executor "fix tests"' --dry-run
+plugins/lfg/bin/lfg status
+plugins/lfg/bin/lfg doctor
+plugins/lfg/bin/lfg agents list
+plugins/lfg/bin/lfg agents inspect sisyphus
+plugins/lfg/bin/lfg spawn sisyphus-junior --category quick --task "fix failing smoke"
+plugins/lfg/bin/lfg prometheus plan "ship OMO registry"
+plugins/lfg/bin/lfg atlas run .lfg/plans/<plan>.md
+plugins/lfg/bin/lfg hephaestus goal "port Boulder state"
+plugins/lfg/bin/lfg hyperplan "design Grok spawn adapter"
+plugins/lfg/bin/lfg team create 3:executor "verify release gates"
+plugins/lfg/bin/lfg ulw "build the ultimate autonomous agent swarm"
 ```
+
+Existing commands remain useful for development until their semantics are migrated to the OMO runtime paths.
 
 Runtime state is stored under:
 
 ```text
-~/.grok/plugin-data/grok-build/
+.lfg/
 ```
 
-## LFG tmux backend / team mode
+Target state layout:
 
-The main power feature is durable team execution. `/team` is the Grok-facing command, and `lfg` is the tmux backend runtime. It can launch a mixed worker team across Hermes, Claude Code, and Codex.
+```text
+.lfg/
+  agents/
+  boulder/
+  plans/
+  teams/
+  hyperplan/
+  notepads/
+  mailbox/
+  tasklists/
+```
 
-Example target flow inside Grok:
+## Team Mode
+
+Team Mode is the durable multi-agent execution surface. It combines OMO mailbox/tasklist semantics with local tmux observability and Grok sub-agent spawning.
+
+Target flow:
 
 ```text
 /team providers
@@ -137,107 +175,81 @@ Example target flow inside Grok:
 /team shutdown <team-name>
 ```
 
-Equivalent local runtime commands:
+Equivalent local runtime:
 
 ```sh
-plugins/grok-harnessing/bin/lfg backend start
-plugins/grok-harnessing/bin/lfg team providers
-plugins/grok-harnessing/bin/lfg team preflight
-plugins/grok-harnessing/bin/lfg team create 3:executor "fix the failing tests with verification"
-plugins/grok-harnessing/bin/lfg team status <team-name>
-plugins/grok-harnessing/bin/lfg team resume <team-name>
-plugins/grok-harnessing/bin/lfg team shutdown <team-name>
+plugins/lfg/bin/lfg team providers
+plugins/lfg/bin/lfg team preflight
+plugins/lfg/bin/lfg team create 3:executor "fix the failing tests with verification"
+plugins/lfg/bin/lfg team status <team-name>
+plugins/lfg/bin/lfg team resume <team-name>
+plugins/lfg/bin/lfg team shutdown <team-name>
 ```
 
-Before starting a real team, run `/team preflight` or `lfg team preflight`. It checks tmux/backend readiness, lists provider availability, and returns actionable next commands including provider listing, backend attach/status, and a noop smoke team command.
-
-Default team providers rotate through:
-
-```text
-hermes -z ... chat
-claude --permission-mode bypassPermissions ...
-codex ...
-```
-
-The smoke-safe provider is:
-
-```text
-noop
-```
-
-## Install `lfg` / `ulw` CLI symlinks
-
-For local shell use, install `lfg` and its short ultrawork alias `ulw` into PATH with:
-
-```sh
-scripts/install-lfg-symlink.sh
-```
-
-This creates symlinks for `lfg`, `ulw`, and the sibling `grok-build.py` wrapper target under `~/.local/bin` and `~/.grok/bin`, then verifies `lfg` default launch, `lfg --json status`, `lfg --json doctor`, and `ulw --json status`. Running either `lfg` or `ulw` with no arguments starts the same tmux backend and attaches when launched from an interactive terminal.
+The smoke-safe provider remains `noop` for dependency-free tests and preflight examples.
 
 ## Verify
 
-Run the plugin self-test:
+Run dependency-free smoke tests:
+
+```python3 -m unittest tests.smoke.test_grok_build_runtime -v
+```
+
+Run plugin self-test:
 
 ```sh
-plugins/grok-harnessing/bin/self-test.sh
+plugins/lfg/bin/self-test.sh
 ```
 
-Run a real local Grok install/discovery smoke when `~/.grok/bin/grok` is available:
+Run real local Grok install/discovery smoke when `~/.grok/bin/grok` is available:
 
 ```sh
-plugins/grok-harnessing/bin/grok-install-smoke.sh
+plugins/lfg/bin/grok-install-smoke.sh
 ```
 
-Run the full local+remote release-readiness gate after pushing `p1` and updating the preview tag:
+Run full local release readiness when preparing release:
 
 ```sh
-scripts/verify-release-readiness-all.sh p1 grok-build-v0.3.0-p1
+scripts/verify-release-readiness-local.sh
 ```
 
-Expected evidence:
+Run the full local + remote release readiness wrapper before tagging a release; success emits `release-readiness-all=ok`:
 
-```text
-release-readiness-all=ok
+```sh
+scripts/verify-release-readiness-all.sh
 ```
 
-Expected Grok discovery signal after install:
-
-```text
-grok-build v0.3.0
-  28 skills, hooks: active, 1 MCP servers
-```
-
-The self-test checks manifests, required files, hook smoke, token-like redaction, MCP initialization, MCP tool listing, installed `lfg` symlink entrypoints, team preflight/provider gates, and the runtime smoke matrix.
-
-Runtime smoke coverage tracks the implemented OMX-like feature matrices under `plugins/grok-harnessing/docs/features/`; all matrix rows must pass for `runtime-smoke-coverage=100%`.
-
-See [`docs/SMOKE.md`](docs/SMOKE.md) for the complete local, real-Grok, and GitHub Actions smoke procedure.
-See [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) for the release gate checklist.
+See [`docs/SMOKE.md`](docs/SMOKE.md), [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md), and [`docs/TEST_RULES.md`](docs/TEST_RULES.md) for the exact evidence contracts.
 
 ## Layout
 
 ```text
-.grok/plugins/marketplace.json           # local Grok marketplace metadata
+.grok/plugins/marketplace.json           # Grok marketplace metadata
 .agents/plugins/marketplace.json         # Agents-compatible marketplace metadata
-plugins/grok-harnessing/
+plugins/lfg/
   .grok-plugin/plugin.json               # Grok plugin manifest
   .claude-plugin/plugin.json             # compatibility manifest
   .mcp.json                              # MCP server config
-  .lsp.json                              # LSP placeholder
-  agents/harness.toml
-  bin/grok-build.py                      # OMX-like MVP runtime
-  bin/lfg                                # tmux backend wrapper
-  bin/ulw                                # short alias for the same backend
-  bin/grok-build-mcp.py                  # stdio JSON-RPC MCP server
+  src/agents/harness.toml    # agent harness metadata (canonical)
+  bin/lfg.py                             # runtime, state, Grok spawn adapter
+  bin/lfg                                # default runtime wrapper
+  bin/ulw                                # ultrawork launcher wrapper
+  bin/lfg-mcp.py                         # stdio JSON-RPC MCP server
   bin/self-test.sh                       # local smoke test
-  catalog/omx-skill-map.json             # oh-my-codex to Grok skill map
-  docs/omx-feature-map.md                # design map from OMX to Grok
-  hooks/hooks.json
-  hooks/scripts/grok-build-audit-hook.sh
-  skills/*/SKILL.md                      # Grok skill surface
+  hooks/hooks.json                       # hook registration
+  hooks/scripts/lfg-audit-hook.sh        # fail-open audit hook
+  skills/*/SKILL.md                      # Grok slash surfaces backed by OMO semantics
 ```
+
+## Roadmap
+
+See [`ROADMAP.md`](ROADMAP.md) for the M0-M13 OMO parity plan.  
+See the **Full Real OMO Port ultragoal** (`.lfg/ultragoal/omo-full-real-port-20260518/`) and Phase 2 artifacts for the accelerated "as-is" track.  
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the agent hierarchy, **current runtime implementation** ("How LFG actually works with OMO right now"), Grok spawn adapter status, and verification commands.  
+See [`docs/AGENTS.md`](docs/AGENTS.md) for documentation and evidence rules.
 
 ## Attribution
 
-Built with [Yeachan-Heo/oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex) as the public reference for the workflow/plugin model. `grok-build` is a separate Grok Build plugin implementation that adapts those ideas to Grok's marketplace, skills, hooks, MCP, and plugin-data conventions.
+Built with oh-my-openagent as the architectural reference for agent hierarchy, orchestration discipline, Boulder/continuation, Team Mode, Hyperplan, Prometheus planning, Atlas checklist execution, and Sisyphus-style persistence. `lfg` is a separate Grok Build implementation adapted to Grok marketplace, Grok models, skills, hooks, MCP, and `.lfg/` state conventions.
+
+**ulw ulw with team mode on.**

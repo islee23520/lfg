@@ -6,7 +6,7 @@ TMP="$(mktemp -d)"
 TEAM="lfg-preflight-smoke-$$"
 cleanup() { tmux kill-session -t "$TEAM" >/dev/null 2>&1 || true; rm -rf "$TMP"; }
 trap cleanup EXIT
-GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json team preflight --name "$TEAM" >/tmp/team-preflight.json
+GROK_PLUGIN_DATA="$TMP" plugins/lfg/bin/lfg --json team preflight --name "$TEAM" >/tmp/team-preflight.json
 python3 - <<'PY' "$TEAM"
 import json, pathlib, sys
 obj=json.loads(pathlib.Path('/tmp/team-preflight.json').read_text())
@@ -22,7 +22,7 @@ assert '--providers noop' in obj['commands']['createNoopSmoke'], obj
 print('team-preflight-cli=ok backend=%s' % obj['backend']['name'])
 print('team-preflight-commands=ok')
 PY
-GROK_PLUGIN_DATA="$TMP" plugins/grok-harnessing/bin/lfg --json slash '/team preflight' --name "$TEAM" >/tmp/team-preflight-slash.json
+GROK_PLUGIN_DATA="$TMP" plugins/lfg/bin/lfg --json slash '/team preflight' --name "$TEAM" >/tmp/team-preflight-slash.json
 python3 - <<'PY'
 import json, pathlib
 obj=json.loads(pathlib.Path('/tmp/team-preflight-slash.json').read_text())
@@ -31,7 +31,7 @@ assert obj['backend']['status']=='running', obj
 assert obj['commands']['providers']=='lfg team providers', obj
 print('team-preflight-slash=ok')
 PY
-GROK_PLUGIN_DATA="$TMP" python3 plugins/grok-harnessing/bin/grok-build-mcp.py >/tmp/team-preflight-mcp.out 2>/tmp/team-preflight-mcp.err <<EOF
+GROK_PLUGIN_DATA="$TMP" python3 plugins/lfg/bin/lfg-mcp.py >/tmp/team-preflight-mcp.out 2>/tmp/team-preflight-mcp.err <<EOF
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"grok_build_team","arguments":{"action":"preflight","team":"$TEAM"}}}
 EOF
