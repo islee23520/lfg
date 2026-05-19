@@ -26,12 +26,11 @@ https://raw.githubusercontent.com/islee23520/lfg/p1/.agents/plugins/marketplace.
 ## Expected marketplace identity
 
 ```text
-Marketplace: linalab-io
-Package:     linalab-io/lfg
+Marketplace: islee23520
+Package:     islee23520/lfg
 Plugin id:   lfg
 Plugin path: plugins/lfg
 Repository:  https://github.com/islee23520/lfg.git
-Reference:   https://github.com/Yeachan-Heo/oh-my-codex
 ```
 
 ## Grok install flow

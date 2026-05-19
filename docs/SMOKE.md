@@ -45,7 +45,7 @@ plugins/lfg/bin/grok-install-smoke.sh
 Expected evidence:
 
 ```text
-grok-install-smoke=ok skills=28 key_skills_present
+grok-install-smoke=ok skills=17 key_skills_present
 ```
 
 Useful focused commands while debugging:

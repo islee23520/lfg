@@ -1,12 +1,12 @@
 # Release Process
 
-Use this page as the authoritative checklist before merging or tagging `linalab-io/lfg`.
+Use this page as the authoritative checklist before merging or tagging `islee23520/lfg`.
 
 ## Mandatory Gates (must all pass)
 
 - [ ] Local smoke passes with `runtime-smoke-coverage=100%`
 - [ ] Aggregated local release-readiness passes with `release-readiness-local=ok`
-- [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=28`
+- [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=17`
 - [ ] Installed `lfg` symlink surface smoke passes
 - [ ] Team preflight + provider matrix smoke passes
 - [ ] Team tmux lifecycle smoke passes with `team-tmux-lifecycle=ok`

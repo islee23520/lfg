@@ -231,7 +231,6 @@ Target files:
 - `plugins/lfg/bin/lfg-mcp.py`
 - `plugins/lfg/src/features/team.py`
 - `plugins/lfg/skills/team/SKILL.md`
-- `plugins/lfg/docs/features/team-runtime.md`
 - `plugins/lfg/bin/self-test.sh team tmux lifecycle section`
 - `plugins/lfg/bin/self-test.sh team preflight section`
 - `plugins/lfg/bin/self-test.sh team provider section`
@@ -310,7 +309,6 @@ Target files:
 - `plugins/lfg/src/features/atlas.py`
 - `plugins/lfg/skills/plan/SKILL.md`
 - `plugins/lfg/skills/deep-interview/SKILL.md`
-- `plugins/lfg/docs/features/plan-runtime.md`
 
 Tests to add or update:
 
@@ -349,7 +347,6 @@ Target files:
 - `plugins/lfg/src/features/hephaestus.py`
 - `plugins/lfg/src/features/ultrawork.py`
 - `plugins/lfg/skills/ultrawork/SKILL.md`
-- `plugins/lfg/docs/features/ultrawork-runtime.md`
 
 Tests to add or update:
 

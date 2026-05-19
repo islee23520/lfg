@@ -11,7 +11,7 @@ lfg-v0.3.0-p1
 This tag points at the `p1` hardening preview for package:
 
 ```text
-linalab-io/lfg
+islee23520/lfg
 ```
 
 ## Stable release tag format

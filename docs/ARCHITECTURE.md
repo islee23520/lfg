@@ -1,4 +1,4 @@
-# Architecture & Goal — `linalab-io/lfg`
+# Architecture & Goal — `islee23520/lfg`
 
 ## Goal
 
@@ -36,7 +36,7 @@ The six first-class OMO agents are defined as JSON files and loaded at runtime:
 - `plugins/lfg/src/agents/atlas.json` — checklist / dependency-wave executor
 - `plugins/lfg/src/agents/builtin-agents.json` — policy / factory layer
 
-**Loading code** (all in [plugins/lfg/bin/lfg.py](/Users/ilseoblee/workspace/linalab/lfg/plugins/lfg/bin/lfg.py)):
+**Loading code** (all in [plugins/lfg/bin/lfg.py](./plugins/lfg/bin/lfg.py)):
 
 - `CANONICAL_OMO_AGENT_IDS` (3123)
 - `load_omo_agent_registry()` (3133) — reads the six JSON files from `plugins/lfg/src/agents/`
@@ -142,7 +142,7 @@ The "Sisyphus leads and spawns the other five via the Grok adapter" loop is **av
 - Default orchestration for most user commands still uses the old named-agent + CLI/provider model.
 - Full "Sisyphus owns the boulder and delegates via spawn waves" closed loop is not yet the automatic path.
 
-See [ROADMAP.md](/Users/ilseoblee/workspace/linalab/lfg/ROADMAP.md) (M0–M13) and [docs/agent-system/omo-runtime-implementation-plan.md](/Users/ilseoblee/workspace/linalab/lfg/docs/agent-system/omo-runtime-implementation-plan.md) (the test-first slice plan) for the remaining work.
+See [ROADMAP.md](./ROADMAP.md) (M0–M13) and [docs/agent-system/omo-runtime-implementation-plan.md](./docs/agent-system/omo-runtime-implementation-plan.md) (the test-first slice plan) for the remaining work.
 
 ---
 
@@ -152,7 +152,7 @@ The long-term target (once the manual gate is replaced by real Grok spawning) is
 
 ```
 Grok Build
-  └─ linalab-io/lfg plugin
+  └─ islee23520/lfg plugin
       ├─ Agent Registry (the 6 OMO agents above)
       ├─ Grok Spawn Adapter (real calls replacing the fallback)
       ├─ Runtime State (.lfg/ with separated runs)
@@ -203,7 +203,7 @@ plugins/lfg/bin/self-test.sh plus marketplace remote smoke
 - `grok_build_omo_team_create` (with hyperplan)
 - The `/lfg` skill for surface stress-testing
 
-All of these are exercised by `self-test.sh` and the release-readiness scripts. Exact evidence strings are product contracts (see [docs/SMOKE.md](/Users/ilseoblee/workspace/linalab/lfg/docs/SMOKE.md) and [docs/TEST_RULES.md](/Users/ilseoblee/workspace/linalab/lfg/docs/TEST_RULES.md)).
+All of these are exercised by `self-test.sh` and the release-readiness scripts. Exact evidence strings are product contracts (see [docs/SMOKE.md](./docs/SMOKE.md) and [docs/TEST_RULES.md](./docs/TEST_RULES.md)).
 
 ## Non-Goals (Unchanged)
 

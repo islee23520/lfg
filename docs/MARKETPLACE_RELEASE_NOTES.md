@@ -4,16 +4,16 @@
 
 Preview release tag: `lfg-v0.3.0-p1`
 
-Package: `linalab-io/lfg`
+Package: `islee23520/lfg`
 Marketplace source: `https://github.com/islee23520/lfg.git`
 Stable marketplace URL: `https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json`
 Preview marketplace URL: `https://raw.githubusercontent.com/islee23520/lfg/p1/.grok/plugins/marketplace.json`
 Plugin path: `plugins/lfg`
-Reference model: [Yeachan-Heo/oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex)
+Reference model: [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent)
 
 ### What ships
 
-- OMX-like LFG workflow skills: `team`, `worker`, `ultrawork`, `ultragoal`, `ultraqa`, `ralph`, `ralplan`, `autopilot`, `pipeline`, `wiki`, `doctor`, and companion workflow surfaces.
+- OMO-native LFG skill surface: `hyperplan`, `team-mode`, `review-work`, `git-master`, browser automation skills, release workflow skills, and the local `lfg` validation skill.
 - `/team` slash flow backed by explicit `lfg` team lifecycle commands.
 - Mixed provider planning for Hermes, Claude Code, and Codex worker teams.
 - Real Grok install/discovery smoke against `~/.grok/bin/grok inspect --json`.
@@ -27,7 +27,7 @@ A release candidate must pass the following evidence gates before tagging or mer
 
 ```text
 runtime-smoke-coverage=100%
-grok-install-smoke=ok skills=28 key_skills_present
+grok-install-smoke=ok skills=17 key_skills_present
 lfg-launch-smoke=ok
 team-tmux-lifecycle=ok
 mcp-stdio-isolation=ok

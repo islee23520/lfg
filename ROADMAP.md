@@ -1,4 +1,4 @@
-# Roadmap — `linalab-io/lfg`
+# Roadmap — `islee23520/lfg`
 
 ## North Star
 
@@ -39,8 +39,8 @@ Primary install flow remains Grok-native marketplace installation:
 Package identity:
 
 ```text
-Marketplace: linalab-io
-Package:     linalab-io/lfg
+Marketplace: islee23520
+Package:     islee23520/lfg
 Plugin id:   lfg
 Repo:        https://github.com/islee23520/lfg
 Reference:   oh-my-openagent agent hierarchy and orchestration model
@@ -52,7 +52,7 @@ Local copy/symlink install is development-only. Marketplace install is the produ
 
 ```text
 LFG / Grok Build
-  └─ Marketplace install: linalab-io/lfg
+  └─ Marketplace install: islee23520/lfg
       └─ lfg plugin
           ├─ agents/
           │   ├─ sisyphus/              # main orchestrator

@@ -1,4 +1,4 @@
-# linalab-io/lfg
+# islee23520/lfg
 
 **OMO agent hierarchy parity for Grok Build — Full Real Port in Progress.**
 
@@ -8,7 +8,7 @@
 
 The canonical implementation is now lfg-native under `plugins/lfg/src/agents/`, `plugins/lfg/bin/`, skills, hooks, MCP, and `.lfg/` runtime state.
 
-First-class agents default to Grok model profiles, but LFG may route execution through approved optional providers (`codex`, `copilot`, `zai`) when available; `zai` uses a smoke-safe Z.ai/Zhipu HTTP adapter with `ZAI_API_KEY` or `ZHIPU_API_KEY` only for explicit `--run` calls. Grok remains the required Oracle review gate before work is considered complete.
+First-class agents default to Grok model profiles for Grok Build execution, while Oracle review defaults to `openai/gpt-5.5` with Copilot, Gemini, and Z.ai fallbacks. LFG may route execution through approved optional providers (`codex`, `copilot`, `zai`) when available; `zai` uses a smoke-safe Z.ai/Zhipu HTTP adapter with `ZAI_API_KEY` or `ZHIPU_API_KEY` only for explicit `--run` calls.
 
 ## Product Scope
 
@@ -28,7 +28,7 @@ The intended install path is inside Grok:
 
 1. Open LFG / Grok Build.
 2. Open the extensions modal with `/plugins`.
-3. Add the LinaLab marketplace source URL:
+3. Add the LFG marketplace source URL:
 
    ```text
    https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json
@@ -41,13 +41,12 @@ The intended install path is inside Grok:
 Marketplace/package identity:
 
 ```text
-Marketplace: linalab-io
-Package:     linalab-io/lfg
+Marketplace: islee23520
+Package:     islee23520/lfg
 Plugin id:   lfg
 Repository:  https://github.com/islee23520/lfg
 Marketplace source repo: https://github.com/islee23520/lfg.git
 Reference:   oh-my-openagent agent hierarchy and orchestration model (full real port)
-Current marketplace metadata reference retained for release compatibility: https://github.com/Yeachan-Heo/oh-my-codex
 ```
 
 Developer smoke commands live in [`docs/SMOKE.md`](docs/SMOKE.md). Marketplace installation remains the product path.
@@ -96,9 +95,9 @@ Sisyphus receives request
   └─ Sisyphus synthesizes, verifies, and advances Boulder
 ```
 
-Agent entries default to Grok models. Category routing may keep Grok reasoning profiles or use approved optional providers (`codex`, `copilot`, `zai`) for execution lanes (`zai` is an HTTP/API adapter, not a required local CLI), but every completion still carries a required Grok Oracle review envelope.
+Agent entries default to Grok models for Grok Build execution. Category routing may keep Grok reasoning profiles or use approved optional providers (`codex`, `copilot`, `zai`) for execution lanes (`zai` is an HTTP/API adapter, not a required local CLI), but every completion still carries a required Oracle review envelope backed by `openai/gpt-5.5` high with Copilot, Gemini, and Z.ai fallbacks.
 
-The next integration focus is replacing fallback/manual-gated spawn evidence with verified Grok-native sub-agent spawning while keeping `.lfg/` state, approved multi-provider routing, and Grok Oracle review contracts stable.
+The next integration focus is replacing fallback/manual-gated spawn evidence with verified Grok-native sub-agent spawning while keeping `.lfg/` state, approved multi-provider routing, and Oracle review contracts stable.
 
 ## Full Real OMO Port — Phase 2 Complete (Big Synthesis)
 
@@ -127,7 +126,7 @@ The current CLI is a transition surface while the OMO parity runtime lands. The 
 ```sh
 plugins/lfg/bin/lfg setup
 plugins/lfg/bin/lfg models
-plugins/lfg/bin/lfg auth login xai --id xai-main --env XAI_API_KEY
+plugins/lfg/bin/lfg auth login openai --id openai-main --env OPENAI_API_KEY
 plugins/lfg/bin/lfg provider add
 plugins/lfg/bin/lfg provider add --id zai-main --kind zai --env ZAI_API_KEY
 plugins/lfg/bin/lfg status
@@ -153,7 +152,7 @@ Runtime state is stored under:
 
 `lfg models` shows default Grok-first model profiles plus configured provider metadata. `lfg auth login` records provider login metadata by environment variable name only; it never stores API keys.
 
-`lfg setup` syncs the current plugin package into `~/.grok/plugins/lfg` (or `--plugin-dir <path>`) and records setup state under `.lfg/state/setup.json`. `lfg provider add` opens a stdlib interactive prompt when flags are omitted, and the non-interactive form stores provider config under `.lfg/state/providers.json` while saving only environment variable names, never secret values.
+`lfg setup` syncs the current plugin package into `~/.grok/plugins/lfg` (or `--plugin-dir <path>`) and records setup state under `.lfg/state/setup.json`. When run from an interactive terminal, `lfg setup` automatically opens the OMO-style provider/subscription wizard for OpenAI, Z.ai, Copilot, Gemini, and Codex; Grok Build/xAI login is assumed by the host and is not asked in the wizard. Use `--interactive` only to force the wizard, or `lfg setup --no-tui --openai yes --zai yes --copilot no --google no --codex no` for deterministic automation. `lfg auth login` without arguments lets you pick from configured providers, and all auth/provider forms store only environment variable names, never secret values.
 
 Target state layout:
 

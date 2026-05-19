@@ -23,7 +23,7 @@ Documentation here defines the evidence contract for the OMO-to-Grok Build port.
 
 - Treat command blocks and `*=ok` strings as contracts, not prose examples.
 - Keep `ROADMAP.md`, `README.md`, `ARCHITECTURE.md`, `SMOKE.md`, `RELEASE_CHECKLIST.md`, and `plugins/lfg/bin/self-test.sh` aligned when changing gates.
-- Keep marketplace identity fixed to `linalab-io/lfg` unless the package is intentionally renamed.
+- Keep marketplace identity fixed to `islee23520/lfg` unless the package is intentionally renamed.
 - Mention whether each gate is dependency-free smoke, repo-native integration, or environment/manual.
 - OMO agent names are canonical: Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, builtin-agents.
 - Any docs claiming agent behavior must state the verification path or the phase where it will be implemented.
@@ -47,5 +47,4 @@ plugins/lfg/bin/self-test.sh
 
 ## NOTES
 
-- Feature docs under `plugins/lfg/docs/features/` are covered by the smoke matrix, but this directory owns release-level gate docs.
 - During the OMO parity migration, docs may mention legacy surfaces only as migration targets, never as the product goal.

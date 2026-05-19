@@ -18,7 +18,7 @@
   "files": [
     {
       "path": "ARCHITECTURE.md",
-      "title": "Architecture & Goal — linalab-io/lfg",
+      "title": "Architecture & Goal — islee23520/lfg",
       "section": "root",
       "summary": "OMO agent hierarchy 포팅의 전체 아키텍처. Grok spawn adapter, 현재 런타임 구현(as-built), state layout, Team Mode, Hyperplan을 설명. OMO parity 작업의 핵심 참조 문서.",
       "keywords": ["architecture", "omo", "spawn", "runtime", "state", "team-mode", "hyperplan"],

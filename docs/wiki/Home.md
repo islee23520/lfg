@@ -2,7 +2,7 @@
 
 **OMO agent hierarchy parity for Grok Build**
 
-Welcome to the official wiki for `linalab-io/lfg`.
+Welcome to the official wiki for `islee23520/lfg`.
 
 This wiki contains the living documentation for how the OMO agent system is ported into Grok Build, how Team Mode works, how verification gates are enforced, and how to contribute.
 
