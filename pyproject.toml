@@ -3,13 +3,13 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "linalab-lfg"
+name = "lfg"
 version = "0.3.0"
 description = "Python-first LFG Grok plugin runtime for OMO agent hierarchy parity"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
-authors = [{ name = "LinaLab" }]
+authors = [{ name = "islee23520" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
