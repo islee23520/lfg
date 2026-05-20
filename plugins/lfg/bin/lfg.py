@@ -33,40 +33,13 @@ ATLAS_BOULDER_SCHEMA_VERSION = 2
 MAILBOX_DELIVERY_TTL_SECONDS = 10 * 60
 APPROVED_MODEL_PROVIDERS = {"openai", "xai", "grok", "codex", "copilot", "zai"}
 DEFAULT_MODEL_PROVIDER = "openai"
-MODEL_PROVIDER_ALIASES = {
-    "grok": "xai",
-    "github-copilot": "copilot",
-    "zai-coding-plan": "zai",
-}
-PROVIDER_DEFAULT_MODELS = {
-    "openai": "openai/gpt-5.5",
-    "xai": "xai/grok-4.3",
-    "grok": "xai/grok-4.3",
-    "codex": "codex/gpt-5.5",
-    "copilot": "github-copilot/gpt-5.5",
-    "zai": "zai-coding-plan/glm-5",
-}
-HEPHAESTUS_APPROVED_MODEL_PROFILES = (
-    {"provider": "openai", "model": "openai/gpt-5.5", "reasoning": "medium"},
-    {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "medium"},
-)
+MODEL_PROVIDER_ALIASES = {"grok": "xai", "github-copilot": "copilot", "zai-coding-plan": "zai"}
+PROVIDER_DEFAULT_MODELS = {"openai": "openai/gpt-5.5", "xai": "xai/grok-4.3", "grok": "xai/grok-4.3", "codex": "openai-codex", "copilot": "github-copilot", "zai": "zai-coding-plan"}
+HEPHAESTUS_APPROVED_MODEL_PROFILES = ({"provider": "openai", "model": "openai/gpt-5.5", "reasoning": "medium"}, {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "medium"})
 ZAI_CODING_PLAN_BASE_URL = "https://api.z.ai/api/coding/paas/v4"
 ZAI_GENERAL_BASE_URL = "https://api.z.ai/api/paas/v4"
 ZAI_DEFAULT_MODEL = "glm-4.6"
-GROK_ORACLE_REVIEW = {
-    "required": True,
-    "gate": "xai/grok",
-    "provider": "xai",
-    "model": "xai/grok-4.3",
-    "variant": "high",
-    "fallback_models": [],
-    "role": "oracle",
-    "strict": True,
-    "mode": "local-smoke",
-    "reviewKind": "static-local-schema",
-    "realGrokJudgment": False,
-    "status": "passed",
-}
+GROK_ORACLE_REVIEW = {"required": True, "gate": "xai/grok", "provider": "xai", "model": "xai/grok-4.3", "variant": "high", "fallback_models": [], "role": "oracle", "strict": True, "mode": "local-smoke", "reviewKind": "static-local-schema", "realGrokJudgment": False, "status": "passed"}
 SPAWN_ENVELOPE_SCHEMA_VERSION = 1
 SPAWN_ENVELOPE_STATUSES = {"completed", "blocked", "failed"}
 SPAWN_ENVELOPE_MODES = {"native-grok", "fallback"}
@@ -1616,12 +1589,8 @@ def read_provider_state() -> dict[str, Any]:
 
 def default_provider_env(kind: str) -> str:
     defaults = {
-        "zai": "ZAI_API_KEY",
-        "openai": "OPENAI_API_KEY",
-        "xai": "XAI_API_KEY",
-        "grok": "XAI_API_KEY",
-        "codex": "CODEX_OAUTH_TOKEN",
-        "copilot": "COPILOT_GITHUB_TOKEN",
+        "litellm": "LITELLM_API_KEY",
+        GROK_BUILD_NATIVE_PROVIDER: "GROK_BUILD_HOST",
         "noop": "NOOP_API_KEY",
         "subagent": "XAI_API_KEY",
     }
@@ -1629,8 +1598,10 @@ def default_provider_env(kind: str) -> str:
 
 
 def default_provider_transport(kind: str) -> str:
-    if kind in {"openai", "xai", "zai"}:
-        return "http"
+    if kind == "litellm":
+        return "litellm"
+    if kind == GROK_BUILD_NATIVE_PROVIDER:
+        return "native-grok-build"
     if kind in {"grok", "subagent", "noop"}:
         return "builtin"
     if kind == "codex":
@@ -1639,6 +1610,10 @@ def default_provider_transport(kind: str) -> str:
 
 
 def default_provider_auth_scheme(kind: str) -> str:
+    if kind == "litellm":
+        return "env"
+    if kind == GROK_BUILD_NATIVE_PROVIDER:
+        return "host"
     if kind == "codex":
         return "oauth"
     if kind in {"grok", "subagent", "noop"}:
@@ -1669,8 +1644,8 @@ def provider_add(args: argparse.Namespace) -> dict[str, Any]:
     kind = args.kind
     if interactive:
         print("LFG provider setup", file=sys.stderr)
-        provider_id = provider_id or prompt_provider_field("Provider id", "openai-main")
-        kind = kind or prompt_provider_field("Provider kind", "openai")
+        provider_id = provider_id or prompt_provider_field("Provider id", "litellm-main")
+        kind = kind or prompt_provider_field("Provider kind", DEFAULT_MODEL_PROVIDER)
     if not provider_id or not kind:
         raise SystemExit("provider add requires --id and --kind in non-interactive mode")
     provider_id = validate_safe_id(provider_id, "provider id")
@@ -1885,25 +1860,23 @@ def infer_model_provider(model: str, provider: str | None = None) -> str:
         return canonical_model_provider(provider)
     normalized = (model or "").strip().lower()
     if normalized in {"grok", "grok-build"} or normalized.startswith("grok") or normalized.startswith("xai/"):
-        return "xai"
+        return GROK_BUILD_NATIVE_PROVIDER
     if "/" in normalized:
         return canonical_model_provider(normalized.split("/", 1)[0])
     return DEFAULT_MODEL_PROVIDER
 
 
 def read_model_selection() -> dict[str, Any]:
-    default = {
-        "provider": "xai",
-        "model": PROVIDER_DEFAULT_MODELS["xai"],
-        "reasoning": "high",
-        "source": "default",
-        "updatedAt": None,
-        "switchCommand": f"/model {PROVIDER_DEFAULT_MODELS['xai']}",
-    }
+    default = {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "high", "source": "default", "updatedAt": None, "switchCommand": f"/model {GROK_BUILD_NATIVE_MODEL}"}
     current = read_json(model_selection_path(), {}) or {}
     if not isinstance(current, dict):
         return default
-    return {**default, **current}
+    merged = {**default, **current}
+    provider = canonical_model_provider(str(merged.get("provider") or default["provider"]))
+    if provider not in MODEL_RUNTIME_PROVIDERS:
+        return default
+    merged["provider"] = provider
+    return merged
 
 
 def models_switch(args: argparse.Namespace) -> dict[str, Any]:
@@ -1916,23 +1889,12 @@ def models_switch(args: argparse.Namespace) -> dict[str, Any]:
     if raw_provider and raw_provider not in APPROVED_MODEL_PROVIDERS:
         raise SystemExit(f"unsupported model provider: {raw_provider}")
     provider = infer_model_provider(model, raw_provider)
-    if provider not in APPROVED_MODEL_PROVIDERS:
+    if provider not in MODEL_RUNTIME_PROVIDERS:
         raise SystemExit(f"unsupported model provider: {provider}")
-    reasoning = getattr(args, "reasoning", None) or ("high" if provider == "xai" else "medium")
-    selection = {
-        "provider": provider,
-        "model": model,
-        "reasoning": reasoning,
-        "source": getattr(args, "source", None) or "grok-build-/model",
-        "updatedAt": now(),
-        "switchCommand": f"/model {model}",
-        "appliesTo": "lfg model resolution when no explicit --provider/--model override is supplied",
-        "runtime": "grok-build-host" if provider == "xai" else "approved-provider",
-        "providerBoundary": {
-            "approvedProviders": sorted(APPROVED_MODEL_PROVIDERS),
-            "metadataOnly": True,
-        },
-    }
+    if provider == GROK_BUILD_NATIVE_PROVIDER and model not in {"grok", "grok-build", GROK_BUILD_NATIVE_MODEL} and not model.startswith("xai/"):
+        raise SystemExit("Grok native model selection must use grok-build, grok, or an xai/* Grok Build host model")
+    reasoning = getattr(args, "reasoning", None) or ("high" if provider == GROK_BUILD_NATIVE_PROVIDER else "medium")
+    selection = {"provider": provider, "model": GROK_BUILD_NATIVE_MODEL if provider == GROK_BUILD_NATIVE_PROVIDER else model, "reasoning": reasoning, "source": getattr(args, "source", None) or "grok-build-/model", "updatedAt": now(), "switchCommand": f"/model {model}", "appliesTo": "Grok Build host execution by default; non-Grok model overrides route through LiteLLM", "runtime": "grok-build-host" if provider == GROK_BUILD_NATIVE_PROVIDER else "litellm-router", "providerBoundary": {"approvedProviders": sorted(APPROVED_MODEL_PROVIDERS), "nativeProvider": GROK_BUILD_NATIVE_PROVIDER, "runtimeProviders": sorted(MODEL_RUNTIME_PROVIDERS), "metadataOnly": True}}
     write_json(model_selection_path(), selection)
     return {"ok": True, "status": "ok", "currentModel": selection, "path": str(model_selection_path()), "secretStorage": "env-name-only"}
 
@@ -1941,53 +1903,14 @@ def models_show(args: argparse.Namespace) -> dict[str, Any]:
     provider = getattr(args, "provider", None)
     if provider and provider not in APPROVED_MODEL_PROVIDERS:
         return {"ok": False, "status": "error", "error": "unsupported model provider", "provider": provider, "known": sorted(APPROVED_MODEL_PROVIDERS)}
-    defaults = {
-        key: {
-            "provider": key,
-            "model": value,
-            "env": default_provider_env(key),
-            "configured": False,
-        }
-        for key, value in sorted(PROVIDER_DEFAULT_MODELS.items())
-        if key in APPROVED_MODEL_PROVIDERS
-    }
+    defaults = {key: {"provider": key, "model": value, "env": default_provider_env(key), "configured": False} for key, value in sorted(PROVIDER_DEFAULT_MODELS.items()) if key in APPROVED_MODEL_PROVIDERS}
     configured = configured_model_providers()
     for item in configured:
         kind = item.get("kind")
         if kind in defaults:
             defaults[kind] = {**defaults[kind], **item, "configured": True}
     selected = {provider: defaults[provider]} if provider else defaults
-    return {
-        "ok": True,
-        "status": "ok",
-        "defaultProvider": DEFAULT_MODEL_PROVIDER,
-        "modelRouter": {
-            "provider": DEFAULT_MODEL_PROVIDER,
-            "transport": default_provider_transport(DEFAULT_MODEL_PROVIDER),
-            "defaultModel": PROVIDER_DEFAULT_MODELS[DEFAULT_MODEL_PROVIDER],
-            "oracleGate": "xai/grok",
-            "reason": "Approved multi-provider metadata is explicit; Grok Oracle review remains mandatory and native child spawning is manual-gated.",
-        },
-        "grokOracle": {
-            "provider": "xai",
-            "model": PROVIDER_DEFAULT_MODELS["xai"],
-            "transport": default_provider_transport("xai"),
-            "authScheme": default_provider_auth_scheme("xai"),
-        },
-        "currentModel": read_model_selection(),
-        "grokBuildModelSwitch": {
-            "slash": "/model <provider/model>",
-            "cli": "lfg models switch <provider/model>",
-            "tmux": "lfg grok-build model <provider/model>",
-        },
-        "providers": selected,
-        "configuredProviders": configured,
-        "categoryModelProfiles": OMO_CATEGORY_MODEL_PROFILES,
-        "modelMatchingSource": OMO_MODEL_MATCHING_SOURCE,
-        "roleFitPolicies": OMO_ROLE_FIT_POLICIES,
-        "path": str(providers_path()),
-        "secretStorage": "env-name-only",
-    }
+    return {"ok": True, "status": "ok", "defaultProvider": DEFAULT_MODEL_PROVIDER, "nativeGrok": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "transport": default_provider_transport(GROK_BUILD_NATIVE_PROVIDER), "authScheme": default_provider_auth_scheme(GROK_BUILD_NATIVE_PROVIDER), "rule": "Grok is the native Grok Build host and is not configured as an LFG provider."}, "modelRouter": {"provider": DEFAULT_MODEL_PROVIDER, "transport": default_provider_transport(DEFAULT_MODEL_PROVIDER), "defaultModel": PROVIDER_DEFAULT_MODELS[DEFAULT_MODEL_PROVIDER], "oracleGate": GROK_ORACLE_REVIEW["gate"], "reason": "Non-Grok model strings route through LiteLLM; Grok execution remains native Grok Build host execution."}, "grokOracle": dict(GROK_ORACLE_REVIEW), "currentModel": read_model_selection(), "grokBuildModelSwitch": {"slash": "/model <model> [--provider litellm]", "cli": "lfg models switch openai/gpt-4o --provider litellm", "tmux": "lfg grok-build model openai/gpt-4o --provider litellm"}, "providers": selected, "configuredProviders": configured, "categoryModelProfiles": OMO_CATEGORY_MODEL_PROFILES, "modelMatchingSource": OMO_MODEL_MATCHING_SOURCE, "roleFitPolicies": OMO_ROLE_FIT_POLICIES, "path": str(providers_path()), "secretStorage": "env-name-only"}
 
 def auth_login(args: argparse.Namespace) -> dict[str, Any]:
     provider = getattr(args, "provider", None) or getattr(args, "kind", None)
@@ -2046,34 +1969,7 @@ def copy_plugin_tree(src: pathlib.Path, dest: pathlib.Path) -> None:
 
 
 SETUP_PROVIDER_WIZARD = [
-    {
-        "flag": "openai",
-        "kind": "openai",
-        "id": "openai-main",
-        "question": "Do you have OpenAI access for GPT-style execution/consultation lanes?",
-        "default": True,
-    },
-    {
-        "flag": "zai",
-        "kind": "zai",
-        "id": "zai-main",
-        "question": "Do you have a Z.ai Coding Plan subscription?",
-        "default": False,
-    },
-    {
-        "flag": "copilot",
-        "kind": "copilot",
-        "id": "copilot-main",
-        "question": "Do you have a GitHub Copilot subscription?",
-        "default": False,
-    },
-    {
-        "flag": "codex",
-        "kind": "codex",
-        "id": "codex-main",
-        "question": "Do you have Codex CLI access for execution lanes?",
-        "default": False,
-    },
+    {"flag": "litellm", "kind": "litellm", "id": "litellm-main", "question": "Do you want to configure LiteLLM for non-Grok model routing?", "default": True},
 ]
 def setup_choice_enabled(value: str | None) -> bool:
     return (value or "no").lower() in {"yes", "y", "true", "1", "on"}
@@ -2121,7 +2017,8 @@ def run_setup_wizard(args: argparse.Namespace) -> dict[str, Any] | None:
         "configuredProviders": configured,
         "authHints": [
             "Grok Build/xAI login is assumed by the host before LFG runs; setup does not ask for it.",
-            "xAI/Grok Oracle review is mandatory; OpenAI, Copilot, Codex, and Z.ai are bounded execution/consultation lanes only and never replace the gate.",
+            "Grok is native Grok Build host execution, not an LFG provider.",
+            "All non-Grok model strings route through LiteLLM; configure one LiteLLM entry and switch models with `lfg models switch <model> --provider litellm`.",
             "LFG stores environment variable names only; put secrets in your shell environment.",
             "Run `lfg models` to verify configured model providers.",
             "Run `grok --cwd /tmp inspect --json` after plugin install to verify Grok discovery.",
@@ -2154,10 +2051,10 @@ def setup(args: argparse.Namespace) -> dict[str, Any]:
         },
         "commands": {
             "providerAdd": "lfg provider add",
-            "providerAddZai": "lfg provider add --id zai-main --kind zai --env ZAI_API_KEY",
+            "providerAddLiteLLM": "lfg provider add --id litellm-main --kind litellm --env LITELLM_API_KEY --model openai/gpt-4o",
             "setupInteractive": "lfg setup",
             "setupForceInteractive": "lfg setup --interactive",
-            "setupNoTui": "lfg setup --no-tui --openai yes --zai yes --copilot no --codex no",
+            "setupNoTui": "lfg setup --no-tui --litellm yes",
             "pluginInspect": "grok --cwd /tmp inspect --json",
         },
         "updatedAt": now(),
@@ -3560,18 +3457,19 @@ def grok_build_wrapper_guide() -> dict[str, Any]:
         "topology": "[tmux [grok-build]]",
         "diagram": diagram,
         "nativeGrok": {
-            "provider": "xai",
-            "model": "xai/grok-4.3",
+            "provider": GROK_BUILD_NATIVE_PROVIDER,
+            "model": GROK_BUILD_NATIVE_MODEL,
             "rule": "Grok Oracle review is mandatory; child sub-agent spawning remains manual-gated until T28 passes.",
         },
         "approvedProviders": {
             "providers": sorted(APPROVED_MODEL_PROVIDERS),
-            "rule": "Optional provider lanes are explicit metadata entries and do not replace the xAI/Grok Oracle gate.",
+            "rule": "LiteLLM is the only configurable model provider. Grok itself is native Grok Build host execution, not a provider entry.",
             "switchExamples": [
-                "lfg models switch openai/gpt-5.5 --provider openai",
-                "lfg models switch github-copilot/gpt-5.5 --provider copilot",
-                "lfg grok-build model xai/grok-4.3 --provider xai",
-                "/model xai/grok-4.3 --provider xai",
+                "uv add litellm",
+                "lfg provider add --id litellm-main --kind litellm --env LITELLM_API_KEY --model openai/gpt-4o",
+                "lfg models switch openai/gpt-4o --provider litellm",
+                "lfg grok-build model openai/gpt-4o --provider litellm",
+                "/model openai/gpt-4o --provider litellm",
             ],
         },
         "commands": {
@@ -3579,7 +3477,7 @@ def grok_build_wrapper_guide() -> dict[str, Any]:
             "dryRunWrapper": "lfg grok-build start --dry-run",
             "status": "lfg grok-build status",
             "sendPrompt": "lfg grok-build send 'implement the plan'",
-            "switchModel": "lfg grok-build model xai/grok-4.3 --provider xai",
+            "switchModel": "lfg grok-build model openai/gpt-4o --provider litellm",
             "loop": "lfg loop start 'continue until verified'",
         },
         "paneRoles": ["leader", "architect", "implementer", "reviewer"],
@@ -3708,7 +3606,7 @@ def lfg_launch(args: argparse.Namespace) -> dict[str, Any]:
 
     state = status(args)
     state["status"] = "ready"
-    state["mode"] = "grok-build-tmux-wrapper-guide"
+    state["mode"] = "lfg-runtime"
     state["grokBuildWrapper"] = grok_build_wrapper_guide()
     return state
 
@@ -3753,7 +3651,7 @@ def grok_build_tmux_start(args: argparse.Namespace) -> dict[str, Any]:
         "printf '%s\n' 'leader pane: orchestration + dispatch'; "
         "printf '%s\n' 'worker panes: architect | implementer | reviewer'; "
         "printf '%s\n' 'Grok is native Grok Build host execution, not an LFG provider.'; "
-        "printf '%s\n' 'Optional providers are explicit: lfg models switch openai/gpt-5.5 --provider openai'; "
+        "printf '%s\n' 'LiteLLM is the only configurable model provider: lfg models switch openai/gpt-4o --provider litellm'; "
         "printf '%s\n' 'Use lfg grok-build model <model> to send /model into this session.'; "
         "if command -v grok >/dev/null 2>&1; then exec grok; "
         "else printf '%s\n' 'grok executable not found; control shell remains open.'; exec $SHELL; fi"
@@ -6590,17 +6488,17 @@ OMO_AGENT_REGISTRY: list[dict[str, Any]] = load_omo_agent_registry()
 _OMO_REGISTRY_INDEX: dict[str, dict[str, Any]] = {a["id"]: a for a in OMO_AGENT_REGISTRY}
 
 OMO_CATEGORY_MODEL_PROFILES: dict[str, dict[str, str]] = {
-    "quick": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
-    "unspecified-low": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "medium"},
-    "unspecified-high": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "ultrabrain": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "artistry": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "deep": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "xhigh"},
-    "writing": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "medium"},
-    "visual-engineering": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "planning": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "policy": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
-    "configuration": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
+    "quick": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "low"},
+    "unspecified-low": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "medium"},
+    "unspecified-high": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "high"},
+    "ultrabrain": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "high"},
+    "artistry": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "high"},
+    "deep": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "xhigh"},
+    "writing": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "medium"},
+    "visual-engineering": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "high"},
+    "planning": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "high"},
+    "policy": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "low"},
+    "configuration": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "low"},
 }
 
 OMO_UPSTREAM_CATEGORY_NAMES = [
@@ -6670,50 +6568,47 @@ OMO_ROLE_FIT_POLICIES: dict[str, dict[str, Any]] = {
         "reason": "communicator/orchestrator role: preserve OMO's instruction-following coordination semantics with Grok-first execution and approved optional lanes only",
         "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
         "fallbackChain": [
-            {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high", "roleFit": "Grok-first orchestration default"},
-            {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "medium", "roleFit": "approved optional communicator lane"},
-            {"provider": "zai", "model": "zai-coding-plan/glm-5", "reasoning": "medium", "roleFit": "approved bounded communicator consultation lane"},
+            {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "high", "roleFit": "native Grok Build orchestration default"},
+            {"provider": "litellm", "model": "openai/gpt-4o", "reasoning": "medium", "roleFit": "optional non-Grok LiteLLM communicator lane"},
         ],
     },
     "dual-prompt": {
         "reason": "dual-prompt planner/checklist role: keep OMO's Claude/GPT prompt-family distinction while selecting a Grok-first high-reasoning profile",
         "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
         "fallbackChain": [
-            {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high", "roleFit": "Grok-first strategic/checklist default"},
-            {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "high", "roleFit": "approved GPT-style optional lane"},
-            {"provider": "zai", "model": "zai-coding-plan/glm-5", "reasoning": "high", "roleFit": "approved bounded planning consultation lane"},
+            {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "high", "roleFit": "native Grok Build strategic/checklist default"},
+            {"provider": "litellm", "model": "openai/gpt-4o", "reasoning": "high", "roleFit": "optional non-Grok LiteLLM planning lane"},
         ],
     },
     "deep-specialist": {
         "reason": "deep specialist role: match OMO's principle-driven autonomous coding semantics with approved GPT-style profiles; Hephaestus must not silently downgrade to cheap or utility models",
         "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
         "fallbackChain": [
-            {"provider": "openai", "model": "openai/gpt-5.5", "reasoning": "medium", "roleFit": "approved GPT-style autonomous deep-work default"},
-            {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "medium", "roleFit": "approved Copilot GPT-style fallback"},
+            {"provider": "litellm", "model": "openai/gpt-5.5", "reasoning": "medium", "roleFit": "approved GPT-style autonomous deep-work lane through LiteLLM"},
+            {"provider": "litellm", "model": "github-copilot/gpt-5.5", "reasoning": "medium", "roleFit": "approved Copilot GPT-style lane through LiteLLM"},
         ],
     },
     "visual-artistry": {
         "reason": "visual/artistry role: preserve OMO's visual reasoning distinction with a high-reasoning Grok profile and approved bounded Z.ai consultation lane",
         "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
         "fallbackChain": [
-            {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high", "roleFit": "Grok-first visual/design default"},
-            {"provider": "zai", "model": "zai-coding-plan/glm-5", "reasoning": "medium", "roleFit": "approved bounded visual fallback"},
+            {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "high", "roleFit": "native Grok Build visual/design default"},
+            {"provider": "litellm", "model": "anthropic/claude-3-5-sonnet-latest", "reasoning": "medium", "roleFit": "optional non-Grok LiteLLM visual lane"},
         ],
     },
     "utility-runner": {
         "reason": "utility runner role: favor bounded fast search/retrieval semantics instead of upgrading every role to one deep profile",
         "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
         "fallbackChain": [
-            {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low", "roleFit": "Grok-first lightweight utility default"},
-            {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "low", "roleFit": "approved optional utility lane"},
-            {"provider": "zai", "model": "zai-coding-plan/glm-5", "reasoning": "low", "roleFit": "approved cheap utility fallback"},
+            {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "low", "roleFit": "native Grok Build lightweight utility default"},
+            {"provider": "litellm", "model": "openai/gpt-4o-mini", "reasoning": "low", "roleFit": "optional non-Grok LiteLLM utility lane"},
         ],
     },
     "policy-layer": {
         "reason": "policy/configuration role: keep builtin-agents cheap and deterministic while exposing the model resolver contract",
         "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
         "fallbackChain": [
-            {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low", "roleFit": "Grok-first policy resolver default"},
+            {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": GROK_BUILD_NATIVE_MODEL, "reasoning": "low", "roleFit": "native Grok Build policy resolver default"},
         ],
     },
 }

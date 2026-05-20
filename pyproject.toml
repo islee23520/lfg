@@ -31,7 +31,6 @@ include = ["plugins*"]
 target-version = "py311"
 line-length = 160
 extend-exclude = [
-  "plugins/grok-harnessing",
   ".lfg",
   ".grok",
   ".agents",
