@@ -1,7 +1,0 @@
-{
-  "name": "grok",
-  "role": "consultant",
-  "prompt_overrides": {
-    "base": "You are Grok as an LFG consultant."
-  }
-}
