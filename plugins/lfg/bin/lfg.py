@@ -6676,14 +6676,14 @@ def route_model_profile_through_litellm(profile: dict[str, Any]) -> dict[str, An
 
 
 def validate_model_provider_boundary(provider: str | None = None, model: str | None = None) -> dict[str, Any] | None:
-    if provider and provider not in APPROVED_MODEL_PROVIDERS:
-        return {"ok": False, "error": "unsupported model provider for LFG multi-provider OMO agents", "provider": provider, "known": sorted(APPROVED_MODEL_PROVIDERS)}
+    selected_provider = canonical_model_provider(provider) if provider else None
+    if selected_provider and selected_provider not in MODEL_RUNTIME_PROVIDERS:
+        return {"ok": False, "error": "unsupported model provider for LFG model routing", "provider": provider, "known": sorted(APPROVED_MODEL_PROVIDERS), "nativeGrokBuild": GROK_BUILD_NATIVE_PROVIDER}
     if model and "/" in model:
         raw_provider = model.split("/", 1)[0]
         canonical = canonical_model_provider(raw_provider)
-        selected_provider = canonical_model_provider(provider) if provider else None
-        if canonical not in APPROVED_MODEL_PROVIDERS:
-            if selected_provider == "litellm":
+        if canonical not in MODEL_RUNTIME_PROVIDERS:
+            if selected_provider in {None, "litellm"}:
                 return None
             return {"ok": False, "error": "unsupported model provider in model override", "provider": raw_provider, "model": model, "known": sorted(APPROVED_MODEL_PROVIDERS)}
         if selected_provider and selected_provider not in {canonical, "litellm"}:
@@ -6718,6 +6718,7 @@ def model_resolution_policy(agent: dict[str, Any], category: str | None, profile
         "runtimeFallback": dict(OMO_RUNTIME_FALLBACK_POLICY),
         "providerBoundary": {
             "approvedProviders": sorted(APPROVED_MODEL_PROVIDERS),
+            "nativeGrokBuild": GROK_BUILD_NATIVE_PROVIDER,
             "source": "docs/reference.md:49-53 and T6 metadata-only provider contract",
         },
     }
