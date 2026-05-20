@@ -1,15 +1,15 @@
-# Roadmap — `linalab-io/lfg`
+# Roadmap — `islee23520/lfg`
 
 ## North Star
 
 Build **full OMO agent hierarchy parity for Grok Build**.
 
-`lfg` is no longer a Codex-workflow adaptation. The product target is to port the core [oh-my-openagent](https://github.com/sst/opencode/tree/dev/packages/oh-my-openagent) agent hierarchy and orchestration model into **Grok Build**, using Grok models for every agent and Grok-native sub-agent spawning as the primary delegation path.
+`lfg` is no longer a Codex-workflow adaptation. The product target is to port the core [oh-my-openagent](https://github.com/sst/opencode/tree/dev/packages/oh-my-openagent) agent hierarchy and orchestration model into **Grok Build**, using Grok as the orchestrator/reviewer, approved optional coding providers for execution lanes, and Grok-native sub-agent spawning where available.
 
 Core constraints:
 
-- Every first-class agent uses a Grok model.
-- Grok Build native sub-agent spawning is the primary execution mechanism.
+- First-class agents default to Grok model profiles except Hephaestus, which requires an approved GPT-style deep-specialist profile; approved optional providers (`codex`, `copilot`, `zai`) may execute bounded lanes; Z.ai/Zhipu runs through an optional HTTP adapter.
+- Grok Oracle review is mandatory before completion or Boulder advancement; Grok Build native sub-agent spawning remains the preferred execution mechanism where supported.
 - Legacy Codex-derived workflow logic is being removed, renamed, or migrated.
 - OMO's agent hierarchy is the behavioral source of truth: Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, and builtin-agents.
 - The implementation remains Grok marketplace-first, dependency-light, and verifiable through deterministic smoke gates.
@@ -39,8 +39,8 @@ Primary install flow remains Grok-native marketplace installation:
 Package identity:
 
 ```text
-Marketplace: linalab-io
-Package:     linalab-io/lfg
+Marketplace: islee23520
+Package:     islee23520/lfg
 Plugin id:   lfg
 Repo:        https://github.com/islee23520/lfg
 Reference:   oh-my-openagent agent hierarchy and orchestration model
@@ -52,7 +52,7 @@ Local copy/symlink install is development-only. Marketplace install is the produ
 
 ```text
 LFG / Grok Build
-  └─ Marketplace install: linalab-io/lfg
+  └─ Marketplace install: islee23520/lfg
       └─ lfg plugin
           ├─ agents/
           │   ├─ sisyphus/              # main orchestrator
@@ -83,7 +83,7 @@ LFG / Grok Build
 
 ### OMO Runtime Patterns
 
-- Grok-native sub-agent spawning adapter.
+- Grok-native sub-agent spawning adapter plus approved multi-provider execution lanes.
 - Category routing: `quick`, `deep`, `ultrabrain`, `artistry`, `visual-engineering`, `writing`, `unspecified-low`, `unspecified-high`.
 - Boulder state: current goal, evidence, blockers, continuation notes, recent attempts.
 - Mailbox and shared tasklist for team execution.
@@ -96,93 +96,93 @@ LFG / Grok Build
 
 ### M0 — Contract Freeze and Audit
 
-- [ ] Inventory every legacy Codex-derived reference in docs, skills, tests, metadata, scripts, runtime state, and release evidence.
-- [ ] Inventory current OMO groundwork under `docs/agent-system/`, `plugins/lfg/src/agents/`, and `plugins/lfg/bin/lfg.py`.
-- [ ] Decide which legacy commands are deleted, renamed, or temporarily migrated.
-- [ ] Produce an evidence-backed removal map before implementation.
+- [x] Inventory every legacy Codex-derived reference in docs, skills, tests, metadata, scripts, runtime state, and release evidence.
+- [x] Inventory current OMO groundwork under `docs/agent-system/`, `plugins/lfg/src/agents/`, and `plugins/lfg/bin/lfg.py`.
+- [x] Decide which legacy commands are deleted, renamed, or temporarily migrated.
+- [x] Produce an evidence-backed removal map before implementation.
 
 ### M1 — Grok Sub-Agent Spawning Verification
 
-- [ ] Confirm official xAI/Grok Build support for native sub-agent spawning.
-- [ ] Document the equivalent of OMO `task()` and `call_omo_agent` in Grok terms.
-- [ ] Define fallback behavior if native spawning is unavailable in a local environment.
-- [ ] Add a focused manual gate for real Grok spawning evidence.
+- [x] Confirm official xAI/Grok Build support for native sub-agent spawning.
+- [x] Document the equivalent of OMO `task()` and `call_omo_agent` in Grok terms.
+- [x] Define fallback behavior if native spawning is unavailable in a local environment.
+- [x] Add a focused manual gate for real Grok spawning evidence.
 
 ### M2 — OMO-First Documentation Rewrite
 
-- [ ] Rewrite `ROADMAP.md` around OMO parity.
-- [ ] Rewrite `README.md` around Grok Build plus OMO agent hierarchy.
-- [ ] Rewrite `docs/ARCHITECTURE.md` around OMO agents, Grok spawn adapter, Boulder, and Team Mode.
-- [ ] Rewrite `docs/AGENTS.md` and root `AGENTS.md` to guide future work.
+- [x] Rewrite `ROADMAP.md` around OMO parity.
+- [x] Rewrite `README.md` around Grok Build plus OMO agent hierarchy.
+- [x] Rewrite `docs/ARCHITECTURE.md` around OMO agents, Grok spawn adapter, Boulder, and Team Mode.
+- [x] Rewrite `docs/AGENTS.md` and root `AGENTS.md` to guide future work.
 
 ### M3 — Agent Registry Contracts
 
-- [ ] Add tests for the six required agent families.
-- [ ] Add tests that every agent resolves to a Grok model.
-- [ ] Add tests for category-to-agent routing.
-- [ ] Add tests for disabled-agent and override policy.
+- [x] Add tests for the six required agent families.
+- [x] Add tests that every agent resolves to a Grok model.
+- [x] Add tests for category-to-agent routing.
+- [x] Add tests for disabled-agent and override policy.
 
 ### M4 — Grok-Only OMO Agent Registry
 
-- [ ] Implement canonical registry entries for Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, and builtin-agents.
-- [ ] Encode model, reasoning level, tool access, blocked tools, and prompt source for each agent.
-- [ ] Expose registry through CLI and MCP.
+- [x] Implement canonical registry entries for Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, and builtin-agents.
+- [x] Encode model, reasoning level, tool access, blocked tools, and prompt source for each agent.
+- [x] Expose registry through CLI and MCP.
 
 ### M5 — Grok Spawn Adapter
 
-- [ ] Implement a runtime adapter that spawns Grok sub-agents from registry entries.
-- [ ] Support parallel and sequential execution modes.
-- [ ] Support dependency-aware fan-out and lead synthesis.
-- [ ] Preserve deterministic no-network smoke behavior through a local fallback.
+- [x] Implement a runtime adapter that spawns Grok sub-agents from registry entries.
+- [x] Support parallel and sequential execution modes.
+- [x] Support dependency-aware fan-out and lead synthesis.
+- [x] Preserve deterministic no-network smoke behavior through a local fallback.
 
 ### M6 — Category Routing and Sisyphus-Junior
 
-- [ ] Port OMO category routing.
-- [ ] Ensure category tasks spawn Sisyphus-Junior with the correct Grok model profile.
-- [ ] Enforce no recursive uncontrolled delegation.
-- [ ] Add verification gates for category decisions.
+- [x] Port OMO category routing.
+- [x] Ensure category tasks spawn Sisyphus-Junior with the correct Grok model profile.
+- [x] Enforce no recursive uncontrolled delegation.
+- [x] Add verification gates for category decisions.
 
 ### M7 — Boulder, Continuation, Mailbox, Tasklist
 
-- [ ] Port Boulder schema under `.lfg/boulder/`.
-- [ ] Port notepad and accumulated-wisdom files under `.lfg/notepads/`.
-- [ ] Port mailbox and shared tasklist structures under `.lfg/teams/`.
-- [ ] Add schema versioning and `doctor` validation.
+- [x] Port Boulder schema under `.lfg/boulder/`.
+- [x] Port notepad and accumulated-wisdom files under `.lfg/notepads/`.
+- [x] Port mailbox and shared tasklist structures under `.lfg/teams/`.
+- [x] Add schema versioning and `doctor` validation.
 
 ### M8 — Team Mode
 
-- [ ] Port member kinds, eligibility, mailbox delivery, task lifecycle, and shutdown protocol.
-- [ ] Keep tmux-backed execution for local observability.
-- [ ] Add Grok sub-agent team spawning where supported.
-- [ ] Preserve smoke-safe provider behavior.
+- [x] Port member kinds, eligibility, mailbox delivery, task lifecycle, and shutdown protocol.
+- [x] Keep tmux-backed execution for local observability.
+- [x] Add Grok sub-agent team spawning where supported.
+- [x] Preserve smoke-safe provider behavior.
 
 ### M9 — Hyperplan
 
-- [ ] Port adversarial planning with hostile critics and lead synthesis.
-- [ ] Add task graph creation, critique rounds, revision rounds, and final plan artifact.
-- [ ] Store Hyperplan artifacts under `.lfg/hyperplan/`.
-- [ ] Add smoke coverage for plan completeness and critique evidence.
+- [x] Port adversarial planning with hostile critics and lead synthesis.
+- [x] Add task graph creation, critique rounds, revision rounds, and final plan artifact.
+- [x] Store Hyperplan artifacts under `.lfg/hyperplan/`.
+- [x] Add smoke coverage for plan completeness and critique evidence.
 
 ### M10 — Prometheus and Atlas
 
-- [ ] Port Prometheus interview-mode planning into `.lfg/plans/`.
-- [ ] Port Atlas checkbox execution and dependency waves.
-- [ ] Enforce plan read-back, checkbox update, and next-wave dispatch.
-- [ ] Add tests for incomplete checkbox prevention.
+- [x] Port Prometheus interview-mode planning into `.lfg/plans/`.
+- [x] Port Atlas checkbox execution and dependency waves.
+- [x] Enforce plan read-back, checkbox update, and next-wave dispatch.
+- [x] Add tests for incomplete checkbox prevention.
 
 ### M11 — Hephaestus and Ultrawork
 
-- [ ] Port Hephaestus as the autonomous deep worker.
-- [ ] Port Ultrawork execution loops with explicit stop conditions.
-- [ ] Require evidence before Boulder advancement.
-- [ ] Add completion detection and blocker escalation.
+- [x] Port Hephaestus as the autonomous deep worker.
+- [x] Port Ultrawork execution loops with explicit stop conditions.
+- [x] Require evidence before Boulder advancement.
+- [x] Add completion detection and blocker escalation.
 
-### M12 — Runtime, MCP, Skills, Hooks Rewrite
+### M12 — Runtime, MCP, Skills, and Hooks Rewrite
 
-- [ ] Replace command semantics with OMO agent semantics.
-- [ ] Expose agent registry, spawn, team, Boulder, and Hyperplan through MCP.
-- [ ] Update slash skills to call the OMO runtime paths.
-- [ ] Update hooks to inject OMO execution discipline and recovery context.
+- [x] Replace command semantics with OMO agent semantics.
+- [x] Expose agent registry, spawn, team, Boulder, and Hyperplan through MCP.
+- [x] Update slash skills to call the OMO runtime paths.
+- [x] Update hooks to inject OMO execution discipline and recovery context.
 
 ### M13 — Release QA and Documentation Lock
 
@@ -191,6 +191,7 @@ LFG / Grok Build
 - [ ] Run real Grok manual gates where available.
 - [ ] Update release checklist and smoke docs with exact evidence strings.
 - [ ] Perform post-implementation review before release.
+
 
 ## Parallel Execution Graph
 
@@ -220,30 +221,49 @@ These evidence strings are retained during the OMO parity migration because scri
 
 Required evidence strings currently asserted by smoke/release gates:
 
-```text
-marketplace-source=ok
-grok-plugins-surface=ok
-grok-plugin-hook-scope=not-observed
-grok-global-hook-bridge=ok
-grok-installed-mcp-surface=ok
-lfg-installed-symlink-surface=ok
-aliases=lfg,ulw
-lfg-inside-tmux-status=ok
-```
+- [x] manifest-and-file-checks=ok
+- [x] marketplace-metadata=ok
+- [x] release-notes=ok
+- [x] marketplace-source=ok
+- [x] hook-smoke=ok
+- [x] todo-continuation=ok
+- [x] ruff-check=ok
+- [x] mcp-smoke=ok
+- [x] mcp-stdio-isolation=ok
+- [x] mcp-stderr-isolated=ok
+- [x] state-schema-versioning=ok
+- [x] state-schema-doctor=ok
+- [x] team-dry-run=ok
+- [x] models-auth=ok
+- [x] team-tmux-lifecycle=ok
+- [x] runtime-smoke-coverage=100%
+- [x] grok-install-smoke=ok skills=21 key_skills_present (manual/env gate)
 
+Additional smoke/release strings preserved by current docs and tests:
 
-lfg hook-bridge status/install
-MCP `grok_build_hook_bridge`
-release-tag=ok
-release-notes=ok
-state-schema-versioning=ok
-mcp-stdio-isolation=ok
-team-tmux-lifecycle=ok
-team-preflight-cli=ok
-team-preflight-commands=ok
-team-provider-matrix=ok
-team-provider-slash=ok
-team-provider-commands=ok
+- [x] grok-plugins-surface=ok
+- [x] grok-global-hook-bridge=ok
+- [x] grok-installed-mcp-surface=ok
+- [x] lfg-installed-symlink-surface=ok
+- [x] aliases=lfg,ulw
+- [x] lfg-inside-tmux-status=ok
+- [x] lfg hook-bridge status/install
+- [x] MCP `grok_build_hook_bridge`
+- [x] release-tag=ok
+- [x] team-preflight-cli=ok
+- [x] team-preflight-commands=ok
+- [x] team-provider-matrix=ok
+- [x] team-provider-slash=ok
+- [x] team-provider-commands=ok
+
+Legacy/transition evidence strings (to be migrated or removed):
+- [x] grok-plugins-surface=ok
+- [x] grok-global-hook-bridge=ok
+- [x] grok-installed-mcp-surface=ok
+- [x] lfg-installed-symlink-surface=ok
+- [x] aliases=lfg,ulw
+- [x] lfg-inside-tmux-status=ok
+
 
 ### Preserved Skill Coverage Matrix
 
@@ -283,8 +303,8 @@ This table preserves current skill-surface smoke contracts during the OMO migrat
 
 `lfg` is ready when:
 
-1. All six OMO agent families are registered and use Grok models only.
-2. Grok native sub-agent spawning is the primary delegation mechanism.
+1. All six OMO agent families are registered, default to role-fit profiles (Grok by default, GPT-style for Hephaestus), and require Grok Oracle review before completion.
+2. Grok native sub-agent spawning is the preferred delegation mechanism, with approved external providers allowed for execution lanes.
 3. Sisyphus, Prometheus, Hephaestus, Atlas, Sisyphus-Junior, and builtin-agents have runtime semantics, not just documentation.
 4. Boulder, continuation, mailbox, tasklist, Team Mode, Hyperplan, and Ultrawork state are durable under `.lfg/`.
 5. Legacy Codex-derived workflow identity is removed or explicitly migrated.
@@ -305,9 +325,9 @@ This table preserves current skill-surface smoke contracts during the OMO migrat
 3. `docs: replace architecture with omo hierarchy`
 4. `docs: update agent guidance for omo port`
 5. `test: add omo agent registry contracts`
-6. `feat: add grok-only omo agent registry`
-7. `test: add grok spawn adapter contracts`
-8. `feat: add grok native spawn adapter`
+6. `feat: add Grok-reviewed OMO agent registry`
+7. `test: add multi-provider spawn adapter and Grok Oracle review contracts`
+8. `feat: add Grok-reviewed multi-provider spawn adapter`
 9. `feat: port omo categories and junior executor`
 10. `feat: add omo boulder runtime state`
 11. `feat: port omo team mode and hyperplan`

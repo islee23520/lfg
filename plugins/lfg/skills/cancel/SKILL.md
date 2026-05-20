@@ -1,14 +1,25 @@
 ---
 name: cancel
-description: "LFG port of OMX `cancel`: Cancel any active OMX mode (autopilot, ralph, ultrawork, ecomode, ultraqa, swarm, ultrapilot, pipeline, team)"
+description: "Cancel any active LFG mode (ulw, ralph, team, atlas, etc.) and record the cancellation state."
 user_invocable: true
-metadata:
-  package: "linalab-io/lfg"
-  source: "oh-my-codex/plugins/oh-my-codex/skills/cancel/SKILL.md"
-  source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
-  port_kind: "grok-skill-adapter"
 ---
 
-# Cancel — LFG Port
+# Cancel — Stop Active Execution
 
-LFG port of the OMX `cancel` skill from oh-my-codex. Runtime provided by `lfg cancel`, MCP `grok_build_cancel`, and plugin surfaces.
+Use this skill to cancel any active LFG execution mode. This command stops the current goal, plan, or team execution and records the cancellation in the state.
+
+## Usage
+
+```text
+/cancel
+```
+
+## Behavior
+
+- **Immediate Stop**: Signals active agents and background processes to stop execution.
+- **State Recording**: Records the cancellation event in `.lfg/state/last-cancel.json`.
+- **Cleanup**: Performs necessary cleanup of temporary files or runtime state.
+
+## Runtime
+
+Backed by `lfg cancel` and MCP `grok_build_cancel`.

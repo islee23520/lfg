@@ -66,11 +66,11 @@ Exit criteria:
 - The registry contract fails before implementation, then passes with deterministic local data.
 - No first-class OMO agent is missing from CLI or MCP discovery.
 
-## Slice 2 - Grok Model Mapping
+## Slice 2 - Multi-Provider Model Mapping + Grok Oracle Review
 
 Roadmap source: M3-M4.
 
-Objective: make Grok-only model resolution a tested registry invariant.
+Objective: make approved multi-provider model resolution a tested registry invariant while preserving mandatory Grok Oracle review.
 
 Target files:
 
@@ -83,10 +83,10 @@ Target files:
 
 Tests to add or update:
 
-- Dependency-free smoke: assert every first-class agent resolves to a model profile with provider `grok`.
-- Dependency-free smoke: assert category-specific reasoning levels map to Grok profiles, not non-Grok provider names.
-- Dependency-free smoke: assert user overrides may change Grok profile or reasoning level but cannot select a non-Grok primary model for first-class OMO agents.
-- Repo-native integration, if Rust model surfaces are extended: add `cargo test` coverage for any Rust-side model profile serialization.
+- Dependency-free smoke: assert every first-class agent defaults to a Grok/xAI model profile.
+- Dependency-free smoke: assert category-specific reasoning levels map to approved profiles and allowed overrides include `codex`, `copilot`, and `zai`.
+- Dependency-free smoke: assert user overrides may select only approved providers and reject unsupported model providers.
+- Repo-native integration: add `python3 -m unittest tests.smoke.test_grok_build_runtime -v` coverage for model profile serialization changes.
 
 Manual QA command:
 
@@ -97,11 +97,11 @@ plugins/lfg/bin/lfg --json agents inspect sisyphus
 Dependencies:
 
 - Slice 1 registry fields must exist.
-- Open decision in `ROADMAP.md` about one model profile versus category-specific reasoning levels must be resolved as Grok-only either way.
+- Open decision in `ROADMAP.md` about one model profile versus category-specific reasoning levels must preserve mandatory Grok Oracle review either way.
 
 Exit criteria:
 
-- A non-Grok primary model mapping is impossible through CLI, MCP, category defaults, or override input.
+- Unsupported model providers are impossible through CLI, MCP, category defaults, or override input; approved non-Grok providers still require Grok Oracle review.
 
 ## Slice 3 - Grok Spawn Adapter
 
@@ -121,7 +121,7 @@ Target files:
 
 Tests to add or update:
 
-- Dependency-free smoke: assert local fallback `spawn` returns a structured envelope with `status`, `agent_id`, `model_profile`, `evidence`, `touched_files`, `blockers`, and `children`.
+- Dependency-free smoke: assert local fallback `spawn` returns a structured envelope with `status`, `agent_id`, `model_profile`, `evidence`, `touched_files`, `blockers`, `children`, and `oracleReview`.
 - Dependency-free smoke: assert parallel wave output preserves task IDs and deterministic ordering of synthesized results.
 - Dependency-free smoke: assert dependency graph execution refuses blocked tasks until dependencies complete.
 - Environment/manual gate: document and later verify real Grok native spawn evidence separately from fallback smoke.
@@ -192,8 +192,8 @@ Target files:
 - `plugins/lfg/bin/lfg.py`
 - `plugins/lfg/src/features/boulder.py`
 - `plugins/lfg/src/features/state_schema.py`
-- `plugins/lfg/hooks/scripts/lfg-goal-harness.py`
-- `scripts/verify-state-schema.sh`
+- `plugins/lfg/hooks/plugin smoke checks lfg-goal-harness.py`
+- `lfg --json doctor state schema check`
 - `docs/SMOKE.md`
 
 Tests to add or update:
@@ -201,12 +201,12 @@ Tests to add or update:
 - Dependency-free smoke: assert a temp `.lfg/boulder/` root stores current goal, attempts, evidence, blockers, continuation notes, and schema version.
 - Dependency-free smoke: assert `doctor` validates `.lfg/boulder/`, `.lfg/notepads/`, `.lfg/mailbox/`, `.lfg/tasklists/`, and `.lfg/teams/` roots.
 - Dependency-free smoke: assert Boulder advancement is rejected without evidence from a spawn result envelope.
-- Focused script: update `scripts/verify-state-schema.sh` to include Boulder schema evidence while preserving `state-schema-versioning=ok`.
+- Focused script: update `lfg --json doctor state schema check` to include Boulder schema evidence while preserving `state-schema-versioning=ok`.
 
 Manual QA command:
 
 ```sh
-scripts/verify-state-schema.sh
+lfg --json doctor state schema check
 ```
 
 Dependencies:
@@ -231,10 +231,9 @@ Target files:
 - `plugins/lfg/bin/lfg-mcp.py`
 - `plugins/lfg/src/features/team.py`
 - `plugins/lfg/skills/team/SKILL.md`
-- `plugins/lfg/docs/features/team-runtime.md`
-- `scripts/verify-team-tmux-lifecycle.sh`
-- `scripts/verify-team-preflight.sh`
-- `scripts/verify-team-provider-commands.sh`
+- `plugins/lfg/bin/self-test.sh team tmux lifecycle section`
+- `plugins/lfg/bin/self-test.sh team preflight section`
+- `plugins/lfg/bin/self-test.sh team provider section`
 
 Tests to add or update:
 
@@ -246,7 +245,7 @@ Tests to add or update:
 Manual QA command:
 
 ```sh
-scripts/verify-team-tmux-lifecycle.sh
+plugins/lfg/bin/self-test.sh team tmux lifecycle section
 ```
 
 Dependencies:
@@ -310,7 +309,6 @@ Target files:
 - `plugins/lfg/src/features/atlas.py`
 - `plugins/lfg/skills/plan/SKILL.md`
 - `plugins/lfg/skills/deep-interview/SKILL.md`
-- `plugins/lfg/docs/features/plan-runtime.md`
 
 Tests to add or update:
 
@@ -349,7 +347,6 @@ Target files:
 - `plugins/lfg/src/features/hephaestus.py`
 - `plugins/lfg/src/features/ultrawork.py`
 - `plugins/lfg/skills/ultrawork/SKILL.md`
-- `plugins/lfg/docs/features/ultrawork-runtime.md`
 
 Tests to add or update:
 
@@ -389,9 +386,9 @@ Target files:
 - `plugins/lfg/bin/ulw`
 - `plugins/lfg/skills/*/SKILL.md`
 - `plugins/lfg/hooks/hooks.json`
-- `plugins/lfg/hooks/scripts/lfg-audit-hook.sh`
-- `plugins/lfg/hooks/scripts/lfg-goal-harness.py`
-- `scripts/verify-mcp-stdio-isolation.sh`
+- `plugins/lfg/hooks/plugin smoke checks lfg-audit-hook.sh`
+- `plugins/lfg/hooks/plugin smoke checks lfg-goal-harness.py`
+- `plugins/lfg/bin/self-test.sh MCP stdio section`
 - `plugins/lfg/bin/grok-install-smoke.sh`
 
 Tests to add or update:
@@ -404,7 +401,7 @@ Tests to add or update:
 Manual QA command:
 
 ```sh
-scripts/verify-mcp-stdio-isolation.sh
+plugins/lfg/bin/self-test.sh MCP stdio section
 ```
 
 Dependencies:
@@ -430,21 +427,21 @@ Target files:
 - `docs/ARCHITECTURE.md`
 - `docs/agent-system/*.md`
 - `plugins/lfg/bin/self-test.sh`
-- `scripts/verify-release-readiness-local.sh`
-- `scripts/verify-release-readiness-all.sh`
+- `plugins/lfg/bin/self-test.sh`
+- `plugins/lfg/bin/self-test.sh plus marketplace remote smoke`
 - `.github/workflows/smoke.yml`
 
 Tests to add or update:
 
 - Dependency-free smoke: require all new OMO runtime smoke cases from Slices 1-10.
-- Repo-native integration: run `cargo test` if Rust CLI, model, MCP, or session surfaces changed.
+- Repo-native integration: run `python3 -m unittest tests.smoke.test_grok_build_runtime -v` if Python runtime, MCP, model profile, or state surfaces changed.
 - Environment/manual gates: run focused Grok, tmux, installed symlink, hook, and MCP gates that match changed runtime surfaces.
 - Release-readiness scripts: update expected evidence strings only when tests and docs change together.
 
 Manual QA command:
 
 ```sh
-scripts/verify-release-readiness-local.sh
+plugins/lfg/bin/self-test.sh
 ```
 
 Dependencies:
@@ -463,13 +460,13 @@ Run these gates in order after each implementation wave reaches its exit criteri
 ```sh
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
 plugins/lfg/bin/self-test.sh
-scripts/verify-release-readiness-local.sh
+plugins/lfg/bin/self-test.sh
 ```
 
-When Rust code changes, also run:
+When Python runtime, MCP, model, or state code changes, also run:
 
 ```sh
-cargo test
+python3 -m unittest tests.smoke.test_grok_build_runtime -v
 ```
 
 When real Grok, tmux, marketplace, installed symlink, or provider behavior changes, also run the focused environment/manual gate listed in `docs/SMOKE.md` for that surface before claiming release readiness.

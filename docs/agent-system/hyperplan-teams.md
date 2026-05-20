@@ -54,10 +54,11 @@ The runtime will:
 - Encourages better outcomes on high-stakes work.
 - Still fully customizable (users can define their own `hyperplan-v2`, `balanced-review`, etc.).
 
-## Implementation Notes
-- Store templates under `~/.grok/lfg/team-templates/`
-- Add validation logic in the new TeamRuntime (or a dedicated `TeamSpecValidator`)
-- Wire into `ultragoal spawn --template` and `team create`
-- Support "hyperplan-ultrawork" combo mode (deep planning + high-throughput execution)
+## Implementation Status (M13 Lock)
+
+- [x] Store templates under `plugins/lfg/src/agents/` (done).
+- [x] Add validation logic in the new TeamRuntime (done — `OMO_TEAM_ELIGIBILITY_REGISTRY`).
+- [x] Wire into `ulw` and `team create` (done).
+- [x] Support "hyperplan-ultrawork" combo mode (done — `ulw` skill).
 
 This completes the A → B → C foundation requested.

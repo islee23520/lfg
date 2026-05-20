@@ -194,9 +194,9 @@ Options:
       --no-leader
           Start a new agent even when config enables leader mode
       --grok-ws-origin <GROK_WS_ORIGIN>
-          
+
       --grok-ws-url <GROK_WS_URL>
-          
+
       --cli-chat-proxy-base-url <CLI_CHAT_PROXY_BASE_URL>
           Override the CLI chat proxy base URL
       --xai-api-base-url <XAI_API_BASE_URL>
@@ -210,8 +210,8 @@ Run the agent headlessly over the Grok WebSocket relay
 Usage: grok agent headless [OPTIONS]
 
 Options:
-      --grok-ws-origin <GROK_WS_ORIGIN>  
-      --grok-ws-url <GROK_WS_URL>        
+      --grok-ws-origin <GROK_WS_ORIGIN>
+      --grok-ws-url <GROK_WS_URL>
   -h, --help                             Print help
 
 ## grok agent stdio --help

@@ -116,13 +116,13 @@ This proves Grok's hook engine fires for global hooks in the same headless/tool-
 Because Grok `0.1.211` fires global hooks but does not emit plugin hook audit records in the tested paths, `lfg` includes an optional bridge installer:
 
 ```sh
-scripts/install-lfg-global-hook-bridge.sh
+plugins/lfg/scripts/install-lfg-global-hook-bridge.sh
 ```
 
 Verify it with:
 
 ```sh
-scripts/verify-lfg-global-hook-bridge.sh
+plugins/lfg/scripts/verify-lfg-global-hook-bridge.sh
 ```
 
 Expected evidence:
@@ -144,3 +144,38 @@ lfg doctor
 ```
 
 `doctor` reports `global_hook_bridge` as an optional check: absent is OK, installed+valid is OK, and an installed-but-invalid bridge becomes visible evidence without blocking core plugin startup. MCP exposes the same path through `grok_build_runtime(action=hook_bridge_status)` and `grok_build_hook_bridge(action=status|install)`.
+
+## T18 continuation and recovery hooks
+
+`plugins/lfg/hooks/scripts/lfg-goal-harness.sh` remains a fail-open wrapper around `lfg-goal-harness.py`; wrapper failures exit 0 and stay silent. The Python harness may print prompt-injection text for hook events, but MCP never invokes this hook path and `plugins/lfg/bin/lfg-mcp.py` continues to reserve stdout for JSON-RPC frames only. Runtime diagnostics stay in returned JSON, stderr, or evidence files.
+
+The TODO continuation reminder ports the upstream OMO pattern from `orchestration.md` lines 279-294 using the literal marker:
+
+```text
+[SYSTEM REMINDER - TODO CONTINUATION]
+```
+
+The reminder is bounded. It appears only when all of these are true: durable LFG state exists, at least one Boulder or active-run todo is incomplete, and new progress evidence exists in `recent_evidence` since the last reminder. The harness records `harness/todo-continuation.json` with the pending/evidence fingerprint, so the same incomplete state cannot create an infinite reminder loop without changed progress evidence. Completed todos and incomplete todos with no evidence produce no TODO-continuation reminder.
+
+The same hook/documentation contract represents the T18 recovery surfaces:
+
+- Prometheus markdown-only: `lfg plan create` and `plan answer` write durable `.lfg/plans/*.md` plus JSON, and Prometheus remains a planning/writing surface rather than an implementation hook.
+- start-work resumption: `lfg start-work` / `lfg atlas start-work` creates or resumes the active Atlas Boulder, reloads notepad wisdom, and emits the next bounded delegation.
+- provider fallback: spawn/model fallback remains deterministic and manual-gated; hooks do not call real providers or require credentials.
+- evidence recovery: the hook persists valid trailing Boulder blocks and T12 evidence gates reject prose-only completion elsewhere in the runtime.
+- state resumption: the harness reloads current ultragoal, active runs, mailbox evidence, and Boulder state from `.lfg/` on every hook event.
+
+Dependency-free smoke evidence:
+
+```sh
+plugins/lfg/bin/self-test.sh
+```
+
+Expected T18 evidence strings:
+
+```text
+mcp-stdio-isolation=ok
+mcp-stderr-isolated=ok
+todo-continuation=ok
+```
+

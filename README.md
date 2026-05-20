@@ -1,20 +1,20 @@
-# linalab-io/lfg
+# islee23520/lfg
 
 **OMO agent hierarchy parity for Grok Build — Full Real Port in Progress.**
 
-`lfg` is a Grok marketplace plugin that ports the **complete, authentic production oh-my-openagent (OMO)** agent hierarchy and orchestration engine into LFG / Grok Build. 
+`lfg` is a Python-first plugin runtime and Grok marketplace plugin that ports the **complete, authentic production oh-my-openagent (OMO)** agent hierarchy and orchestration engine into LFG / Grok Build.
 
-**The goal is not a lightweight command demo.** The goal is a Grok-native agent operating system with real Sisyphus orchestration, Prometheus planning, Atlas checklist execution, Hephaestus deep work, Sisyphus-Junior category execution, Hyperplan adversarial teams, Boulder + Ralph "never stops" persistence, 5-tier defensive hooks, IntentGate `ulw` bootstrap, and full Team Mode — powered by Grok models and Grok-native sub-agent spawning.
+**The goal is not a lightweight command demo.** The goal is a Grok-native agent operating system with real Sisyphus orchestration, Prometheus planning, Atlas checklist execution, Hephaestus deep work, Sisyphus-Junior category execution, Hyperplan adversarial teams, Boulder + Ralph "never stops" persistence, 5-tier defensive hooks, IntentGate `ulw` bootstrap, and full Team Mode — powered by multi-provider execution with Grok as the orchestrator/reviewer and Grok-native sub-agent spawning where available.
 
 The canonical implementation is now lfg-native under `plugins/lfg/src/agents/`, `plugins/lfg/bin/`, skills, hooks, MCP, and `.lfg/` runtime state.
 
-Every first-class agent is expected to use a Grok model. Grok Build native sub-agent spawning is the primary delegation path.
+First-class agents default to Grok model profiles for Grok Build execution except Hephaestus, which requires an approved GPT-style deep-specialist profile. Oracle review remains mandatory through the xAI/Grok gate. LFG may route execution through approved optional providers (`codex`, `copilot`, `zai`) when available; `zai` uses a smoke-safe Z.ai/Zhipu HTTP adapter with `ZAI_API_KEY` or `ZHIPU_API_KEY` only for explicit `--run` calls.
 
 ## Product Scope
 
 `lfg` provides an OMO-style runtime surface for Grok Build:
 
-- Agent hierarchy: Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, builtin-agents (plus the full 11 from real OMO)
+- Agent hierarchy: the canonical 11 OMO agents plus builtin-agents policy layer, with eligibility contracts enforced in runtime
 - Orchestration: task delegation, category routing, dependency waves, hostile critique, lead synthesis, hyperplan 3-round adversarial
 - Durable state: Boulder, continuation (Ralph-loop + TodoContinuationEnforcer), mailbox, shared tasklist, notepads, plans, team runtime
 - Team execution: tmux-backed local observability plus Grok sub-agent spawning where available
@@ -28,7 +28,7 @@ The intended install path is inside Grok:
 
 1. Open LFG / Grok Build.
 2. Open the extensions modal with `/plugins`.
-3. Add the LinaLab marketplace source URL:
+3. Add the LFG marketplace source URL:
 
    ```text
    https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json
@@ -41,16 +41,15 @@ The intended install path is inside Grok:
 Marketplace/package identity:
 
 ```text
-Marketplace: linalab-io
-Package:     linalab-io/lfg
+Marketplace: islee23520
+Package:     islee23520/lfg
 Plugin id:   lfg
 Repository:  https://github.com/islee23520/lfg
 Marketplace source repo: https://github.com/islee23520/lfg.git
 Reference:   oh-my-openagent agent hierarchy and orchestration model (full real port)
-Current marketplace metadata reference retained for release compatibility: https://github.com/Yeachan-Heo/oh-my-codex
 ```
 
-Developer smoke commands live in [`docs/SMOKE.md`](docs/SMOKE.md). Marketplace installation remains the product path.
+Developer smoke commands live in [`docs/SMOKE.md`](docs/SMOKE.md). Marketplace installation remains the primary product path; local editable install is for development and preview only.
 
 ## Agent Hierarchy
 
@@ -68,7 +67,7 @@ Strategic planner. Interviews, clarifies scope, reads context, and produces a ve
 
 ### Hephaestus
 
-Autonomous deep worker. Receives goals, not recipes. It researches, implements, and verifies difficult work with strong evidence discipline. (Conditional teammate.)
+Autonomous deep worker. Receives goals, not recipes. It researches, implements, and verifies difficult work with strong evidence discipline. Hephaestus requires an approved GPT-style deep-specialist profile (`openai/gpt-5.5` or Copilot GPT-5.5) and blocks mismatched cheap/utility model overrides instead of silently degrading. (Conditional teammate.)
 
 ### Atlas
 
@@ -96,9 +95,9 @@ Sisyphus receives request
   └─ Sisyphus synthesizes, verifies, and advances Boulder
 ```
 
-All agent entries resolve to Grok models. Category routing may map to different Grok reasoning levels, but not to non-Grok primary models.
+Agent entries default to Grok models for Grok Build execution except Hephaestus, whose OMO deep-specialist contract requires a GPT-style approved profile. Category routing may keep Grok reasoning profiles or use approved optional providers (`codex`, `copilot`, `zai`) for execution lanes (`zai` is an HTTP/API adapter, not a required local CLI), but every completion still carries a required Oracle review envelope backed by `openai/gpt-5.5` high with Copilot, Gemini, and Z.ai fallbacks.
 
-The next integration focus is replacing fallback/manual-gated spawn evidence with verified Grok-native sub-agent spawning while keeping `.lfg/` state and agent registry contracts stable.
+The next integration focus is replacing fallback/manual-gated spawn evidence with verified Grok-native sub-agent spawning while keeping `.lfg/` state, approved multi-provider routing, and Oracle review contracts stable.
 
 ## Full Real OMO Port — Phase 2 Complete (Big Synthesis)
 
@@ -122,29 +121,45 @@ All modules are dependency-light Python, directly portable into `~/.grok/plugins
 
 ## Runtime Commands
 
-The current CLI is a transition surface while the OMO parity runtime lands. The expected product commands are:
+The current CLI exposes stable JSON surfaces for the OMO parity runtime:
 
 ```sh
-plugins/lfg/bin/lfg status
-plugins/lfg/bin/lfg doctor
 plugins/lfg/bin/lfg agents list
 plugins/lfg/bin/lfg agents inspect sisyphus
+plugins/lfg/bin/lfg route --category quick --task "execute a bounded smoke task"
 plugins/lfg/bin/lfg spawn sisyphus-junior --category quick --task "fix failing smoke"
-plugins/lfg/bin/lfg prometheus plan "ship OMO registry"
-plugins/lfg/bin/lfg atlas run .lfg/plans/<plan>.md
 plugins/lfg/bin/lfg hephaestus goal "port Boulder state"
 plugins/lfg/bin/lfg hyperplan "design Grok spawn adapter"
+plugins/lfg/bin/lfg plan create "ship OMO registry" --steps "inspect;implement;verify"
+plugins/lfg/bin/lfg plan list
+plugins/lfg/bin/lfg atlas start-work --plan-id <plan-id>
+plugins/lfg/bin/lfg atlas status --plan-id <plan-id>
+plugins/lfg/bin/lfg atlas checkbox --plan-id <plan-id> --task 1 --status complete --evidence "command output captured"
+plugins/lfg/bin/lfg provider list
+plugins/lfg/bin/lfg provider show openai-main
+plugins/lfg/bin/lfg models
+plugins/lfg/bin/lfg doctor
+plugins/lfg/bin/lfg doctor state schema check
+plugins/lfg/bin/lfg team providers
+plugins/lfg/bin/lfg team preflight
 plugins/lfg/bin/lfg team create 3:executor "verify release gates"
-plugins/lfg/bin/lfg ulw "build the ultimate autonomous agent swarm"
+plugins/lfg/bin/lfg team state <team-name>
+plugins/lfg/bin/lfg setup
+plugins/lfg/bin/lfg auth login openai --id openai-main --env OPENAI_API_KEY
+plugins/lfg/bin/lfg omx-setup check
 ```
 
-Existing commands remain useful for development until their semantics are migrated to the OMO runtime paths.
+`omx-setup` remains the documented compatibility surface during the rename transition.
 
 Runtime state is stored under:
 
 ```text
 .lfg/
 ```
+
+`lfg models` shows default Grok-first model profiles plus configured provider metadata. `lfg auth login` records provider login metadata by environment variable name only; it never stores API keys.
+
+`lfg setup` syncs the current plugin package into `~/.grok/plugins/lfg` (or `--plugin-dir <path>`) and records setup state under `.lfg/state/setup.json`. When run from an interactive terminal, `lfg setup` automatically opens the OMO-style provider/subscription wizard for OpenAI, Z.ai, Copilot, Gemini, and Codex; Grok Build/xAI login is assumed by the host and is not asked in the wizard. Use `--interactive` only to force the wizard, or `lfg setup --no-tui --openai yes --zai yes --copilot no --google no --codex no` for deterministic automation. `lfg auth login` without arguments lets you pick from configured providers, and all auth/provider forms store only environment variable names, never secret values.
 
 Target state layout:
 
@@ -162,7 +177,7 @@ Target state layout:
 
 ## Team Mode
 
-Team Mode is the durable multi-agent execution surface. It combines OMO mailbox/tasklist semantics with local tmux observability and Grok sub-agent spawning.
+Team Mode is the durable multi-agent execution surface. It combines OMO mailbox/tasklist semantics with local tmux observability, optional external coding providers, and Grok sub-agent spawning where available.
 
 Target flow:
 
@@ -190,9 +205,17 @@ The smoke-safe provider remains `noop` for dependency-free tests and preflight e
 
 ## Verify
 
+Install development lint tooling when preparing local changes:
+
+```sh
+python3 -m pip install -e .[dev]
+python3 -m ruff check .
+```
+
 Run dependency-free smoke tests:
 
-```python3 -m unittest tests.smoke.test_grok_build_runtime -v
+```sh
+python3 -m unittest tests.smoke.test_grok_build_runtime -v
 ```
 
 Run plugin self-test:
@@ -210,14 +233,10 @@ plugins/lfg/bin/grok-install-smoke.sh
 Run full local release readiness when preparing release:
 
 ```sh
-scripts/verify-release-readiness-local.sh
+plugins/lfg/bin/self-test.sh
 ```
 
-Run the full local + remote release readiness wrapper before tagging a release; success emits `release-readiness-all=ok`:
-
-```sh
-scripts/verify-release-readiness-all.sh
-```
+Remote marketplace/Grok UI evidence is environment-specific and should be recorded separately when release scope requires it.
 
 See [`docs/SMOKE.md`](docs/SMOKE.md), [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md), and [`docs/TEST_RULES.md`](docs/TEST_RULES.md) for the exact evidence contracts.
 
@@ -230,26 +249,26 @@ plugins/lfg/
   .grok-plugin/plugin.json               # Grok plugin manifest
   .claude-plugin/plugin.json             # compatibility manifest
   .mcp.json                              # MCP server config
-  src/agents/harness.toml    # agent harness metadata (canonical)
+  src/agents/harness.toml                # agent harness metadata (canonical)
   bin/lfg.py                             # runtime, state, Grok spawn adapter
   bin/lfg                                # default runtime wrapper
   bin/ulw                                # ultrawork launcher wrapper
   bin/lfg-mcp.py                         # stdio JSON-RPC MCP server
   bin/self-test.sh                       # local smoke test
   hooks/hooks.json                       # hook registration
-  hooks/scripts/lfg-audit-hook.sh        # fail-open audit hook
+  hooks/plugin smoke checks lfg-audit-hook.sh        # fail-open audit hook
   skills/*/SKILL.md                      # Grok slash surfaces backed by OMO semantics
 ```
 
 ## Roadmap
 
-See [`ROADMAP.md`](ROADMAP.md) for the M0-M13 OMO parity plan.  
-See the **Full Real OMO Port ultragoal** (`.lfg/ultragoal/omo-full-real-port-20260518/`) and Phase 2 artifacts for the accelerated "as-is" track.  
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the agent hierarchy, **current runtime implementation** ("How LFG actually works with OMO right now"), Grok spawn adapter status, and verification commands.  
+See [`ROADMAP.md`](ROADMAP.md) for the M0-M13 OMO parity plan.
+See the **Full Real OMO Port ultragoal** (`.lfg/ultragoal/omo-full-real-port-20260518/`) and Phase 2 artifacts for the accelerated "as-is" track.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the agent hierarchy, **current runtime implementation** ("How LFG actually works with OMO right now"), Grok spawn adapter status, and verification commands.
 See [`docs/AGENTS.md`](docs/AGENTS.md) for documentation and evidence rules.
 
 ## Attribution
 
-Built with oh-my-openagent as the architectural reference for agent hierarchy, orchestration discipline, Boulder/continuation, Team Mode, Hyperplan, Prometheus planning, Atlas checklist execution, and Sisyphus-style persistence. `lfg` is a separate Grok Build implementation adapted to Grok marketplace, Grok models, skills, hooks, MCP, and `.lfg/` state conventions.
+Built with oh-my-openagent as the architectural reference for agent hierarchy, orchestration discipline, Boulder/continuation, Team Mode, Hyperplan, Prometheus planning, Atlas checklist execution, and Sisyphus-style persistence. `lfg` is a separate Grok Build implementation adapted to Grok marketplace, multi-provider execution with mandatory Grok Oracle review, skills, hooks, MCP, and `.lfg/` state conventions.
 
 **ulw ulw with team mode on.**

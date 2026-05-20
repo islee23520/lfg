@@ -22,11 +22,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y tmux
 
+      - name: Install Python dev tools
+        run: python3 -m pip install ruff
+
       - name: Verify Python syntax
         run: |
           python3 -m py_compile \
             plugins/lfg/bin/lfg.py \
-            plugins/lfg/bin/lfg-mcp.py
+            plugins/lfg/bin/lfg-mcp.py \
+            tests/smoke/test_grok_build_runtime.py
 
       - name: Run plugin self-test
         run: plugins/lfg/bin/self-test.sh

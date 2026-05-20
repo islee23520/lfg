@@ -1,7 +1,7 @@
 # plugins/lfg/AGENTS.md
 
 ## OVERVIEW
-Grok/LFG plugin package. This directory owns manifests, skill surfaces, hook registration, MCP tools, feature docs, and the dependency-free Python runtime that backs local smoke tests.
+Grok/LFG plugin package. This directory owns manifests, skill surfaces, hook registration, MCP tools, and the dependency-free Python runtime that backs local smoke tests.
 
 ## STRUCTURE
 ```text
@@ -12,8 +12,7 @@ plugins/lfg/
   bin/                         Runtime, wrappers, self-test
   skills/*/SKILL.md            Slash command surfaces
   hooks/                       Hook registration and scripts
-  catalog/                     OMX skill map
-  docs/features/               Runtime feature contracts
+  catalog/                     OMO skill map
 ```
 
 ## WHERE TO LOOK
@@ -37,7 +36,6 @@ plugins/lfg/
 - `lfg-mcp.py` stdout must be JSON-RPC only. Put diagnostics on stderr or in returned JSON.
 - Hook harnesses must stay fail-open and bounded. A hook failure must not break the host session.
 - Preserve legacy flat team-state compatibility when changing team storage or `TeamStateStore`.
-- Each non-harness skill should have a matching `docs/features/*-runtime.md` row covered by smoke tests.
 
 ## ANTI-PATTERNS
 - Do not add external imports that break marketplace users with only system Python.

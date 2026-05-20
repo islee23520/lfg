@@ -1,16 +1,16 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "linalab-io",
-  "description": "LinaLab LFG plugins, including OMX-like workflow/plugins for LFG.",
+  "name": "islee23520",
+  "description": "LFG plugins for OMO agent hierarchy parity in Grok Build.",
   "owner": {
-    "name": "linalab-io"
+    "name": "islee23520"
   },
   "plugins": [
     {
       "name": "lfg",
-      "description": "OMX-like workflow/plugins for LFG, inspired by oh-my-codex.",
+      "description": "OMO agent hierarchy parity runtime for Grok Build.",
       "author": {
-        "name": "linalab-io"
+        "name": "islee23520"
       },
       "category": "development",
       "source": {
@@ -21,8 +21,8 @@
       },
       "homepage": "https://github.com/islee23520/lfg",
       "metadata": {
-        "packageName": "linalab-io/lfg",
-        "reference": "https://github.com/Yeachan-Heo/oh-my-codex"
+        "packageName": "islee23520/lfg",
+        "reference": "https://github.com/code-yeongyu/oh-my-openagent"
       }
     }
   ]

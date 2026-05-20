@@ -1,0 +1,18 @@
+{
+  "id": "oracle",
+  "name": "oracle",
+  "family": "reviewer",
+  "role": "Plan compliance auditor and canonical review gate. Reads plans, checks contracts, and returns strict evidence-backed review notes.",
+  "mode": "read-only",
+  "modelProfile": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
+  "reasoningLevel": "high",
+  "teamEligibility": "hard-reject",
+  "teamMemberEligible": false,
+  "teamMemberConditional": false,
+  "primaryOrder": false,
+  "promptSource": "plugins/lfg/src/agents/oracle.json",
+  "tools": ["read", "glob", "grep", "bash"],
+  "blockedTools": ["edit", "write", "team_create", "team_delete"],
+  "enabled": true,
+  "categories": ["planning", "deep"]
+}

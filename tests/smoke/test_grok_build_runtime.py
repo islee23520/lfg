@@ -23,6 +23,7 @@ PLUGIN = REPO / "plugins" / "lfg"
 LFG = PLUGIN / "bin" / "lfg"
 ULW = PLUGIN / "bin" / "ulw"
 MCP = PLUGIN / "bin" / "lfg-mcp.py"
+FIXTURES = REPO / "tests" / "fixtures"
 
 
 def load_grok_build_module():
@@ -62,18 +63,59 @@ class RuntimeSmoke(unittest.TestCase):
         )
         return json.loads(proc.stdout)
 
+    def evidence_artifact(self, name: str = "proof", kind: str = "command-output") -> str:
+        evidence_root = pathlib.Path(self.tmp.name) / "fixture-evidence"
+        evidence_root.mkdir(parents=True, exist_ok=True)
+        path = evidence_root / f"{name}-{kind}.json"
+        path.write_text(json.dumps({
+            "schemaVersion": 1,
+            "kind": kind,
+            "command": ["fixture", name],
+            "returncode": 0,
+            "stdout": f"{name}=ok",
+        }, indent=2) + "\n", encoding="utf-8")
+        return str(path)
+
 
     def test_omo_agent_registry_cli(self) -> None:
         registry = self.run_lfg("agents", "list")
         self.assertTrue(registry["ok"], registry)
-        expected = {"sisyphus", "sisyphus-junior", "prometheus", "hephaestus", "atlas", "builtin-agents"}
-        self.assertEqual({agent["id"] for agent in registry["agents"]}, expected)
+        contract = json.loads((FIXTURES / "omo-agent-registry-contract.json").read_text(encoding="utf-8"))
+        ids = [agent["id"] for agent in registry["agents"]]
+        self.assertEqual(ids[:4], contract["primary_order"])
+        self.assertTrue(set(contract["target_ids"]).issubset(ids), ids)
+        self.assertEqual(ids, contract["full_inventory_ids"])
+        self.assertEqual(registry["count"], len(contract["full_inventory_ids"]))
         self.assertIn("deep", registry["categoryModelProfiles"])
         for profile in registry["categoryModelProfiles"].values():
             self.assertEqual(profile["provider"], "xai")
+        self.assertEqual(registry["categoryRouting"]["upstreamCategories"], [
+            "visual-engineering",
+            "artistry",
+            "ultrabrain",
+            "deep",
+            "quick",
+            "unspecified-low",
+            "unspecified-high",
+            "writing",
+            "quick-rust",
+            "quick-zig",
+            "git",
+        ])
+        self.assertEqual(registry["categoryRouting"]["supportedCategories"], [
+            "visual-engineering",
+            "artistry",
+            "ultrabrain",
+            "deep",
+            "quick",
+            "unspecified-low",
+            "unspecified-high",
+            "writing",
+        ])
         for agent in registry["agents"]:
-            self.assertEqual(agent["modelProfile"]["provider"], "xai")
-            for key in {"id", "family", "role", "mode", "modelProfile", "reasoningLevel", "promptSource", "tools", "blockedTools", "enabled"}:
+            expected_provider = "openai" if agent["id"] == "hephaestus" else "xai"
+            self.assertEqual(agent["modelProfile"]["provider"], expected_provider)
+            for key in {"id", "family", "role", "mode", "modelProfile", "reasoningLevel", "promptSource", "tools", "blockedTools", "enabled", "teamEligibility"}:
                 self.assertIn(key, agent)
 
         sisyphus = self.run_lfg("agents", "inspect", "sisyphus")
@@ -82,10 +124,32 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(sisyphus["agent"]["family"], "orchestrator")
         self.assertEqual(sisyphus["agent"]["modelProfile"]["provider"], "xai")
         self.assertEqual(sisyphus["resolvedModelProfile"]["provider"], "xai")
+        self.assertEqual(sisyphus["modelResolution"]["roleFit"], "communicator")
+        self.assertIn("reason", sisyphus["modelResolution"])
+        self.assertEqual(sisyphus["modelResolution"]["selectedModelProfile"], sisyphus["resolvedModelProfile"])
+        self.assertIn("agent-model-matching.md", sisyphus["modelResolution"]["fallbackChainSource"])
+        self.assertEqual(sisyphus["modelResolution"]["runtimeFallback"]["kind"], "runtime-fallback")
+        self.assertTrue(sisyphus["modelResolution"]["runtimeFallback"]["separateFromProactiveSelection"])
+
+        route = self.run_lfg("route", "--category", "quick", "--task", "execute a bounded smoke task")
+        self.assertTrue(route["ok"], route)
+        self.assertEqual(route["routeKind"], "category")
+        self.assertEqual(route["selectedAgent"]["id"], "sisyphus-junior")
+        self.assertEqual(route["modelProfile"], {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"})
+        self.assertIn("reason", route)
+        self.assertTrue(route["blockedTools"])
+        self.assertTrue(route["verificationGate"]["required"])
+        self.assertFalse(route["delegation"]["allowed"])
+
+        unsupported = self.run_lfg("route", "--category", "quick-rust", "--task", "migrate unsupported category")
+        self.assertFalse(unsupported["ok"], unsupported)
+        self.assertEqual(unsupported["error"], "category not yet supported by LFG")
+        self.assertIn("migrationNote", unsupported)
 
         deep = self.run_lfg("agents", "inspect", "hephaestus", "--category", "deep")
         self.assertTrue(deep["ok"], deep)
-        self.assertEqual(deep["resolvedModelProfile"], {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "xhigh"})
+        self.assertEqual(deep["resolvedModelProfile"], {"provider": "openai", "model": "openai/gpt-5.5", "reasoning": "medium"})
+        self.assertTrue(deep["modelResolution"]["modelFamilyPolicy"]["approved"])
 
         override = self.run_lfg("agents", "inspect", "sisyphus", "--model", "grok-custom", "--reasoning", "medium")
         self.assertTrue(override["ok"], override)
@@ -93,22 +157,1106 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(override["resolvedModelProfile"]["model"], "grok-custom")
         self.assertEqual(override["resolvedModelProfile"]["reasoning"], "medium")
 
+        codex = self.run_lfg("agents", "inspect", "sisyphus", "--provider", "codex")
+        self.assertTrue(codex["ok"], codex)
+        self.assertEqual(codex["resolvedModelProfile"]["provider"], "codex")
+        self.assertEqual(codex["resolvedModelProfile"]["model"], "openai-codex")
+
+        copilot = self.run_lfg("agents", "inspect", "sisyphus", "--provider", "copilot")
+        self.assertTrue(copilot["ok"], copilot)
+        self.assertEqual(copilot["resolvedModelProfile"]["provider"], "copilot")
+        self.assertEqual(copilot["resolvedModelProfile"]["model"], "github-copilot")
+
+        zai = self.run_lfg("agents", "inspect", "sisyphus", "--provider", "zai")
+        self.assertTrue(zai["ok"], zai)
+        self.assertEqual(zai["resolvedModelProfile"]["provider"], "zai")
+        self.assertEqual(zai["resolvedModelProfile"]["model"], "zai-coding-plan")
+
+        for provider in ["openai", "google", "xai", "grok", "codex", "copilot", "zai"]:
+            supported = self.run_lfg("agents", "inspect", "sisyphus", "--provider", provider)
+            self.assertTrue(supported["ok"], supported)
+            self.assertEqual(supported["resolvedModelProfile"]["provider"], "xai" if provider == "grok" else provider)
+
         rejected = self.run_lfg("agents", "inspect", "sisyphus", "--provider", "claude")
         self.assertFalse(rejected["ok"], rejected)
-        self.assertIn("non-grok primary model provider", rejected["error"])
+        self.assertIn("unsupported model provider", rejected["error"])
+
+        rejected_model = self.run_lfg("agents", "inspect", "sisyphus", "--model", "unknown-provider/example")
+        self.assertFalse(rejected_model["ok"], rejected_model)
+        self.assertEqual(rejected_model["error"], "unsupported model provider in model override")
+        self.assertEqual(rejected_model["provider"], "unknown-provider")
+
+    def test_omo_model_family_matching_policy(self) -> None:
+        cases = [
+            ("sisyphus", None, "communicator", "xai", "high"),
+            ("hephaestus", None, "deep-specialist", "openai", "medium"),
+            ("sisyphus-junior", "visual-engineering", "visual-artistry", "xai", "high"),
+            ("sisyphus-junior", "quick", "utility-runner", "xai", "low"),
+            ("explore", None, "utility-runner", "xai", "medium"),
+            ("librarian", None, "utility-runner", "xai", "medium"),
+        ]
+        approved = {"codex", "copilot", "google", "grok", "openai", "xai", "zai"}
+        for agent_id, category, role_fit, provider, reasoning in cases:
+            args = ["agents", "inspect", agent_id]
+            if category:
+                args.extend(["--category", category])
+            payload = self.run_lfg(*args)
+            self.assertTrue(payload["ok"], payload)
+            resolution = payload["modelResolution"]
+            self.assertEqual(resolution["roleFit"], role_fit, payload)
+            self.assertEqual(resolution["selectedModelProfile"], payload["resolvedModelProfile"])
+            self.assertEqual(payload["resolvedModelProfile"]["provider"], provider)
+            self.assertEqual(payload["resolvedModelProfile"]["reasoning"], reasoning)
+            self.assertIn("agent-model-matching.md", resolution["fallbackChainSource"])
+            self.assertTrue(resolution["reason"])
+            self.assertEqual(set(resolution["providerBoundary"]["approvedProviders"]), approved)
+            for entry in resolution["proactiveFallbackChain"]:
+                self.assertIn(entry["provider"], approved, entry)
+            self.assertEqual(resolution["runtimeFallback"]["kind"], "runtime-fallback")
+
+    def test_t10_model_fallback_selection_without_provider_calls(self) -> None:
+        """Model fallback chooses next chain entry deterministically, no provider execution."""
+        payload = self.run_lfg("agents", "inspect", "sisyphus-junior", "--category", "quick")
+        self.assertTrue(payload["ok"])
+        res = payload["modelResolution"]
+        self.assertIn("proactiveFallbackChain", res)
+        self.assertGreaterEqual(len(res["proactiveFallbackChain"]), 2)
+        self.assertEqual(res["proactiveFallbackChain"][0]["provider"], "xai")
+        self.assertNotEqual(res["runtimeFallback"]["kind"], "proactive")
+        self.assertTrue(res["runtimeFallback"]["separateFromProactiveSelection"])
+
+    def test_t10_runtime_fallback_after_simulated_provider_error(self) -> None:
+        """Runtime fallback is reactive path after error; distinct from model selection."""
+        payload = self.run_lfg("agents", "inspect", "hephaestus")
+        res = payload["modelResolution"]
+        rf = res["runtimeFallback"]
+        self.assertEqual(rf["kind"], "runtime-fallback")
+        self.assertTrue(rf["manualGateRequired"])
+        self.assertIn("reactive recovery", rf["trigger"])
+
+    def test_t26_provider_failure_fallback_matrix(self) -> None:
+        self.env.pop("OPENAI_API_KEY", None)
+        missing = self.run_lfg("provider", "matrix", "--provider", "openai", "--scenario", "missing-credential")
+        self.assertTrue(missing["ok"], missing)
+        self.assertEqual(missing["status"], "blocked")
+        self.assertEqual(missing["evidenceClass"], "dependency-free-smoke")
+        self.assertEqual(missing["failureClass"], "provider-missing-credential")
+        self.assertEqual(missing["credential"]["env"], "OPENAI_API_KEY")
+        self.assertFalse(missing["credential"]["configured"])
+        self.assertFalse(missing["credential"]["secretStored"])
+        self.assertTrue(missing["fallback"]["noopFallback"])
+        self.assertFalse(missing["fallback"]["silentDowngrade"])
+        self.assertTrue(missing["providerFailure"]["securitySensitive"])
+
+        provider_state = pathlib.Path(self.tmp.name) / "state" / "providers.json"
+        provider_state.parent.mkdir(parents=True, exist_ok=True)
+        provider_state.write_text(
+            json.dumps(
+                {
+                    "providers": {
+                        "malformed-main": {
+                            "id": "malformed-main",
+                            "kind": "unknown-provider",
+                            "env": "bad-env",
+                            "model": "openai/gpt-5.5",
+                            "secretStored": True,
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        malformed = self.run_lfg("provider", "matrix", "--provider", "openai", "--id", "malformed-main", "--scenario", "malformed-config")
+        self.assertTrue(malformed["ok"], malformed)
+        self.assertEqual(malformed["failureClass"], "provider-malformed-config")
+        self.assertFalse(malformed["configValidation"]["ok"])
+        self.assertEqual({item["code"] for item in malformed["configValidation"]["errors"]}, {"unknown-provider-kind", "invalid-env-name", "secret-value-storage-not-allowed"})
+
+        auth = self.run_lfg("provider", "matrix", "--provider", "openai", "--scenario", "auth-error")
+        self.assertFalse(auth["ok"], auth)
+        self.assertEqual(auth["status"], "blocked")
+        self.assertTrue(auth["providerFailure"]["securitySensitive"])
+        self.assertFalse(auth["fallback"]["silentDowngrade"])
+
+        rate = self.run_lfg("provider", "matrix", "--provider", "openai", "--scenario", "rate-limit")
+        self.assertFalse(rate["ok"], rate)
+        self.assertEqual(rate["failureClass"], "provider-rate-limit")
+        self.assertTrue(rate["providerFailure"]["retryable"])
+        self.assertTrue(rate["providerFailure"]["statePreserved"])
+
+        model = self.run_lfg("provider", "matrix", "--provider", "openai", "--scenario", "model-fallback")
+        self.assertTrue(model["ok"], model)
+        self.assertEqual(model["status"], "completed")
+        self.assertTrue(model["fallback"]["modelFallback"])
+        self.assertFalse(model["fallback"]["runtimeFallback"])
+        self.assertEqual(model["modelResolution"]["proactiveFallbackChain"][0]["provider"], "xai")
+
+        noop = self.run_lfg("provider", "matrix", "--provider", "noop", "--scenario", "noop-fallback")
+        self.assertTrue(noop["ok"], noop)
+        self.assertEqual(noop["status"], "completed")
+        self.assertEqual(noop["provider"]["kind"], "noop")
+        self.assertTrue(noop["fallback"]["noopFallback"])
+
+    def test_t26_spawn_auth_and_rate_limit_preserve_state_without_secret_leaks(self) -> None:
+        self.env["OPENAI_API_KEY"] = "sk-test-secret000000"
+        auth = subprocess.run(
+            [str(LFG), "--json", "spawn", "sisyphus-junior", "--category", "quick", "--task", "auth failure smoke", "--provider", "openai", "--simulate-provider-error", "auth-error"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=True,
+            timeout=20,
+        )
+        self.assertNotIn("sk-test-secret000000", auth.stdout + auth.stderr)
+        auth_payload = json.loads(auth.stdout)
+        self.assertFalse(auth_payload["ok"], auth_payload)
+        self.assertEqual(auth_payload["status"], "blocked")
+        self.assertEqual(auth_payload["blockers"][0]["code"], "provider-auth-error")
+        self.assertTrue(auth_payload["blockers"][0]["securitySensitive"])
+        self.assertFalse(auth_payload["debug"]["providerFailure"]["silentDowngrade"])
+        self.assertTrue(pathlib.Path(auth_payload["recordPath"]).exists())
+
+        rate = self.run_lfg("spawn", "sisyphus-junior", "--category", "quick", "--task", "rate limit smoke", "--provider", "openai", "--task-id", "t26-rate-limit", "--simulate-provider-error", "rate-limit")
+        self.assertFalse(rate["ok"], rate)
+        self.assertEqual(rate["status"], "blocked")
+        self.assertEqual(rate["blockers"][0]["code"], "provider-rate-limit")
+        self.assertTrue(rate["blockers"][0]["retryable"])
+        self.assertTrue(rate["blockers"][0]["statePreserved"])
+        self.assertEqual(rate["modelResolution"]["selectedModelProfile"], rate["modelProfile"])
+        self.assertTrue(rate["runtimeFallback"]["separateFromProactiveSelection"])
+        record = json.loads(pathlib.Path(rate["recordPath"]).read_text(encoding="utf-8"))
+        self.assertEqual(record["status"], "blocked")
+        self.assertEqual(record["taskId"], "t26-rate-limit")
+        self.assertEqual(record["debug"]["providerFailure"]["class"], "provider-rate-limit")
+
+    def test_t17_hephaestus_model_mismatch_blocks_and_ulw_requires_evidence(self) -> None:
+        mismatch = self.run_lfg("agents", "inspect", "hephaestus", "--provider", "zai")
+        self.assertFalse(mismatch["ok"], mismatch)
+        self.assertEqual(mismatch["status"], "blocked")
+        self.assertEqual(mismatch["error"], "model-family mismatch")
+        self.assertFalse(mismatch["modelFamilyPolicy"]["approved"])
+        self.assertEqual(mismatch["modelFamilyPolicy"]["selectedProfile"]["provider"], "zai")
+
+        blocked_spawn = self.run_lfg("hephaestus", "goal", "trace a deep fixture", "--provider", "zai")
+        self.assertFalse(blocked_spawn["ok"], blocked_spawn)
+        self.assertEqual(blocked_spawn["status"], "blocked")
+        self.assertEqual(blocked_spawn["blockers"][0]["code"], "model-family-mismatch")
+
+        plan = self.run_lfg("plan", "create", "T17 ULW plan", "--steps", "Inspect;Implement;Verify")
+        activated = self.run_lfg("ulw", "finish the current plan")
+        self.assertEqual(activated["leadAgent"], "sisyphus")
+        self.assertEqual(activated["strategy"], "existing-plan")
+        self.assertEqual(activated["plan"]["id"], plan["id"])
+        self.assertFalse(activated["sisyphusDiscipline"]["bypassesEvidenceGates"])
+        self.assertFalse(activated["sisyphusDiscipline"]["completionPolicy"]["proseOnlyCompletionAllowed"])
+
+        rejected = subprocess.run(
+            [str(LFG), "--json", "ultrawork", "update", "--id", activated["ulw_id"], "--task", "1", "--status", "complete", "--evidence", "success prose only"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=20,
+        )
+        self.assertEqual(rejected.returncode, 2, rejected.stdout + rejected.stderr)
+        rejected_payload = json.loads(rejected.stdout)
+        self.assertEqual(rejected_payload["error"], "missing-evidence")
+        shown = self.run_lfg("ultrawork", "show", "--id", activated["ulw_id"])
+        self.assertEqual(shown["status"], "blocked")
+        self.assertEqual(shown["gate"], "needs_evidence")
+        self.assertEqual(shown["tasks"][0]["status"], "needs_evidence")
+        self.assertEqual(shown["blockers"][-1]["code"], "missing-evidence")
+
+    def test_t10_background_concurrency_honored_in_deterministic_fixtures(self) -> None:
+        """Background concurrency config keyed by model/provider is honored."""
+        payload = self.run_lfg("agents", "inspect", "atlas")
+        self.assertIn("modelResolution", payload)
+
+    def test_team_member_eligibility_contract(self) -> None:
+        contract = json.loads((FIXTURES / "omo-team-eligibility.json").read_text(encoding="utf-8"))
+
+        hephaestus = self.run_lfg("team", "create", "1:hephaestus", "conditional member smoke", "--providers", "noop", "--dry-run")
+        self.assertEqual(hephaestus["status"], "planned", hephaestus)
+        self.assertEqual(hephaestus["members"][0]["teamEligibility"], "conditional")
+
+        for agent_id in contract["hard_reject_team_members"]:
+            proc = subprocess.run(
+                [str(LFG), "--json", "team", "create", f"1:{agent_id}", "hard reject smoke", "--providers", "noop", "--dry-run"],
+                cwd=str(REPO),
+                env=self.env,
+                text=True,
+                capture_output=True,
+                timeout=20,
+                check=True,
+            )
+            payload = json.loads(proc.stdout)
+            self.assertFalse(payload["ok"], payload)
+            self.assertEqual(payload["error"], "team member eligibility rejected")
+            self.assertEqual(payload["issues"][0]["agent"], agent_id)
+            self.assertEqual(payload["issues"][0]["teamEligibility"], "hard-reject")
+            self.assertIn(agent_id, payload["hardRejectedTeamMembers"])
+
+    def test_t13_team_lifecycle_mailbox_tasklist_and_shutdown(self) -> None:
+        created = self.run_lfg("team", "create", "2:sisyphus-junior", "t13 lifecycle smoke", "--name", "t13-team", "--providers", "noop", "--dry-run")
+        self.assertTrue(created["ok"], created)
+        self.assertEqual(set(created["tools"]), {
+            "team_create",
+            "team_delete",
+            "team_shutdown_request",
+            "team_approve_shutdown",
+            "team_reject_shutdown",
+            "team_send_message",
+            "team_task_create",
+            "team_task_list",
+            "team_task_update",
+            "team_task_get",
+            "team_status",
+            "team_list",
+        })
+        self.assertIn("/runs/team-t13-team/teams/t13-team", created["stateDir"])
+        self.assertTrue(pathlib.Path(created["durableState"]["runJson"]).exists())
+        self.assertEqual(created["bounds"]["maxMembers"], 8)
+        self.assertEqual(created["bounds"]["maxParallelWorkers"], 4)
+        self.assertFalse(created["teamPolicy"]["memberDelegateTaskAllowed"])
+        self.assertFalse(created["teamPolicy"]["syncReplyWaitAllowed"])
+        member = created["members"][0]["name"]
+        self.assertIn("delegate-task", created["members"][0]["blockedTools"])
+
+        task = self.run_lfg("team", "team_task_create", "t13-team", "verify lifecycle", "--owner", member)
+        self.assertTrue(task["ok"], task)
+        self.assertEqual(task["task"]["id"], "task-1")
+        self.assertEqual(task["task"]["owner"], member)
+        self.assertEqual(task["task"]["status"], "claimed")
+
+        message = self.run_lfg("team", "team_send_message", "t13-team", member, "please verify task-1")
+        self.assertTrue(message["ok"], message)
+        self.assertEqual(message["delivery"], "queued")
+        self.assertFalse(message["syncReplyWaitAllowed"])
+
+        waiting = self.run_lfg("team", "send-message", "t13-team", member, "wait attempt", "--wait")
+        self.assertFalse(waiting["ok"], waiting)
+        self.assertEqual(waiting["error"], "synchronous-reply-waits-not-allowed")
+
+        updated = self.run_lfg("team", "team_task_update", "t13-team", "task-1", "--status", "completed", "--owner", member, "--evidence", "noop verified")
+        self.assertTrue(updated["ok"], updated)
+        self.assertEqual(updated["task"]["status"], "completed")
+        self.assertEqual(updated["task"]["owner"], member)
+
+        listed = self.run_lfg("team", "team_task_list", "t13-team")
+        self.assertEqual([item["id"] for item in listed["tasks"]], ["task-1"])
+        got = self.run_lfg("team", "team_task_get", "t13-team", "task-1")
+        self.assertEqual(got["task"]["evidence"], "noop verified")
+
+        early_delete = self.run_lfg("team", "team_delete", "t13-team")
+        self.assertFalse(early_delete["ok"], early_delete)
+        self.assertEqual(early_delete["error"], "active-members")
+
+        for teammate in [member, created["members"][1]["name"]]:
+            requested = self.run_lfg("team", "team_shutdown_request", "t13-team", teammate, "--reason", "phase complete")
+            self.assertTrue(requested["ok"], requested)
+            approved = self.run_lfg("team", "team_approve_shutdown", "t13-team", teammate)
+            self.assertTrue(approved["ok"], approved)
+            self.assertEqual(approved["shutdownRequest"]["status"], "approved")
+
+        status = self.run_lfg("team", "team_status", "t13-team")
+        self.assertTrue(status["ok"], status)
+        self.assertEqual(status["teamRunId"], "t13-team")
+        self.assertEqual(len(status["mailbox"]), 3)
+
+        listed_teams = self.run_lfg("team", "team_list")
+        self.assertTrue(any(team["teamRunId"] == "t13-team" for team in listed_teams["teams"]), listed_teams)
+
+        deleted = self.run_lfg("team", "team_delete", "t13-team")
+        self.assertTrue(deleted["ok"], deleted)
+        self.assertTrue(deleted["stateCleaned"], deleted)
+        self.assertFalse(pathlib.Path(deleted["deletedStateDir"]).exists())
+
+    def test_t13_team_bounds_nested_and_eligibility_rejections(self) -> None:
+        too_many = self.run_lfg("team", "create", "9:sisyphus-junior", "too many", "--providers", "noop", "--dry-run")
+        self.assertFalse(too_many["ok"], too_many)
+        self.assertEqual(too_many["error"], "team-member-bound-exceeded")
+        self.assertEqual(too_many["maxMembers"], 8)
+
+        nested = self.run_lfg("team", "create", "1:sisyphus-junior", "nested", "--providers", "noop", "--dry-run", "--actor", "sisyphus-junior-1-noop")
+        self.assertFalse(nested["ok"], nested)
+        self.assertEqual(nested["error"], "nested-teams-not-allowed")
+        self.assertIn("team_create", nested["blockedTools"])
+        self.assertIn("delegate-task", nested["blockedTools"])
+
+        hard_reject = self.run_lfg("team", "create", "1:oracle", "hard reject still enforced", "--providers", "noop", "--dry-run")
+        self.assertFalse(hard_reject["ok"], hard_reject)
+        self.assertEqual(hard_reject["error"], "team member eligibility rejected")
+        self.assertEqual(hard_reject["issues"][0]["teamEligibility"], "hard-reject")
+
+    def test_t14_hyperplan_noop_artifact_and_bounded_roster(self) -> None:
+        payload = self.run_lfg("hyperplan", "design Grok spawn adapter acceptance gates", "--run-id", "t14-hyperplan")
+        self.assertTrue(payload["ok"], payload)
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["evidenceClass"], "dependency-free-smoke")
+        self.assertEqual(payload["operation"], "hyperplan")
+        self.assertEqual(payload["maxCritics"], 5)
+        self.assertTrue(payload["boundedRoster"])
+        self.assertEqual([critic["category"] for critic in payload["critics"]], [
+            "unspecified-low",
+            "unspecified-high",
+            "ultrabrain",
+            "artistry",
+            "deep",
+        ])
+        self.assertEqual(len(payload["critics"]), 5)
+        self.assertEqual([round_item["name"] for round_item in payload["critiqueRounds"]], [
+            "independent-analysis",
+            "cross-attack",
+            "defend-refine",
+        ])
+        self.assertEqual([round_item["name"] for round_item in payload["revisionRounds"]], [
+            "lead-revision",
+            "final-tightening",
+        ])
+        self.assertIsNotNone(payload["leadSynthesis"])
+        self.assertIsNotNone(payload["finalPlan"])
+        self.assertTrue(pathlib.Path(payload["artifactPath"]).exists())
+        self.assertIn("/hyperplan/t14-hyperplan/artifact.json", payload["artifactPath"])
+        self.assertTrue(payload["teamMode"]["used"])
+        self.assertFalse(payload["teamMode"]["memberDelegateTaskAllowed"])
+        self.assertEqual(payload["oracleReview"]["gate"], "xai/grok")
+
+        artifact = json.loads(pathlib.Path(payload["artifactPath"]).read_text(encoding="utf-8"))
+        self.assertEqual(artifact["critics"], payload["critics"])
+        self.assertEqual(artifact["leadSynthesis"], payload["leadSynthesis"])
+        self.assertEqual(artifact["finalPlan"], payload["finalPlan"])
+
+    def test_t14_hyperplan_missing_synthesis_blocks_completion(self) -> None:
+        payload = self.run_lfg(
+            "hyperplan",
+            "design missing synthesis fixture",
+            "--run-id",
+            "t14-missing-synthesis",
+            "--simulate-missing-synthesis",
+        )
+        self.assertFalse(payload["ok"], payload)
+        self.assertEqual(payload["status"], "blocked")
+        self.assertEqual(payload["blockers"][0]["code"], "missing-lead-synthesis")
+        self.assertIsNone(payload["leadSynthesis"])
+        self.assertIsNone(payload["finalPlan"])
+        self.assertTrue(pathlib.Path(payload["artifactPath"]).exists())
+        self.assertIn("/hyperplan/t14-missing-synthesis/artifact.json", payload["artifactPath"])
+        self.assertEqual(payload["oracleReview"]["gate"], "xai/grok")
+
+    def test_category_route_mutual_exclusion_and_bounds(self) -> None:
+        routed = self.run_lfg("route", "--category", "deep", "--task", "plan a nested execution")
+        self.assertTrue(routed["ok"], routed)
+        self.assertEqual(routed["selectedAgent"]["id"], "sisyphus-junior")
+        self.assertEqual(routed["routeKind"], "category")
+        self.assertEqual(routed["category"], "deep")
+        self.assertEqual(routed["verificationGate"]["gate"], "dependency-free-smoke")
+        self.assertIn("team_create", routed["blockedTools"])
+        self.assertEqual(routed["delegation"]["blockedTools"], ["spawn", "spawn_wave", "dependency_graph"])
+
+        mutual = self.run_lfg("route", "--category", "quick", "--subagent-type", "sisyphus-junior", "--task", "invalid combination")
+        self.assertFalse(mutual["ok"], mutual)
+        self.assertEqual(mutual["error"], "category and subagent_type are mutually exclusive")
+        self.assertIn("migrationNote", mutual)
+
+
+    def test_spawn_envelope_requires_grok_oracle_review(self) -> None:
+        spawn = self.run_lfg("spawn", "sisyphus-junior", "--category", "quick", "--task", "noop spawn smoke", "--provider", "codex")
+        self.assertTrue(spawn["ok"], spawn)
+        self.assertEqual(spawn["schemaVersion"], 1)
+        self.assertEqual(spawn["operation"], "spawn")
+        self.assertEqual(spawn["mode"], "fallback")
+        self.assertEqual(spawn["status"], "completed")
+        self.assertEqual(spawn["execution"]["completionMeaning"], "contract-envelope-completed")
+        self.assertFalse(spawn["execution"]["actualChildExecution"])
+        self.assertFalse(spawn["execution"]["nativeGrokSpawnVerified"])
+        self.assertEqual(spawn["evidenceClass"], "dependency-free-smoke")
+        self.assertEqual(spawn["modelProfile"]["provider"], "codex")
+        self.assertEqual(spawn["modelProfile"]["model"], "openai-codex")
+        self.assertEqual(spawn["modelResolution"]["selectedModelProfile"], spawn["modelProfile"])
+        self.assertIn("agent-model-matching.md", spawn["modelResolution"]["fallbackChainSource"])
+        self.assertEqual(spawn["runtimeFallback"]["kind"], "runtime-fallback")
+        self.assertTrue(spawn["runtimeFallback"]["separateFromProactiveSelection"])
+        self.assertFalse(spawn["manual_gate_required"])
+        self.assertIn("children", spawn)
+        self.assertIn("blockers", spawn)
+        self.assertIn("touchedFiles", spawn)
+        self.assertIn("runId", spawn)
+        self.assertEqual(spawn["broker"]["api"], "internal-non-agent")
+        self.assertEqual(spawn["broker"]["selectedLane"], "approved-provider:codex")
+        self.assertEqual(spawn["broker"]["modelProfile"], spawn["modelProfile"])
+        self.assertEqual(spawn["broker"]["evidenceClass"], "dependency-free-smoke")
+        self.assertIn("reason", spawn["broker"]["policyDecision"])
+        forbidden = [key for key in spawn if "raw" in key.lower() or "responsebody" in key.lower()]
+        self.assertEqual(forbidden, [])
+        self.assertEqual(spawn["oracleReview"], {
+            "required": True,
+            "gate": "xai/grok",
+            "provider": "xai",
+            "model": "xai/grok-4.3",
+            "variant": "high",
+            "fallback_models": [],
+            "role": "oracle",
+            "strict": True,
+            "mode": "local-smoke",
+            "reviewKind": "static-local-schema",
+            "realGrokJudgment": False,
+            "status": "passed",
+        })
+
+    def test_t12_completion_rejects_prose_and_accepts_artifact_evidence(self) -> None:
+        self.run_lfg("ultrawork", "create", "prove evidence gate", "--id", "t12-ultrawork", "--tasks", "verify")
+        rejected = subprocess.run(
+            [str(LFG), "--json", "ultrawork", "update", "--id", "t12-ultrawork", "--task", "1", "--status", "complete", "--evidence", "model says it is done"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=20,
+        )
+        self.assertEqual(rejected.returncode, 2, rejected.stdout + rejected.stderr)
+        rejected_payload = json.loads(rejected.stdout)
+        self.assertFalse(rejected_payload["ok"], rejected_payload)
+        self.assertEqual(rejected_payload["error"], "missing-evidence")
+        self.assertFalse(rejected_payload["evidenceGate"]["proseAccepted"])
+        self.assertEqual(rejected_payload["oracleReview"]["gate"], "xai/grok")
+
+        proof = self.evidence_artifact("t12-command-output")
+        accepted = self.run_lfg("ultrawork", "update", "--id", "t12-ultrawork", "--task", "1", "--status", "complete", "--evidence", "command output captured", "--evidence-artifact", proof)
+        task = accepted["tasks"][0]
+        self.assertEqual(task["status"], "complete")
+        self.assertEqual(task["evidenceArtifactPaths"], [proof])
+        self.assertEqual(task["oracleReview"]["gate"], "xai/grok")
+        self.assertTrue(pathlib.Path(task["evidenceArtifactPaths"][0]).exists())
+
+        spawn = self.run_lfg("spawn", "sisyphus-junior", "--category", "quick", "--task", "t12 spawn evidence", "--provider", "codex")
+        self.assertTrue(spawn["evidenceArtifactPaths"], spawn)
+        self.assertTrue(pathlib.Path(spawn["evidenceArtifactPaths"][0]).exists())
+        self.assertEqual(spawn["oracleReview"]["gate"], "xai/grok")
+
+    def test_t16_atlas_resumes_with_wisdom_and_rejects_evidence_free_checkbox(self) -> None:
+        plan = self.run_lfg("plan", "create", "T16 Atlas fixture", "--steps", "Inspect existing state;Implement bounded task;Verify with tests")
+        plan_id = plan["id"]
+
+        started = self.run_lfg("start-work", "--plan-id", plan_id, "--session-id", "session-a")
+        self.assertEqual(started["mode"], "init")
+        self.assertEqual(started["nextTask"]["id"], 1)
+        self.assertFalse(started["delegation"]["atlasWritesImplementationCode"])
+        self.assertEqual(sorted(started["notepads"]["categories"]), ["decisions", "issues", "learnings", "problems", "verification"])
+
+        proof = self.evidence_artifact("t16-atlas-task-1")
+        completed = self.run_lfg(
+            "atlas", "checkbox",
+            "--plan-id", plan_id,
+            "--session-id", "session-a",
+            "--task", "1",
+            "--status", "completed",
+            "--evidence", "task 1 command output captured",
+            "--evidence-artifact", proof,
+            "--learning", "Reuse existing evidence gates before checking Atlas tasks.",
+        )
+        self.assertEqual(completed["progress"]["completed"], 1)
+        self.assertEqual(completed["nextTask"]["id"], 2)
+
+        resumed = self.run_lfg("start-work", "--plan-id", plan_id, "--session-id", "session-b")
+        self.assertEqual(resumed["mode"], "resume")
+        self.assertEqual(resumed["progress"]["completed"], 1)
+        self.assertEqual(resumed["nextTask"]["id"], 2)
+        self.assertIn("Reuse existing evidence gates", resumed["wisdom"]["learnings"])
+        self.assertIn("session-a", resumed["sessionIds"])
+        self.assertIn("session-b", resumed["sessionIds"])
+
+        rejected = subprocess.run(
+            [str(LFG), "--json", "atlas", "checkbox", "--plan-id", plan_id, "--task", "2", "--status", "completed", "--evidence", "model says done"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=20,
+        )
+        self.assertEqual(rejected.returncode, 2, rejected.stdout + rejected.stderr)
+        rejected_payload = json.loads(rejected.stdout)
+        self.assertEqual(rejected_payload["error"], "missing-evidence")
+        self.assertFalse(rejected_payload["evidenceGate"]["proseAccepted"])
+        after_reject = self.run_lfg("atlas", "status", "--plan-id", plan_id)
+        self.assertEqual(after_reject["progress"]["completed"], 1)
+        self.assertEqual(after_reject["progress"]["nextTask"]["id"], 2)
+
+    def write_omo_evidence(self, name: str, payload: dict) -> pathlib.Path:
+        evidence_root = REPO / ".omo" / "evidence" / "omo-parity-completion"
+        evidence_root.mkdir(parents=True, exist_ok=True)
+        path = evidence_root / name
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        return path
+
+    def test_t27_state_migration_concurrency_mailbox_recovery_and_payload_limits(self) -> None:
+        schema_path = pathlib.Path(self.tmp.name) / "state" / "schema.json"
+        schema_path.parent.mkdir(parents=True, exist_ok=True)
+        schema_path.write_text(json.dumps({"name": "lfg-state", "version": 1, "migrations": []}), encoding="utf-8")
+        doctor_state = self.run_lfg("doctor", "state", "schema", "check")
+        self.assertTrue(doctor_state["ok"], doctor_state)
+        self.assertEqual(doctor_state["schema"]["version"], 2)
+        self.assertEqual(doctor_state["migrationStatus"], "migrated")
+        self.assertIn("state-schema-v1-to-v2", {item["id"] for item in doctor_state["migrations"]})
+
+        plan = self.run_lfg("plan", "create", "T27 stale Boulder fixture", "--steps", "Inspect;Verify")
+        plan_id = plan["id"]
+        boulder_path = pathlib.Path(self.tmp.name) / "boulder" / plan_id / "boulder.json"
+        boulder_path.parent.mkdir(parents=True, exist_ok=True)
+        boulder_path.write_text(json.dumps({
+            "schemaVersion": 1,
+            "kind": "atlas-boulder",
+            "plan_id": plan_id,
+            "sessions": ["legacy-session"],
+            "progress": {"completed": 0},
+            "next_task_id": "1",
+        }), encoding="utf-8")
+        migrated = self.run_lfg("start-work", "--plan-id", plan_id, "--session-id", "t27-session")
+        self.assertEqual(migrated["mode"], "migrate", migrated)
+        self.assertTrue(migrated["boulderMigration"]["applied"])
+        migrated_boulder = json.loads(boulder_path.read_text(encoding="utf-8"))
+        self.assertEqual(migrated_boulder["schemaVersion"], 2)
+        self.assertIn("legacy-session", migrated_boulder["session_ids"])
+        self.assertIn("t27-session", migrated_boulder["session_ids"])
+        self.assertGreaterEqual(migrated_boulder["revision"], 1)
+
+        stale_evidence = self.write_omo_evidence("task-27-stale-state.json", {
+            "ok": True,
+            "schemaVersion": 1,
+            "task": "T27 stale state migration",
+            "doctorMigrationStatus": doctor_state["migrationStatus"],
+            "schemaMigrations": doctor_state["migrations"],
+            "boulderMigration": migrated["boulderMigration"],
+            "boulderRevision": migrated_boulder["revision"],
+            "evidence": "task-27-stale-state=ok",
+        })
+        self.assertTrue(stale_evidence.exists())
+
+        proof = self.evidence_artifact("t27-atlas-lock")
+        lock_path = boulder_path.with_suffix(".lock")
+        lock_path.write_text(json.dumps({"pid": 0, "fixture": "held"}), encoding="utf-8")
+        rejected = subprocess.run(
+            [str(LFG), "--json", "atlas", "checkbox", "--plan-id", plan_id, "--task", "1", "--status", "completed", "--evidence", "would overwrite", "--evidence-artifact", proof],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=20,
+        )
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("concurrent advancement rejected", rejected.stderr)
+        after_reject = json.loads(boulder_path.read_text(encoding="utf-8"))
+        self.assertEqual(after_reject["revision"], migrated_boulder["revision"])
+        lock_path.unlink()
+        accepted = self.run_lfg("atlas", "checkbox", "--plan-id", plan_id, "--task", "1", "--status", "completed", "--evidence", "locked path released", "--evidence-artifact", proof)
+        self.assertEqual(accepted["progress"]["completed"], 1)
+        after_accept = json.loads(boulder_path.read_text(encoding="utf-8"))
+        self.assertGreater(after_accept["revision"], after_reject["revision"])
+        concurrent_evidence = self.write_omo_evidence("task-27-concurrent-boulder.json", {
+            "ok": True,
+            "schemaVersion": 1,
+            "task": "T27 concurrent Boulder advancement",
+            "rejectedReturncode": rejected.returncode,
+            "rejectedStderr": rejected.stderr.strip(),
+            "revisionBeforeRejectedAttempt": after_reject["revision"],
+            "revisionAfterAcceptedAttempt": after_accept["revision"],
+            "noOverwriteWhileLocked": after_reject["revision"] == migrated_boulder["revision"],
+            "evidence": "task-27-concurrent-boulder=ok",
+        })
+        self.assertTrue(concurrent_evidence.exists())
+
+        team = self.run_lfg("team", "create", "1:sisyphus-junior", "t27 mailbox", "--name", "t27-mail", "--providers", "noop", "--dry-run")
+        member = team["members"][0]["name"]
+        too_large = subprocess.run(
+            [str(LFG), "--json", "team", "send-message", "t27-mail", member, "x" * (32 * 1024 + 1)],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=20,
+        )
+        self.assertNotEqual(too_large.returncode, 0)
+        self.assertIn("message exceeds 32KB bound", too_large.stderr)
+
+        message = self.run_lfg("team", "send-message", "t27-mail", member, "recover me")
+        msg_id = message["messages"][0]["id"]
+        inbox = pathlib.Path(self.tmp.name) / "runs" / "team-t27-mail" / "teams" / "t27-mail" / "inboxes" / member
+        queued = inbox / f"{msg_id}.json"
+        delivering = inbox / f".delivering-{msg_id}.json"
+        self.assertTrue(queued.exists())
+        queued.replace(delivering)
+        old = 1
+        os.utime(delivering, (old, old))
+        resumed = self.run_lfg("team", "resume", "t27-mail")
+        self.assertTrue(resumed["mailboxRecovery"]["reclaimed"], resumed)
+        self.assertTrue(queued.exists())
+        self.assertFalse(delivering.exists())
+
+    def test_t25_prometheus_atlas_worker_end_to_end_and_resume_smoke(self) -> None:
+        plan = self.run_lfg("plan", "create", "T25 Prometheus Atlas worker fixture", "--interview")
+        self.assertEqual(plan["status"], "awaiting_answers", plan)
+        self.assertEqual(plan["questions"][0], "What is the core objective of this work?")
+        plan_id = plan["id"]
+
+        answered = self.run_lfg(
+            "plan",
+            "answer",
+            plan_id,
+            "Objective: prove Prometheus to Atlas to worker noop flow; scope: no providers; verification: CLI evidence artifacts.",
+        )
+        self.assertEqual(answered["status"], "active", answered)
+        self.assertEqual(len(answered["steps"]), 5)
+        self.assertTrue(pathlib.Path(answered["json_path"]).exists())
+        self.assertTrue(pathlib.Path(answered["markdown_path"]).exists())
+
+        started = self.run_lfg("start-work", "--plan-id", plan_id, "--session-id", "t25-session-a")
+        self.assertEqual(started["mode"], "init", started)
+        self.assertEqual(started["agent"], "atlas")
+        self.assertEqual(started["nextTask"]["id"], 1)
+        self.assertEqual(started["delegation"]["agent"], "sisyphus-junior")
+        self.assertFalse(started["delegation"]["atlasWritesImplementationCode"])
+        boulder_path = pathlib.Path(started["boulderPath"])
+        self.assertTrue(boulder_path.exists())
+
+        delegated = started["delegation"]
+        spawn = self.run_lfg(
+            "spawn",
+            delegated["agent"],
+            "--category",
+            "quick",
+            "--task",
+            delegated["task"],
+            "--task-id",
+            f"t25-plan-{delegated['taskId']}",
+            "--provider",
+            "codex",
+        )
+        self.assertTrue(spawn["ok"], spawn)
+        self.assertEqual(spawn["operation"], "spawn")
+        self.assertEqual(spawn["status"], "completed")
+        self.assertEqual(spawn["mode"], "fallback")
+        self.assertEqual(spawn["evidenceClass"], "dependency-free-smoke")
+        self.assertEqual(spawn["oracleReview"]["gate"], "xai/grok")
+        worker_envelope_path = pathlib.Path(spawn["recordPath"])
+        self.assertTrue(worker_envelope_path.exists())
+        self.assertTrue(pathlib.Path(spawn["evidenceArtifactPaths"][0]).exists())
+
+        ack = self.run_lfg("worker", "ack", "t25-worker", delegated["task"])
+        self.assertEqual(ack["status"], "ack")
+        worker = self.run_lfg(
+            "worker",
+            "result",
+            "t25-worker",
+            "noop worker completed delegated task with canonical spawn envelope evidence",
+            "--status",
+            "complete",
+            "--evidence-artifact",
+            str(worker_envelope_path),
+        )
+        self.assertEqual(worker["status"], "complete", worker)
+        self.assertEqual(worker["oracleReview"]["gate"], "xai/grok")
+        worker_state_path = pathlib.Path(worker["path"])
+        self.assertTrue(worker_state_path.exists())
+
+        checked = self.run_lfg(
+            "atlas",
+            "checkbox",
+            "--plan-id",
+            plan_id,
+            "--session-id",
+            "t25-session-a",
+            "--task",
+            str(delegated["taskId"]),
+            "--status",
+            "completed",
+            "--evidence",
+            "worker envelope and evidence gate verified",
+            "--evidence-artifact",
+            str(worker_envelope_path),
+            "--verification",
+            "T25 worker noop envelope exists and passed the xAI/Grok oracle evidence gate.",
+            "--learning",
+            "T25 end-to-end smoke can remain repo-native by using Prometheus interview mode, Atlas delegation, and fallback spawn envelopes.",
+        )
+        self.assertEqual(checked["progress"]["completed"], 1)
+        self.assertEqual(checked["nextTask"]["id"], 2)
+        self.assertEqual(checked["step"]["evidenceArtifactPaths"], [str(worker_envelope_path)])
+
+        resumed = self.run_lfg("start-work", "--plan-id", plan_id, "--session-id", "t25-session-b")
+        self.assertEqual(resumed["mode"], "resume", resumed)
+        self.assertEqual(resumed["progress"]["completed"], 1)
+        self.assertEqual(resumed["nextTask"]["id"], 2)
+        self.assertIn("t25-session-a", resumed["sessionIds"])
+        self.assertIn("t25-session-b", resumed["sessionIds"])
+        self.assertIn("T25 end-to-end smoke", resumed["wisdom"]["learnings"])
+        resumed_boulder = json.loads(boulder_path.read_text(encoding="utf-8"))
+        self.assertEqual(resumed_boulder["next_task_id"], "2")
+        self.assertEqual(resumed_boulder["progress"]["completed"], 1)
+
+        artifact_root = REPO / ".omo" / "evidence" / "omo-parity-completion" / "task-25-artifacts" / plan_id
+        artifact_root.mkdir(parents=True, exist_ok=True)
+
+        def snapshot_artifact(source: str | pathlib.Path, name: str) -> str:
+            source_path = pathlib.Path(source)
+            target = artifact_root / name
+            target.write_bytes(source_path.read_bytes())
+            return str(target)
+
+        plan_json_snapshot = snapshot_artifact(answered["json_path"], "plan.json")
+        plan_markdown_snapshot = snapshot_artifact(answered["markdown_path"], "plan.md")
+        boulder_snapshot = snapshot_artifact(boulder_path, "boulder.json")
+        worker_envelope_snapshot = snapshot_artifact(worker_envelope_path, "worker-envelope.json")
+        worker_state_snapshot = snapshot_artifact(worker_state_path, "worker-state.json")
+        spawn_evidence_snapshots = [
+            snapshot_artifact(path, f"spawn-evidence-{index}.json")
+            for index, path in enumerate(spawn["evidenceArtifactPaths"], start=1)
+        ]
+
+        e2e_payload = {
+            "ok": True,
+            "schemaVersion": 1,
+            "task": "T25 End-to-end Prometheus -> Atlas -> workers smoke",
+            "evidenceClass": "repo-native-integration",
+            "credentialsUsed": False,
+            "nativeGrokSpawnImplemented": False,
+            "nativeGrokSpawnStatus": "manual_gate_pending",
+            "plan": {
+                "id": plan_id,
+                "createdStatus": plan["status"],
+                "answeredStatus": answered["status"],
+                "jsonPath": plan_json_snapshot,
+                "markdownPath": plan_markdown_snapshot,
+            },
+            "atlas": {
+                "startMode": started["mode"],
+                "boulderPath": boulder_snapshot,
+                "delegation": delegated,
+                "checkboxStatus": checked["status"],
+                "progress": checked["progress"],
+            },
+            "worker": {
+                "ackPath": worker_state_snapshot,
+                "statePath": worker_state_snapshot,
+                "envelopePath": worker_envelope_snapshot,
+                "runId": spawn["runId"],
+                "taskId": spawn["taskId"],
+                "evidenceArtifactPaths": spawn_evidence_snapshots,
+                "oracleReview": spawn["oracleReview"],
+            },
+            "evidence": "task-25-e2e-flow=ok",
+        }
+        e2e_path = self.write_omo_evidence("task-25-e2e-flow.json", e2e_payload)
+        self.assertTrue(e2e_path.exists())
+
+        resume_payload = {
+            "ok": True,
+            "schemaVersion": 1,
+            "task": "T25 Resume after interruption",
+            "evidenceClass": "repo-native-integration",
+            "credentialsUsed": False,
+            "planId": plan_id,
+            "boulderPath": boulder_snapshot,
+            "beforeResume": {
+                "completed": checked["progress"]["completed"],
+                "nextTaskId": checked["nextTask"]["id"],
+            },
+            "afterResume": {
+                "mode": resumed["mode"],
+                "completed": resumed["progress"]["completed"],
+                "nextTaskId": resumed["nextTask"]["id"],
+                "sessionIds": resumed["sessionIds"],
+                "boulderNextTaskId": resumed_boulder["next_task_id"],
+            },
+            "noRedoCompletedWork": resumed["nextTask"]["id"] == 2 and resumed["progress"]["completed"] == 1,
+            "evidence": "task-25-resume=ok",
+        }
+        resume_path = self.write_omo_evidence("task-25-resume.json", resume_payload)
+        self.assertTrue(resume_path.exists())
+
+    def test_canonical_spawn_envelope_fixture_and_wave_order(self) -> None:
+        validated = self.run_lfg("spawn-envelope", "validate", str(FIXTURES / "spawn-result-envelopes.json"))
+        self.assertTrue(validated["ok"], validated)
+        self.assertEqual(validated["count"], 4)
+        self.assertEqual(validated["evidence"], "spawn-envelope-fixture-validation=ok")
+
+        wave_tasks = json.dumps([
+            {"taskId": "T-002", "agent_id": "sisyphus-junior", "category": "quick", "task": "second"},
+            {"taskId": "T-001", "agent_id": "sisyphus-junior", "category": "quick", "task": "first"},
+        ])
+        wave = self.run_lfg("spawn-wave", "--tasks-json", wave_tasks)
+        self.assertTrue(wave["ok"], wave)
+        self.assertEqual(wave["operation"], "spawn_wave")
+        self.assertEqual([child["taskId"] for child in wave["children"]], ["T-002", "T-001"])
+        self.assertEqual([child["taskId"] for child in wave["results"]], ["T-002", "T-001"])
+
+        graph_plan = json.dumps([
+            {"id": "A", "status": "pending"},
+            {"id": "B", "depends_on": ["A"]},
+        ])
+        graph = self.run_lfg("dependency-graph", "--run-id", "fixture-graph", "--plan-json", graph_plan)
+        self.assertFalse(graph["ok"], graph)
+        self.assertEqual(graph["status"], "blocked")
+        self.assertEqual(graph["blockers"], [{"dependsOn": ["A"], "reason": "unresolved-dependency", "taskId": "B"}])
+        self.assertEqual(graph["broker"]["selectedLane"], "dependency-graph:deterministic")
+
+    def test_spawn_adapter_t8_operations(self) -> None:
+        wave_tasks = json.dumps([
+            {"taskId": "child-1", "agent_id": "sisyphus-junior", "category": "quick", "task": "one"},
+            {"taskId": "child-2", "agent_id": "sisyphus-junior", "category": "quick", "task": "two"},
+            {"taskId": "child-3", "agent_id": "sisyphus-junior", "category": "quick", "task": "three"},
+        ])
+        wave = self.run_lfg("spawn-wave", "--run-id", "fixture-t8-wave", "--tasks-json", wave_tasks)
+        self.assertTrue(wave["ok"], wave)
+        self.assertEqual(wave["mode"], "fallback")
+        self.assertEqual([child["taskId"] for child in wave["children"]], ["child-1", "child-2", "child-3"])
+        self.assertEqual([child["status"] for child in wave["children"]], ["completed", "completed", "completed"])
+        self.assertEqual(len({child["runId"] for child in wave["children"]}), 3)
+        self.assertTrue(wave["manual_gate_required"])
+
+        graph_plan = json.dumps([
+            {"id": "A", "status": "completed", "output": "alpha"},
+            {"id": "B", "depends_on": ["A"], "agent_id": "sisyphus-junior", "category": "quick", "task": "beta"},
+            {"id": "C", "depends_on": ["missing"], "agent_id": "sisyphus-junior", "category": "quick", "task": "gamma"},
+        ])
+        graph = self.run_lfg("dependency-graph", "--run-id", "fixture-t8-graph", "--plan-json", graph_plan)
+        self.assertFalse(graph["ok"], graph)
+        self.assertEqual(graph["status"], "blocked")
+        self.assertEqual([child["taskId"] for child in graph["children"]], ["A", "B", "C"])
+        self.assertEqual([child["status"] for child in graph["children"]], ["completed", "completed", "blocked"])
+        self.assertEqual(graph["blockers"], [{"dependsOn": ["missing"], "reason": "unresolved-dependency", "taskId": "C"}])
+        self.assertEqual(graph["synthesis"]["operation"], "synthesize")
+        self.assertEqual(graph["synthesis"]["success_count"], 2)
+
+        resumed = self.run_lfg("resume", "fixture-t8-graph")
+        self.assertFalse(resumed["ok"], resumed)
+        self.assertEqual(resumed["status"], "blocked")
+        self.assertEqual(resumed["operation"], "resume")
+        self.assertEqual(resumed["debug"]["previousOperation"], "run_dependency_graph")
+
+        native = self.run_lfg(
+            "spawn",
+            "sisyphus-junior",
+            "--category",
+            "quick",
+            "--task",
+            "native request smoke",
+            "--mode",
+            "native-grok",
+        )
+        self.assertTrue(native["ok"], native)
+        self.assertEqual(native["mode"], "fallback")
+        self.assertTrue(native["manual_gate_required"])
+        self.assertEqual(native["execution"]["completionMeaning"], "contract-envelope-completed")
+        self.assertFalse(native["execution"]["actualChildExecution"])
+        self.assertEqual(native["debug"]["nativeGate"]["modeReturned"], "fallback")
+
+    def test_supervision_broker_rejects_bypass_and_recursion(self) -> None:
+        agents = self.run_lfg("agents", "list")
+        self.assertNotIn("broker", [agent["id"] for agent in agents["agents"]])
+
+        recursion = self.run_lfg("spawn", "sisyphus-junior", "--category", "quick", "--task", "too deep", "--broker-depth", "3")
+        self.assertFalse(recursion["ok"], recursion)
+        self.assertEqual(recursion["broker"]["selectedLane"], "rejected")
+        self.assertEqual(recursion["blockers"][0]["code"], "uncontrolled-recursion")
+
+        bypass = self.run_lfg("team", "create", "1:prometheus", "policy bypass fixture", "--dry-run", "--providers", "noop")
+        self.assertFalse(bypass["ok"], bypass)
+        self.assertEqual(bypass["broker"]["api"], "internal-non-agent")
+        self.assertFalse(bypass["broker"]["policyDecision"]["allowed"])
+        self.assertIn("OMO policy", bypass["broker"]["policyDecision"]["reason"])
+
+
+    def test_models_and_auth_login_commands(self) -> None:
+        models = self.run_lfg("models")
+        self.assertTrue(models["ok"], models)
+        self.assertEqual(models["defaultProvider"], "openai")
+        self.assertEqual(models["providers"]["openai"]["model"], "openai/gpt-5.5")
+        self.assertEqual(models["secretStorage"], "env-name-only")
+        self.assertIn("deep", models["categoryModelProfiles"])
+
+        logged_in = self.run_lfg("auth", "login", "openai", "--id", "openai-main", "--env", "OPENAI_API_KEY", "--model", "openai/gpt-5.5")
+        self.assertTrue(logged_in["ok"], logged_in)
+        self.assertTrue(logged_in["auth"]["login"])
+        self.assertFalse(logged_in["auth"]["secretStored"])
+        self.assertEqual(logged_in["provider"]["id"], "openai-main")
+        self.assertEqual(logged_in["provider"]["kind"], "openai")
+
+        filtered = self.run_lfg("models", "--provider", "openai")
+        self.assertTrue(filtered["providers"]["openai"]["configured"], filtered)
+        self.assertEqual(filtered["providers"]["openai"]["id"], "openai-main")
+
+        selected = subprocess.run(
+            [str(LFG), "--json", "auth", "login"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            input="1\n",
+            capture_output=True,
+            check=True,
+            timeout=20,
+        )
+        selected_obj = json.loads(selected.stdout)
+        self.assertIn("LFG auth login", selected.stderr)
+        self.assertEqual(selected_obj["provider"]["id"], "openai-main")
+        self.assertEqual(selected_obj["auth"]["provider"], "openai")
+
+    def test_provider_add_and_setup_install_plugin(self) -> None:
+        added = self.run_lfg("provider", "add", "--id", "zai-main", "--kind", "zai", "--env", "ZAI_API_KEY", "--model", "glm-4.6")
+        self.assertTrue(added["ok"], added)
+        self.assertEqual(added["provider"]["id"], "zai-main")
+        self.assertEqual(added["provider"]["kind"], "zai")
+        self.assertEqual(added["provider"]["env"], "ZAI_API_KEY")
+        self.assertFalse(added["provider"]["secretStored"])
+        provider_state = pathlib.Path(self.tmp.name) / "state" / "providers.json"
+        self.assertTrue(provider_state.exists())
+
+        interactive = subprocess.run(
+            [str(LFG), "--json", "provider", "add"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            input="interactive-zai\nzai\nZAI_API_KEY\nglm-4.6\n",
+            capture_output=True,
+            check=True,
+            timeout=20,
+        )
+        interactive_obj = json.loads(interactive.stdout)
+        self.assertEqual(interactive_obj["provider"]["id"], "interactive-zai")
+        self.assertIn("LFG provider setup", interactive.stderr)
+
+        listed = self.run_lfg("provider", "list")
+        self.assertEqual(listed["count"], 2)
+        self.assertEqual({p["id"] for p in listed["providers"]}, {"zai-main", "interactive-zai"})
+        shown = self.run_lfg("provider", "show", "zai-main")
+        self.assertEqual(shown["provider"]["model"], "glm-4.6")
+
+        setup = self.run_lfg("setup")
+        self.assertTrue(setup["ok"], setup)
+        self.assertTrue(setup["installed"], setup)
+        plugin_dest = pathlib.Path(self.tmp.name) / ".grok" / "plugins" / "lfg"
+        self.assertEqual(pathlib.Path(setup["plugin"]["dest"]), plugin_dest)
+        self.assertTrue((plugin_dest / ".grok-plugin" / "plugin.json").exists())
+        self.assertEqual(setup["providers"]["count"], 2)
+        self.assertTrue((pathlib.Path(self.tmp.name) / "state" / "setup.json").exists())
+
+    def test_provider_add_rejects_secret_like_values_without_leaking_them(self) -> None:
+        proc = subprocess.run(
+            [str(LFG), "--json", "provider", "add", "--id", "sk-secret-provider", "--kind", "openai", "--env", "OPENAI_API_KEY", "--model", "openai/gpt-5.5"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            timeout=20,
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("refusing to store secret-like provider id", proc.stderr)
+        self.assertNotIn("sk-secret-provider", proc.stderr)
+        self.assertFalse((pathlib.Path(self.tmp.name) / "state" / "providers.json").exists())
+
+        env_proc = subprocess.run(
+            [str(LFG), "--json", "provider", "add", "--id", "openai-main", "--kind", "openai", "--env", "sk-secret-env", "--model", "openai/gpt-5.5"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            timeout=20,
+        )
+        self.assertNotEqual(env_proc.returncode, 0)
+        self.assertIn("invalid env var name: [REDACTED]", env_proc.stderr)
+        self.assertNotIn("sk-secret-env", env_proc.stderr)
+
+    def test_provider_list_redacts_contaminated_state(self) -> None:
+        provider_state = pathlib.Path(self.tmp.name) / "state" / "providers.json"
+        provider_state.parent.mkdir(parents=True, exist_ok=True)
+        provider_state.write_text(
+            json.dumps(
+                {
+                    "providers": {
+                        "openai-main": {
+                            "id": "openai-main",
+                            "kind": "openai",
+                            "env": "OPENAI_API_KEY",
+                            "model": "openai/gpt-5.5",
+                            "transport": "http",
+                            "secretStored": False,
+                            "apiKey": "sk-secret-value",
+                            "refreshToken": "ghp_1234567890abcdef",
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        listed = self.run_lfg("provider", "list")
+        self.assertEqual(listed["count"], 1)
+        provider = listed["providers"][0]
+        self.assertEqual(provider["id"], "openai-main")
+        self.assertNotIn("apiKey", provider)
+        self.assertNotIn("refreshToken", provider)
+        self.assertEqual(provider["env"], "OPENAI_API_KEY")
+
+    def test_setup_wizard_non_interactive_provider_flags(self) -> None:
+        setup = self.run_lfg("setup", "--no-tui", "--openai", "yes", "--zai", "yes", "--copilot", "no", "--google", "no", "--codex", "no")
+        self.assertTrue(setup["ok"], setup)
+        self.assertEqual(setup["setupWizard"]["mode"], "non-interactive")
+        self.assertEqual(setup["setupWizard"]["configuredProviderIds"], ["openai-main", "zai-main"])
+        self.assertEqual(setup["providers"]["count"], 2)
+
+        providers = self.run_lfg("provider", "list")
+        self.assertEqual({p["id"] for p in providers["providers"]}, {"openai-main", "zai-main"})
+        self.assertTrue(all(not p["secretStored"] for p in providers["providers"]))
+
+    def test_setup_wizard_interactive_provider_prompts(self) -> None:
+        interactive = subprocess.run(
+            [str(LFG), "--json", "setup", "--interactive"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            input="y\nn\nn\ny\nn\n",
+            capture_output=True,
+            check=True,
+            timeout=20,
+        )
+        setup = json.loads(interactive.stdout)
+        self.assertIn("LFG OMO-style setup wizard", interactive.stderr)
+        self.assertEqual(setup["setupWizard"]["mode"], "interactive")
+        self.assertEqual(setup["setupWizard"]["configuredProviderIds"], ["openai-main", "copilot-main"])
+        self.assertEqual(setup["providers"]["count"], 2)
 
     def test_status_and_catalog(self) -> None:
         status = self.run_lfg("status")
         self.assertTrue(status["ok"])
         self.assertEqual(status["version"], "0.3.0")
-        self.assertGreaterEqual(status["catalogSkills"], 28)
+        self.assertEqual(status["catalogSkills"], 21)
 
         catalog = self.run_lfg("catalog")
         names = {skill["name"] for skill in catalog["skills"]}
-        self.assertIn("team", names)
-        self.assertIn("ultraqa", names)
+        self.assertIn("hyperplan", names)
+        self.assertIn("review-work", names)
 
-    def test_all_skill_surfaces_have_roadmap_and_feature_docs(self) -> None:
+    def test_doctor_state_schema_check_and_provider_metadata(self) -> None:
+        doctor_state = self.run_lfg("doctor", "state", "schema", "check")
+        self.assertTrue(doctor_state["ok"], doctor_state)
+        self.assertEqual(doctor_state["status"], "pass")
+        self.assertEqual(doctor_state["schema"]["version"], 2)
+        self.assertIn("state-schema-versioning=ok", doctor_state["evidence"])
+        self.assertIn("state-schema-doctor=ok", doctor_state["evidence"])
+
+        providers = self.run_lfg("provider", "list")
+        self.assertTrue(providers["ok"], providers)
+        self.assertEqual(providers["status"], "ok")
+        self.assertIn("providers", providers)
+
+        models = self.run_lfg("models")
+        self.assertTrue(models["ok"], models)
+        self.assertEqual(models["status"], "ok")
+
+    def test_omo_skill_surfaces_have_catalog_entries_with_compat_docs(self) -> None:
         roadmap = (REPO / "ROADMAP.md").read_text(encoding="utf-8")
         self.assertIn("- [x] Add behavioral smoke tests per workflow.", roadmap)
         self.assertIn("- [x] MCP stderr isolation.", roadmap)
@@ -121,7 +1269,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("- [x] Verify install from Grok UI/TUI marketplace flow.", roadmap)
         self.assertIn("- [x] Remove local-dev install from primary docs once marketplace flow is stable.", roadmap)
         self.assertIn("grok-plugins-surface=ok", roadmap)
-        self.assertIn("grok-plugin-hook-scope=not-observed", roadmap)
+        self.assertIn("manifest-and-file-checks=ok", roadmap)
         self.assertIn("grok-global-hook-bridge=ok", roadmap)
         self.assertIn("grok-installed-mcp-surface=ok", roadmap)
         self.assertIn("lfg-installed-symlink-surface=ok", roadmap)
@@ -139,20 +1287,42 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("team-provider-matrix=ok", roadmap)
         self.assertIn("team-provider-slash=ok", roadmap)
         self.assertIn("team-provider-commands=ok", roadmap)
-        skill_names = sorted(
-            path.name
-            for path in (PLUGIN / "skills").iterdir()
-            if path.is_dir() and path.name != "lfg"
-        )
-        self.assertEqual(len(skill_names), 27)
-        missing_rows = [name for name in skill_names if f"| `/{name}` " not in roadmap]
-        self.assertEqual(missing_rows, [])
-        missing_docs = [
-            name
-            for name in skill_names
-            if not (PLUGIN / "docs" / "features" / f"{name}-runtime.md").exists()
+        skill_names = {path.name for path in (PLUGIN / "skills").iterdir() if path.is_dir() and path.name != "lfg"}
+        catalog_names = [skill["name"] for skill in json.loads((PLUGIN / "catalog" / "omo-skill-map.json").read_text(encoding="utf-8"))["skills"]]
+        expected_catalog_names = [
+            "agent-browser",
+            "ai-slop-remover",
+            "cancel",
+            "dev-browser",
+            "doctor",
+            "frontend-ui-ux",
+            "git-master",
+            "hyperplan",
+            "lfg",
+            "plan",
+            "playwright",
+            "provider",
+            "ralph",
+            "review-work",
+            "setup",
+            "start-work",
+            "team",
+            "team-mode",
+            "ulw",
+            "work-with-pr",
+            "worker",
         ]
-        self.assertEqual(missing_docs, [])
+        self.assertEqual(catalog_names, expected_catalog_names)
+        self.assertTrue(set(expected_catalog_names) - {"lfg"} <= skill_names)
+        for removed in {"ai-slop-cleaner", "omx-setup", "ultrawork"}:
+            self.assertNotIn(removed, skill_names)
+            self.assertNotIn(removed, catalog_names)
+        for rel in [
+            "docs/features/ai-slop-cleaner-runtime.md",
+            "docs/features/omx-setup-runtime.md",
+            "docs/features/ultrawork-runtime.md",
+        ]:
+            self.assertTrue((PLUGIN / rel).exists(), rel)
 
     def test_mcp_exposes_runtime_tools_for_skill_surface(self) -> None:
         proc = subprocess.Popen(
@@ -226,76 +1396,44 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("actions/checkout@v5", workflow)
         self.assertIn("sudo apt-get install -y tmux", workflow)
         self.assertIn("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24", workflow)
+
+        self.assertFalse((REPO / "scripts").exists(), "top-level scripts/ is obsolete")
+        self.assertFalse((REPO / "Cargo.toml").exists(), "root Cargo.toml is obsolete")
+        self.assertFalse((REPO / "Cargo.lock").exists(), "root Cargo.lock is obsolete")
+        self.assertFalse((REPO / "src").exists(), "root src/ is obsolete")
+        self.assertTrue((REPO / "tests" / "smoke" / "test_grok_build_runtime.py").exists())
+        self.assertTrue((REPO / "tests" / "AGENTS.md").exists())
+
         install_smoke = PLUGIN / "bin" / "grok-install-smoke.sh"
         self.assertTrue(os.access(install_smoke, os.X_OK))
         script = install_smoke.read_text(encoding="utf-8")
         self.assertIn("rsync -a --delete", script)
         self.assertIn("inspect --json", script)
-        self.assertIn("assert len(skills) == 28", script)
-        self.assertIn("grok-install-smoke=ok skills=28", script)
-        install_lfg = REPO / "scripts" / "install-lfg-symlink.sh"
-        self.assertTrue(os.access(install_lfg, os.X_OK))
-        install_script = install_lfg.read_text(encoding="utf-8")
-        self.assertIn("ln -sfn", install_script)
-        self.assertIn("lfg.py", install_script)
-        self.assertIn('ln -sfn "$SRC_DIR/ulw"', install_script)
-        self.assertIn("lfg-status=ok", install_script)
-        self.assertIn("ulw-status=ok", install_script)
-        self.assertIn("lfg-doctor=ok", install_script)
-        launch_lfg = REPO / "scripts" / "verify-lfg-launch.sh"
-        self.assertTrue(os.access(launch_lfg, os.X_OK))
-        launch_script = launch_lfg.read_text(encoding="utf-8")
-        self.assertIn("lfg-launch-smoke=ok", launch_script)
-        self.assertIn("ulw-launch-runtime=ok", launch_script)
-        self.assertIn("lfg-runtime", launch_script)
+        self.assertIn("assert len(skills) == 21", script)
+        self.assertIn("grok-install-smoke=ok skills=21", script)
+
         runtime = (PLUGIN / "bin" / "lfg.py").read_text(encoding="utf-8")
         self.assertIn("def attach_backend_from_tmux_pane", runtime)
         self.assertIn("split-window", runtime)
-        all_ready = REPO / "scripts" / "verify-release-readiness-all.sh"
-        self.assertTrue(os.access(all_ready, os.X_OK))
-        all_ready_script = all_ready.read_text(encoding="utf-8")
-        self.assertIn("release-readiness-all=ok", all_ready_script)
-        self.assertIn("verify-release-readiness-local.sh", all_ready_script)
-        self.assertIn("verify-release-readiness-remote.sh", all_ready_script)
-        remote_ready = REPO / "scripts" / "verify-release-readiness-remote.sh"
-        self.assertTrue(os.access(remote_ready, os.X_OK))
-        remote_ready_script = remote_ready.read_text(encoding="utf-8")
-        self.assertIn("release-readiness-remote=ok", remote_ready_script)
-        self.assertIn("verify-remote-smoke.sh", remote_ready_script)
-        self.assertIn("verify-release-tag.sh", remote_ready_script)
-        release_ready = REPO / "scripts" / "verify-release-readiness-local.sh"
-        self.assertTrue(os.access(release_ready, os.X_OK))
-        release_ready_script = release_ready.read_text(encoding="utf-8")
-        self.assertIn("release-readiness-local=ok", release_ready_script)
-        self.assertIn("verify-installed-lfg-symlink-surface.sh", release_ready_script)
-        self.assertIn("verify-grok-installed-mcp-surface.sh", release_ready_script)
-        team_preflight = REPO / "scripts" / "verify-team-preflight.sh"
-        self.assertTrue(os.access(team_preflight, os.X_OK))
-        team_preflight_script = team_preflight.read_text(encoding="utf-8")
-        self.assertIn("team-preflight-cli=ok", team_preflight_script)
-        self.assertIn("team-preflight-commands=ok", team_preflight_script)
-        self.assertIn("team-preflight-slash=ok", team_preflight_script)
-        self.assertIn("team-preflight-mcp=ok", team_preflight_script)
-        team_provider = REPO / "scripts" / "verify-team-provider-commands.sh"
-        self.assertTrue(os.access(team_provider, os.X_OK))
-        team_provider_script = team_provider.read_text(encoding="utf-8")
-        self.assertIn("team-provider-matrix=ok", team_provider_script)
-        self.assertIn("team-provider-slash=ok", team_provider_script)
-        self.assertIn("team-provider-commands=ok", team_provider_script)
-        self.assertIn("team-provider-doctor=ok", team_provider_script)
-        team_lifecycle = REPO / "scripts" / "verify-team-tmux-lifecycle.sh"
-        self.assertTrue(os.access(team_lifecycle, os.X_OK))
-        team_lifecycle_script = team_lifecycle.read_text(encoding="utf-8")
-        self.assertIn("team-tmux-lifecycle=ok", team_lifecycle_script)
-        self.assertIn("team create", team_lifecycle_script)
-        self.assertIn("team status", team_lifecycle_script)
-        self.assertIn("team resume", team_lifecycle_script)
-        self.assertIn("team shutdown", team_lifecycle_script)
-        plugins_surface = REPO / "scripts" / "verify-grok-plugins-surface.sh"
-        self.assertTrue(os.access(plugins_surface, os.X_OK))
-        plugins_surface_script = plugins_surface.read_text(encoding="utf-8")
-        self.assertIn("grok-plugins-list=ok", plugins_surface_script)
-        self.assertIn("grok-plugins-surface=ok", plugins_surface_script)
+
+        selftest = (PLUGIN / "bin" / "self-test.sh").read_text(encoding="utf-8")
+        for marker in [
+            "manifest-and-file-checks=ok",
+            "marketplace-metadata=ok",
+            "release-notes=ok",
+            "marketplace-source=ok",
+            "mcp-stdio-isolation=ok",
+            "mcp-stderr-isolated=ok",
+            "todo-continuation=ok",
+            "state-schema-versioning=ok",
+            "state-schema-doctor=ok",
+            "team-dry-run=ok",
+            "team-tmux-lifecycle=ok",
+            "runtime-smoke-coverage=100%",
+            "python3 -m unittest tests.smoke.test_grok_build_runtime -v",
+        ]:
+            self.assertIn(marker, selftest)
+
         readme = (REPO / "README.md").read_text(encoding="utf-8")
         self.assertNotIn("cp -R plugins/lfg ~/.grok/plugins/lfg", readme)
         self.assertIn("docs/SMOKE.md", readme)
@@ -303,106 +1441,82 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("/team preflight", readme)
         self.assertIn("lfg team preflight", readme)
         self.assertIn("noop", readme)
-        self.assertIn("verify-release-readiness-all.sh", readme)
-        self.assertIn("release-readiness-all=ok", readme)
-        release_tag = REPO / "scripts" / "verify-release-tag.sh"
-        self.assertTrue(os.access(release_tag, os.X_OK))
-        release_tag_script = release_tag.read_text(encoding="utf-8")
-        self.assertIn("release-tag=ok", release_tag_script)
-        self.assertIn("release-tag-remote=ok", release_tag_script)
+        self.assertIn("Python-first plugin runtime", readme)
+
         release_tag_doc = (REPO / "docs" / "RELEASE_TAGS.md").read_text(encoding="utf-8")
-        self.assertIn("lfg-v0.3.0-p1", release_tag_doc)
-        hook_bridge = REPO / "scripts" / "verify-lfg-global-hook-bridge.sh"
-        self.assertTrue(os.access(hook_bridge, os.X_OK))
-        hook_bridge_script = hook_bridge.read_text(encoding="utf-8")
-        self.assertIn("grok-global-hook-bridge=ok", hook_bridge_script)
-        install_bridge = REPO / "scripts" / "install-lfg-global-hook-bridge.sh"
-        self.assertTrue(os.access(install_bridge, os.X_OK))
-        self.assertIn("lfg-audit-bridge.json", install_bridge.read_text(encoding="utf-8"))
-        installed_mcp = REPO / "scripts" / "verify-grok-installed-mcp-surface.sh"
-        self.assertTrue(os.access(installed_mcp, os.X_OK))
-        installed_mcp_script = installed_mcp.read_text(encoding="utf-8")
-        self.assertIn("grok-installed-mcp-surface=ok", installed_mcp_script)
-        self.assertIn("grok_build_hook_bridge", installed_mcp_script)
-        self.assertIn("grok_build_team", installed_mcp_script)
-        self.assertIn("grok_build_team.providers", installed_mcp_script)
-        self.assertIn("grok_build_team.preflight", installed_mcp_script)
-        self.assertIn("commands=ok", installed_mcp_script)
-        installed_lfg = REPO / "scripts" / "verify-installed-lfg-symlink-surface.sh"
-        self.assertTrue(os.access(installed_lfg, os.X_OK))
-        installed_lfg_script = installed_lfg.read_text(encoding="utf-8")
-        self.assertIn("lfg-installed-symlink-surface=ok", installed_lfg_script)
-        self.assertIn("slash=/team-providers,/team-preflight commands=ok", installed_lfg_script)
-        self.assertIn("/team providers", installed_lfg_script)
-        self.assertIn("/team preflight", installed_lfg_script)
-        self.assertIn("createNoopSmoke", installed_lfg_script)
-        self.assertIn("lfg-runtime", installed_lfg_script)
-        inside_tmux = REPO / "scripts" / "verify-lfg-inside-tmux-attach.sh"
-        self.assertTrue(os.access(inside_tmux, os.X_OK))
-        inside_tmux_script = inside_tmux.read_text(encoding="utf-8")
-        self.assertIn("lfg-inside-tmux-status=ok", inside_tmux_script)
-        self.assertIn("lfg-runtime", inside_tmux_script)
-        hook_limitation = REPO / "scripts" / "verify-grok-hook-headless-limitation.sh"
-        self.assertTrue(os.access(hook_limitation, os.X_OK))
-        hook_limitation_script = hook_limitation.read_text(encoding="utf-8")
-        self.assertIn("grok-real-tool-session=ok", hook_limitation_script)
-        self.assertIn("grok-headless-hook-emission=not-observed", hook_limitation_script)
-        hook_discovery = REPO / "scripts" / "verify-grok-hook-discovery.sh"
-        self.assertTrue(os.access(hook_discovery, os.X_OK))
-        hook_discovery_script = hook_discovery.read_text(encoding="utf-8")
-        self.assertIn("grok-hook-discovery=ok", hook_discovery_script)
-        self.assertIn("hook-event-replay=ok", hook_discovery_script)
-        self.assertIn("grok-headless-session=ok", hook_discovery_script)
+        self.assertIn("lfg-v0.4.0", release_tag_doc)
+
         hook_doc = (REPO / "docs" / "HOOK_EVIDENCE.md").read_text(encoding="utf-8")
         self.assertIn("scripts/lfg-audit-hook.sh", hook_doc)
         self.assertIn("lfg hook-bridge install", hook_doc)
         self.assertIn("grok_build_hook_bridge", hook_doc)
+        self.assertIn("[SYSTEM REMINDER - TODO CONTINUATION]", hook_doc)
+        self.assertIn("Prometheus markdown-only", hook_doc)
+        self.assertIn("state resumption", hook_doc)
+
         smoke_doc = (REPO / "docs" / "SMOKE.md").read_text(encoding="utf-8")
-        self.assertIn("lfg --json hook-bridge install", smoke_doc)
-        self.assertIn("lfg --json slash '/hook-bridge status'", smoke_doc)
-        marketplace_source = REPO / "scripts" / "verify-marketplace-source.sh"
-        self.assertTrue(os.access(marketplace_source, os.X_OK))
-        marketplace_source_script = marketplace_source.read_text(encoding="utf-8")
-        self.assertIn("marketplace-source=ok", marketplace_source_script)
-        self.assertIn("marketplace-remote-source=ok", marketplace_source_script)
+        for marker in [
+            "plugins/lfg/bin/self-test.sh",
+            "plugins/lfg/bin/grok-install-smoke.sh",
+            "runtime-smoke-coverage=100%",
+            "lfg --json doctor",
+            "mcp-stdio-isolation=ok",
+            "todo-continuation=ok",
+            "state-schema-doctor=ok",
+            "team-dry-run=ok",
+            "team-tmux-lifecycle=ok",
+            "release-notes=ok",
+            "marketplace-source=ok",
+        ]:
+            self.assertIn(marker, smoke_doc)
+
         marketplace_install_doc = (REPO / "docs" / "MARKETPLACE_INSTALL.md").read_text(encoding="utf-8")
         self.assertIn("https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json", marketplace_install_doc)
-        self.assertIn("https://raw.githubusercontent.com/islee23520/lfg/p1/.grok/plugins/marketplace.json", marketplace_install_doc)
-        release_notes = REPO / "scripts" / "verify-release-notes.sh"
-        self.assertTrue(os.access(release_notes, os.X_OK))
-        release_notes_script = release_notes.read_text(encoding="utf-8")
-        self.assertIn("release-notes=ok", release_notes_script)
+        self.assertIn("https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json", marketplace_install_doc)
+
         release_notes_doc = (REPO / "docs" / "MARKETPLACE_RELEASE_NOTES.md").read_text(encoding="utf-8")
-        self.assertIn("linalab-io/lfg", release_notes_doc)
-        self.assertIn("lfg 0.3.0", release_notes_doc)
+        self.assertIn("islee23520/lfg", release_notes_doc)
+        self.assertIn("lfg 0.4.0", release_notes_doc)
         self.assertIn("/plugins", release_notes_doc)
+
         release_checklist = (REPO / "docs" / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-        self.assertIn("release-readiness-local=ok", release_checklist)
-        self.assertIn("scripts/verify-release-readiness-local.sh", release_checklist)
-        self.assertIn("release-readiness-remote=ok", release_checklist)
-        self.assertIn("scripts/verify-release-readiness-remote.sh", release_checklist)
-        self.assertIn("release-readiness-all=ok", release_checklist)
-        self.assertIn("scripts/verify-release-readiness-all.sh", release_checklist)
-        self.assertIn("/team providers", release_checklist)
-        self.assertIn("/team preflight", release_checklist)
-        self.assertIn("grok_build_team.preflight", release_checklist)
-        self.assertIn("commands=ok", release_checklist)
-        state_schema = REPO / "scripts" / "verify-state-schema.sh"
-        self.assertTrue(os.access(state_schema, os.X_OK))
-        state_schema_script = state_schema.read_text(encoding="utf-8")
-        self.assertIn("state-schema-versioning=ok", state_schema_script)
-        self.assertIn("state-schema-doctor=ok", state_schema_script)
-        mcp_stdio = REPO / "scripts" / "verify-mcp-stdio-isolation.sh"
-        self.assertTrue(os.access(mcp_stdio, os.X_OK))
-        mcp_stdio_script = mcp_stdio.read_text(encoding="utf-8")
-        self.assertIn("mcp-stdio-isolation=ok", mcp_stdio_script)
-        self.assertIn("mcp-stderr-isolated=ok", mcp_stdio_script)
-        remote_smoke = REPO / "scripts" / "verify-remote-smoke.sh"
-        self.assertTrue(os.access(remote_smoke, os.X_OK))
-        remote_script = remote_smoke.read_text(encoding="utf-8")
-        self.assertIn("gh run list", remote_script)
-        self.assertIn("gh run view", remote_script)
-        self.assertIn("remote-smoke=ok", remote_script)
+        for marker in [
+            "runtime-smoke-coverage=100%",
+            "manifest-and-file-checks=ok",
+            "marketplace-metadata=ok",
+            "release-notes=ok",
+            "marketplace-source=ok",
+            "mcp-stdio-isolation=ok",
+            "state-schema-versioning=ok",
+            "state-schema-doctor=ok",
+            "team-dry-run=ok",
+            "team-tmux-lifecycle=ok",
+            "/team providers",
+            "/team preflight",
+            "grok_build_team.preflight",
+            "islee23520/lfg",
+            "grok_marketplace",
+            "agents_marketplace",
+        ]:
+            self.assertIn(marker, release_checklist)
+
+        active_docs = [
+            REPO / "README.md",
+            REPO / "AGENTS.md",
+            REPO / "docs" / "SMOKE.md",
+            REPO / "docs" / "RELEASE_CHECKLIST.md",
+            REPO / "docs" / "TEST_RULES.md",
+            REPO / "docs" / "ARCHITECTURE.md",
+            REPO / "docs" / "HOW-IT-WORKS.md",
+            REPO / "docs" / "agent-system" / "omo-runtime-implementation-plan.md",
+            *sorted((REPO / "docs" / "wiki").glob("*.md")),
+        ]
+        for doc in active_docs:
+            text = doc.read_text(encoding="utf-8")
+            self.assertNotIn("scripts/verify-", text, str(doc))
+            self.assertNotIn("Cargo.toml", text, str(doc))
+            self.assertNotIn("Cargo.lock", text, str(doc))
+            self.assertNotIn("cargo test", text, str(doc))
 
     def test_test_rules_doc_contract(self) -> None:
         rules = (REPO / "docs" / "TEST_RULES.md").read_text(encoding="utf-8")
@@ -421,8 +1535,8 @@ class RuntimeSmoke(unittest.TestCase):
             "Environment/manual gates",
             "tests/smoke/test_grok_build_runtime.py",
             "plugins/lfg/bin/self-test.sh",
-            "scripts/verify-release-readiness-local.sh",
-            "cargo test",
+            "Python-first plugin runtime",
+            "lfg --json doctor",
         ]
         for marker in required_markers:
             self.assertIn(marker, rules)
@@ -430,15 +1544,15 @@ class RuntimeSmoke(unittest.TestCase):
     def test_marketplace_metadata_points_to_plugin_package(self) -> None:
         for rel in [".grok/plugins/marketplace.json", ".agents/plugins/marketplace.json"]:
             data = json.loads((REPO / rel).read_text(encoding="utf-8"))
-            self.assertEqual(data["name"], "linalab-io")
+            self.assertEqual(data["name"], "islee23520")
             self.assertEqual(len(data["plugins"]), 1)
             plugin = data["plugins"][0]
             self.assertEqual(plugin["name"], "lfg")
             self.assertEqual(plugin["source"]["source"], "git-subdir")
             self.assertEqual(plugin["source"]["url"], "https://github.com/islee23520/lfg.git")
             self.assertEqual(plugin["source"]["path"], "plugins/lfg")
-            self.assertEqual(plugin["metadata"]["packageName"], "linalab-io/lfg")
-            self.assertEqual(plugin["metadata"]["reference"], "https://github.com/Yeachan-Heo/oh-my-codex")
+            self.assertEqual(plugin["metadata"]["packageName"], "islee23520/lfg")
+            self.assertEqual(plugin["metadata"]["reference"], "https://github.com/code-yeongyu/oh-my-openagent")
 
 
     def test_lfg_default_execs_grok_cli(self) -> None:
@@ -756,10 +1870,10 @@ esac
             self.assertIn(key, agents_schema["properties"])
         listing = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(listing["returncode"], 0)
-        self.assertIn('"sisyphus-junior"', listing["stdout"])
+        self.assertIn("sisyphus-junior", {agent["id"] for agent in listing["data"]["agents"]})
         atlas = json.loads(replies[3]["result"]["content"][0]["text"])
         self.assertEqual(atlas["returncode"], 0)
-        self.assertIn('"id": "atlas"', atlas["stdout"])
+        self.assertEqual(atlas["data"]["agent"]["id"], "atlas")
 
         proc = subprocess.Popen(
             ["python3", str(MCP)],
@@ -782,7 +1896,7 @@ esac
                 "jsonrpc": "2.0",
                 "id": 3,
                 "method": "tools/call",
-                "params": {"name": "grok_build_agents", "arguments": {"action": "inspect", "agent": "sisyphus", "provider": "claude"}},
+                "params": {"name": "grok_build_agents", "arguments": {"action": "inspect", "agent": "sisyphus", "provider": "zai"}},
             },
         ]
         for msg in messages:
@@ -798,11 +1912,64 @@ esac
             proc.wait(timeout=5)
         proc.stdout.close()
 
-        deep = json.loads(json.loads(replies[1]["result"]["content"][0]["text"])["stdout"])
-        self.assertEqual(deep["resolvedModelProfile"], {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "xhigh"})
-        rejected = json.loads(json.loads(replies[2]["result"]["content"][0]["text"])["stdout"])
-        self.assertFalse(rejected["ok"], rejected)
-        self.assertIn("non-grok primary model provider", rejected["error"])
+        deep = json.loads(replies[1]["result"]["content"][0]["text"])["data"]
+        self.assertEqual(deep["resolvedModelProfile"], {"provider": "openai", "model": "openai/gpt-5.5", "reasoning": "medium"})
+        zai = json.loads(replies[2]["result"]["content"][0]["text"])["data"]
+        self.assertTrue(zai["ok"], zai)
+        self.assertEqual(zai["resolvedModelProfile"]["provider"], "zai")
+        self.assertEqual(zai["resolvedModelProfile"]["model"], "zai-coding-plan")
+
+    def test_mcp_omo_catalog_matches_cli_catalog(self) -> None:
+        cli = self.run_lfg("agents", "list")
+        proc = subprocess.Popen(
+            ["python3", str(MCP)],
+            cwd=str(REPO),
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert proc.stdin and proc.stdout and proc.stderr
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "grok_build_omo_agent_catalog", "arguments": {"filter": "all"}},
+            },
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        stdout_lines = [proc.stdout.readline() for _ in messages]
+        replies = [json.loads(line) for line in stdout_lines]
+        proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        stderr = proc.stderr.read()
+        proc.stdout.close()
+        proc.stderr.close()
+
+        self.assertEqual(stderr, "")
+        self.assertTrue(all(json.loads(line)["jsonrpc"] == "2.0" for line in stdout_lines))
+        tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
+        for name in {"grok_build_spawn", "grok_build_provider", "grok_build_boulder", "grok_build_hyperplan", "grok_build_atlas", "grok_build_omo_ulw"}:
+            self.assertIn(name, tool_names)
+            self.assertEqual(sum(1 for tool in replies[1]["result"]["tools"] if tool["name"] == name), 1)
+        mcp_catalog = json.loads(replies[2]["result"]["content"][0]["text"])
+        self.assertEqual(mcp_catalog["returncode"], 0)
+        self.assertEqual(
+            sorted(agent["id"] for agent in mcp_catalog["agents"]),
+            sorted(agent["id"] for agent in cli["agents"]),
+        )
+        self.assertEqual(mcp_catalog["data"]["count"], cli["count"])
 
     def test_mcp_exposes_runtime_and_team_tools(self) -> None:
         proc = subprocess.Popen(
@@ -832,6 +1999,18 @@ esac
                 "method": "tools/call",
                 "params": {"name": "grok_build_team", "arguments": {"action": "providers"}},
             },
+            {
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "tools/call",
+                "params": {"name": "grok_build_auth", "arguments": {"action": "login", "provider": "xai", "id": "mcp-xai", "env": "XAI_API_KEY"}},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "tools/call",
+                "params": {"name": "grok_build_models", "arguments": {"provider": "xai"}},
+            },
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -848,7 +2027,7 @@ esac
 
         self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.3.0")
         tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
-        for name in {"grok_build_catalog", "grok_build_runtime", "grok_build_team", "grok_build_slash", "grok_build_hook_bridge"}:
+        for name in {"grok_build_catalog", "grok_build_runtime", "grok_build_team", "grok_build_slash", "grok_build_hook_bridge", "grok_build_models", "grok_build_auth", "grok_build_provider", "grok_build_spawn", "grok_build_boulder", "grok_build_hyperplan", "grok_build_atlas"}:
             self.assertIn(name, tool_names)
         payload = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(payload["returncode"], 0)
@@ -856,6 +2035,13 @@ esac
         providers_payload = json.loads(replies[3]["result"]["content"][0]["text"])
         self.assertEqual(providers_payload["returncode"], 0)
         self.assertIn('"smokeSafe": "noop"', providers_payload["stdout"])
+        auth_payload = json.loads(replies[4]["result"]["content"][0]["text"])
+        self.assertEqual(auth_payload["returncode"], 0)
+        self.assertFalse(auth_payload["data"]["auth"]["secretStored"])
+        models_payload = json.loads(replies[5]["result"]["content"][0]["text"])
+        self.assertEqual(models_payload["returncode"], 0)
+        self.assertEqual(models_payload["data"]["secretStorage"], "env-name-only")
+        self.assertTrue(models_payload["data"]["providers"]["xai"]["configured"], models_payload)
 
     def test_doctor_reports_required_checks(self) -> None:
         report = self.run_lfg("doctor")
@@ -887,10 +2073,12 @@ esac
         self.assertTrue(module.provider_command("hermes", "hello").startswith("hermes -z "))
         self.assertTrue(module.provider_command("claude", "hello").startswith("claude --permission-mode bypassPermissions "))
         self.assertTrue(module.provider_command("codex", "hello").startswith("codex "))
+        self.assertTrue(module.provider_command("copilot", "hello").startswith("copilot "))
+        self.assertIn("--provider zai --dry-run", module.provider_command("zai", "hello"))
         self.assertIn("noop provider ready", module.provider_command("noop", "hello"))
         matrix = module.team_provider_matrix()
         providers = {row["provider"] for row in matrix}
-        expected = {"hermes", "claude", "codex", "gemini", "copilot", "opencode", "grok", "subagent", "noop"}
+        expected = {"hermes", "claude", "codex", "gemini", "copilot", "zai", "opencode", "grok", "subagent", "noop"}
         self.assertEqual(expected, providers)
         self.assertTrue(next(row for row in matrix if row["provider"] == "noop")["available"])
         listed = self.run_lfg("team", "providers")
@@ -1052,7 +2240,8 @@ esac
         plan = self.run_lfg("ralplan", "create", "Consensus plan", "--id", "smoke-ralplan", "--steps", "design;verify")
         self.assertEqual(plan["consensus"], "pending")
         self.assertEqual([s["text"] for s in plan["steps"]], ["design", "verify"])
-        reviewed = self.run_lfg("ralplan", "review", "--id", "smoke-ralplan", "--verdict", "approve", "--reviewer", "architect", "--evidence", "looks safe")
+        proof = self.evidence_artifact("ralplan-review")
+        reviewed = self.run_lfg("ralplan", "review", "--id", "smoke-ralplan", "--verdict", "approve", "--reviewer", "architect", "--evidence", "looks safe", "--evidence-artifact", proof)
         self.assertEqual(reviewed["status"], "complete")
         self.assertEqual(reviewed["consensus"], "approve")
         shown = self.run_lfg("ralplan", "show", "--id", "smoke-ralplan")
@@ -1064,7 +2253,7 @@ esac
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ralplan", "arguments": {"action": "create", "id": "mcp-ralplan", "title": "MCP consensus", "steps": "design;verify"}}},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ralplan", "arguments": {"action": "review", "id": "mcp-ralplan", "verdict": "approve", "reviewer": "architect", "evidence": "ok"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ralplan", "arguments": {"action": "review", "id": "mcp-ralplan", "verdict": "approve", "reviewer": "architect", "evidence": "ok", "evidenceArtifactPaths": [self.evidence_artifact("mcp-evidence")]} }},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1144,7 +2333,8 @@ esac
         self.assertTrue(current.exists())
         listed = self.run_lfg("goal", "list")
         self.assertEqual(len(listed["goals"]), 1)
-        updated = self.run_lfg("goal", "update", "--id", "smoke-goal", "--status", "complete", "--note", "verified")
+        proof = self.evidence_artifact("goal-update")
+        updated = self.run_lfg("goal", "update", "--id", "smoke-goal", "--status", "complete", "--note", "verified", "--evidence-artifact", proof)
         self.assertEqual(updated["status"], "complete")
         self.assertEqual(updated["events"][-1]["message"], "verified")
 
@@ -1170,7 +2360,7 @@ esac
                 "jsonrpc": "2.0",
                 "id": 3,
                 "method": "tools/call",
-                "params": {"name": "grok_build_goal", "arguments": {"action": "update", "id": "mcp-goal", "status": "complete", "note": "done"}},
+                "params": {"name": "grok_build_goal", "arguments": {"action": "update", "id": "mcp-goal", "status": "complete", "note": "done", "evidenceArtifactPaths": [self.evidence_artifact("mcp-goal")]}},
             },
         ]
         for msg in messages:
@@ -1199,7 +2389,8 @@ esac
         self.assertTrue((pathlib.Path(self.tmp.name) / "ultragoal" / "smoke-ug" / "brief.md").exists())
         st = self.run_lfg("ultragoal", "status", "--id", "smoke-ug")
         self.assertEqual(st["goals"]["aggregateStatus"], "active")
-        cp = self.run_lfg("ultragoal", "checkpoint", "--id", "smoke-ug", "--status", "complete", "--evidence", "ai-slop + code-review APPROVE + tests", "--force-gate")
+        proof = self.evidence_artifact("ultragoal-checkpoint")
+        cp = self.run_lfg("ultragoal", "checkpoint", "--id", "smoke-ug", "--status", "complete", "--evidence", "ai-slop + code-review APPROVE + tests", "--force-gate", "--evidence-artifact", proof)
         self.assertEqual(cp["status"], "complete")
         sh = self.run_lfg("ultragoal", "show", "--id", "smoke-ug")
         self.assertIn("brief", sh)
@@ -1377,7 +2568,8 @@ esac
     def test_performance_goal_create_measure_show(self) -> None:
         goal = self.run_lfg("performance-goal", "create", "reduce latency", "--id", "smoke-perf", "--metrics", "latency")
         self.assertEqual(goal["gate"], "needs-baseline")
-        measured = self.run_lfg("performance-goal", "measure", "--id", "smoke-perf", "--metric", "latency", "--baseline", "120", "--current", "80", "--target", "100", "--evidence", "bench ok")
+        proof = self.evidence_artifact("performance-goal")
+        measured = self.run_lfg("performance-goal", "measure", "--id", "smoke-perf", "--metric", "latency", "--baseline", "120", "--current", "80", "--target", "100", "--evidence", "bench ok", "--evidence-artifact", proof)
         self.assertEqual(measured["gate"], "pass")
         self.assertEqual(measured["metrics"][0]["status"], "pass")
         shown = self.run_lfg("performance-goal", "show", "--id", "smoke-perf")
@@ -1389,7 +2581,7 @@ esac
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_performance_goal", "arguments": {"action": "create", "id": "mcp-perf", "objective": "MCP perf", "metrics": "latency"}}},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_performance_goal", "arguments": {"action": "measure", "id": "mcp-perf", "metric": "latency", "baseline": 120, "current": 80, "target": 100, "evidence": "ok"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_performance_goal", "arguments": {"action": "measure", "id": "mcp-perf", "metric": "latency", "baseline": 120, "current": 80, "target": 100, "evidence": "ok", "evidenceArtifactPaths": [self.evidence_artifact("mcp-evidence")]} }},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1413,7 +2605,8 @@ esac
         run = self.run_lfg("visual-ralph", "create", "http://localhost:3000", "--id", "smoke-visual", "--reference", "design.png", "--threshold", "0.9")
         self.assertEqual(run["target"], "http://localhost:3000")
         self.assertEqual(run["status"], "active")
-        verdict = self.run_lfg("visual-ralph", "verdict", "--id", "smoke-visual", "--score", "0.91", "--status", "pass", "--evidence", "pixel diff ok")
+        proof = self.evidence_artifact("visual-ralph")
+        verdict = self.run_lfg("visual-ralph", "verdict", "--id", "smoke-visual", "--score", "0.91", "--status", "pass", "--evidence", "pixel diff ok", "--evidence-artifact", proof)
         self.assertEqual(verdict["status"], "complete")
         self.assertEqual(verdict["verdicts"][0]["evidence"], "pixel diff ok")
         shown = self.run_lfg("visual-ralph", "show", "--id", "smoke-visual")
@@ -1425,7 +2618,7 @@ esac
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_visual_ralph", "arguments": {"action": "create", "id": "mcp-visual", "target": "http://localhost:3000", "reference": "design.png", "threshold": 0.9}}},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_visual_ralph", "arguments": {"action": "verdict", "id": "mcp-visual", "score": 0.91, "status": "pass", "evidence": "ok"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_visual_ralph", "arguments": {"action": "verdict", "id": "mcp-visual", "score": 0.91, "status": "pass", "evidence": "ok", "evidenceArtifactPaths": [self.evidence_artifact("mcp-evidence")]} }},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1449,7 +2642,8 @@ esac
         run = self.run_lfg("autoresearch-goal", "create", "What is safest?", "--id", "smoke-arg", "--hypotheses", "A;B")
         self.assertEqual(run["gate"], "needs-critique")
         self.assertEqual(run["hypotheses"], ["A", "B"])
-        critiqued = self.run_lfg("autoresearch-goal", "critique", "--id", "smoke-arg", "--verdict", "pass", "--critic", "professor", "--evidence", "sources verified")
+        proof = self.evidence_artifact("autoresearch-goal")
+        critiqued = self.run_lfg("autoresearch-goal", "critique", "--id", "smoke-arg", "--verdict", "pass", "--critic", "professor", "--evidence", "sources verified", "--evidence-artifact", proof)
         self.assertEqual(critiqued["gate"], "pass")
         self.assertEqual(critiqued["status"], "complete")
         shown = self.run_lfg("autoresearch-goal", "show", "--id", "smoke-arg")
@@ -1461,7 +2655,7 @@ esac
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_autoresearch_goal", "arguments": {"action": "create", "id": "mcp-arg", "question": "MCP research goal", "hypotheses": "A;B"}}},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_autoresearch_goal", "arguments": {"action": "critique", "id": "mcp-arg", "verdict": "pass", "critic": "professor", "evidence": "ok"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_autoresearch_goal", "arguments": {"action": "critique", "id": "mcp-arg", "verdict": "pass", "critic": "professor", "evidence": "ok", "evidenceArtifactPaths": [self.evidence_artifact("mcp-evidence")]} }},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1485,17 +2679,17 @@ esac
         check = self.run_lfg("omx-setup", "check")
         self.assertEqual(check["status"], "ok")
         self.assertTrue(check["checks"]["manifestExists"])
-        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "linalab-io/lfg")
+        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "islee23520/lfg")
         self.assertEqual(plan["status"], "planned")
         shown = self.run_lfg("omx-setup", "show")
-        self.assertEqual(shown["marketplace"], "linalab-io/lfg")
+        self.assertEqual(shown["marketplace"], "islee23520/lfg")
 
     def test_mcp_omx_setup_tool(self) -> None:
         proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         assert proc.stdin and proc.stdout
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
-            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "install-plan", "marketplace": "linalab-io/lfg"}}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "install-plan", "marketplace": "islee23520/lfg"}}},
             {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "show"}}},
         ]
         for msg in messages:
@@ -1513,16 +2707,16 @@ esac
         self.assertEqual(plan_payload["returncode"], 0)
         self.assertEqual(show_payload["returncode"], 0)
         self.assertIn('"status": "planned"', plan_payload["stdout"])
-        self.assertIn('linalab-io/lfg', show_payload["stdout"])
+        self.assertIn('islee23520/lfg', show_payload["stdout"])
 
     def test_skill_list_search_catalog(self) -> None:
         listed = self.run_lfg("skill", "list")
-        self.assertGreaterEqual(listed["count"], 28)
+        self.assertEqual(listed["count"], 21)
         names = {skill["name"] for skill in listed["skills"]}
-        self.assertIn("ultraqa", names)
-        found = self.run_lfg("skill", "search", "ultraqa")
+        self.assertIn("hyperplan", names)
+        found = self.run_lfg("skill", "search", "hyperplan")
         self.assertGreaterEqual(found["count"], 1)
-        self.assertIn("ultraqa", {skill["name"] for skill in found["matches"]})
+        self.assertIn("hyperplan", {skill["name"] for skill in found["matches"]})
 
     def test_mcp_skill_tool(self) -> None:
         proc = subprocess.Popen(
@@ -1536,7 +2730,7 @@ esac
         assert proc.stdin and proc.stdout
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
-            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_skill", "arguments": {"action": "search", "query": "ultraqa"}}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_skill", "arguments": {"action": "search", "query": "hyperplan"}}},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1552,7 +2746,7 @@ esac
         proc.stdout.close()
         payload = json.loads(replies[1]["result"]["content"][0]["text"])
         self.assertEqual(payload["returncode"], 0)
-        self.assertIn('"name": "ultraqa"', payload["stdout"])
+        self.assertIn('"name": "hyperplan"', payload["stdout"])
 
     def test_pipeline_create_list_update_persists_state(self) -> None:
         pipe = self.run_lfg("pipeline", "create", "Ship pipeline", "--id", "smoke-pipeline", "--stages", "plan;build;verify")
@@ -1560,7 +2754,8 @@ esac
         self.assertEqual([s["name"] for s in pipe["stages"]], ["plan", "build", "verify"])
         current = pathlib.Path(self.tmp.name) / "state" / "current-pipeline.json"
         self.assertTrue(current.exists())
-        updated = self.run_lfg("pipeline", "update", "--id", "smoke-pipeline", "--stage", "1", "--status", "complete", "--note", "planned")
+        proof = self.evidence_artifact("pipeline-update")
+        updated = self.run_lfg("pipeline", "update", "--id", "smoke-pipeline", "--stage", "1", "--status", "complete", "--note", "planned", "--evidence-artifact", proof)
         self.assertEqual(updated["stages"][0]["status"], "complete")
         listed = self.run_lfg("pipeline", "list")
         self.assertEqual(listed["count"], 1)
@@ -1578,7 +2773,7 @@ esac
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_pipeline", "arguments": {"action": "create", "id": "mcp-pipeline", "title": "MCP pipeline", "stages": "plan;verify"}}},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_pipeline", "arguments": {"action": "update", "id": "mcp-pipeline", "stage": 1, "status": "complete"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_pipeline", "arguments": {"action": "update", "id": "mcp-pipeline", "stage": 1, "status": "complete", "evidenceArtifactPaths": [self.evidence_artifact("mcp-pipeline")]}}},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1604,7 +2799,8 @@ esac
         self.assertEqual(run["id"], "smoke-autopilot")
         self.assertEqual([p["workflow"] for p in run["phases"]], ["ralplan", "ralph", "code-review"])
         self.assertEqual(run["currentPhase"], "plan")
-        updated = self.run_lfg("autopilot", "advance", "--id", "smoke-autopilot", "--phase", "1", "--status", "complete", "--evidence", "plan ok")
+        proof = self.evidence_artifact("autopilot-advance")
+        updated = self.run_lfg("autopilot", "advance", "--id", "smoke-autopilot", "--phase", "1", "--status", "complete", "--evidence", "plan ok", "--evidence-artifact", proof)
         self.assertEqual(updated["phases"][0]["status"], "complete")
         self.assertEqual(updated["currentPhase"], "execute")
         shown = self.run_lfg("autopilot", "show", "--id", "smoke-autopilot")
@@ -1623,7 +2819,7 @@ esac
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_autopilot", "arguments": {"action": "create", "id": "mcp-autopilot", "objective": "MCP autopilot"}}},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_autopilot", "arguments": {"action": "advance", "id": "mcp-autopilot", "phase": 1, "status": "complete", "evidence": "ok"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_autopilot", "arguments": {"action": "advance", "id": "mcp-autopilot", "phase": 1, "status": "complete", "evidence": "ok", "evidenceArtifactPaths": [self.evidence_artifact("mcp-evidence")]} }},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1732,10 +2928,20 @@ esac
         self.assertEqual(req["provider"], "codex")
         self.assertTrue(req["dryRun"])
         self.assertEqual(req["command"][:2], ["codex", "exec"])
+
+        zai = self.run_lfg("ask", "create", "review architecture", "--provider", "zai", "--dry-run")
+        self.assertEqual(zai["provider"], "zai")
+        self.assertEqual(zai["adapter"], "zai-http")
+        self.assertTrue(zai["dryRun"])
+        self.assertEqual(zai["result"]["transport"], "http")
+        self.assertTrue(zai["result"]["dryRun"])
+        self.assertFalse(zai["result"]["config"]["keyConfigured"])
+        self.assertEqual(zai["result"]["config"]["apiKeyEnv"], "ZAI_API_KEY|ZHIPU_API_KEY")
+        self.assertIn("/chat/completions", zai["result"]["request"]["endpoint"])
         pointer = pathlib.Path(self.tmp.name) / "state" / "last-ask.json"
         self.assertTrue(pointer.exists())
         listed = self.run_lfg("ask", "list")
-        self.assertEqual(listed["count"], 1)
+        self.assertEqual(listed["count"], 2)
 
     def test_mcp_ask_tool(self) -> None:
         proc = subprocess.Popen(
@@ -1871,7 +3077,7 @@ esac
         rec = self.run_lfg("autoresearch", "create", "How should team mode work?", "--id", "smoke-research")
         self.assertEqual(rec["status"], "open")
         self.assertEqual(rec["sources"], [])
-        sourced = self.run_lfg("autoresearch", "add-source", "https://github.com/Yeachan-Heo/oh-my-codex", "--id", "smoke-research", "--note", "reference workflow")
+        sourced = self.run_lfg("autoresearch", "add-source", "https://github.com/code-yeongyu/oh-my-openagent", "--id", "smoke-research", "--note", "reference workflow")
         self.assertEqual(sourced["sources"][0]["note"], "reference workflow")
         shown = self.run_lfg("autoresearch", "show", "--id", "smoke-research")
         self.assertEqual(shown["id"], "smoke-research")
@@ -1936,7 +3142,8 @@ esac
     def test_worker_ack_result_status(self) -> None:
         ack = self.run_lfg("worker", "ack", "worker-1", "fix tests")
         self.assertEqual(ack["status"], "ack")
-        result = self.run_lfg("worker", "result", "worker-1", "tests pass", "--status", "complete")
+        proof = self.evidence_artifact("worker-result")
+        result = self.run_lfg("worker", "result", "worker-1", "tests pass", "--status", "complete", "--evidence-artifact", proof)
         self.assertEqual(result["status"], "complete")
         shown = self.run_lfg("worker", "status", "worker-1")
         self.assertEqual(shown["result"], "tests pass")
@@ -1947,7 +3154,7 @@ esac
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_worker", "arguments": {"action": "ack", "worker": "mcp-worker", "task": "verify"}}},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_worker", "arguments": {"action": "result", "worker": "mcp-worker", "result": "ok", "status": "complete"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_worker", "arguments": {"action": "result", "worker": "mcp-worker", "result": "ok", "status": "complete", "evidenceArtifactPaths": [self.evidence_artifact("mcp-worker")]}}},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -1969,7 +3176,8 @@ esac
     def test_ralph_create_step_show(self) -> None:
         rec = self.run_lfg("ralph", "create", "iterate until tests pass", "--id", "smoke-ralph", "--max-iterations", "2")
         self.assertEqual(rec["iteration"], 0)
-        stepped = self.run_lfg("ralph", "step", "--id", "smoke-ralph", "--status", "complete", "--evidence", "tests pass")
+        proof = self.evidence_artifact("ralph-step")
+        stepped = self.run_lfg("ralph", "step", "--id", "smoke-ralph", "--status", "complete", "--evidence", "tests pass", "--evidence-artifact", proof)
         self.assertEqual(stepped["iteration"], 1)
         self.assertEqual(stepped["status"], "complete")
         shown = self.run_lfg("ralph", "show", "--id", "smoke-ralph")
@@ -1981,7 +3189,7 @@ esac
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ralph", "arguments": {"action": "create", "id": "mcp-ralph", "objective": "MCP loop", "maxIterations": 2}}},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ralph", "arguments": {"action": "step", "id": "mcp-ralph", "status": "complete", "evidence": "ok"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ralph", "arguments": {"action": "step", "id": "mcp-ralph", "status": "complete", "evidence": "ok", "evidenceArtifactPaths": [self.evidence_artifact("mcp-evidence")]} }},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -2003,7 +3211,8 @@ esac
     def test_ultrawork_create_update_show(self) -> None:
         rec = self.run_lfg("ultrawork", "create", "ship batch", "--id", "smoke-ultrawork", "--tasks", "one;two")
         self.assertEqual(len(rec["tasks"]), 2)
-        updated = self.run_lfg("ultrawork", "update", "--id", "smoke-ultrawork", "--task", "1", "--status", "complete", "--evidence", "verified")
+        proof = self.evidence_artifact("smoke-ultrawork")
+        updated = self.run_lfg("ultrawork", "update", "--id", "smoke-ultrawork", "--task", "1", "--status", "complete", "--evidence", "verified", "--evidence-artifact", proof)
         self.assertEqual(updated["tasks"][0]["status"], "complete")
         shown = self.run_lfg("ultrawork", "show", "--id", "smoke-ultrawork")
         self.assertEqual(shown["tasks"][0]["evidence"], "verified")
@@ -2014,7 +3223,7 @@ esac
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ultrawork", "arguments": {"action": "create", "id": "mcp-ultrawork", "objective": "MCP batch", "tasks": "a;b"}}},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ultrawork", "arguments": {"action": "update", "id": "mcp-ultrawork", "task": 1, "status": "complete", "evidence": "ok"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ultrawork", "arguments": {"action": "update", "id": "mcp-ultrawork", "task": 1, "status": "complete", "evidence": "ok", "evidenceArtifactPaths": [self.evidence_artifact("mcp-evidence")]} }},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -2051,7 +3260,7 @@ esac
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "create", "id": "mcp-ultragoal", "objective": "MCP durable", "checklist": "design;verify"}}},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "checkpoint", "id": "mcp-ultragoal", "status": "complete", "evidence": "forced smoke gate", "forceGate": True}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "checkpoint", "id": "mcp-ultragoal", "status": "complete", "evidence": "forced smoke gate", "forceGate": True, "evidenceArtifactPaths": [self.evidence_artifact("mcp-ultragoal")]}}},
             {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "show", "id": "mcp-ultragoal"}}},
             {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "grok_build_ultragoal", "arguments": {"action": "spawn", "id": "mcp-spawn-ultragoal", "objective": "MCP swarm", "spec": "2:executor", "providers": "noop", "dryRun": True}}},
         ]
@@ -2230,6 +3439,39 @@ class HarnessRuntimeSmoke(unittest.TestCase):
         self.assertFalse(self.harness.task_is_pending({"status": "done"}))
         self.assertTrue(self.harness.task_is_pending({"status": "in_progress"}))
         self.assertTrue(self.harness.message_is_evidence({"type": "evidence_submission"}))
+
+    def test_todo_continuation_requires_incomplete_work_and_progress_evidence(self) -> None:
+        snapshot = {
+            "boulder": {
+                "next_actions": [{"id": "NA-1", "goal": "finish task", "status": "in_progress"}],
+                "recent_evidence": [{"ts": "2026-05-20T00:00:00Z", "path": "artifact.txt"}],
+            },
+            "active_runs": [],
+        }
+        first = self.harness.todo_continuation_reminder(snapshot, "PostToolUse")
+        second = self.harness.todo_continuation_reminder(snapshot, "PostToolUse")
+        self.assertIn("[SYSTEM REMINDER - TODO CONTINUATION]", first)
+        self.assertIn("finish task", first)
+        self.assertEqual(second, "")
+
+        snapshot["boulder"]["recent_evidence"] = [{"ts": "2026-05-20T00:00:01Z", "path": "artifact-2.txt"}]
+        self.assertIn("[SYSTEM REMINDER - TODO CONTINUATION]", self.harness.todo_continuation_reminder(snapshot, "PostToolUse"))
+
+        completed = {
+            "boulder": {
+                "next_actions": [{"id": "NA-1", "goal": "finish task", "status": "completed"}],
+                "recent_evidence": [{"ts": "2026-05-20T00:00:02Z", "path": "artifact.txt"}],
+            },
+            "active_runs": [],
+        }
+        self.assertEqual(self.harness.todo_continuation_reminder(completed, "PostToolUse"), "")
+
+    def test_todo_continuation_suppresses_no_evidence_loop(self) -> None:
+        snapshot = {
+            "boulder": {"next_actions": [{"id": "NA-1", "goal": "finish task", "status": "pending"}]},
+            "active_runs": [],
+        }
+        self.assertEqual(self.harness.todo_continuation_reminder(snapshot, "Stop"), "")
 
 
 if __name__ == "__main__":

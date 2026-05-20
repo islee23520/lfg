@@ -1,0 +1,13 @@
+{
+  "eligible_team_members": ["sisyphus", "atlas", "sisyphus-junior"],
+  "conditional_team_members": ["hephaestus"],
+  "hard_reject_team_members": [
+    "prometheus",
+    "oracle",
+    "librarian",
+    "explore",
+    "multimodal-looker",
+    "metis",
+    "momus"
+  ]
+}

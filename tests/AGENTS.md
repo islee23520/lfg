@@ -1,20 +1,15 @@
 # tests/AGENTS.md
 
 ## OVERVIEW
-Behavior-contract tests for the Rust runtime and the Grok plugin MVP. This directory enforces the product surface more than implementation style.
+Behavior-contract tests for the Python-first Grok plugin runtime. This directory enforces the product surface more than implementation style.
 
 ## WHERE TO LOOK
 - `smoke/test_grok_build_runtime.py`: 2055-line dependency-free feature matrix for plugin runtime, MCP tools, skills, team mode, docs coverage, and named agents.
-- `*.rs`: Rust integration tests for auth, sessions, MCP, model client, relay, and CLI behavior.
-- `support/http_servers.rs`: Deterministic local model/OAuth fixture server.
-- `support/fake_mcp_stdio.rs`: JSON-RPC line fixtures for MCP stdio tests.
-- `support/fake_ws_relay.rs`: Local WebSocket relay fixture.
-- `support/home.rs`: Temp home helper.
-
+- `
 ## CONVENTIONS
 - Follow `docs/TEST_RULES.md` for every new or changed test.
 - Dependency-free smoke uses `TemporaryDirectory`, `GROK_PLUGIN_DATA`, and `HOME` overrides.
-- Rust integration tests may use subprocesses, local filesystem state, and deterministic fake servers.
+- Repo-native smoke may use subprocesses, local filesystem state, and deterministic fake fixtures.
 - Environment/manual gates belong in `scripts/` with preflight checks, not in dependency-free smoke.
 - Exact JSON, MCP, CLI, evidence, and identity assertions are valid product contracts.
 
@@ -27,7 +22,6 @@ Behavior-contract tests for the Rust runtime and the Grok plugin MVP. This direc
 ## COMMANDS
 ```sh
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
-cargo test
 ```
 
 ## NOTES

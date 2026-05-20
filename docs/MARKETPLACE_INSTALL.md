@@ -4,34 +4,26 @@
 
 ## Exact marketplace source URLs
 
-Stable marketplace source, used after `p1` is merged to `main`:
+Stable marketplace source:
 
 ```text
 https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json
-```
-
-Current `p1` preview marketplace source:
-
-```text
-https://raw.githubusercontent.com/islee23520/lfg/p1/.grok/plugins/marketplace.json
 ```
 
 Agents/Claude-compatible marketplace metadata is also hosted at:
 
 ```text
 https://raw.githubusercontent.com/islee23520/lfg/main/.agents/plugins/marketplace.json
-https://raw.githubusercontent.com/islee23520/lfg/p1/.agents/plugins/marketplace.json
 ```
 
 ## Expected marketplace identity
 
 ```text
-Marketplace: linalab-io
-Package:     linalab-io/lfg
+Marketplace: islee23520
+Package:     islee23520/lfg
 Plugin id:   lfg
 Plugin path: plugins/lfg
 Repository:  https://github.com/islee23520/lfg.git
-Reference:   https://github.com/Yeachan-Heo/oh-my-codex
 ```
 
 ## Grok install flow
@@ -48,11 +40,11 @@ Reference:   https://github.com/Yeachan-Heo/oh-my-codex
 Local metadata and documentation gate:
 
 ```sh
-scripts/verify-marketplace-source.sh
+plugins/lfg/bin/self-test.sh
 ```
 
-Remote `p1` raw GitHub gate:
+Remote raw GitHub gate:
 
 ```sh
-scripts/verify-marketplace-source.sh --remote p1
+curl -s https://raw.githubusercontent.com/islee23520/lfg/main/.grok/plugins/marketplace.json | jq .
 ```

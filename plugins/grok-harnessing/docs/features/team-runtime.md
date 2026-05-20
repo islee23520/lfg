@@ -6,7 +6,7 @@ Make `/team` the Grok-facing entrypoint for durable tmux-backed worker teams.
 
 ## Reference
 
-Inspired by the `omx team` runtime in <https://github.com/Yeachan-Heo/oh-my-codex>, adapted to Grok Build plugin conventions.
+Inspired by the `omx team` runtime in <https://github.com/code-yeongyu/oh-my-openagent>, adapted to Grok Build plugin conventions.
 
 ## User contract
 

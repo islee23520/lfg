@@ -3,15 +3,20 @@
 ## Goal
 Bring OmO's powerful category system into LFG so that different thinking styles can be explicitly requested and mapped to the best available backend (installed CLIs or native Grok sub-agents).
 
-## Desired Mapping (User's Vision)
+## Current Mapping (M13 Lock)
 
-| Category   | Recommended Backend     | Strength                              | When to Use |
-|------------|-------------------------|---------------------------------------|-------------|
-| **deep**   | codex (or high-reasoning) | Thorough, long-horizon, rigorous analysis | Architecture, complex trade-offs, risk assessment |
-| **artistry** | gemini                | Creative, novel connections, outside-the-box thinking | Innovation, UI/UX, new paradigms |
-| ultrabrain | grok + codex           | Maximum depth + multi-model synthesis | Hyperplan-level critical decisions |
-| quick      | claude / hermes        | Fast, practical execution             | Standard implementation work |
-| balanced   | mixed (gonow default)  | Good speed + quality                  | General ULW workers |
+| Category | Provider | Model | Reasoning | When to Use |
+|----------|----------|-------|-----------|-------------|
+| **quick** | xai | grok-4.3 | low | Fast, practical execution |
+| **deep** | xai | grok-4.3 | high | Thorough, rigorous analysis |
+| **ultrabrain** | xai | grok-4.3 | high | Maximum depth synthesis |
+| **artistry** | xai | grok-4.3 | high | Creative, novel connections |
+| **visual-engineering** | xai | grok-4.3 | high | UI/UX and visual design |
+| **writing** | xai | grok-4.3 | high | Prose and documentation |
+| **unspecified-low** | xai | grok-4.3 | low | Default low-reasoning |
+| **unspecified-high** | xai | grok-4.3 | high | Default high-reasoning |
+
+Approved optional execution providers (`codex`, `copilot`, `zai`) may be used for execution lanes, but every completion remains gated by Grok Oracle review.
 
 ## How Categories Work in LFG
 

@@ -5,7 +5,7 @@
 - **LFG** = Main orchestrator / conductor (leader)
 - **ULW** = Worker identity for all team members (external CLIs and native Grok sub-agents)
 
-**Current status (omo-parity branch)**: The canonical first-class runtime registry is the six OMO agents (`sisyphus`, `sisyphus-junior`, `prometheus`, `hephaestus`, `atlas`, `builtin-agents`) defined in `plugins/lfg/src/agents/*.json`. They are loaded by `load_omo_agent_registry()` and exposed via `lfg agents list` / `lfg spawn`. See the "Current Runtime Implementation" section of [docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) for the as-built wiring.
+**Current status (omo-parity branch)**: The canonical runtime registry now loads the 11 upstream OMO agents (`sisyphus`, `hephaestus`, `prometheus`, `atlas`, `oracle`, `librarian`, `explore`, `multimodal-looker`, `metis`, `momus`, `sisyphus-junior`) plus the `builtin-agents` policy layer from `plugins/lfg/src/agents/*.json`. They are loaded by `load_omo_agent_registry()` and exposed via `lfg agents list` / `lfg spawn`. See the "Current Runtime Implementation" section of [docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) for the as-built wiring.
 
 The older custom lineup below is preserved only for backward compatibility with existing team specs.
 
@@ -20,10 +20,10 @@ The older custom lineup below is preserved only for backward compatibility with 
 
 ## Category Mapping (Grok-native OMO)
 
-- All first-class agents resolve to Grok models only.
+- First-class agents default to Grok models except Hephaestus, which requires an approved GPT-style deep-specialist profile; approved optional execution providers are `codex`, `copilot`, and `zai`.
 - `deep` / `ultrabrain` → high reasoning Grok profiles
 - `artistry` → creative Grok profiles
-- Other categories map to appropriate Grok reasoning levels.
+- Other categories map to appropriate reasoning levels, and every completion remains gated by Grok Oracle review.
 
 ## Structure of this Design
 

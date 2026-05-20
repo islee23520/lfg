@@ -8,7 +8,7 @@ Provide an OMX-like setup entrypoint for Grok Build that checks plugin installat
 
 ```text
 /omx-setup check
-/omx-setup install-plan --marketplace linalab-io-framework/grok-build
+/omx-setup install-plan --marketplace islee23520-framework/grok-build
 /omx-setup show
 ```
 

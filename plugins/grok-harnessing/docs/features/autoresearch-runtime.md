@@ -8,7 +8,7 @@ Provide an OMX-like autoresearch entrypoint for Grok Build that records research
 
 ```text
 /autoresearch create "How should team mode work?"
-/autoresearch add-source https://github.com/Yeachan-Heo/oh-my-codex --note "reference workflow"
+/autoresearch add-source https://github.com/code-yeongyu/oh-my-openagent --note "reference workflow"
 /autoresearch show
 ```
 

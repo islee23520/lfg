@@ -1,8 +1,8 @@
 # A. Agent Definition System (Named Purpose-Specific Agents)
 
-> **Historical / Design note (2026-05)**: This document captured the original proposal for custom LFG agents (`lina`, `gonow`, `iz`, `grok`).  
-> The current canonical first-class implementation is the OMO hierarchy (`sisyphus` + family) living in `plugins/lfg/src/agents/*.json`, loaded via `load_omo_agent_registry()` in `lfg.py`.  
-> See the "Current Runtime Implementation" section of [docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) and `plugins/lfg/src/agents/README.md` for the live state.  
+> **Historical / Design note (2026-05)**: This document captured the original proposal for custom LFG agents (`lina`, `gonow`, `iz`, `grok`).
+> The current canonical first-class implementation is the OMO hierarchy (`sisyphus` + family) living in `plugins/lfg/src/agents/*.json`, loaded via `load_omo_agent_registry()` in `lfg.py`.
+> See the "Current Runtime Implementation" section of [docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) and `plugins/lfg/src/agents/README.md` for the live state.
 > Legacy definitions are kept only in `src/agents/legacy/` for backward compatibility with existing team specs.
 
 ## Goal (Original Design)
@@ -57,9 +57,11 @@ Similar files:
 - Easier to implement Hyperplan-style required agent sets
 - Better prompt engineering and tool restriction per named agent
 
-## Next Steps for Implementation
-- Define schema + loader
-- CLI commands: `lfg agent list`, `lfg agent show iz`, `lfg agent validate`
-- Integration into team_create / ultragoal_spawn
+## Implementation Status (M13 Lock)
+
+The named agent system is fully implemented using the OMO hierarchy:
+- [x] Define schema + loader (done — `load_omo_agent_registry()`).
+- [x] CLI commands: `lfg agents list`, `lfg agents inspect sisyphus` (done).
+- [x] Integration into team_create / ultragoal_spawn (done — `TeamRuntime` + OMO registry).
 
 This forms the foundation for B and C.

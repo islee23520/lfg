@@ -5,7 +5,7 @@ Branch: feature/lfg-agent-orchestration-omo-parity
 
 ## OVERVIEW
 
-Rust Cargo `lfg` CLI/library plus plugin-first Grok/LFG package under `plugins/lfg`. The product goal is now **OMO agent hierarchy parity for Grok Build**: port Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, and builtin-agents into a Grok-model, Grok-native sub-agent orchestration runtime.
+Python-first Grok/LFG plugin package under `plugins/lfg`. The product goal is now **OMO agent hierarchy parity for Grok Build**: port Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, and builtin-agents into a Grok-model, Grok-native sub-agent orchestration runtime.
 
 All future work should align with the OMO parity roadmap, not legacy Codex-derived workflow identity.
 
@@ -13,13 +13,11 @@ All future work should align with the OMO parity roadmap, not legacy Codex-deriv
 
 ```text
 ./
-  src/              Rust CLI/library runtime
-  plugins/lfg/      Grok plugin package and Python runtime
-  tests/            Rust integration tests plus Python smoke matrix
-  scripts/          Verification and release gates
+    plugins/lfg/      Grok plugin package and Python runtime
+  tests/            Python smoke matrix and test guidance
+  plugin smoke checks           Verification and release gates
   docs/             Architecture, test rules, smoke docs, release contracts
-  Cargo.toml        Rust bin/lib definition
-```
+  ```
 
 ## WHERE TO LOOK
 
@@ -28,12 +26,14 @@ All future work should align with the OMO parity roadmap, not legacy Codex-deriv
 | OMO parity roadmap | `ROADMAP.md` | M0-M13 Grok Build agent hierarchy plan |
 | Architecture | `docs/ARCHITECTURE.md` | Agent layer, Grok spawn adapter, Boulder, Team Mode |
 | Agent-system docs | `docs/agent-system/` | Named agents, categories, templates, parity comparisons |
-| CLI surface | `src/main.rs` | Rust CLI args, MCP/session/trace/share commands |
-| Library modules | `src/lib.rs`, `src/*/` | `auth`, `session`, `runtime`, `models`, `mcp`, `agent` |
+| **Grok Build / xAI platform SSOT** | `docs/reference.md` | Official xAI docs (https://docs.x.ai/overview) as Single Source of Truth for Responses API, function calling, reasoning traces, stateful interactions, and Grok-native capabilities. **Always consult before changing spawn adapter or claiming "Grok-native" behavior.** |
+| **Grok Build prompt-stage map** | `docs/GROK-BUILD-PROMPT-STAGES.md` | Visual walkthrough of each prompt stage: official xAI Responses API substrate vs LFG/OMO orchestration layer. |
+| **Docs Index Server (JSON)** | `docs/docs-index.json` | **@docs/ 참조 시 에이전트는 반드시 이 JSON 인덱스를 먼저 읽어야 함.** path를 찾아 Read tool로 실제 문서를 조회. docs/를 서버처럼 동작하게 만드는 계층. |
+| CLI surface | `plugins/lfg/bin/lfg.py` | dependency-free Python runtime command router |
 | Plugin runtime | `plugins/lfg/bin/lfg.py` | Dependency-free runtime, `.lfg` state, tmux backend, future spawn adapter |
 | MCP server | `plugins/lfg/bin/lfg-mcp.py` | Stdio JSON-RPC tools for Grok plugin integration |
 | Slash surfaces | `plugins/lfg/skills/*/SKILL.md` | Grok skill definitions to migrate to OMO semantics |
-| Release gates | `scripts/`, `docs/SMOKE.md`, `docs/RELEASE_CHECKLIST.md` | Exact evidence strings are product contracts |
+| Release gates | `plugin smoke checks `, `docs/SMOKE.md`, `docs/RELEASE_CHECKLIST.md` | Exact evidence strings are product contracts |
 | Test rules | `docs/TEST_RULES.md` | Gate classes and deterministic test discipline |
 
 ## TARGET AGENT MAP
@@ -51,11 +51,6 @@ All future work should align with the OMO parity roadmap, not legacy Codex-deriv
 
 | Symbol or file | Type | Location | Role |
 | --- | --- | --- | --- |
-| `Cli` | Rust struct | `src/main.rs` | Headless runtime and subcommand CLI |
-| `run_single` | Rust function | `src/runtime/dispatch.rs` | Mock-backed single prompt execution and session save |
-| `SessionStore` | Rust struct | `src/session/store.rs` | JSON session persistence under `.config/lfg/sessions` |
-| `AuthStore` | Rust struct | `src/auth/store.rs` | Locked auth file with Unix permissions |
-| `McpStdioClient` | Rust struct | `src/mcp/stdio.rs` | Child-process JSON-RPC client with stderr suppressed |
 | `main` | Python function | `plugins/lfg/bin/lfg.py` | Runtime command router and migration hotspot |
 | `lfg`, `ulw` | Shell wrappers | `plugins/lfg/bin/` | Default runtime identity and ultrawork launcher entrypoints |
 | `lfg-mcp.py` | Python MCP server | `plugins/lfg/bin/lfg-mcp.py` | JSON-RPC tool schema contract |
@@ -63,14 +58,13 @@ All future work should align with the OMO parity roadmap, not legacy Codex-deriv
 
 ## CONVENTIONS
 
-- Rust: Rust 2021; module names stay snake_case; public data shapes mirror test assertions.
 - Python runtime: `plugins/lfg/bin/lfg.py` stays dependency-free and resolves paths through `GROK_PLUGIN_ROOT` and `GROK_PLUGIN_DATA`.
 - Agent runtime: all first-class agents must resolve to Grok model profiles.
 - Spawning: Grok native sub-agent spawning is the target delegation path; local deterministic fallback is required for smoke tests.
-- MCP: `lfg-mcp.py` stdout is JSON-RPC only. Stderr isolation is tested by `scripts/verify-mcp-stdio-isolation.sh`.
+- MCP: `lfg-mcp.py` stdout is JSON-RPC only. Stderr isolation is tested by `plugins/lfg/bin/self-test.sh MCP stdio section`.
 - State: runtime state belongs in `.lfg/` or the configured `GROK_PLUGIN_DATA` tree.
 - Team state: preserve legacy flat team-state compatibility until the M7/M8 state migration explicitly changes it.
-- Verification: scripts emit exact `*=ok` evidence strings. Docs and tests assert those strings literally.
+- Verification: smoke gates emit exact `*=ok` evidence strings. Docs and tests assert those strings literally.
 - Tests: classify every changed test as dependency-free smoke, repo-native integration, or environment/manual gate.
 
 ## ANTI-PATTERNS (THIS PROJECT)
@@ -89,21 +83,23 @@ All future work should align with the OMO parity roadmap, not legacy Codex-deriv
 ## COMMANDS
 
 ```sh
-cargo test
-cargo fmt --check
-cargo clippy --all-targets --all-features -- -D warnings
+python3 -m unittest tests.smoke.test_grok_build_runtime -v
+python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py
+python3 -m ruff check .
+plugins/lfg/bin/self-test.sh
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
 plugins/lfg/bin/self-test.sh
 plugins/lfg/bin/grok-install-smoke.sh
-scripts/install-lfg-symlink.sh
-scripts/verify-mcp-stdio-isolation.sh
-scripts/verify-state-schema.sh
-scripts/verify-release-readiness-local.sh
+plugins/lfg/bin/lfg setup
+plugins/lfg/bin/self-test.sh MCP stdio section
+lfg --json doctor state schema check
+plugins/lfg/bin/self-test.sh
 ```
 
 ## NOTES
 
 - Dirty worktree may contain pre-existing user changes; do not revert user changes unless explicitly asked.
-- `.github/workflows/smoke.yml` runs `self-test.sh`; full local release readiness is `scripts/verify-release-readiness-local.sh`.
-- Version surfaces may differ between Rust package and plugin smoke docs; treat as release-scope unless asked.
+- `.github/workflows/smoke.yml` runs `self-test.sh`; full local release readiness is `plugins/lfg/bin/self-test.sh`.
+- Version surfaces must stay aligned between plugin manifests, runtime output, and smoke docs.
 - The OMO parity migration should proceed phase-by-phase per `ROADMAP.md`.
+- **Grok Build platform behavior**: Treat `docs/reference.md` (pointing at https://docs.x.ai/overview) as the authoritative external reference for Responses API, tool calling, reasoning content, and native capabilities. Do not make claims about "Grok-native spawning" or agent orchestration without cross-checking it.
