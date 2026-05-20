@@ -27,27 +27,34 @@ This section describes exactly how the code currently wires the OMO agent hierar
 
 ### 1. The OMO Agent Registry (Source of Truth)
 
-The six first-class OMO agents are defined as JSON files and loaded at runtime:
+The canonical registry now loads the 11 upstream OMO agents plus the `builtin-agents` policy layer:
 
 - `plugins/lfg/src/agents/sisyphus.json` — main orchestrator
-- `plugins/lfg/src/agents/sisyphus-junior.json` — bounded category executor
-- `plugins/lfg/src/agents/prometheus.json` — planning-only agent
 - `plugins/lfg/src/agents/hephaestus.json` — autonomous deep worker
+- `plugins/lfg/src/agents/prometheus.json` — planning-only agent
 - `plugins/lfg/src/agents/atlas.json` — checklist / dependency-wave executor
+- `plugins/lfg/src/agents/oracle.json` — read-only plan compliance reviewer
+- `plugins/lfg/src/agents/librarian.json` — documentation search specialist
+- `plugins/lfg/src/agents/explore.json` — read-only codebase explorer
+- `plugins/lfg/src/agents/multimodal-looker.json` — visual / multimodal inspector
+- `plugins/lfg/src/agents/metis.json` — gap analyzer and pre-plan critic
+- `plugins/lfg/src/agents/momus.json` — ruthless reviewer / validator
+- `plugins/lfg/src/agents/sisyphus-junior.json` — bounded category executor
 - `plugins/lfg/src/agents/builtin-agents.json` — policy / factory layer
 
 **Loading code** (all in [plugins/lfg/bin/lfg.py](./plugins/lfg/bin/lfg.py)):
 
 - `CANONICAL_OMO_AGENT_IDS` (3123)
-- `load_omo_agent_registry()` (3133) — reads the six JSON files from `plugins/lfg/src/agents/`
-- `OMO_AGENT_REGISTRY` and `_OMO_REGISTRY_INDEX` (3146–3147) — the live in-memory registry
-- `agents_list()` (3196) and `agents_inspect()` (3206) — exposed via CLI and MCP
+- `OMO_TEAM_ELIGIBILITY_REGISTRY` (3750+) — canonical team-member contract
+- `load_omo_agent_registry()` (3810+) — reads the 12 JSON files from `plugins/lfg/src/agents/`
+- `OMO_AGENT_REGISTRY` and `_OMO_REGISTRY_INDEX` (3824–3825) — the live in-memory registry
+- `agents_list()` (3878) and `agents_inspect()` (3888) — exposed via CLI and MCP
 
 **Current registry contract** (live example from `lfg --json agents list`):
 
-Each entry contains: `id`, `name`, `family`, `role`, `mode`, `modelProfile`, `reasoningLevel`, `categories`, `tools`, `blockedTools`, `enabled`, `promptSource`.
+Each entry contains: `id`, `name`, `family`, `role`, `mode`, `modelProfile`, `reasoningLevel`, `categories`, `tools`, `blockedTools`, `enabled`, `promptSource`, `teamEligibility`.
 
-All six agents default to `provider: "xai"` + `model: "xai/grok-4.3"`. `resolve_omo_model_profile()` also accepts approved execution providers (`codex`, `copilot`, `zai`; `zai` uses `ZAI_API_KEY`/`ZHIPU_API_KEY` only for explicit HTTP runs) and maps category → reasoning level while preserving Grok Oracle review as the completion gate.
+All loaded agents default to `provider: "xai"` + `model: "xai/grok-4.3"`. `resolve_omo_model_profile()` also accepts approved execution providers (`codex`, `copilot`, `zai`; `zai` uses `ZAI_API_KEY`/`ZHIPU_API_KEY` only for explicit HTTP runs) and maps category → reasoning level while preserving Grok Oracle review as the completion gate.
 
 **Legacy compatibility layer**: `plugins/lfg/src/agents/legacy/` still contains the older `lina-orchestrator.json`, `gonow-worker.json`, `iz-architect.json`, `grok-consultant.json`. These are used only by existing `team create` specs that have not yet been migrated. They are **not** part of the canonical OMO registry.
 
@@ -113,7 +120,7 @@ Plans created through LFG (`lfg plan create`, `grok_build_plan`, the `plan` skil
 - `lfg hud` (1729) — compact dashboard of goals, plans, teams, wiki notes
 
 **Higher-level orchestration (still largely legacy/hybrid)**:
-- `team_create()` (2847), `ultragoal_spawn()` (489), `ralph_*`, most skills, and `worker` commands primarily use legacy specs (`"1:iz,1:gonow,1:grok"`) + external CLIs or generic prompts.
+- `team_create()` (3468), `ultragoal_spawn()` (489), `ralph_*`, most skills, and `worker` commands primarily use legacy specs (`"1:iz,1:gonow,1:grok"`) + external CLIs or generic prompts.
 - Hyperplan and certain MCP paths are starting to reference the new OMO catalog.
 - `TeamRuntime` (2372) + `TeamStateStore` provide the durable mailbox + tasklist coordination (mode-aware separated directories under `.lfg/runs/<mode>-<id>/` to match real OmO behavior).
 
@@ -130,8 +137,8 @@ The "Sisyphus leads and spawns the other five via the Grok adapter" loop is **av
 
 ### 6. Current Hybrid State vs. Full Parity Target
 
-**What is wired and working**:
-- Strict OMO agent registry with Grok defaults, approved multi-provider overrides, and mandatory Grok Oracle review envelopes.
+- **What is wired and working**:
+- Strict OMO agent registry with Grok defaults, approved multi-provider overrides, mandatory Grok Oracle review envelopes, and team eligibility hard-rejects.
 - Category-aware model resolution.
 - `lfg agents` + `lfg spawn` + MCP catalog surfaces.
 - Durable, mode-separated TeamRuntime + mailbox/tasklist.

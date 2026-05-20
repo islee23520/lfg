@@ -7,13 +7,25 @@ This directory is the canonical lfg-native agent registry for the Grok Build plu
 The runtime loads these files directly for `lfg agents list`, `lfg agents inspect`, spawn planning, MCP agent inspection, and smoke contracts:
 
 - `sisyphus.json` — main orchestrator
-- `sisyphus-junior.json` — bounded category executor
-- `prometheus.json` — planning agent
 - `hephaestus.json` — autonomous deep worker
+- `prometheus.json` — planning agent
 - `atlas.json` — checklist/dependency-wave executor
+- `oracle.json` — read-only plan compliance reviewer
+- `librarian.json` — documentation search specialist
+- `explore.json` — read-only codebase explorer
+- `multimodal-looker.json` — visual / multimodal inspector
+- `metis.json` — gap analyzer and pre-plan critic
+- `momus.json` — ruthless reviewer / validator
+- `sisyphus-junior.json` — bounded category executor
 - `builtin-agents.json` — model/category/policy resolver
 
-All first-class agents use `provider: xai` and `model: xai/grok-4.3`.
+All loaded agents use `provider: xai` and `model: xai/grok-4.3`.
+
+## Team Eligibility
+
+- Eligible: `sisyphus`, `atlas`, `sisyphus-junior`
+- Conditional: `hephaestus`
+- Hard-reject: `prometheus`, `oracle`, `librarian`, `explore`, `multimodal-looker`, `metis`, `momus`, `builtin-agents`
 
 ## Legacy Compatibility
 

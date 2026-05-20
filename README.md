@@ -14,7 +14,7 @@ First-class agents default to Grok model profiles for Grok Build execution, whil
 
 `lfg` provides an OMO-style runtime surface for Grok Build:
 
-- Agent hierarchy: Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, builtin-agents (plus the full 11 from real OMO)
+- Agent hierarchy: the canonical 11 OMO agents plus builtin-agents policy layer, with eligibility contracts enforced in runtime
 - Orchestration: task delegation, category routing, dependency waves, hostile critique, lead synthesis, hyperplan 3-round adversarial
 - Durable state: Boulder, continuation (Ralph-loop + TodoContinuationEnforcer), mailbox, shared tasklist, notepads, plans, team runtime
 - Team execution: tmux-backed local observability plus Grok sub-agent spawning where available

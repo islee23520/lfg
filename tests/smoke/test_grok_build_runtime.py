@@ -23,6 +23,7 @@ PLUGIN = REPO / "plugins" / "lfg"
 LFG = PLUGIN / "bin" / "lfg"
 ULW = PLUGIN / "bin" / "ulw"
 MCP = PLUGIN / "bin" / "lfg-mcp.py"
+FIXTURES = REPO / "tests" / "fixtures"
 
 
 def load_grok_build_module():
@@ -66,14 +67,18 @@ class RuntimeSmoke(unittest.TestCase):
     def test_omo_agent_registry_cli(self) -> None:
         registry = self.run_lfg("agents", "list")
         self.assertTrue(registry["ok"], registry)
-        expected = {"sisyphus", "sisyphus-junior", "prometheus", "hephaestus", "atlas", "builtin-agents"}
-        self.assertEqual({agent["id"] for agent in registry["agents"]}, expected)
+        contract = json.loads((FIXTURES / "omo-agent-registry-contract.json").read_text(encoding="utf-8"))
+        ids = [agent["id"] for agent in registry["agents"]]
+        self.assertEqual(ids[:4], contract["primary_order"])
+        self.assertTrue(set(contract["target_ids"]).issubset(ids), ids)
+        self.assertEqual(ids, contract["full_inventory_ids"])
+        self.assertEqual(registry["count"], len(contract["full_inventory_ids"]))
         self.assertIn("deep", registry["categoryModelProfiles"])
         for profile in registry["categoryModelProfiles"].values():
             self.assertEqual(profile["provider"], "xai")
         for agent in registry["agents"]:
             self.assertEqual(agent["modelProfile"]["provider"], "xai")
-            for key in {"id", "family", "role", "mode", "modelProfile", "reasoningLevel", "promptSource", "tools", "blockedTools", "enabled"}:
+            for key in {"id", "family", "role", "mode", "modelProfile", "reasoningLevel", "promptSource", "tools", "blockedTools", "enabled", "teamEligibility"}:
                 self.assertIn(key, agent)
 
         sisyphus = self.run_lfg("agents", "inspect", "sisyphus")
@@ -111,6 +116,30 @@ class RuntimeSmoke(unittest.TestCase):
         rejected = self.run_lfg("agents", "inspect", "sisyphus", "--provider", "claude")
         self.assertFalse(rejected["ok"], rejected)
         self.assertIn("unsupported model provider", rejected["error"])
+
+    def test_team_member_eligibility_contract(self) -> None:
+        contract = json.loads((FIXTURES / "omo-team-eligibility.json").read_text(encoding="utf-8"))
+
+        hephaestus = self.run_lfg("team", "create", "1:hephaestus", "conditional member smoke", "--providers", "noop", "--dry-run")
+        self.assertTrue(hephaestus["ok"], hephaestus)
+        self.assertEqual(hephaestus["members"][0]["teamEligibility"], "conditional")
+
+        for agent_id in contract["hard_reject_team_members"]:
+            proc = subprocess.run(
+                [str(LFG), "--json", "team", "create", f"1:{agent_id}", "hard reject smoke", "--providers", "noop", "--dry-run"],
+                cwd=str(REPO),
+                env=self.env,
+                text=True,
+                capture_output=True,
+                timeout=20,
+                check=True,
+            )
+            payload = json.loads(proc.stdout)
+            self.assertFalse(payload["ok"], payload)
+            self.assertEqual(payload["error"], "team member eligibility rejected")
+            self.assertEqual(payload["issues"][0]["agent"], agent_id)
+            self.assertEqual(payload["issues"][0]["teamEligibility"], "hard-reject")
+            self.assertIn(agent_id, payload["hardRejectedTeamMembers"])
 
 
     def test_spawn_envelope_requires_grok_oracle_review(self) -> None:

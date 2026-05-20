@@ -1345,7 +1345,25 @@ def handle_tool(name, arguments=None):
     if name == "grok_build_omo_agent_catalog":
         cmd = [str(ROOT / "bin" / "lfg"), "--json", "agents", "list"]
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
-        return text_result({"cmd": cmd, "source": "plugins/lfg/src/agents", "filter": arguments.get("filter", "all"), "stdout": proc.stdout, "stderr": proc.stderr, "returncode": proc.returncode})
+        payload = json.loads(proc.stdout or "{}") if proc.stdout.strip() else {}
+        agents = list(payload.get("agents", [])) if isinstance(payload, dict) else []
+        agent_filter = arguments.get("filter", "all")
+        if agent_filter == "eligible_team_members":
+            agents = [agent for agent in agents if agent.get("teamEligibility") == "eligible"]
+        elif agent_filter == "lead_agents":
+            primary_order = ["sisyphus", "hephaestus", "prometheus", "atlas"]
+            by_id = {agent.get("id"): agent for agent in agents}
+            agents = [by_id[agent_id] for agent_id in primary_order if agent_id in by_id]
+        elif agent_filter == "hyperplan":
+            primary_order = ["sisyphus", "hephaestus", "prometheus", "atlas", "sisyphus-junior"]
+            by_id = {agent.get("id"): agent for agent in agents}
+            agents = [by_id[agent_id] for agent_id in primary_order if agent_id in by_id]
+        if not arguments.get("with_eligibility", True):
+            for agent in agents:
+                agent.pop("teamEligibility", None)
+                agent.pop("teamMemberEligible", None)
+                agent.pop("teamMemberConditional", None)
+        return text_result({"cmd": cmd, "source": "plugins/lfg/src/agents", "filter": agent_filter, "withEligibility": bool(arguments.get("with_eligibility", True)), "agents": agents, "count": len(agents), "stderr": proc.stderr, "returncode": proc.returncode})
 
     if name == "grok_build_omo_team_create":
         objective = arguments.get("objective") or "OMO huge orchestration"

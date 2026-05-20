@@ -3470,6 +3470,30 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
     cwd = pathlib.Path(args.cwd).resolve()
     spec_parts = parse_team_spec(args.spec)   # now returns list of (count, name)
 
+    eligibility_issues: list[dict[str, Any]] = []
+    for count, role in spec_parts:
+        agent_def = load_agent_definition(role)
+        if not agent_def:
+            continue
+        agent_id = agent_def.get("id") or role
+        eligibility = validate_team_member_eligibility(agent_id)
+        if not eligibility.get("ok"):
+            issue = dict(eligibility)
+            issue["count"] = count
+            issue["role"] = role
+            eligibility_issues.append(issue)
+    if eligibility_issues:
+        return {
+            "ok": False,
+            "error": "team member eligibility rejected",
+            "reason": "hard-reject team members cannot be added to a team",
+            "issues": eligibility_issues,
+            "eligibleTeamMembers": list(OMO_ELIGIBLE_TEAM_MEMBER_IDS),
+            "conditionalTeamMembers": list(OMO_CONDITIONAL_TEAM_MEMBER_IDS),
+            "hardRejectedTeamMembers": list(OMO_HARD_REJECT_TEAM_MEMBER_IDS),
+            "policyLayerTeamMembers": ["builtin-agents"],
+        }
+
     # Optional mode support (passed from ultragoal_spawn or future ultrawork)
     mode = getattr(args, "mode", None)
     mode_id = getattr(args, "mode_id", None)
@@ -3578,6 +3602,7 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
                 "name": member_name,
                 "role": role,
                 "provider": provider,
+                "teamEligibility": team_member_eligibility(agent_def.get("id", role)) if agent_def else team_member_eligibility(role),
                 "prompt": member_prompt,
                 "command": cmd,
                 "ultragoal": ug_id,
@@ -3743,12 +3768,77 @@ def team_agents_list(args: argparse.Namespace) -> dict[str, Any]:
 
 CANONICAL_OMO_AGENT_IDS = (
     "sisyphus",
-    "sisyphus-junior",
-    "prometheus",
     "hephaestus",
+    "prometheus",
     "atlas",
+    "oracle",
+    "librarian",
+    "explore",
+    "multimodal-looker",
+    "metis",
+    "momus",
+    "sisyphus-junior",
     "builtin-agents",
 )
+
+OMO_PRIMARY_AGENT_IDS = ("sisyphus", "hephaestus", "prometheus", "atlas")
+OMO_ELIGIBLE_TEAM_MEMBER_IDS = ("sisyphus", "atlas", "sisyphus-junior")
+OMO_CONDITIONAL_TEAM_MEMBER_IDS = ("hephaestus",)
+OMO_HARD_REJECT_TEAM_MEMBER_IDS = (
+    "prometheus",
+    "oracle",
+    "librarian",
+    "explore",
+    "multimodal-looker",
+    "metis",
+    "momus",
+)
+OMO_TEAM_ELIGIBILITY_REGISTRY = {
+    "sisyphus": "eligible",
+    "hephaestus": "conditional",
+    "prometheus": "hard-reject",
+    "atlas": "eligible",
+    "oracle": "hard-reject",
+    "librarian": "hard-reject",
+    "explore": "hard-reject",
+    "multimodal-looker": "hard-reject",
+    "metis": "hard-reject",
+    "momus": "hard-reject",
+    "sisyphus-junior": "eligible",
+    "builtin-agents": "policy-layer",
+}
+
+
+def normalize_omo_agent_record(agent: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(agent)
+    agent_id = normalized.get("id")
+    if isinstance(agent_id, str):
+        eligibility = OMO_TEAM_ELIGIBILITY_REGISTRY.get(agent_id, normalized.get("teamEligibility", "unknown"))
+        normalized["teamEligibility"] = eligibility
+        normalized["teamMemberEligible"] = eligibility == "eligible"
+        normalized["teamMemberConditional"] = eligibility == "conditional"
+        normalized["primaryOrder"] = agent_id in OMO_PRIMARY_AGENT_IDS
+    return normalized
+
+
+def team_member_eligibility(agent_id: str) -> str:
+    return OMO_TEAM_ELIGIBILITY_REGISTRY.get(agent_id, "unknown")
+
+
+def validate_team_member_eligibility(agent_id: str) -> dict[str, Any]:
+    eligibility = team_member_eligibility(agent_id)
+    if eligibility in {"hard-reject", "policy-layer"}:
+        return {
+            "ok": False,
+            "error": "team member eligibility rejected",
+            "agent": agent_id,
+            "teamEligibility": eligibility,
+            "eligibleTeamMembers": list(OMO_ELIGIBLE_TEAM_MEMBER_IDS),
+            "conditionalTeamMembers": list(OMO_CONDITIONAL_TEAM_MEMBER_IDS),
+            "hardRejectedTeamMembers": list(OMO_HARD_REJECT_TEAM_MEMBER_IDS),
+            "policyLayerTeamMembers": ["builtin-agents"],
+        }
+    return {"ok": True, "agent": agent_id, "teamEligibility": eligibility}
 
 
 def load_omo_agent_registry() -> list[dict[str, Any]]:
@@ -3760,7 +3850,7 @@ def load_omo_agent_registry() -> list[dict[str, Any]]:
         data = read_json(path, {})
         if not isinstance(data, dict) or data.get("id") != agent_id:
             raise SystemExit(f"invalid OMO agent definition: {path}")
-        agents.append(data)
+        agents.append(normalize_omo_agent_record(data))
     return agents
 
 

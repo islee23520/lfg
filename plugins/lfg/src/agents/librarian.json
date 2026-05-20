@@ -1,0 +1,18 @@
+{
+  "id": "librarian",
+  "name": "librarian",
+  "family": "searcher",
+  "role": "Documentation and knowledge lookup specialist. Searches durable docs and surfaces precise references without writing.",
+  "mode": "read-only",
+  "modelProfile": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "medium"},
+  "reasoningLevel": "medium",
+  "teamEligibility": "hard-reject",
+  "teamMemberEligible": false,
+  "teamMemberConditional": false,
+  "primaryOrder": false,
+  "promptSource": "plugins/lfg/src/agents/librarian.json",
+  "tools": ["read", "glob", "grep"],
+  "blockedTools": ["edit", "write", "team_create", "team_delete", "spawn"],
+  "enabled": true,
+  "categories": ["planning", "writing"]
+}

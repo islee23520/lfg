@@ -1,0 +1,18 @@
+{
+  "id": "multimodal-looker",
+  "name": "multimodal-looker",
+  "family": "vision",
+  "role": "Multimodal inspection specialist. Reviews screenshots and visual artifacts for layout, UI, and image-grounded evidence.",
+  "mode": "read-only",
+  "modelProfile": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
+  "reasoningLevel": "high",
+  "teamEligibility": "hard-reject",
+  "teamMemberEligible": false,
+  "teamMemberConditional": false,
+  "primaryOrder": false,
+  "promptSource": "plugins/lfg/src/agents/multimodal-looker.json",
+  "tools": ["read", "glob", "grep"],
+  "blockedTools": ["edit", "write", "team_create", "team_delete", "spawn"],
+  "enabled": true,
+  "categories": ["visual-engineering", "artistry"]
+}
