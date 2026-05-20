@@ -31,32 +31,38 @@ CATALOG_PATH = ROOT / "catalog" / "omo-skill-map.json"
 STATE_SCHEMA_VERSION = 2
 ATLAS_BOULDER_SCHEMA_VERSION = 2
 MAILBOX_DELIVERY_TTL_SECONDS = 10 * 60
-APPROVED_MODEL_PROVIDERS = {"openai", "google", "xai", "grok", "codex", "copilot", "zai"}
+APPROVED_MODEL_PROVIDERS = {"litellm"}
+DEFAULT_MODEL_PROVIDER = "litellm"
+DEFAULT_LITELLM_MODEL = "xai/grok-4.3"
+GROK_BUILD_NATIVE_PROVIDER = "grok-build"
+MODEL_RUNTIME_PROVIDERS = APPROVED_MODEL_PROVIDERS | {GROK_BUILD_NATIVE_PROVIDER}
 MODEL_PROVIDER_ALIASES = {
-    "github-copilot": "copilot",
-    "zai-coding-plan": "zai",
+    "xai": GROK_BUILD_NATIVE_PROVIDER,
+    "grok": GROK_BUILD_NATIVE_PROVIDER,
+    "grok-build": GROK_BUILD_NATIVE_PROVIDER,
+    "github-copilot": "litellm",
+    "zai-coding-plan": "litellm",
+    "openai": "litellm",
+    "codex": "litellm",
+    "copilot": "litellm",
+    "zai": "litellm",
 }
 PROVIDER_DEFAULT_MODELS = {
-    "openai": "openai/gpt-5.5",
-    "google": "google/gemini-3.1-pro-preview",
-    "xai": "xai/grok-4.3",
-    "grok": "xai/grok-4.3",
-    "codex": "openai-codex",
-    "copilot": "github-copilot",
-    "zai": "zai-coding-plan",
+    GROK_BUILD_NATIVE_PROVIDER: "grok-build",
+    "litellm": DEFAULT_LITELLM_MODEL,
 }
 HEPHAESTUS_APPROVED_MODEL_PROFILES = (
-    {"provider": "openai", "model": "openai/gpt-5.5", "reasoning": "medium"},
-    {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "medium"},
+    {"provider": "litellm", "model": "openai/gpt-5.5", "reasoning": "medium"},
+    {"provider": "litellm", "model": "github-copilot/gpt-5.5", "reasoning": "medium"},
 )
 ZAI_CODING_PLAN_BASE_URL = "https://api.z.ai/api/coding/paas/v4"
 ZAI_GENERAL_BASE_URL = "https://api.z.ai/api/paas/v4"
 ZAI_DEFAULT_MODEL = "glm-4.6"
 GROK_ORACLE_REVIEW = {
     "required": True,
-    "gate": "xai/grok",
-    "provider": "xai",
-    "model": "xai/grok-4.3",
+    "gate": "grok-build",
+    "provider": "grok-build",
+    "model": "grok-build",
     "variant": "high",
     "fallback_models": [],
     "role": "oracle",
@@ -137,7 +143,7 @@ SECRET_LIKE_VALUE_RE = re.compile(
     r"^[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$"
     r")"
 )
-PROVIDER_PUBLIC_KEYS = {"id", "kind", "env", "model", "transport", "secretStored", "addedAt", "updatedAt"}
+PROVIDER_PUBLIC_KEYS = {"id", "kind", "env", "model", "transport", "authScheme", "secretStored", "addedAt", "updatedAt"}
 PROVIDER_FAILURE_SCENARIOS = {
     "missing-credential",
     "malformed-config",
@@ -1559,21 +1565,25 @@ def read_provider_state() -> dict[str, Any]:
 
 def default_provider_env(kind: str) -> str:
     defaults = {
-        "zai": "ZAI_API_KEY",
-        "openai": "OPENAI_API_KEY",
-        "google": "GEMINI_API_KEY",
-        "xai": "XAI_API_KEY",
-        "grok": "XAI_API_KEY",
-        "codex": "CODEX_API_KEY",
-        "copilot": "COPILOT_GITHUB_TOKEN",
-        "gemini": "GEMINI_API_KEY",
-        "claude": "ANTHROPIC_API_KEY",
-        "hermes": "HERMES_API_KEY",
-        "opencode": "OPENCODE_API_KEY",
+        "litellm": "LITELLM_API_KEY",
+        "grok-build": "GROK_BUILD_HOST_AUTH",
         "noop": "NOOP_API_KEY",
-        "subagent": "XAI_API_KEY",
     }
     return defaults.get(kind, f"{kind.upper().replace('-', '_')}_API_KEY")
+
+
+def default_provider_transport(kind: str) -> str:
+    if kind in {"grok-build", "grok", "subagent", "noop"}:
+        return "builtin"
+    if kind == "litellm":
+        return "litellm-sdk"
+    return "litellm-sdk"
+
+
+def default_provider_auth_scheme(kind: str) -> str:
+    if kind in {"grok-build", "grok", "subagent", "noop"}:
+        return "host"
+    return "env"
 
 
 def prompt_provider_field(label: str, default: str | None = None) -> str:
@@ -1606,7 +1616,7 @@ def provider_add(args: argparse.Namespace) -> dict[str, Any]:
         raise SystemExit("provider add requires --id and --kind in non-interactive mode")
     provider_id = validate_safe_id(provider_id, "provider id")
     ensure_metadata_only_value(provider_id, "provider id")
-    if kind not in TEAM_PROVIDER_EXECUTABLES and kind not in APPROVED_MODEL_PROVIDERS:
+    if kind not in APPROVED_MODEL_PROVIDERS:
         raise SystemExit(f"unknown provider kind: {kind}")
     env_name = args.env or (prompt_provider_field("API key env var", default_provider_env(kind)) if interactive else default_provider_env(kind))
     if not ENV_NAME_RE.fullmatch(env_name):
@@ -1614,12 +1624,15 @@ def provider_add(args: argparse.Namespace) -> dict[str, Any]:
     model = args.model or (prompt_provider_field("Default model", PROVIDER_DEFAULT_MODELS.get(kind, "")) if interactive else PROVIDER_DEFAULT_MODELS.get(kind))
     if model:
         ensure_metadata_only_value(model, "model")
+    transport = getattr(args, "transport", None) or default_provider_transport(kind)
+    auth_scheme = getattr(args, "auth_scheme", None) or getattr(args, "authScheme", None) or default_provider_auth_scheme(kind)
     config = {
         "id": provider_id,
         "kind": kind,
         "env": env_name,
         "model": model,
-        "transport": "http" if kind in ("openai", "google", "xai", "zai") else ("builtin" if kind in ("grok", "subagent", "noop") else "cli"),
+        "transport": transport,
+        "authScheme": auth_scheme,
         "secretStored": False,
         "addedAt": now(),
     }
@@ -1671,7 +1684,8 @@ def provider_public_config(provider_id: str | None, kind: str) -> dict[str, Any]
         "kind": kind,
         "env": default_provider_env(kind),
         "model": PROVIDER_DEFAULT_MODELS.get(kind),
-        "transport": "http" if kind in ("openai", "google", "xai", "zai") else ("builtin" if kind in ("grok", "subagent", "noop") else "cli"),
+        "transport": default_provider_transport(kind),
+        "authScheme": default_provider_auth_scheme(kind),
         "secretStored": False,
     }
 
@@ -1684,7 +1698,7 @@ def validate_provider_public_config(config: dict[str, Any]) -> list[dict[str, An
     model = str(config.get("model") or "")
     if not SAFE_ID_RE.fullmatch(provider_id):
         errors.append({"field": "id", "code": "invalid-provider-id"})
-    if kind not in TEAM_PROVIDER_EXECUTABLES and kind not in APPROVED_MODEL_PROVIDERS:
+    if kind not in APPROVED_MODEL_PROVIDERS and kind not in {GROK_BUILD_NATIVE_PROVIDER, "noop"}:
         errors.append({"field": "kind", "code": "unknown-provider-kind", "kind": redact_secret_value(kind)})
     if env_name and not ENV_NAME_RE.fullmatch(env_name):
         errors.append({"field": "env", "code": "invalid-env-name", "env": redact_secret_value(env_name)})
@@ -1797,9 +1811,67 @@ def configured_model_providers() -> list[dict[str, Any]]:
             "env": provider.get("env"),
             "model": provider.get("model") or PROVIDER_DEFAULT_MODELS.get(kind, ""),
             "transport": provider.get("transport"),
+            "authScheme": provider.get("authScheme") or default_provider_auth_scheme(str(kind or "")),
             "secretStored": bool(provider.get("secretStored", False)),
         })
     return configured
+
+
+def model_selection_path() -> pathlib.Path:
+    return STATE_DIR / "model-selection.json"
+
+
+def infer_model_provider(model: str, provider: str | None = None) -> str:
+    if provider:
+        return canonical_model_provider(provider)
+    normalized = (model or "").strip().lower()
+    if normalized in {"grok", "grok-build"} or normalized.startswith("grok") or normalized.startswith("xai/"):
+        return GROK_BUILD_NATIVE_PROVIDER
+    return DEFAULT_MODEL_PROVIDER
+
+
+def read_model_selection() -> dict[str, Any]:
+    default = {
+        "provider": GROK_BUILD_NATIVE_PROVIDER,
+        "model": PROVIDER_DEFAULT_MODELS[GROK_BUILD_NATIVE_PROVIDER],
+        "reasoning": "high",
+        "source": "default",
+        "updatedAt": None,
+        "switchCommand": f"/model {PROVIDER_DEFAULT_MODELS[GROK_BUILD_NATIVE_PROVIDER]}",
+    }
+    current = read_json(model_selection_path(), {}) or {}
+    if not isinstance(current, dict):
+        return default
+    return {**default, **current}
+
+
+def models_switch(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    model = str(args.model or "").strip()
+    if not model:
+        raise SystemExit("model switch requires a model name")
+    ensure_metadata_only_value(model, "model")
+    provider = infer_model_provider(model, getattr(args, "provider", None))
+    if provider not in MODEL_RUNTIME_PROVIDERS:
+        raise SystemExit(f"unsupported model provider: {provider}")
+    reasoning = getattr(args, "reasoning", None) or ("high" if provider in {GROK_BUILD_NATIVE_PROVIDER, "litellm"} else "medium")
+    selection = {
+        "provider": provider,
+        "model": model,
+        "reasoning": reasoning,
+        "source": getattr(args, "source", None) or "grok-build-/model",
+        "updatedAt": now(),
+        "switchCommand": f"/model {model}",
+        "appliesTo": "lfg model resolution when no explicit --provider/--model override is supplied",
+        "runtime": "grok-build-native" if provider == GROK_BUILD_NATIVE_PROVIDER else "litellm-router",
+        "litellm": {
+            "enabled": provider == "litellm",
+            "adapter": "litellm.completion" if provider == "litellm" else None,
+            "dependency": "litellm>=1.85.0",
+        },
+    }
+    write_json(model_selection_path(), selection)
+    return {"ok": True, "status": "ok", "currentModel": selection, "path": str(model_selection_path()), "secretStorage": "env-name-only"}
 
 
 def models_show(args: argparse.Namespace) -> dict[str, Any]:
@@ -1808,7 +1880,7 @@ def models_show(args: argparse.Namespace) -> dict[str, Any]:
         return {"ok": False, "status": "error", "error": "unsupported model provider", "provider": provider, "known": sorted(APPROVED_MODEL_PROVIDERS)}
     defaults = {
         key: {
-            "provider": "xai" if key == "grok" else key,
+            "provider": key,
             "model": value,
             "env": default_provider_env(key),
             "configured": False,
@@ -1825,7 +1897,26 @@ def models_show(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "ok": True,
         "status": "ok",
-        "defaultProvider": "openai",
+        "defaultProvider": DEFAULT_MODEL_PROVIDER,
+        "modelRouter": {
+            "provider": DEFAULT_MODEL_PROVIDER,
+            "transport": default_provider_transport(DEFAULT_MODEL_PROVIDER),
+            "defaultModel": PROVIDER_DEFAULT_MODELS[DEFAULT_MODEL_PROVIDER],
+            "nativeGrok": GROK_BUILD_NATIVE_PROVIDER,
+            "reason": "Grok Build is native host execution; every non-Grok model/provider prefix is routed through LiteLLM.",
+        },
+        "nativeGrokBuild": {
+            "provider": GROK_BUILD_NATIVE_PROVIDER,
+            "model": PROVIDER_DEFAULT_MODELS[GROK_BUILD_NATIVE_PROVIDER],
+            "transport": default_provider_transport(GROK_BUILD_NATIVE_PROVIDER),
+            "authScheme": default_provider_auth_scheme(GROK_BUILD_NATIVE_PROVIDER),
+        },
+        "currentModel": read_model_selection(),
+        "grokBuildModelSwitch": {
+            "slash": "/model <provider/model>",
+            "cli": "lfg models switch <provider/model>",
+            "tmux": "lfg grok-build model <provider/model>",
+        },
         "providers": selected,
         "configuredProviders": configured,
         "categoryModelProfiles": OMO_CATEGORY_MODEL_PROFILES,
@@ -1894,39 +1985,11 @@ def copy_plugin_tree(src: pathlib.Path, dest: pathlib.Path) -> None:
 
 SETUP_PROVIDER_WIZARD = [
     {
-        "flag": "openai",
-        "kind": "openai",
-        "id": "openai-main",
-        "question": "Do you have OpenAI access for Oracle GPT-5.5?",
+        "flag": "litellm",
+        "kind": "litellm",
+        "id": "litellm-main",
+        "question": "Use LiteLLM as the router for every non-Grok model/provider?",
         "default": True,
-    },
-    {
-        "flag": "google",
-        "kind": "google",
-        "id": "google-main",
-        "question": "Do you have Google/Gemini access for Oracle fallback?",
-        "default": False,
-    },
-    {
-        "flag": "zai",
-        "kind": "zai",
-        "id": "zai-main",
-        "question": "Do you have a Z.ai Coding Plan subscription?",
-        "default": False,
-    },
-    {
-        "flag": "copilot",
-        "kind": "copilot",
-        "id": "copilot-main",
-        "question": "Do you have a GitHub Copilot subscription?",
-        "default": False,
-    },
-    {
-        "flag": "codex",
-        "kind": "codex",
-        "id": "codex-main",
-        "question": "Do you have Codex CLI access for execution lanes?",
-        "default": False,
     },
 ]
 
@@ -1976,8 +2039,9 @@ def run_setup_wizard(args: argparse.Namespace) -> dict[str, Any] | None:
         "configuredProviderIds": [item["id"] for item in configured],
         "configuredProviders": configured,
         "authHints": [
-            "Grok Build/xAI login is assumed by the host before LFG runs; setup does not ask for it.",
-            "Oracle defaults to openai/gpt-5.5 high, then Copilot GPT-5.5, Gemini 3.1 Pro, and Z.ai GLM fallback.",
+            "Grok Build login is assumed by the host and is not configured as an LFG provider.",
+            "LiteLLM is the only configurable LFG provider and supplies every non-Grok model/provider.",
+            "Grok Build Oracle review is mandatory; LiteLLM-routed models never replace the gate.",
             "LFG stores environment variable names only; put secrets in your shell environment.",
             "Run `lfg models` to verify configured model providers.",
             "Run `grok --cwd /tmp inspect --json` after plugin install to verify Grok discovery.",
@@ -2010,10 +2074,10 @@ def setup(args: argparse.Namespace) -> dict[str, Any]:
         },
         "commands": {
             "providerAdd": "lfg provider add",
-            "providerAddZai": "lfg provider add --id zai-main --kind zai --env ZAI_API_KEY",
+            "providerAddLiteLLM": "lfg provider add --id litellm-main --kind litellm --env LITELLM_API_KEY",
             "setupInteractive": "lfg setup",
             "setupForceInteractive": "lfg setup --interactive",
-            "setupNoTui": "lfg setup --no-tui --openai yes --zai yes --copilot no --google no --codex no",
+            "setupNoTui": "lfg setup --no-tui --litellm yes",
             "pluginInspect": "grok --cwd /tmp inspect --json",
         },
         "updatedAt": now(),
@@ -2047,6 +2111,24 @@ def zai_api_config() -> dict[str, Any]:
     }
 
 
+def extract_openai_compatible_text(parsed: Any) -> str | None:
+    if not isinstance(parsed, dict):
+        return None
+    choices = parsed.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return None
+    first = choices[0]
+    if not isinstance(first, dict):
+        return None
+    message = first.get("message")
+    if isinstance(message, dict):
+        content = message.get("content")
+        if isinstance(content, str):
+            return content
+    text = first.get("text")
+    return text if isinstance(text, str) else None
+
+
 def call_zai(prompt: str, *, dry_run: bool = True, timeout: int = 60) -> dict[str, Any]:
     """Call the Z.ai OpenAI-compatible chat endpoint, or return a smoke-safe dry-run."""
     config = zai_api_config()
@@ -2070,7 +2152,8 @@ def call_zai(prompt: str, *, dry_run: bool = True, timeout: int = 60) -> dict[st
             "reason": "dry-run" if dry_run else "missing ZAI_API_KEY/ZHIPU_API_KEY",
             "config": config,
             "request": request_preview,
-            "response": None,
+            "output": None,
+            "debug": {"providerResponseRedacted": True, "rawResponseExposed": False},
         }
 
     body = json.dumps(payload).encode("utf-8")
@@ -2087,6 +2170,7 @@ def call_zai(prompt: str, *, dry_run: bool = True, timeout: int = 60) -> dict[st
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode("utf-8", errors="replace")
             parsed = json.loads(raw) if raw else None
+            output = extract_openai_compatible_text(parsed)
             return {
                 "ok": True,
                 "provider": "zai",
@@ -2094,13 +2178,49 @@ def call_zai(prompt: str, *, dry_run: bool = True, timeout: int = 60) -> dict[st
                 "dryRun": False,
                 "config": config,
                 "request": request_preview,
-                "response": parsed,
+                "output": output,
+                "debug": {"providerResponseRedacted": redact_provider_debug(parsed), "rawResponseExposed": False},
             }
     except urllib.error.HTTPError as e:
         detail = redact_secret_value(e.read().decode("utf-8", errors="replace")[-4000:])
         return {"ok": False, "provider": "zai", "transport": "http", "dryRun": False, "status": e.code, "error": detail, "config": config, "request": request_preview}
     except urllib.error.URLError as e:
         return {"ok": False, "provider": "zai", "transport": "http", "dryRun": False, "error": redact_secret_value(str(e.reason)), "config": config, "request": request_preview}
+
+
+def litellm_api_config(model: str | None = None) -> dict[str, Any]:
+    selection = read_model_selection()
+    selected_model = model or str(selection.get("model") or PROVIDER_DEFAULT_MODELS["litellm"])
+    return {
+        "provider": "litellm",
+        "transport": "litellm-sdk",
+        "model": selected_model,
+        "env": default_provider_env("litellm"),
+        "authScheme": "env",
+        "import": "from litellm import completion",
+        "source": "https://github.com/BerriAI/litellm",
+    }
+
+
+def call_litellm(prompt: str, *, model: str | None = None, dry_run: bool = True, timeout: int = 60) -> dict[str, Any]:
+    """Optional LiteLLM SDK adapter. Dry-run remains dependency-light and credential-free."""
+    config = litellm_api_config(model)
+    request_preview = {
+        "model": config["model"],
+        "messages": [{"role": "user", "content": prompt}],
+        "timeout": timeout,
+    }
+    if dry_run:
+        return {"ok": True, "provider": "litellm", "transport": "litellm-sdk", "dryRun": True, "config": config, "request": request_preview, "secretValueExposed": False}
+    try:
+        from litellm import completion
+
+        response = completion(model=config["model"], messages=request_preview["messages"], timeout=timeout)
+        return {"ok": True, "provider": "litellm", "transport": "litellm-sdk", "dryRun": False, "config": config, "response": redact_provider_debug(response)}
+    except ImportError:
+        return {"ok": False, "provider": "litellm", "transport": "litellm-sdk", "dryRun": False, "error": "litellm package is not installed; run `uv add litellm`", "config": config, "request": request_preview}
+    except Exception as e:
+        return {"ok": False, "provider": "litellm", "transport": "litellm-sdk", "dryRun": False, "error": redact_secret_value(str(e)), "config": config, "request": request_preview}
 
 
 def ask(args: argparse.Namespace) -> dict[str, Any]:
@@ -2119,6 +2239,11 @@ def ask(args: argparse.Namespace) -> dict[str, Any]:
         adapter = "zai-http"
         cmd = [adapter, zai_api_config()["endpoint"], prompt]
         result = call_zai(prompt, dry_run=args.dry_run, timeout=args.timeout)
+    elif provider == "litellm":
+        adapter = "litellm-sdk"
+        model = getattr(args, "model", None) or read_model_selection().get("model") or PROVIDER_DEFAULT_MODELS["litellm"]
+        cmd = [adapter, str(model), prompt]
+        result = call_litellm(prompt, model=str(model), dry_run=args.dry_run, timeout=args.timeout)
     else:
         cmd = commands.get(provider, [provider, prompt])
         result = None
@@ -3520,6 +3645,98 @@ def backend_stop(args: argparse.Namespace) -> dict[str, Any]:
     write_json(STATE_DIR / "backend.json", state)
     return state
 
+
+def grok_build_tmux_path() -> pathlib.Path:
+    return STATE_DIR / "grok-build-tmux.json"
+
+
+def grok_build_tmux_name(args: argparse.Namespace) -> str:
+    return validate_safe_id(getattr(args, "name", None) or "lfg-grok-build", "grok-build tmux session name")
+
+
+def grok_build_tmux_target(name: str) -> str:
+    return f"{name}:grok-build"
+
+
+def grok_build_tmux_start(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    require_executable("tmux")
+    name = grok_build_tmux_name(args)
+    cwd = pathlib.Path(args.cwd).resolve()
+    model_result = None
+    if getattr(args, "model", None):
+        model_result = models_switch(argparse.Namespace(model=args.model, provider=getattr(args, "provider", None), reasoning=getattr(args, "reasoning", None), source="grok-build-tmux-start"))
+    exists = subprocess.run(["tmux", "has-session", "-t", name], text=True, capture_output=True).returncode == 0
+    command = (
+        "printf '%s\n' 'lfg tmux wrapper ready: [tmux [grok-build]]'; "
+        "printf '%s\n' 'Use lfg grok-build model <model> to send /model into this session.'; "
+        "if command -v grok >/dev/null 2>&1; then exec grok; "
+        "else printf '%s\n' 'grok executable not found; control shell remains open.'; exec $SHELL; fi"
+    )
+    if not exists and not getattr(args, "dry_run", False):
+        subprocess.run(["tmux", "new-session", "-d", "-s", name, "-n", "grok-build", "-c", str(cwd), "bash", "-lc", command], check=True)
+    state = {
+        "ok": True,
+        "name": name,
+        "status": "planned" if getattr(args, "dry_run", False) else "running",
+        "topology": "[tmux [grok-build]]",
+        "cwd": str(cwd),
+        "window": "grok-build",
+        "target": grok_build_tmux_target(name),
+        "command": command,
+        "attachCommand": f"tmux attach -t {shlex.quote(name)}",
+        "statusCommand": f"tmux list-windows -t {shlex.quote(name)}",
+        "modelCommand": f"lfg grok-build model <model> --name {shlex.quote(name)}",
+        "updatedAt": now(),
+        "currentModel": read_model_selection(),
+        "modelSwitch": model_result,
+    }
+    write_json(grok_build_tmux_path(), state)
+    return state
+
+
+def grok_build_tmux_status(args: argparse.Namespace) -> dict[str, Any]:
+    name = grok_build_tmux_name(args)
+    proc = subprocess.run(["tmux", "list-windows", "-t", name], text=True, capture_output=True)
+    return {"ok": proc.returncode == 0, "name": name, "configured": read_json(grok_build_tmux_path(), None), "currentModel": read_model_selection(), "tmux": {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}}
+
+
+def grok_build_tmux_send(args: argparse.Namespace) -> dict[str, Any]:
+    ensure_dirs()
+    require_executable("tmux")
+    name = grok_build_tmux_name(args)
+    target = grok_build_tmux_target(name)
+    text = str(getattr(args, "text", ""))
+    if not text:
+        raise SystemExit("grok-build send requires text")
+    proc = subprocess.run(["tmux", "send-keys", "-t", target, "-l", text], text=True, capture_output=True)
+    enter = subprocess.run(["tmux", "send-keys", "-t", target, "Enter"], text=True, capture_output=True) if proc.returncode == 0 else None
+    return {"ok": proc.returncode == 0 and (enter is None or enter.returncode == 0), "name": name, "target": target, "sent": text, "tmux": {"returncode": proc.returncode, "stderr": proc.stderr, "enterReturncode": None if enter is None else enter.returncode, "enterStderr": None if enter is None else enter.stderr}}
+
+
+def grok_build_tmux_model(args: argparse.Namespace) -> dict[str, Any]:
+    selection = models_switch(argparse.Namespace(model=args.model, provider=getattr(args, "provider", None), reasoning=getattr(args, "reasoning", None), source="grok-build-/model-tmux"))
+    command = f"/model {selection['currentModel']['model']}"
+    if getattr(args, "dry_run", False):
+        return {"ok": True, "status": "planned", "name": grok_build_tmux_name(args), "modelSwitch": selection, "sendCommand": command, "tmuxSent": False}
+    sent = grok_build_tmux_send(argparse.Namespace(name=getattr(args, "name", None), text=command))
+    return {"ok": sent["ok"], "status": "sent" if sent["ok"] else "failed", "name": sent["name"], "modelSwitch": selection, "sendCommand": command, "tmuxSent": sent["ok"], "tmux": sent["tmux"]}
+
+
+def grok_build_tmux_capture(args: argparse.Namespace) -> dict[str, Any]:
+    name = grok_build_tmux_name(args)
+    proc = subprocess.run(["tmux", "capture-pane", "-pt", grok_build_tmux_target(name), "-S", str(getattr(args, "start", -80))], text=True, capture_output=True)
+    return {"ok": proc.returncode == 0, "name": name, "target": grok_build_tmux_target(name), "tmux": {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}}
+
+
+def grok_build_tmux_stop(args: argparse.Namespace) -> dict[str, Any]:
+    name = grok_build_tmux_name(args)
+    proc = subprocess.run(["tmux", "kill-session", "-t", name], text=True, capture_output=True)
+    state = {"ok": proc.returncode == 0, "name": name, "status": "stopped", "updatedAt": now(), "tmux": {"returncode": proc.returncode, "stderr": proc.stderr}}
+    write_json(grok_build_tmux_path(), state)
+    return state
+
+
 def team_dir() -> pathlib.Path:
     return STATE_DIR / "teams"
 
@@ -3562,9 +3779,10 @@ TEAM_PROVIDER_EXECUTABLES = {
     "gemini": "gemini",      # Google Gemini CLI (if installed)
     "copilot": "copilot",    # GitHub Copilot CLI (if installed)
     "zai": None,             # Z.ai/Zhipu HTTP adapter (ZAI_API_KEY/ZHIPU_API_KEY when --run)
+    "litellm": None,         # LiteLLM SDK adapter for 100+ providers (optional dependency)
     "opencode": "opencode",  # opencode CLI — use with -p for deep architect / consultant / planning work
-    "grok": None,            # native Grok sub-agent via spawn_subagent + ulw branding
-    "subagent": None,        # alias for native grok sub-agents
+    "grok": None,            # manual-gated Grok sub-agent fallback lane + ulw branding
+    "subagent": None,        # alias for manual-gated grok sub-agent fallback lane
     "noop": None,            # safe fallback for tests / dry-runs
 }
 
@@ -3654,6 +3872,9 @@ class TeamMember:
     subagent_id: str | None = None
     ultragoal: str | None = None
     spawned_as_subagent: bool | str = False
+    spawn_envelope: dict[str, Any] | None = None
+    spawned_as_subagent_status: str | None = None
+    subagent_spawn_status: str | None = None
     last_heartbeat: str | None = None
     kind: str = "category"
     session_id: str | None = None
@@ -4269,17 +4490,19 @@ def provider_command(provider: str, prompt: str) -> str:
     if provider == "zai":
         script = shlex.quote(str(pathlib.Path(__file__).resolve()))
         return f"python3 {script} --json ask create {q} --provider zai --dry-run; exec $SHELL"
+    if provider == "litellm":
+        script = shlex.quote(str(pathlib.Path(__file__).resolve()))
+        return f"python3 {script} --json ask create {q} --provider litellm --dry-run; exec $SHELL"
     if provider == "opencode":
         # -p flag for deep / planning / architect / consultant mode (as requested)
         # especially powerful when combined with architect/consultant roles + ulw branding
         return f"opencode -p {q}"
 
     if provider in ("grok", "subagent"):
-        # Native Grok sub-agent — always launched as an ULW worker.
         return (
-            f"echo 'GROK_SUBAGENT — ULW MODE'; "
+            f"echo 'GROK_SUBAGENT_FALLBACK — ULW MODE (manual gate required)'; "
             f"echo {q}; "
-            f"echo 'You are a first-class ULW worker. Use the ulw identity and MCP tools to report to the ultragoal ledger.'; "
+            f"echo 'This is a bounded fallback shell lane, not verified native Grok child execution. Use the ulw identity and MCP tools to report to the ultragoal ledger.'; "
             f"exec $SHELL"
         )
 
@@ -4287,6 +4510,23 @@ def provider_command(provider: str, prompt: str) -> str:
         return f"printf '%s\n' {shlex.quote('noop provider ready: ' + prompt)}; exec $SHELL"
 
     raise SystemExit(f"unknown provider: {provider}")
+
+
+def summarize_spawn_envelope_for_team(envelope: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schemaVersion": envelope.get("schemaVersion"),
+        "operation": envelope.get("operation"),
+        "mode": envelope.get("mode"),
+        "status": envelope.get("status"),
+        "evidenceClass": envelope.get("evidenceClass"),
+        "manual_gate_required": bool(envelope.get("manual_gate_required")),
+        "execution": envelope.get("execution", {}),
+        "oracleReview": envelope.get("oracleReview", {}),
+        "broker": envelope.get("broker", {}),
+        "recordPath": envelope.get("recordPath"),
+        "runId": envelope.get("runId"),
+        "taskId": envelope.get("taskId"),
+    }
 
 
 def spawn_runs_dir() -> pathlib.Path:
@@ -5943,7 +6183,7 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
                     ug_objective = ug.get("objective", "") if ug else ""
                     base += (
                         f" This team was spawned from ultragoal {ug_id} (leader objective: {ug_objective}). "
-                        "You are acting as a Grok sub-agent in an ultragoal-driven swarm (ulw mode). "
+                        "You are acting in a manual-gated Grok sub-agent fallback lane for an ultragoal-driven swarm (ulw mode). "
                         "When you have verifiable progress or complete a story, report back with: "
                         f"ulw ultragoal checkpoint --id {ug_id} --status complete --evidence \"<what you did + tests or artifacts>\" --story S001 (or the relevant story id). "
                         "Use the ultragoal ledger as the single source of truth for the leader."
@@ -5971,7 +6211,7 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
                     ug_objective = ug.get("objective", "") if ug else ""
                     base += (
                         f" This team was spawned from ultragoal {ug_id} (leader objective: {ug_objective}). "
-                        "You are acting as a Grok sub-agent in an ultragoal-driven swarm (ulw mode). "
+                        "You are acting in a manual-gated Grok sub-agent fallback lane for an ultragoal-driven swarm (ulw mode). "
                         "When you have verifiable progress or complete a story, report back with: "
                         f"ulw ultragoal checkpoint --id {ug_id} --status complete --evidence \"<what you did + tests or artifacts>\" --story S001 (or the relevant story id). "
                         "Use the ultragoal ledger as the single source of truth for the leader."
@@ -5996,41 +6236,21 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
                 "ultragoal": ug_id,
             }
 
-            # If this is a native Grok sub-agent request and we are not in dry-run,
-            # attempt to actually spawn it right now using the host's spawn_subagent capability.
-            # This is the core of "team mode = Grok sub-agent swarms under ulw".
-            if provider in ("grok", "subagent") and not args.dry_run:
-                # Only attempt real subagent spawn if the host Grok environment exposed the tool
-                spawn_fn = globals().get("spawn_subagent")
-                if callable(spawn_fn):
-                    try:
-                        sa_type = "plan" if is_deep else "general-purpose"
-                        # Strongly brand the native Grok sub-agent as an ULW worker
-                        ulw_description = (
-                            f"ULW worker ({role}) in LFG team '{name}' for ultragoal {ug_id or 'standalone'}. "
-                            f"Identity: ULW (LFG_LAUNCHER=ulw). "
-                            f"Report all progress using `ulw ultragoal checkpoint` or the grok_build_ultragoal MCP tool."
-                        )
-                        spawned = spawn_fn(
-                            prompt=member_prompt,
-                            description=ulw_description,
-                            subagent_type=sa_type,
-                            background=True,
-                        )
-                        subagent_id = None
-                        if isinstance(spawned, dict):
-                            subagent_id = spawned.get("subagent_id") or spawned.get("id")
-                        else:
-                            getter = getattr(spawned, "get", None)
-                            if callable(getter):
-                                subagent_id = getter("subagent_id") or getter("id")
-                        member["subagent_id"] = subagent_id
-                        member["spawned_as_subagent"] = True
-                    except Exception as e:
-                        member["subagent_spawn_error"] = str(e)
-                        member["spawned_as_subagent"] = False
-                else:
-                    member["spawned_as_subagent"] = "pending (call spawn_subagent from leader with the prepared prompt)"
+            if provider in ("grok", "subagent"):
+                spawn_envelope = spawn_agent(
+                    "hephaestus" if is_deep else "sisyphus-junior",
+                    category="deep" if is_deep else "quick",
+                    task=member_prompt,
+                    task_id=f"{name}-{member_name}",
+                    run_id=f"{name}-{member_name}-spawn",
+                    provider="openai" if is_deep else "xai",
+                    mode="native-grok",
+                    broker_depth=1,
+                )
+                member["spawn_envelope"] = summarize_spawn_envelope_for_team(spawn_envelope)
+                member["spawned_as_subagent"] = False
+                member["spawned_as_subagent_status"] = "manual_gate_required_fallback"
+                member["subagent_spawn_status"] = "manual-gated; canonical spawn_agent envelope recorded"
 
             members.append(member)
             global_idx += 1
@@ -6103,6 +6323,9 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
             command=m.get("command", ""),
             ultragoal=m.get("ultragoal"),
             spawned_as_subagent=m.get("spawned_as_subagent", False),
+            spawn_envelope=m.get("spawn_envelope"),
+            spawned_as_subagent_status=m.get("spawned_as_subagent_status"),
+            subagent_spawn_status=m.get("subagent_spawn_status"),
             subagent_id=m.get("subagent_id"),
             kind="subagent_type" if m.get("role") in OMO_TEAM_ELIGIBILITY_REGISTRY else "category",
         ) for i, m in enumerate(members)],
@@ -6284,17 +6507,17 @@ OMO_AGENT_REGISTRY: list[dict[str, Any]] = load_omo_agent_registry()
 _OMO_REGISTRY_INDEX: dict[str, dict[str, Any]] = {a["id"]: a for a in OMO_AGENT_REGISTRY}
 
 OMO_CATEGORY_MODEL_PROFILES: dict[str, dict[str, str]] = {
-    "quick": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
-    "unspecified-low": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "medium"},
-    "unspecified-high": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "ultrabrain": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "artistry": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "deep": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "xhigh"},
-    "writing": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "medium"},
-    "visual-engineering": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "planning": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "policy": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
-    "configuration": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
+    "quick": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "low"},
+    "unspecified-low": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "medium"},
+    "unspecified-high": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "high"},
+    "ultrabrain": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "high"},
+    "artistry": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "high"},
+    "deep": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "xhigh"},
+    "writing": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "medium"},
+    "visual-engineering": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "high"},
+    "planning": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "high"},
+    "policy": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "low"},
+    "configuration": {"provider": GROK_BUILD_NATIVE_PROVIDER, "model": "grok-build", "reasoning": "low"},
 }
 
 OMO_UPSTREAM_CATEGORY_NAMES = [
@@ -6375,7 +6598,7 @@ OMO_ROLE_FIT_POLICIES: dict[str, dict[str, Any]] = {
         "fallbackChain": [
             {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high", "roleFit": "Grok-first strategic/checklist default"},
             {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "high", "roleFit": "approved GPT-style optional lane"},
-            {"provider": "google", "model": "google/gemini-3.1-pro-preview", "reasoning": "high", "roleFit": "approved planning fallback"},
+            {"provider": "zai", "model": "zai-coding-plan/glm-5", "reasoning": "high", "roleFit": "approved bounded planning consultation lane"},
         ],
     },
     "deep-specialist": {
@@ -6387,11 +6610,10 @@ OMO_ROLE_FIT_POLICIES: dict[str, dict[str, Any]] = {
         ],
     },
     "visual-artistry": {
-        "reason": "visual/artistry role: preserve OMO's visual reasoning distinction with a high-reasoning Grok profile and approved Gemini/Z.ai alternatives",
+        "reason": "visual/artistry role: preserve OMO's visual reasoning distinction with a high-reasoning Grok profile and approved bounded Z.ai consultation lane",
         "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
         "fallbackChain": [
             {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high", "roleFit": "Grok-first visual/design default"},
-            {"provider": "google", "model": "google/gemini-3.1-pro-preview", "reasoning": "high", "roleFit": "approved Gemini-style visual lane"},
             {"provider": "zai", "model": "zai-coding-plan/glm-5", "reasoning": "medium", "roleFit": "approved bounded visual fallback"},
         ],
     },
@@ -6445,15 +6667,26 @@ def canonical_model_provider(provider: str) -> str:
     return MODEL_PROVIDER_ALIASES.get(provider, "xai" if provider == "grok" else provider)
 
 
+def route_model_profile_through_litellm(profile: dict[str, Any]) -> dict[str, Any]:
+    routed = dict(profile)
+    if canonical_model_provider(str(routed.get("provider") or "")) != DEFAULT_MODEL_PROVIDER:
+        routed["provider"] = DEFAULT_MODEL_PROVIDER
+    routed["model"] = str(routed.get("model") or PROVIDER_DEFAULT_MODELS[DEFAULT_MODEL_PROVIDER])
+    return routed
+
+
 def validate_model_provider_boundary(provider: str | None = None, model: str | None = None) -> dict[str, Any] | None:
     if provider and provider not in APPROVED_MODEL_PROVIDERS:
         return {"ok": False, "error": "unsupported model provider for LFG multi-provider OMO agents", "provider": provider, "known": sorted(APPROVED_MODEL_PROVIDERS)}
     if model and "/" in model:
         raw_provider = model.split("/", 1)[0]
         canonical = canonical_model_provider(raw_provider)
+        selected_provider = canonical_model_provider(provider) if provider else None
         if canonical not in APPROVED_MODEL_PROVIDERS:
+            if selected_provider == "litellm":
+                return None
             return {"ok": False, "error": "unsupported model provider in model override", "provider": raw_provider, "model": model, "known": sorted(APPROVED_MODEL_PROVIDERS)}
-        if provider and canonical_model_provider(provider) != canonical:
+        if selected_provider and selected_provider not in {canonical, "litellm"}:
             return {"ok": False, "error": "model override provider does not match selected provider", "provider": provider, "modelProvider": raw_provider, "model": model}
     return None
 
@@ -6539,6 +6772,15 @@ def resolve_omo_model_profile(
         profile = dict(agent["modelProfile"])
         selected_by = "agent"
 
+    selected_from_model_switch = False
+    if not provider and not model and agent.get("id") != "hephaestus":
+        current_selection = read_model_selection()
+        if current_selection.get("source") != "default":
+            provider = str(current_selection.get("provider") or "xai")
+            model = str(current_selection.get("model") or PROVIDER_DEFAULT_MODELS.get(provider, ""))
+            reasoning = reasoning or current_selection.get("reasoning")
+            selected_from_model_switch = True
+
     if provider:
         resolved_provider = canonical_model_provider(provider)
         profile["provider"] = resolved_provider
@@ -6546,8 +6788,8 @@ def resolve_omo_model_profile(
             if agent.get("id") == "hephaestus" and resolved_provider == "copilot":
                 profile["model"] = "github-copilot/gpt-5.5"
             else:
-                profile["model"] = PROVIDER_DEFAULT_MODELS[provider]
-        selected_by = "provider-override"
+                profile["model"] = PROVIDER_DEFAULT_MODELS[resolved_provider]
+        selected_by = "grok-build-model-switch" if selected_from_model_switch else "provider-override"
     else:
         profile.setdefault("provider", "xai")
     if model:
@@ -7554,7 +7796,7 @@ def main(argv: list[str] | None = None) -> int:
     setupp.add_argument("--dry-run", action="store_true")
     setupp.add_argument("--interactive", action="store_true", help="run the OMO-style provider setup wizard")
     setupp.add_argument("--no-tui", action="store_true", help="skip prompts and use explicit provider flags")
-    for provider_flag in ("openai", "zai", "copilot", "google", "codex"):
+    for provider_flag in ("openai", "zai", "copilot", "codex"):
         setupp.add_argument(f"--{provider_flag}", choices=["yes", "no"], help=f"enable {provider_flag} provider metadata during setup")
     setupp.set_defaults(fn=setup)
 

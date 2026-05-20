@@ -55,7 +55,7 @@ Example category definition (`deep.json`):
 
 This directly supports the user's goal:
 - **codex** for serious deep work (IZ, Grok consultant)
-- **gemini** for creative/artistic angles
+- Optional creative consultation lanes for artistic angles, without replacing the xAI/Grok Oracle gate
 - Keeps the system flexible to whatever the user has installed, while allowing strong defaults.
 
-This layer makes the "iz architect + deep (codex)" or "grok consultant + artistry (gemini)" combinations feel natural and powerful.
+This layer makes the "iz architect + deep (codex)" or "grok consultant + artistry" combinations feel natural while preserving mandatory xAI/Grok Oracle review.
