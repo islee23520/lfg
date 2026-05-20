@@ -2047,15 +2047,34 @@ def copy_plugin_tree(src: pathlib.Path, dest: pathlib.Path) -> None:
 
 SETUP_PROVIDER_WIZARD = [
     {
-        "flag": "litellm",
-        "kind": "litellm",
-        "id": "litellm-main",
-        "question": "Use LiteLLM as the router for every non-Grok model/provider?",
+        "flag": "openai",
+        "kind": "openai",
+        "id": "openai-main",
+        "question": "Do you have OpenAI access for GPT-style execution/consultation lanes?",
         "default": True,
     },
+    {
+        "flag": "zai",
+        "kind": "zai",
+        "id": "zai-main",
+        "question": "Do you have a Z.ai Coding Plan subscription?",
+        "default": False,
+    },
+    {
+        "flag": "copilot",
+        "kind": "copilot",
+        "id": "copilot-main",
+        "question": "Do you have a GitHub Copilot subscription?",
+        "default": False,
+    },
+    {
+        "flag": "codex",
+        "kind": "codex",
+        "id": "codex-main",
+        "question": "Do you have Codex CLI access for execution lanes?",
+        "default": False,
+    },
 ]
-
-
 def setup_choice_enabled(value: str | None) -> bool:
     return (value or "no").lower() in {"yes", "y", "true", "1", "on"}
 
@@ -3528,7 +3547,7 @@ def status(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def grok_build_wrapper_guide() -> dict[str, Any]:
-    diagram = "+-------------------- tmux session --------------------+
+    diagram = """+-------------------- tmux session --------------------+
 |                                                       |
 |  +----------------+    +--------------------------+   |
 |  | leader pane    | -> | worker pane: architect   |   |
@@ -3536,7 +3555,7 @@ def grok_build_wrapper_guide() -> dict[str, Any]:
 |  | dispatch       | -> | worker pane: reviewer    |   |
 |  +----------------+    +--------------------------+   |
 |                                                       |
-+-------------------------------------------------------+"
++-------------------------------------------------------+"""
     return {
         "topology": "[tmux [grok-build]]",
         "diagram": diagram,
