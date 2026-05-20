@@ -199,7 +199,7 @@ class RuntimeSmoke(unittest.TestCase):
             ("explore", None, "utility-runner", "xai", "medium"),
             ("librarian", None, "utility-runner", "xai", "medium"),
         ]
-        approved = {"codex", "copilot", "grok", "litellm", "openai", "xai", "zai"}
+        approved = {"codex", "copilot", "grok", "openai", "xai", "zai"}
         for agent_id, category, role_fit, provider, reasoning in cases:
             args = ["agents", "inspect", agent_id]
             if category:
@@ -2089,9 +2089,14 @@ esac
         self.assertIn("noop provider ready", module.provider_command("noop", "hello"))
         matrix = module.team_provider_matrix()
         providers = {row["provider"] for row in matrix}
-        expected = {"hermes", "claude", "codex", "gemini", "copilot", "zai", "opencode", "grok", "subagent", "noop", "litellm"}
+        expected = {"hermes", "claude", "codex", "gemini", "copilot", "zai", "opencode", "grok", "subagent", "noop"}
         self.assertEqual(expected, providers)
         self.assertTrue(next(row for row in matrix if row["provider"] == "noop")["available"])
+        for provider in ("grok", "subagent"):
+            row = next(item for item in matrix if item["provider"] == provider)
+            self.assertFalse(row["available"], row)
+            self.assertEqual(row["status"], "manual-gated")
+            self.assertTrue(row["manualGateRequired"])
         listed = self.run_lfg("team", "providers")
         self.assertTrue(listed["ok"])
         listed_providers = [row["provider"] for row in listed["providers"]]

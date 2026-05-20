@@ -1,10 +1,10 @@
-# Roadmap — `islee23520/lfg`
+# Roadmap — `LFG: OMO Agent Hierarchy Parity for Grok Build` 
 
 ## North Star
 
 Build **full OMO agent hierarchy parity for Grok Build**.
 
-`lfg` is no longer a Codex-workflow adaptation. The product target is to port the core [oh-my-openagent](https://github.com/sst/opencode/tree/dev/packages/oh-my-openagent) agent hierarchy and orchestration model into **Grok Build**, using Grok as the orchestrator/reviewer, approved optional coding providers for execution lanes, and Grok-native sub-agent spawning where available.
+`lfg` is no longer a Codex-workflow adaptation. The product target is to port the core [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) agent hierarchy and orchestration model into **Grok Build**, using Grok as the orchestrator/reviewer, approved optional coding providers for execution lanes, and Grok-native sub-agent spawning where available.
 
 Core constraints:
 

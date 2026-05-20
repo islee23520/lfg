@@ -332,10 +332,15 @@ TOOLS = [
     },
     {
         "name": "grok_build_models",
-        "description": "Show configured LFG model/provider profiles and env-name-only auth state.",
+        "description": "Show or switch LFG model routing. Grok Build is native; non-Grok models route through LiteLLM.",
         "inputSchema": {
             "type": "object",
-            "properties": {"provider": {"type": "string", "enum": ["xai", "grok", "codex", "copilot", "zai"]}},
+            "properties": {
+                "action": {"type": "string", "enum": ["show", "switch"], "default": "show"},
+                "provider": {"type": "string", "enum": ["litellm"]},
+                "model": {"type": "string"},
+                "reasoning": {"type": "string", "enum": ["low", "medium", "high", "xhigh"]}
+            },
             "additionalProperties": False
         },
     },
@@ -346,7 +351,7 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "action": {"type": "string", "enum": ["login"]},
-                "provider": {"type": "string", "enum": ["xai", "grok", "codex", "copilot", "zai"]},
+                "provider": {"type": "string", "enum": ["litellm"]},
                 "id": {"type": "string"},
                 "env": {"type": "string"},
                 "model": {"type": "string"}
@@ -362,7 +367,8 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "prompt": {"type": "string"},
-                "provider": {"type": "string", "enum": ["hermes", "claude", "codex", "gemini", "copilot", "zai", "opencode", "grok", "subagent", "noop"]},
+                "provider": {"type": "string", "enum": ["litellm"]},
+                "model": {"type": "string"},
                 "dryRun": {"type": "boolean", "default": True}
             },
             "required": ["prompt"],
@@ -1192,9 +1198,19 @@ def handle_tool(name, arguments=None):
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_models":
-        cmd = ["models"]
-        if arguments.get("provider"):
-            cmd += ["--provider", arguments["provider"]]
+        action = arguments.get("action") or "show"
+        if action == "switch":
+            cmd = ["models", "switch", arguments.get("model") or "grok-build"]
+            if arguments.get("provider"):
+                cmd += ["--provider", arguments["provider"]]
+            if arguments.get("reasoning"):
+                cmd += ["--reasoning", arguments["reasoning"]]
+        elif action == "show":
+            cmd = ["models", "show"]
+            if arguments.get("provider"):
+                cmd += ["--provider", arguments["provider"]]
+        else:
+            raise KeyError(action)
         return text_result(run_lfg_json(cmd, timeout=30))
     if name == "grok_build_auth":
         if arguments.get("action") != "login":
@@ -1208,6 +1224,8 @@ def handle_tool(name, arguments=None):
         cmd = [str(ROOT / "bin" / "lfg"), "--json", "ask", "create", arguments["prompt"]]
         if arguments.get("provider"):
             cmd += ["--provider", arguments["provider"]]
+        if arguments.get("model"):
+            cmd += ["--model", arguments["model"]]
         if arguments.get("dryRun", True):
             cmd += ["--dry-run"]
         else:

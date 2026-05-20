@@ -1,7 +1,7 @@
 # CLI Surface Evidence
 
 ## Provenance
-- binary: /Users/ilseoblee/.grok/bin/grok
+- binary: ~/.grok/bin/grok
 - sha256: 677fe9b629674bdc8e47f7ed01a640158cfbcf93bf735f07b02fd0308cf19bac
 - version: grok 0.1.211 (2f2cd6d5c2)
 - captured: 2026-05-18T07:04:00Z

@@ -7,13 +7,13 @@ Compare LFG's current `@docs/` story with the local Oh My OpenAgent reference tr
 Requested reference path:
 
 ```text
-/Users/ilseoblee/.config/opencode/plugins/oh-my-openagents
+~/.config/opencode/plugins/omo
 ```
 
 Actual local path used for this diff:
 
 ```text
-/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent
+~/.config/opencode/plugins/omo
 ```
 
 The requested plural path does not exist locally; the singular path is the installed reference repository.
@@ -35,19 +35,19 @@ The requested plural path does not exist locally; the singular path is the insta
 
 ### Oh My OpenAgent
 
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/AGENTS.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/README.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/docs/guide/overview.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/docs/guide/orchestration.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/docs/guide/team-mode.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/src/agents/AGENTS.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/src/agents/builtin-agents/AGENTS.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/src/tools/delegate-task/AGENTS.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/src/features/background-agent/AGENTS.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/src/features/team-mode/AGENTS.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/src/features/boulder-state/AGENTS.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/src/hooks/keyword-detector/AGENTS.md`
-- `/Users/ilseoblee/.config/opencode/plugins/oh-my-openagent/src/hooks/atlas/AGENTS.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/AGENTS.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/README.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/docs/guide/overview.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/docs/guide/orchestration.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/docs/guide/team-mode.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/src/agents/AGENTS.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/src/agents/builtin-agents/AGENTS.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/src/tools/delegate-task/AGENTS.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/src/features/background-agent/AGENTS.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/src/features/team-mode/AGENTS.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/src/features/boulder-state/AGENTS.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/src/hooks/keyword-detector/AGENTS.md`
+- `(https://github.com/code-yeongyu/oh-my-openagent/tree/dev/src/hooks/atlas/AGENTS.md`
 
 ## Executive Diff
 

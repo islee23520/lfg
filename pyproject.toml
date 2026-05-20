@@ -15,9 +15,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
 ]
-dependencies = [
-    "litellm>=1.85.0",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = ["ruff>=0.14.0"]
