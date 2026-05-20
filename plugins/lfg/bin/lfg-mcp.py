@@ -69,10 +69,21 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["create", "status", "resume", "shutdown", "providers", "preflight"]},
+                "action": {"type": "string", "enum": ["create", "delete", "shutdown_request", "approve_shutdown", "reject_shutdown", "send_message", "task_create", "task_list", "task_update", "task_get", "status", "list", "resume", "shutdown", "providers", "preflight"]},
                 "spec": {"type": "string", "description": "team spec like 3:executor"},
                 "objective": {"type": "string"},
                 "team": {"type": "string"},
+                "member": {"type": "string"},
+                "to": {"type": "string"},
+                "body": {"type": "string"},
+                "title": {"type": "string"},
+                "description": {"type": "string"},
+                "task": {"type": "string"},
+                "status": {"type": "string"},
+                "owner": {"type": "string"},
+                "actor": {"type": "string"},
+                "reason": {"type": "string"},
+                "evidence": {"type": "string"},
                 "query": {"type": "string"},
                 "providers": {"type": "string", "description": "comma list, default grok,subagent"},
                 "dryRun": {"type": "boolean", "default": True}
@@ -93,7 +104,8 @@ TOOLS = [
                 "tasks": {"type": "string"},
                 "task": {"type": "integer"},
                 "status": {"type": "string", "enum": ["pending", "active", "complete", "blocked"]},
-                "evidence": {"type": "string"}
+                "evidence": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -117,26 +129,90 @@ TOOLS = [
         },
     },
     {
-        "name": "grok_build_ultragoal",
-        "description": "Create/show/checkpoint durable Grok-native ultragoal state with a backing primitive goal.",
+        "name": "grok_build_spawn",
+        "description": "Spawn an OMO agent through the same lfg-native spawn adapter used by the CLI.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["create", "status", "show", "checkpoint", "spawn"]},
+                "agent": {"type": "string"},
+                "category": {"type": "string"},
+                "task": {"type": "string"},
+                "taskId": {"type": "string"},
+                "provider": {"type": "string"},
+                "model": {"type": "string"},
+                "reasoning": {"type": "string"},
+                "mode": {"type": "string", "enum": ["fallback", "native-grok"], "default": "fallback"}
+            },
+            "required": ["agent"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_provider",
+        "description": "List, show, or add provider/model metadata without storing secret values.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["list", "show", "add"]},
                 "id": {"type": "string"},
-                "objective": {"type": "string"},
-                "checklist": {"type": "string"},
-                "brief": {"type": "string"},
-                "story": {"type": "string"},
-                "spec": {"type": "string", "description": "team spec for spawn, e.g. 3:executor"},
-                "providers": {"type": "string", "description": "comma list for spawned team"},
-                "team": {"type": "string", "description": "team name for spawn"},
-                "dryRun": {"type": "boolean", "default": True},
-                "status": {"type": "string", "enum": ["active", "blocked", "complete", "cancelled"]},
-                "evidence": {"type": "string"},
-                "forceGate": {"type": "boolean", "default": False}
+                "kind": {"type": "string"},
+                "env": {"type": "string"},
+                "model": {"type": "string"}
             },
             "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_boulder",
+        "description": "Inspect Boulder state via the CLI-backed Atlas or ultragoal state surfaces.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["atlas_status", "ultragoal_show", "ultragoal_status"], "default": "atlas_status"},
+                "planId": {"type": "string"},
+                "sessionId": {"type": "string"},
+                "ultragoalId": {"type": "string"}
+            },
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_atlas",
+        "description": "Start, inspect, or update Atlas plan execution using the CLI parity surface.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["start-work", "status", "checkbox"]},
+                "planId": {"type": "string"},
+                "sessionId": {"type": "string"},
+                "task": {"type": "string"},
+                "status": {"type": "string", "enum": ["pending", "active", "blocked", "complete", "completed"]},
+                "evidence": {"type": "string"},
+                "learning": {"type": "string"},
+                "decision": {"type": "string"},
+                "issue": {"type": "string"},
+                "verification": {"type": "string"},
+                "problem": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
+            },
+            "required": ["action"],
+            "additionalProperties": False
+        },
+    },
+    {
+        "name": "grok_build_hyperplan",
+        "description": "Run the deterministic Hyperplan adversarial planning surface through the CLI.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "objective": {"type": "string"},
+                "runId": {"type": "string"},
+                "teamName": {"type": "string"},
+                "noDeep": {"type": "boolean", "default": False},
+                "dryRun": {"type": "boolean", "default": True}
+            },
+            "required": ["objective"],
             "additionalProperties": False
         },
     },
@@ -152,7 +228,8 @@ TOOLS = [
                 "maxIterations": {"type": "integer"},
                 "stopCondition": {"type": "string"},
                 "status": {"type": "string", "enum": ["active", "complete", "blocked"]},
-                "evidence": {"type": "string"}
+                "evidence": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -168,7 +245,8 @@ TOOLS = [
                 "worker": {"type": "string"},
                 "task": {"type": "string"},
                 "result": {"type": "string"},
-                "status": {"type": "string", "enum": ["complete", "blocked", "failed"]}
+                "status": {"type": "string", "enum": ["complete", "blocked", "failed"]},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -198,7 +276,8 @@ TOOLS = [
                 "id": {"type": "string"},
                 "question": {"type": "string"},
                 "url": {"type": "string"},
-                "note": {"type": "string"}
+                "note": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -328,7 +407,8 @@ TOOLS = [
                 "stages": {"type": "string", "description": "semicolon or newline separated stages"},
                 "stage": {"type": "integer"},
                 "status": {"type": "string", "enum": ["pending", "active", "complete", "blocked"]},
-                "note": {"type": "string"}
+                "note": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -345,7 +425,8 @@ TOOLS = [
                 "objective": {"type": "string"},
                 "phase": {"type": "integer"},
                 "status": {"type": "string", "enum": ["pending", "active", "complete", "blocked"]},
-                "evidence": {"type": "string"}
+                "evidence": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -366,7 +447,8 @@ TOOLS = [
                 "baseline": {"type": "number"},
                 "current": {"type": "number"},
                 "target": {"type": "number"},
-                "evidence": {"type": "string"}
+                "evidence": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -386,7 +468,8 @@ TOOLS = [
                 "threshold": {"type": "number"},
                 "score": {"type": "number"},
                 "status": {"type": "string", "enum": ["pass", "fail", "blocked"]},
-                "evidence": {"type": "string"}
+                "evidence": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -405,7 +488,8 @@ TOOLS = [
                 "hypotheses": {"type": "string"},
                 "verdict": {"type": "string", "enum": ["pass", "revise", "blocked"]},
                 "critic": {"type": "string"},
-                "evidence": {"type": "string"}
+                "evidence": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -481,7 +565,8 @@ TOOLS = [
                 "id": {"type": "string"},
                 "status": {"type": "string", "enum": ["active", "blocked", "complete", "cancelled"]},
                 "checklist": {"type": "string"},
-                "note": {"type": "string"}
+                "note": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -506,7 +591,8 @@ TOOLS = [
                 "evidence": {"type": "string"},
                 "story": {"type": "string"},
                 "goal_json": {"type": "string"},
-                "force_gate": {"type": "boolean"}
+                "force_gate": {"type": "boolean"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -525,21 +611,8 @@ TOOLS = [
                 "steps": {"type": "string"},
                 "verdict": {"type": "string", "enum": ["approve", "revise", "block"]},
                 "reviewer": {"type": "string"},
-                "evidence": {"type": "string"}
-            },
-            "required": ["action"],
-            "additionalProperties": False
-        },
-    },
-    {
-        "name": "grok_build_plan",
-        "description": "Create or list plans using the LFG runtime. On create: writes to .lfg/plans/ (.json + .md) and RETURNS rich self-contained `preview` object (full `markdown_content`, steps, interactive checkboxes metadata, render hints for popup/card). This enables automatic beautiful Markdown preview rendering (with checkboxes, edit actions etc) instead of raw paths. List returns summary.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {"type": "string", "enum": ["create", "list"]},
-                "title": {"type": "string"},
-                "steps": {"type": "string"}
+                "evidence": {"type": "string"},
+                "evidenceArtifactPaths": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["action"],
             "additionalProperties": False
@@ -673,6 +746,41 @@ def text_result(value):
     return {"content": [{"type": "text", "text": json.dumps(value, indent=2, ensure_ascii=False)}]}
 
 
+def run_lfg_json(args, timeout=30, launcher="lfg"):
+    executable = ROOT / "bin" / launcher
+    cmd = [str(executable), "--json"] + list(args)
+    proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout)
+    parsed = None
+    parse_error = None
+    stdout = proc.stdout.strip()
+    if stdout:
+        try:
+            parsed = json.loads(stdout)
+        except json.JSONDecodeError as exc:
+            parse_error = str(exc)
+    status = "ok" if proc.returncode == 0 and parse_error is None else "error"
+    return {
+        "ok": status == "ok",
+        "status": status,
+        "cmd": cmd,
+        "returncode": proc.returncode,
+        "data": parsed,
+        "stdout": proc.stdout,
+        "stderr": proc.stderr,
+        "stdoutJson": parse_error is None,
+        "parseError": parse_error,
+    }
+
+
+def append_evidence_artifacts(cmd, arguments):
+    paths = arguments.get("evidenceArtifactPaths") or arguments.get("evidenceArtifacts") or []
+    if isinstance(paths, str):
+        paths = [paths]
+    for path in paths:
+        if path:
+            cmd += ["--evidence-artifact", str(path)]
+
+
 def handle_tool(name, arguments=None):
     arguments = arguments or {}
     if name == "grok_build_catalog":
@@ -723,7 +831,7 @@ def handle_tool(name, arguments=None):
 
     if name == "grok_build_agents":
         action = arguments.get("action")
-        cmd = [str(ROOT / "bin" / "lfg"), "--json", "agents"]
+        cmd = ["agents"]
         if action == "list":
             cmd += ["list"]
         elif action == "inspect":
@@ -733,12 +841,80 @@ def handle_tool(name, arguments=None):
                     cmd += [flag, arguments[key]]
         else:
             raise KeyError(action)
-        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
-        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+        return text_result(run_lfg_json(cmd, timeout=20))
+    if name == "grok_build_spawn":
+        cmd = ["spawn", arguments["agent"]]
+        for key, flag in (("category", "--category"), ("task", "--task"), ("provider", "--provider"), ("model", "--model"), ("reasoning", "--reasoning"), ("mode", "--mode")):
+            if arguments.get(key):
+                cmd += [flag, arguments[key]]
+        if arguments.get("taskId"):
+            cmd += ["--task-id", arguments["taskId"]]
+        return text_result(run_lfg_json(cmd, timeout=30))
+    if name == "grok_build_provider":
+        action = arguments.get("action")
+        cmd = ["provider"]
+        if action == "list":
+            cmd += ["list"]
+        elif action == "show":
+            cmd += ["show", arguments.get("id") or "default"]
+        elif action == "add":
+            cmd += ["add"]
+            for key, flag in (("id", "--id"), ("kind", "--kind"), ("env", "--env"), ("model", "--model")):
+                if arguments.get(key):
+                    cmd += [flag, arguments[key]]
+        else:
+            raise KeyError(action)
+        return text_result(run_lfg_json(cmd, timeout=30))
+    if name == "grok_build_boulder":
+        action = arguments.get("action") or "atlas_status"
+        if action == "atlas_status":
+            cmd = ["atlas", "status"]
+            if arguments.get("planId"):
+                cmd += ["--plan-id", arguments["planId"]]
+            if arguments.get("sessionId"):
+                cmd += ["--session-id", arguments["sessionId"]]
+        elif action == "ultragoal_show":
+            cmd = ["ultragoal", "show"]
+            if arguments.get("ultragoalId"):
+                cmd += ["--id", arguments["ultragoalId"]]
+        elif action == "ultragoal_status":
+            cmd = ["ultragoal", "status"]
+            if arguments.get("ultragoalId"):
+                cmd += ["--id", arguments["ultragoalId"]]
+        else:
+            raise KeyError(action)
+        return text_result(run_lfg_json(cmd, timeout=30))
+    if name == "grok_build_atlas":
+        action = arguments.get("action")
+        cmd = ["atlas"]
+        if action in {"start-work", "status"}:
+            cmd += [action]
+            if arguments.get("planId"):
+                cmd += ["--plan-id", arguments["planId"]]
+            if arguments.get("sessionId"):
+                cmd += ["--session-id", arguments["sessionId"]]
+        elif action == "checkbox":
+            cmd += ["checkbox", "--task", arguments.get("task") or "1", "--status", arguments.get("status") or "active"]
+            for key, flag in (("planId", "--plan-id"), ("sessionId", "--session-id"), ("evidence", "--evidence"), ("learning", "--learning"), ("decision", "--decision"), ("issue", "--issue"), ("verification", "--verification"), ("problem", "--problem")):
+                if arguments.get(key):
+                    cmd += [flag, arguments[key]]
+            append_evidence_artifacts(cmd, arguments)
+        else:
+            raise KeyError(action)
+        return text_result(run_lfg_json(cmd, timeout=30))
+    if name == "grok_build_hyperplan":
+        cmd = ["hyperplan", arguments["objective"]]
+        if arguments.get("runId"):
+            cmd += ["--run-id", arguments["runId"]]
+        if arguments.get("teamName"):
+            cmd += ["--team-name", arguments["teamName"]]
+        if arguments.get("noDeep"):
+            cmd += ["--no-deep"]
+        if arguments.get("dryRun", True):
+            cmd += ["--dry-run"]
+        return text_result(run_lfg_json(cmd, timeout=45))
     if name == "grok_build_doctor":
-        cmd = [str(ROOT / "bin" / "lfg"), "--json", "doctor"]
-        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
-        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+        return text_result(run_lfg_json(["doctor"], timeout=30))
     if name == "grok_build_hook_bridge":
         action = arguments.get("action")
         cmd = [str(ROOT / "bin" / "lfg"), "--json", "hook-bridge"]
@@ -780,8 +956,42 @@ def handle_tool(name, arguments=None):
             cmd += [action]
             if arguments.get("team"):
                 cmd += [arguments["team"]]
+        elif action == "list":
+            cmd += ["list"]
+        elif action == "delete":
+            cmd += ["delete", arguments["team"]]
+        elif action == "send_message":
+            cmd += ["send-message", arguments["team"], arguments.get("to") or "leader", arguments.get("body") or ""]
+        elif action == "task_create":
+            cmd += ["task-create", arguments["team"], arguments.get("title") or "team task"]
+            if arguments.get("description"):
+                cmd += ["--description", arguments["description"]]
+            if arguments.get("owner"):
+                cmd += ["--owner", arguments["owner"]]
+        elif action == "task_list":
+            cmd += ["task-list", arguments["team"]]
+        elif action == "task_update":
+            cmd += ["task-update", arguments["team"], arguments["task"]]
+            if arguments.get("status"):
+                cmd += ["--status", arguments["status"]]
+            if arguments.get("owner"):
+                cmd += ["--owner", arguments["owner"]]
+            if arguments.get("evidence"):
+                cmd += ["--evidence", arguments["evidence"]]
+        elif action == "task_get":
+            cmd += ["task-get", arguments["team"], arguments["task"]]
+        elif action == "shutdown_request":
+            cmd += ["shutdown-request", arguments["team"], arguments["member"]]
+            if arguments.get("reason"):
+                cmd += ["--reason", arguments["reason"]]
+        elif action == "approve_shutdown":
+            cmd += ["approve-shutdown", arguments["team"], arguments["member"]]
+        elif action == "reject_shutdown":
+            cmd += ["reject-shutdown", arguments["team"], arguments["member"]]
         else:
             raise KeyError(action)
+        if arguments.get("actor") and action not in {"providers", "preflight", "status", "list", "resume", "shutdown"}:
+            cmd += ["--actor", arguments["actor"]]
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_ultrawork":
@@ -799,6 +1009,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--id", arguments["id"]]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
+            append_evidence_artifacts(cmd, arguments)
         elif action == "show":
             cmd += ["show"]
             if arguments.get("id"):
@@ -832,6 +1043,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--evidence", arguments["evidence"]]
             if arguments.get("forceGate"):
                 cmd += ["--force-gate"]
+            append_evidence_artifacts(cmd, arguments)
         elif action == "spawn":
             cmd += ["spawn", arguments.get("objective") or "ultragoal swarm task"]
             if arguments.get("spec"):
@@ -867,6 +1079,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--id", arguments["id"]]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
+            append_evidence_artifacts(cmd, arguments)
         elif action == "show":
             cmd += ["show"]
             if arguments.get("id"):
@@ -884,6 +1097,7 @@ def handle_tool(name, arguments=None):
             cmd += ["result", arguments.get("worker") or "worker-1", arguments.get("result") or "done"]
             if arguments.get("status"):
                 cmd += ["--status", arguments["status"]]
+            append_evidence_artifacts(cmd, arguments)
         elif action == "status":
             cmd += ["status"]
             if arguments.get("worker"):
@@ -978,20 +1192,18 @@ def handle_tool(name, arguments=None):
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
     if name == "grok_build_models":
-        cmd = [str(ROOT / "bin" / "lfg"), "--json", "models"]
+        cmd = ["models"]
         if arguments.get("provider"):
             cmd += ["--provider", arguments["provider"]]
-        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
-        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+        return text_result(run_lfg_json(cmd, timeout=30))
     if name == "grok_build_auth":
         if arguments.get("action") != "login":
             raise KeyError(arguments.get("action"))
-        cmd = [str(ROOT / "bin" / "lfg"), "--json", "auth", "login", arguments["provider"]]
+        cmd = ["auth", "login", arguments["provider"]]
         for key, flag in (("id", "--id"), ("env", "--env"), ("model", "--model")):
             if arguments.get(key):
                 cmd += [flag, arguments[key]]
-        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
-        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+        return text_result(run_lfg_json(cmd, timeout=30))
     if name == "grok_build_ask":
         cmd = [str(ROOT / "bin" / "lfg"), "--json", "ask", "create", arguments["prompt"]]
         if arguments.get("provider"):
@@ -1043,6 +1255,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--id", arguments["id"]]
             if arguments.get("note"):
                 cmd += ["--note", arguments["note"]]
+            append_evidence_artifacts(cmd, arguments)
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
@@ -1060,6 +1273,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--id", arguments["id"]]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
+            append_evidence_artifacts(cmd, arguments)
         elif action == "show":
             cmd += ["show"]
             if arguments.get("id"):
@@ -1087,6 +1301,7 @@ def handle_tool(name, arguments=None):
                     cmd += [f"--{key}", str(arguments[key])]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
+            append_evidence_artifacts(cmd, arguments)
         elif action == "show":
             cmd += ["show"]
             if arguments.get("id"):
@@ -1113,6 +1328,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--id", arguments["id"]]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
+            append_evidence_artifacts(cmd, arguments)
         elif action == "show":
             cmd += ["show"]
             if arguments.get("id"):
@@ -1139,6 +1355,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--critic", arguments["critic"]]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
+            append_evidence_artifacts(cmd, arguments)
         elif action == "show":
             cmd += ["show"]
             if arguments.get("id"):
@@ -1211,6 +1428,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--id", arguments["id"]]
             if arguments.get("note"):
                 cmd += ["--note", arguments["note"]]
+            append_evidence_artifacts(cmd, arguments)
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
@@ -1241,8 +1459,9 @@ def handle_tool(name, arguments=None):
                 cmd += ["--story", arguments["story"]]
             if arguments.get("goal_json"):
                 cmd += ["--goal-json", arguments["goal_json"]]
-            if arguments.get("force_gate"):
+            if arguments.get("force_gate") or arguments.get("forceGate"):
                 cmd += ["--force-gate"]
+            append_evidence_artifacts(cmd, arguments)
         elif action == "show":
             cmd += ["show"]
             if arguments.get("id"):
@@ -1281,6 +1500,7 @@ def handle_tool(name, arguments=None):
                 cmd += ["--reviewer", arguments["reviewer"]]
             if arguments.get("evidence"):
                 cmd += ["--evidence", arguments["evidence"]]
+            append_evidence_artifacts(cmd, arguments)
         else:
             raise KeyError(action)
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
@@ -1288,7 +1508,7 @@ def handle_tool(name, arguments=None):
 
     if name == "grok_build_plan":
         action = arguments.get("action")
-        cmd = [str(ROOT / "bin" / "lfg"), "--json", "plan"]
+        cmd = ["plan"]
         if action == "create":
             cmd += ["create", arguments.get("title") or "Untitled plan"]
             if arguments.get("steps"):
@@ -1297,24 +1517,14 @@ def handle_tool(name, arguments=None):
             cmd += ["list"]
         else:
             raise KeyError(action)
-        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
-        payload = {
-            "cmd": cmd,
-            "returncode": proc.returncode,
-            "stdout": proc.stdout,
-            "stderr": proc.stderr,
-        }
-        if action == "create" and proc.returncode == 0 and proc.stdout:
-            try:
-                plan_obj = json.loads(proc.stdout)
-                payload["plan"] = plan_obj
-                if isinstance(plan_obj, dict) and "preview" in plan_obj:
-                    payload["preview"] = plan_obj["preview"]
-                    payload["note"] = "Rich plan preview ready for popup/card render (full markdown + interactive steps metadata included; self-contained)."
-                else:
-                    payload["note"] = "Plan created; preview available in parsed plan object."
-            except Exception:
-                payload["note"] = "Plan written to .lfg/plans/ (both .json and .md). Rich preview in stdout JSON."
+        payload = run_lfg_json(cmd, timeout=30)
+        if action == "create" and payload.get("data"):
+            payload["plan"] = payload["data"]
+            if isinstance(payload["data"], dict) and "preview" in payload["data"]:
+                payload["preview"] = payload["data"]["preview"]
+                payload["note"] = "Rich plan preview ready for popup/card render (full markdown + interactive steps metadata included; self-contained)."
+            else:
+                payload["note"] = "Plan created; preview available in parsed plan object."
         else:
             payload["note"] = "Plan written to .lfg/plans/ (both .json and .md). Open the .md file to work on the plan."
         return text_result(payload)
@@ -1343,9 +1553,9 @@ def handle_tool(name, arguments=None):
         return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
 
     if name == "grok_build_omo_agent_catalog":
-        cmd = [str(ROOT / "bin" / "lfg"), "--json", "agents", "list"]
-        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=20)
-        payload = json.loads(proc.stdout or "{}") if proc.stdout.strip() else {}
+        result = run_lfg_json(["agents", "list"], timeout=20)
+        cmd = result["cmd"]
+        payload = result.get("data") or {}
         agents = list(payload.get("agents", [])) if isinstance(payload, dict) else []
         agent_filter = arguments.get("filter", "all")
         if agent_filter == "eligible_team_members":
@@ -1363,25 +1573,26 @@ def handle_tool(name, arguments=None):
                 agent.pop("teamEligibility", None)
                 agent.pop("teamMemberEligible", None)
                 agent.pop("teamMemberConditional", None)
-        return text_result({"cmd": cmd, "source": "plugins/lfg/src/agents", "filter": agent_filter, "withEligibility": bool(arguments.get("with_eligibility", True)), "agents": agents, "count": len(agents), "stderr": proc.stderr, "returncode": proc.returncode})
+        return text_result({**result, "source": "plugins/lfg/src/agents", "filter": agent_filter, "withEligibility": bool(arguments.get("with_eligibility", True)), "agents": agents, "count": len(agents)})
 
     if name == "grok_build_omo_team_create":
         objective = arguments.get("objective") or "OMO huge orchestration"
         spec = arguments.get("spec") or ("hyperplan" if arguments.get("hyperplan") else "3:executor")
-        cmd = [str(ROOT / "bin" / "ulw"), "--json", "team", "create", spec, objective]
+        cmd = ["team", "create", spec, objective]
         if arguments.get("name"):
             cmd += ["--name", arguments["name"]]
         if arguments.get("providers"):
             cmd += ["--providers", arguments["providers"]]
         if arguments.get("dryRun", True):
             cmd += ["--dry-run"]
-        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=45)
-        return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr, "note": "Hyperplan/OMO agent expansion handled by lfg team_create + TeamRuntime when spec contains hyperplan or template"})
+        result = run_lfg_json(cmd, timeout=45, launcher="ulw")
+        result["note"] = "Hyperplan/OMO agent expansion handled by lfg team_create + TeamRuntime when spec contains hyperplan or template"
+        return text_result(result)
 
     if name == "grok_build_omo_ulw":
         act = arguments.get("action", "create")
         if act in ("create", "show"):
-            cmd = [str(ROOT / "bin" / "ulw"), "--json", "ultrawork"]
+            cmd = ["ultrawork"]
             if act == "create":
                 cmd += ["create", arguments.get("objective") or "lfg ultrawork via MCP"]
                 if arguments.get("id"):
@@ -1392,20 +1603,18 @@ def handle_tool(name, arguments=None):
                 cmd += ["show"]
                 if arguments.get("id"):
                     cmd += ["--id", arguments["id"]]
-            proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
-            return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+            return text_result(run_lfg_json(cmd, timeout=30, launcher="ulw"))
         if act == "hyperplan-sim":
-            cmd = [str(ROOT / "bin" / "ulw"), "--json", "team", "create", "3:executor", arguments.get("objective") or "hyperplan simulation via lfg MCP", "--providers", "grok,subagent", "--dry-run"]
-            proc = subprocess.run(cmd, text=True, capture_output=True, timeout=30)
-            return text_result({"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
+            cmd = ["team", "create", "3:executor", arguments.get("objective") or "hyperplan simulation via lfg MCP", "--providers", "grok,subagent", "--dry-run"]
+            return text_result(run_lfg_json(cmd, timeout=30, launcher="ulw"))
         if act == "intent":
             return text_result({"ok": True, "source": "lfg-native", "message": arguments.get("message") or "", "model": arguments.get("model", "grok"), "note": "Intent preamble handling is provided by the lfg/ulw runtime, not an archived reference tree."})
         return text_result({"error": "unsupported omo_ulw action", "action": act})
 
     if name == "grok_build_omo_doctor":
-        cmd = [str(ROOT / "bin" / "lfg"), "--json", "doctor"]
-        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=25)
-        return text_result({"cmd": cmd, "source": "lfg doctor", "stdout": proc.stdout, "stderr": proc.stderr, "returncode": proc.returncode})
+        result = run_lfg_json(["doctor"], timeout=25)
+        result["source"] = "lfg doctor"
+        return text_result(result)
 
     raise KeyError(name)
 

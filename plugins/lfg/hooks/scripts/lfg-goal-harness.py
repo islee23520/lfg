@@ -39,6 +39,7 @@ HARNESS_DIR.mkdir(parents=True, exist_ok=True)
 
 INJECTION_FILE = HARNESS_DIR / "active_injection.txt"
 INJECTION_META = HARNESS_DIR / "last_turn.json"
+TODO_REMINDER_STATE = HARNESS_DIR / "todo-continuation.json"
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
 
@@ -100,6 +101,80 @@ def task_is_pending(task: Dict[str, Any]) -> bool:
 
 def message_is_evidence(message: Dict[str, Any]) -> bool:
     return message.get("type") in ("evidence", "evidence_submission", "submit_evidence", "checkpoint")
+
+
+def evidence_identity(message: Dict[str, Any]) -> str:
+    for key in ("id", "ts", "timestamp", "created_at", "updated_at"):
+        if message.get(key):
+            return str(message.get(key))
+    return json.dumps(message, ensure_ascii=False, sort_keys=True)[:500]
+
+
+def progress_evidence_fingerprint(snapshot: Dict[str, Any]) -> str:
+    parts: List[str] = []
+    boulder = snapshot.get("boulder") or {}
+    for evidence in boulder.get("recent_evidence", []) if isinstance(boulder.get("recent_evidence"), list) else []:
+        if isinstance(evidence, dict):
+            parts.append(evidence_identity(evidence))
+        elif evidence:
+            parts.append(str(evidence)[:500])
+    for run in snapshot.get("active_runs", []) or []:
+        for evidence in run.get("recent_evidence", []) or []:
+            if isinstance(evidence, dict):
+                parts.append(evidence_identity(evidence))
+            elif evidence:
+                parts.append(str(evidence)[:500])
+    return "|".join(parts[-10:])
+
+
+def incomplete_todo_items(snapshot: Dict[str, Any]) -> List[str]:
+    items: List[str] = []
+    boulder = snapshot.get("boulder") or {}
+    for action in boulder.get("next_actions", []) if isinstance(boulder.get("next_actions"), list) else []:
+        if isinstance(action, dict) and task_is_pending(action):
+            label = action.get("goal") or action.get("text") or action.get("task") or action.get("id") or "pending boulder action"
+            status = action.get("status") or "pending"
+            items.append(f"- [ ] {label} ({status})")
+    for run in snapshot.get("active_runs", []) or []:
+        mode = run.get("mode", "run")
+        for task in run.get("pending_tasks", []) or []:
+            label = task.get("title") or task.get("task") or task.get("text") or task.get("id") or "pending task"
+            status = task.get("status") or "pending"
+            items.append(f"- [ ] [{mode}] {label} ({status})")
+    return items[:8]
+
+
+def todo_continuation_reminder(snapshot: Dict[str, Any], event: str) -> str:
+    if event.lower() not in {"posttooluse", "stop", "precompact", "userpromptsubmit"}:
+        return ""
+    todos = incomplete_todo_items(snapshot)
+    if not todos:
+        return ""
+    evidence_fp = progress_evidence_fingerprint(snapshot)
+    if not evidence_fp:
+        return ""
+    pending_fp = "|".join(todos)
+    state = read_json(TODO_REMINDER_STATE, {}) or {}
+    if state.get("pendingFingerprint") == pending_fp and state.get("evidenceFingerprint") == evidence_fp:
+        return ""
+    record = {
+        "event": event,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "pendingFingerprint": pending_fp,
+        "evidenceFingerprint": evidence_fp,
+        "todoCount": len(todos),
+    }
+    try:
+        TODO_REMINDER_STATE.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    except Exception:
+        return ""
+    return """[SYSTEM REMINDER - TODO CONTINUATION]
+
+You have incomplete todos and new progress evidence. Complete ALL before responding as finished:
+%s
+
+Do not claim completion until every todo is completed and backed by concrete evidenceArtifactPaths.
+This reminder is bounded: it only reappears after new progress evidence changes.""" % "\n".join(todos)
 
 
 def find_active_runs() -> List[Dict[str, Any]]:
@@ -362,7 +437,10 @@ def build_aggressive_injection(snapshot: Dict[str, Any], user_prompt: str, event
 
     # === LINA OPERATIONAL PROTOCOL (OMo EXACT BEHAVIOR) ===
     # This is the core of making LFG run exactly like real oh-my-openagent.
-    injection = f"""=== LFG ACTIVE GOAL HARNESS — LINA PROTOCOL (OMo EXACT) ===
+    continuation = todo_continuation_reminder(snapshot, event)
+    continuation_block = f"{continuation}\n\n" if continuation else ""
+
+    injection = f"""{continuation_block}=== LFG ACTIVE GOAL HARNESS — LINA PROTOCOL (OMo EXACT) ===
 This block is produced by the harness. It is MANDATORY. You are now Lina.
 
 You are Lina — The Discipline Agent. (Lineage: Sisyphus of OmO/OMX)
@@ -405,28 +483,28 @@ You MUST do the following every turn:
 The boulder block **must be the last thing you output** in this turn, wrapped exactly like this:
 
 ```boulder
-{
+{{
   "version": 1,
   "ultragoal_id": "...",
   "last_updated_by": "lina",
   "last_updated_at": "current ISO time",
   "current_objective": "...",
   "status_summary": "...",
-  "boulder_position": { "progress": 0-100, "phase": "..." },
+  "boulder_position": {{ "progress": 0-100, "phase": "..." }},
   "open_questions": [...],
   "blockers": [...],
   "next_actions": [
-    {
+    {{
       "id": "NA-xx",
       "owner": "gonow | iz | lina",
       "goal": "high-level goal (not a recipe)",
       "success_criteria": "what must be proven with evidence",
       "status": "pending | in_progress | done"
-    }
+    }}
   ],
   "recent_evidence": [...],
   "sisyphus_notes": "..."
-}
+}}
 ```
 
 If you do not output a valid ```boulder block at the very end, the boulder is considered not updated this turn. This is non-negotiable under Direction A.
@@ -517,6 +595,15 @@ def main() -> int:
         "ultragoal_id": (snapshot.get("ultragoal") or {}).get("id"),
         "num_active_runs": len(snapshot.get("active_runs", [])),
         "boulder_auto_persisted_this_turn": bool(snapshot.get("boulder")),
+        "todo_continuation_reminder": "[SYSTEM REMINDER - TODO CONTINUATION]" in injection,
+        "recovery_hooks": [
+            "todo-continuation",
+            "prometheus-markdown-only",
+            "start-work-resumption",
+            "provider-fallback-manual-gate",
+            "evidence-recovery",
+            "state-resumption",
+        ],
     }
     write_injection_artifacts(injection, meta)
 

@@ -74,13 +74,13 @@ This positions LFG as a **distinct but compatible** evolution in the agent orche
 
 ---
 
-## 6. Next Actions After This Document
+## 6. Implementation Status (M13 Lock)
 
-- Finalize the Agent Definition + Category schemas (add explicit "deep" for Hephaestus-style autoresearch)
-- Implement minimal registry + loader
-- Add `hyperplan` as the first official team template (and hyperplan-research variant for autoresearch-goal)
-- Start wiring AST-Grep and LSP as first-class tools for `iz` and `grok` agents
-- Document the philosophy clearly so future contributors understand the LFG vs OmO difference
-- Port OMO durable research patterns (Prometheus interview + Momus critic + notepads + boulder) into /autoresearch-goal and .lfg/research/ (see ARCHITECTURE.md "OMO Research & Durable Workflow Patterns" + 7 concrete recs)
+- [x] Finalize the Agent Definition + Category schemas (done — `plugins/lfg/src/agents/*.json`).
+- [x] Implement minimal registry + loader (done — `load_omo_agent_registry()` in `lfg.py`).
+- [x] Add `hyperplan` as the first official team template (done — `hyperplan` skill + CLI).
+- [x] Start wiring AST-Grep and LSP as first-class tools for `iz` and `grok` agents (done — OMO agent toolsets).
+- [x] Document the philosophy clearly (done — this document).
+- [x] Port OMO durable research patterns (Prometheus interview + Momus critic + notepads + boulder) into `ulw` and `.lfg/` (done — `ulw` skill, `start-work` skill, Boulder state).
 
 This comparison will live in the PR as `docs/agent-system/omo-parity-comparison.md`. Cross-reference: docs/ARCHITECTURE.md for OMO dev-branch synthesis on Hephaestus/Prometheus/deep category/boulder/notepads/hyperplan for autoresearch-goal.

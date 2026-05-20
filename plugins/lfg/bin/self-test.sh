@@ -58,7 +58,7 @@ assert "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24" in workflow
 
 release_notes = (repo / "docs/MARKETPLACE_RELEASE_NOTES.md").read_text()
 assert "islee23520/lfg" in release_notes
-assert "lfg 0.3.0" in release_notes
+assert "lfg 0.4.0" in release_notes
 assert "/plugins" in release_notes
 assert (repo / "docs/MARKETPLACE_INSTALL.md").exists()
 
@@ -88,6 +88,19 @@ if grep -E 'xai-SECRET|ghp_SECRET' "$LOG" >/dev/null; then
   exit 1
 fi
 echo "hook-smoke=ok log=$LOG"
+
+HOOK_TMP="$TMP/hook-continuation"
+mkdir -p "$HOOK_TMP/state" "$HOOK_TMP/ultragoal/ug-selftest"
+printf '{"id":"ug-selftest","objective":"finish continuation fixture"}' >"$HOOK_TMP/state/current-ultragoal.json"
+printf '{"ultragoal_id":"ug-selftest","next_actions":[{"id":"NA-1","goal":"Finish incomplete fixture","status":"in_progress"}],"recent_evidence":[{"ts":"2026-05-20T00:00:00Z","path":"evidence.txt"}]}' >"$HOOK_TMP/ultragoal/ug-selftest/boulder.json"
+INCOMPLETE_OUTPUT="$(printf '{"prompt":"continue"}' | GROK_PLUGIN_ROOT="$ROOT" GROK_PLUGIN_DATA="$HOOK_TMP" GROK_HOOK_EVENT=PostToolUse "$ROOT/hooks/scripts/lfg-goal-harness.sh")"
+SECOND_OUTPUT="$(printf '{"prompt":"continue"}' | GROK_PLUGIN_ROOT="$ROOT" GROK_PLUGIN_DATA="$HOOK_TMP" GROK_HOOK_EVENT=PostToolUse "$ROOT/hooks/scripts/lfg-goal-harness.sh")"
+printf '{"ultragoal_id":"ug-selftest","next_actions":[{"id":"NA-1","goal":"Finish incomplete fixture","status":"completed"}],"recent_evidence":[{"ts":"2026-05-20T00:00:01Z","path":"evidence.txt"}]}' >"$HOOK_TMP/ultragoal/ug-selftest/boulder.json"
+COMPLETED_OUTPUT="$(printf '{"prompt":"continue"}' | GROK_PLUGIN_ROOT="$ROOT" GROK_PLUGIN_DATA="$HOOK_TMP" GROK_HOOK_EVENT=PostToolUse "$ROOT/hooks/scripts/lfg-goal-harness.sh")"
+case "$INCOMPLETE_OUTPUT" in *"[SYSTEM REMINDER - TODO CONTINUATION]"*) ;; *) echo "todo-continuation=missing" >&2; exit 1 ;; esac
+case "$SECOND_OUTPUT" in *"[SYSTEM REMINDER - TODO CONTINUATION]"*) echo "todo-continuation=repeated-without-progress" >&2; exit 1 ;; esac
+case "$COMPLETED_OUTPUT" in *"[SYSTEM REMINDER - TODO CONTINUATION]"*) echo "todo-continuation=completed-state" >&2; exit 1 ;; esac
+echo "todo-continuation=ok"
 
 python3 -m ruff check "$REPO"
 echo "ruff-check=ok"

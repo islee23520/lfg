@@ -9,17 +9,17 @@
 | **Sisyphus** | orchestrator | Main orchestrator. Owns user intent, dispatches specialists, tracks completion, enforces verification, and persists progress through Boulder. | high | quick, unspecified-*, ultrabrain, deep, artistry, visual-engineering, planning |
 | **Sisyphus-Junior** | executor | Bounded category executor. Executes a focused task within one category, verifies its own changes, and does not become a second unconstrained orchestrator. | medium / high (by category) | quick, unspecified-low, writing, visual-engineering |
 | **Prometheus** | planner | Strategic planner. Interviews, clarifies scope, reads context, and produces a verifiable plan before implementation starts. | high | planning |
-| **Hephaestus** | deep-worker | Autonomous deep worker. Receives goals (not recipes), researches, implements, and verifies difficult work with strong evidence discipline. | high | deep, ultrabrain, artistry |
+| **Hephaestus** | deep-worker | Autonomous deep worker. Receives goals (not recipes), researches, implements, and verifies difficult work with strong evidence discipline. Requires approved GPT-style deep-specialist profile. | medium | deep, ultrabrain, artistry |
 | **Atlas** | checklist | Todo-list orchestrator. Reads a plan, executes dependency waves, updates checkboxes, verifies every step, and continues until the checklist is complete. | high | unspecified-high |
 | **builtin-agents** | policy | Factory and policy layer. Resolves model profile, category, skill availability, overrides, blocked tools, and registration conditions. | low | policy, configuration |
 
 ## Model Resolution
 
-All agents **hard-require**:
+Most agents hard-require the Grok execution family by default:
 - `provider: "xai"`
 - `model: "xai/grok-4.3"`
 
-`resolve_omo_model_profile()` in `lfg.py` enforces this and maps category → reasoning level.
+Hephaestus is the intentional exception from upstream OMO model matching: it requires an approved GPT-style profile (`openai/gpt-5.5` or Copilot GPT-5.5). `resolve_omo_model_profile()` blocks mismatched cheap, utility, or non-GPT Hephaestus overrides and maps other agents' category → reasoning level.
 
 ## Legacy Agents
 

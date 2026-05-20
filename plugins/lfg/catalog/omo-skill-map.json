@@ -1,125 +1,153 @@
 {
-  "sourceRepo": "https://github.com/code-yeongyu/oh-my-openagent",
-  "sourcePath": "local OMO reference tree",
+  "sourceRepo": "https://github.com/islee23520/lfg",
+  "sourcePath": "plugins/lfg/skills",
   "skills": [
     {
       "name": "agent-browser",
-      "description": "Automates browser interactions for web testing, form filling, screenshots, and data extraction. Use when the user needs to navigate websites, interact with web pages, fill forms, take screenshots, test web applications, or extract information from web pages.",
-      "source": "src/features/builtin-skills/agent-browser/SKILL.md",
+      "description": "Automates browser interactions for web testing, form filling, screenshots, and data extraction.",
+      "source": "local",
       "sourceType": "builtin-markdown",
       "grokPath": "skills/agent-browser/SKILL.md"
     },
     {
       "name": "ai-slop-remover",
-      "description": "Removes AI-generated code smells from a SINGLE file while preserving functionality. For multiple files, call in PARALLEL per file.",
-      "source": "src/features/builtin-skills/skills/ai-slop-remover.ts",
-      "sourceType": "builtin-generated",
+      "description": "Removes AI-generated code smells from a SINGLE file while preserving functionality.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
       "grokPath": "skills/ai-slop-remover/SKILL.md"
     },
     {
+      "name": "cancel",
+      "description": "Cancel any active LFG mode (ulw, ralph, team, atlas, etc.) and record the cancellation state.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/cancel/SKILL.md"
+    },
+    {
       "name": "dev-browser",
-      "description": "Browser automation with persistent page state. Use when users ask to navigate websites, fill forms, take screenshots, extract web data, test web apps, or automate browser workflows. Trigger phrases include \"go to [url]\", \"click on\", \"fill out the form\", \"take a screenshot\", \"scrape\", \"automate\", \"test the website\", \"log into\", or any browser interaction request.",
-      "source": "src/features/builtin-skills/dev-browser/SKILL.md",
+      "description": "Browser automation with persistent page state.",
+      "source": "local",
       "sourceType": "builtin-markdown",
       "grokPath": "skills/dev-browser/SKILL.md"
     },
     {
+      "name": "doctor",
+      "description": "Diagnose and fix LFG plugin state, schema, and provider configuration issues.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/doctor/SKILL.md"
+    },
+    {
       "name": "frontend-ui-ux",
       "description": "Designer-turned-developer who crafts stunning UI/UX even without design mockups",
-      "source": "src/features/builtin-skills/frontend-ui-ux/SKILL.md",
+      "source": "local",
       "sourceType": "builtin-markdown",
       "grokPath": "skills/frontend-ui-ux/SKILL.md"
     },
     {
-      "name": "get-unpublished-changes",
-      "description": "Compare HEAD with the latest published npm version and list all unpublished changes. Triggers: unpublished changes, changelog, what changed, whats new.",
-      "source": ".agents/skills/get-unpublished-changes/SKILL.md",
-      "sourceType": "agent",
-      "grokPath": "skills/get-unpublished-changes/SKILL.md"
-    },
-    {
       "name": "git-master",
-      "description": "MUST USE for ANY git operations. Atomic commits, rebase/squash, history search (blame, bisect, log -S). STRONGLY RECOMMENDED: Use with task(category='quick', load_skills=['git-master'], ...) to save context. Triggers: 'commit', 'rebase', 'squash', 'who wrote', 'when was X added', 'find the commit that'.",
-      "source": "src/features/builtin-skills/git-master/SKILL.md",
+      "description": "MUST USE for ANY git operations. Atomic commits, rebase/squash, history search.",
+      "source": "local",
       "sourceType": "builtin-markdown",
       "grokPath": "skills/git-master/SKILL.md"
     },
     {
-      "name": "github-triage",
-      "description": "Read-only GitHub triage for issues AND PRs. 1 item = 1 background task (category: quick). Analyzes all open items and writes evidence-backed reports to /tmp/{datetime}/. Every claim requires a GitHub permalink as proof. NEVER takes any action on GitHub - no comments, no merges, no closes, no labels. Reports only. Triggers: 'triage', 'triage issues', 'triage PRs', 'github triage'.",
-      "source": ".agents/skills/github-triage/SKILL.md",
-      "sourceType": "agent",
-      "grokPath": "skills/github-triage/SKILL.md"
-    },
-    {
       "name": "hyperplan",
-      "description": "Adversarial multi-agent planning skill. Self-orchestrates 5 hostile category members (unspecified-low, unspecified-high, deep, ultrabrain, artistry) via team-mode for ruthless cross-critique debate, distills only the defensible insights, then MANDATORILY hands the distilled insight bundle to the `plan` agent for executable plan formalization. Use when planning needs maximum rigor and surfacing of weak assumptions, blind spots, and over-engineering. Triggers: 'hyperplan', 'hpp', '/hyperplan', 'adversarial plan', 'hostile planning', 'cross-critique plan', '하이퍼플랜', '적대적 계획', '교차 비평'.",
-      "source": ".agents/skills/hyperplan/SKILL.md",
-      "sourceType": "agent",
+      "description": "Adversarial multi-agent planning skill. Self-orchestrates 5 hostile category members for ruthless cross-critique debate.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
       "grokPath": "skills/hyperplan/SKILL.md"
     },
     {
       "name": "lfg",
-      "description": "Stress-test and harden LFG-compatible plugin surfaces: skills, hooks, MCP/LSP configs, marketplace metadata, and Claude Code / AGENTS compatibility.",
+      "description": "Stress-test and harden LFG-compatible plugin surfaces.",
       "source": "local",
       "sourceType": "local",
       "grokPath": "skills/lfg/SKILL.md"
     },
     {
-      "name": "omomomo",
-      "description": "Easter egg command - about oh-my-opencode. Triggers: omomomo, about, easter egg.",
-      "source": ".agents/skills/omomomo/SKILL.md",
-      "sourceType": "agent",
-      "grokPath": "skills/omomomo/SKILL.md"
+      "name": "plan",
+      "description": "Strategic planning with Prometheus: Interview-mode planning that produces verifiable plans.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/plan/SKILL.md"
     },
     {
       "name": "playwright",
-      "description": "MUST USE for any browser-related tasks. Browser automation via Playwright MCP - verification, browsing, information gathering, web scraping, testing, screenshots, and all browser interactions.",
-      "source": "src/features/builtin-skills/skills/playwright.ts",
-      "sourceType": "builtin-generated",
+      "description": "MUST USE for any browser-related tasks. Browser automation via Playwright MCP.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
       "grokPath": "skills/playwright/SKILL.md"
     },
     {
-      "name": "pre-publish-review",
-      "description": "Nuclear-grade 16-agent pre-publish release gate. Runs /get-unpublished-changes to detect all changes since last npm release, spawns up to 10 ultrabrain agents for deep per-change analysis, invokes /review-work (5 agents) for holistic review, and 1 oracle for overall release synthesis. Use before EVERY npm publish. Triggers: 'pre-publish review', 'review before publish', 'release review', 'pre-release review', 'ready to publish?', 'can I publish?', 'pre-publish', 'safe to publish', 'publishing review', 'pre-publish check'.",
-      "source": ".agents/skills/pre-publish-review/SKILL.md",
-      "sourceType": "agent",
-      "grokPath": "skills/pre-publish-review/SKILL.md"
+      "name": "provider",
+      "description": "List, show, or add provider/model metadata without storing secret values.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/provider/SKILL.md"
     },
     {
-      "name": "publish",
-      "description": "Publish oh-my-opencode to npm via GitHub Actions workflow. Argument: <patch|minor|major>. Triggers: publish, release, deploy, npm publish.",
-      "source": ".agents/skills/publish/SKILL.md",
-      "sourceType": "agent",
-      "grokPath": "skills/publish/SKILL.md"
-    },
-    {
-      "name": "remove-deadcode",
-      "description": "Remove unused code from this project with ultrawork mode, LSP-verified safety, atomic commits. Triggers: remove dead code, dead code, cleanup, remove unused.",
-      "source": ".agents/skills/remove-deadcode/SKILL.md",
-      "sourceType": "agent",
-      "grokPath": "skills/remove-deadcode/SKILL.md"
+      "name": "ralph",
+      "description": "Durable self-referential development loop that continues until the objective is met.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/ralph/SKILL.md"
     },
     {
       "name": "review-work",
-      "description": "Post-implementation review orchestrator. Launches 5 parallel background sub-agents: Oracle (goal/constraint verification), Oracle (code quality), Oracle (security), unspecified-high (hands-on QA execution), unspecified-high (context mining from GitHub/git/Slack/Notion). All must pass for review to pass. MUST USE after completing any significant implementation work. Triggers: 'review work', 'review my work', 'review changes', 'QA my work', 'verify implementation', 'check my work', 'validate changes', 'post-implementation review'.",
-      "source": "src/features/builtin-skills/skills/review-work.ts",
-      "sourceType": "builtin-generated",
+      "description": "Post-implementation review orchestrator. Launches 5 parallel background sub-agents.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
       "grokPath": "skills/review-work/SKILL.md"
     },
     {
+      "name": "setup",
+      "description": "Install/sync the LFG Grok plugin and configure provider/model metadata.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/setup/SKILL.md"
+    },
+    {
+      "name": "start-work",
+      "description": "Start or resume Atlas execution for the active plan. Routes through Atlas/Boulder semantics.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/start-work/SKILL.md"
+    },
+    {
+      "name": "team",
+      "description": "Create and manage durable OMO-style agent teams with tmux-backed local observability.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/team/SKILL.md"
+    },
+    {
       "name": "team-mode",
-      "description": "Team orchestration — create and manage parallel agent teams (OFF by default; enable via team_mode.enabled in config). Loading this skill provides usage documentation; the team_* tools are registered globally when team_mode.enabled=true and access-gated by team role.",
-      "source": "src/features/builtin-skills/skills/team-mode.ts",
-      "sourceType": "builtin-generated",
+      "description": "Team orchestration — create and manage parallel agent teams.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
       "grokPath": "skills/team-mode/SKILL.md"
     },
     {
+      "name": "ulw",
+      "description": "Activate full OMO-style Ultrawork mode: Sisyphus-led autonomous execution with Boulder persistence.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/ulw/SKILL.md"
+    },
+    {
       "name": "work-with-pr",
-      "description": "Full PR lifecycle: git worktree → implement → atomic commits → PR creation → verification loop (CI + review-work + Cubic approval) → merge. Keeps iterating until ALL gates pass and PR is merged. Worktree auto-cleanup after merge. Use whenever implementation work needs to land as a PR. Triggers: 'create a PR', 'implement and PR', 'work on this and make a PR', 'implement issue', 'land this as a PR', 'work-with-pr', 'PR workflow', 'implement end to end', even when user just says 'implement X' if the context implies PR delivery.",
-      "source": ".agents/skills/work-with-pr/SKILL.md",
-      "sourceType": "agent",
+      "description": "Automate pull request workflows: create, review, merge, and status checks.",
+      "source": "local",
+      "sourceType": "builtin-markdown",
       "grokPath": "skills/work-with-pr/SKILL.md"
+    },
+    {
+      "name": "worker",
+      "description": "Sisyphus-Junior category dispatch and team worker protocol (ACK, mailbox, task lifecycle).",
+      "source": "local",
+      "sourceType": "builtin-markdown",
+      "grokPath": "skills/worker/SKILL.md"
     }
   ]
 }

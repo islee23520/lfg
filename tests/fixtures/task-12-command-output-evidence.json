@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "kind": "command-output",
+  "command": [
+    "fixture",
+    "spawn-envelope"
+  ],
+  "returncode": 0,
+  "stdout": "spawn-envelope-fixture=ok"
+}

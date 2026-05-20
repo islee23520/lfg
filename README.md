@@ -8,7 +8,7 @@
 
 The canonical implementation is now lfg-native under `plugins/lfg/src/agents/`, `plugins/lfg/bin/`, skills, hooks, MCP, and `.lfg/` runtime state.
 
-First-class agents default to Grok model profiles for Grok Build execution, while Oracle review defaults to `openai/gpt-5.5` with Copilot, Gemini, and Z.ai fallbacks. LFG may route execution through approved optional providers (`codex`, `copilot`, `zai`) when available; `zai` uses a smoke-safe Z.ai/Zhipu HTTP adapter with `ZAI_API_KEY` or `ZHIPU_API_KEY` only for explicit `--run` calls.
+First-class agents default to Grok model profiles for Grok Build execution except Hephaestus, which requires an approved GPT-style deep-specialist profile. Oracle review remains mandatory through the xAI/Grok gate. LFG may route execution through approved optional providers (`codex`, `copilot`, `zai`) when available; `zai` uses a smoke-safe Z.ai/Zhipu HTTP adapter with `ZAI_API_KEY` or `ZHIPU_API_KEY` only for explicit `--run` calls.
 
 ## Product Scope
 
@@ -49,7 +49,7 @@ Marketplace source repo: https://github.com/islee23520/lfg.git
 Reference:   oh-my-openagent agent hierarchy and orchestration model (full real port)
 ```
 
-Developer smoke commands live in [`docs/SMOKE.md`](docs/SMOKE.md). Marketplace installation remains the product path.
+Developer smoke commands live in [`docs/SMOKE.md`](docs/SMOKE.md). Marketplace installation remains the primary product path; local editable install is for development and preview only.
 
 ## Agent Hierarchy
 
@@ -67,7 +67,7 @@ Strategic planner. Interviews, clarifies scope, reads context, and produces a ve
 
 ### Hephaestus
 
-Autonomous deep worker. Receives goals, not recipes. It researches, implements, and verifies difficult work with strong evidence discipline. (Conditional teammate.)
+Autonomous deep worker. Receives goals, not recipes. It researches, implements, and verifies difficult work with strong evidence discipline. Hephaestus requires an approved GPT-style deep-specialist profile (`openai/gpt-5.5` or Copilot GPT-5.5) and blocks mismatched cheap/utility model overrides instead of silently degrading. (Conditional teammate.)
 
 ### Atlas
 
@@ -95,7 +95,7 @@ Sisyphus receives request
   └─ Sisyphus synthesizes, verifies, and advances Boulder
 ```
 
-Agent entries default to Grok models for Grok Build execution. Category routing may keep Grok reasoning profiles or use approved optional providers (`codex`, `copilot`, `zai`) for execution lanes (`zai` is an HTTP/API adapter, not a required local CLI), but every completion still carries a required Oracle review envelope backed by `openai/gpt-5.5` high with Copilot, Gemini, and Z.ai fallbacks.
+Agent entries default to Grok models for Grok Build execution except Hephaestus, whose OMO deep-specialist contract requires a GPT-style approved profile. Category routing may keep Grok reasoning profiles or use approved optional providers (`codex`, `copilot`, `zai`) for execution lanes (`zai` is an HTTP/API adapter, not a required local CLI), but every completion still carries a required Oracle review envelope backed by `openai/gpt-5.5` high with Copilot, Gemini, and Z.ai fallbacks.
 
 The next integration focus is replacing fallback/manual-gated spawn evidence with verified Grok-native sub-agent spawning while keeping `.lfg/` state, approved multi-provider routing, and Oracle review contracts stable.
 
@@ -121,28 +121,35 @@ All modules are dependency-light Python, directly portable into `~/.grok/plugins
 
 ## Runtime Commands
 
-The current CLI is a transition surface while the OMO parity runtime lands. The expected product commands are:
+The current CLI exposes stable JSON surfaces for the OMO parity runtime:
 
 ```sh
-plugins/lfg/bin/lfg setup
-plugins/lfg/bin/lfg models
-plugins/lfg/bin/lfg auth login openai --id openai-main --env OPENAI_API_KEY
-plugins/lfg/bin/lfg provider add
-plugins/lfg/bin/lfg provider add --id zai-main --kind zai --env ZAI_API_KEY
-plugins/lfg/bin/lfg status
-plugins/lfg/bin/lfg doctor
 plugins/lfg/bin/lfg agents list
 plugins/lfg/bin/lfg agents inspect sisyphus
+plugins/lfg/bin/lfg route --category quick --task "execute a bounded smoke task"
 plugins/lfg/bin/lfg spawn sisyphus-junior --category quick --task "fix failing smoke"
-plugins/lfg/bin/lfg prometheus plan "ship OMO registry"
-plugins/lfg/bin/lfg atlas run .lfg/plans/<plan>.md
 plugins/lfg/bin/lfg hephaestus goal "port Boulder state"
 plugins/lfg/bin/lfg hyperplan "design Grok spawn adapter"
+plugins/lfg/bin/lfg plan create "ship OMO registry" --steps "inspect;implement;verify"
+plugins/lfg/bin/lfg plan list
+plugins/lfg/bin/lfg atlas start-work --plan-id <plan-id>
+plugins/lfg/bin/lfg atlas status --plan-id <plan-id>
+plugins/lfg/bin/lfg atlas checkbox --plan-id <plan-id> --task 1 --status complete --evidence "command output captured"
+plugins/lfg/bin/lfg provider list
+plugins/lfg/bin/lfg provider show openai-main
+plugins/lfg/bin/lfg models
+plugins/lfg/bin/lfg doctor
+plugins/lfg/bin/lfg doctor state schema check
+plugins/lfg/bin/lfg team providers
+plugins/lfg/bin/lfg team preflight
 plugins/lfg/bin/lfg team create 3:executor "verify release gates"
-plugins/lfg/bin/lfg ulw "build the ultimate autonomous agent swarm"
+plugins/lfg/bin/lfg team state <team-name>
+plugins/lfg/bin/lfg setup
+plugins/lfg/bin/lfg auth login openai --id openai-main --env OPENAI_API_KEY
+plugins/lfg/bin/lfg omx-setup check
 ```
 
-Existing commands remain useful for development until their semantics are migrated to the OMO runtime paths.
+`omx-setup` remains the documented compatibility surface during the rename transition.
 
 Runtime state is stored under:
 

@@ -19,7 +19,7 @@ The runtime loads these files directly for `lfg agents list`, `lfg agents inspec
 - `sisyphus-junior.json` — bounded category executor
 - `builtin-agents.json` — model/category/policy resolver
 
-All loaded agents use `provider: xai` and `model: xai/grok-4.3`.
+Loaded agents default to Grok profiles except Hephaestus, which follows the OMO deep-specialist contract and requires an approved GPT-style profile (`openai/gpt-5.5` or Copilot GPT-5.5). Hephaestus refuses cheap, utility, or mismatched model-family overrides instead of silently degrading.
 
 ## Team Eligibility
 

@@ -57,9 +57,11 @@ Similar files:
 - Easier to implement Hyperplan-style required agent sets
 - Better prompt engineering and tool restriction per named agent
 
-## Next Steps for Implementation
-- Define schema + loader
-- CLI commands: `lfg agent list`, `lfg agent show iz`, `lfg agent validate`
-- Integration into team_create / ultragoal_spawn
+## Implementation Status (M13 Lock)
+
+The named agent system is fully implemented using the OMO hierarchy:
+- [x] Define schema + loader (done — `load_omo_agent_registry()`).
+- [x] CLI commands: `lfg agents list`, `lfg agents inspect sisyphus` (done).
+- [x] Integration into team_create / ultragoal_spawn (done — `TeamRuntime` + OMO registry).
 
 This forms the foundation for B and C.

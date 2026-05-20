@@ -1,14 +1,26 @@
 ---
 name: doctor
-description: "LFG port of OMX `doctor`: Diagnose and fix oh-my-codex installation issues"
+description: "Diagnose and fix LFG plugin state, schema, and provider configuration issues."
 user_invocable: true
-metadata:
-  package: "linalab-io/lfg"
-  source: "oh-my-codex/plugins/oh-my-codex/skills/doctor/SKILL.md"
-  source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
-  port_kind: "grok-skill-adapter"
 ---
 
-# Doctor — LFG Port
+# Doctor — LFG Self-Diagnostics
 
-LFG port of the OMX `doctor` skill from oh-my-codex. Runtime: `lfg doctor`, MCP `grok_build_doctor` tools, and plugin self-diagnostics.
+Use this skill to diagnose and fix issues with your LFG installation, state schema, or provider configurations.
+
+## Usage
+
+```text
+/doctor
+/doctor state schema check
+```
+
+## Behavior
+
+- **State Validation**: Checks the integrity of `.lfg/` state files and ensures they match the current schema version.
+- **Provider Preflight**: Verifies that configured providers (OpenAI, xAI, etc.) are reachable and correctly authenticated.
+- **Environment Audit**: Checks for required binaries (tmux, git, python) and environment variables.
+
+## Runtime
+
+Backed by `lfg doctor` and MCP `grok_build_doctor`.

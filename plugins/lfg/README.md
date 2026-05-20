@@ -25,9 +25,14 @@ bin/self-test.sh
 ## Runtime
 
 ```sh
-bin/lfg.py status
-bin/lfg.py catalog
+bin/lfg.py agents list
+bin/lfg.py route --category quick --task "..."
+bin/lfg.py spawn sisyphus-junior --category quick --task "..."
+bin/lfg.py plan create "..." --steps "..."
+bin/lfg.py atlas start-work --plan-id <plan-id>
+bin/lfg.py provider list
 bin/lfg.py doctor
+bin/lfg.py doctor state schema check
 bin/lfg.py team preflight
 ```
 

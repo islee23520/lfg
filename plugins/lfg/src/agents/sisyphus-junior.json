@@ -14,5 +14,14 @@
   "tools": ["bash", "read", "edit", "write", "glob", "grep", "todowrite"],
   "blockedTools": ["team_create", "team_delete"],
   "enabled": true,
-  "categories": ["quick", "unspecified-low", "unspecified-high", "writing", "visual-engineering"]
+  "categories": [
+    "visual-engineering",
+    "artistry",
+    "ultrabrain",
+    "deep",
+    "quick",
+    "unspecified-low",
+    "unspecified-high",
+    "writing"
+  ]
 }

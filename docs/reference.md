@@ -46,13 +46,15 @@ This is the closest thing we currently have to clean agent-to-agent handoff (Sis
 
 ### 4. Models
 
-First-class OMO agents in LFG default to Grok models (`xai/grok-4.3` with varying reasoning levels), while approved optional providers (`codex`, `copilot`, `zai`) may execute bounded lanes. `zai` is modeled as a Z.ai/Zhipu OpenAI-compatible HTTP adapter using the Coding Plan base URL by default, not as a required native CLI. Grok remains mandatory as the Oracle reviewer for completion decisions.
+First-class OMO agents in LFG default to Grok models (`xai/grok-4.3` with varying reasoning levels), except Hephaestus, which follows the OMO deep-specialist policy and requires an approved GPT-style profile. Approved optional providers (`codex`, `copilot`, `zai`) may execute bounded lanes. `zai` is modeled as a Z.ai/Zhipu OpenAI-compatible HTTP adapter using the Coding Plan base URL by default, not as a required native CLI. Grok (xAI/Grok) remains the **mandatory Oracle product gate** for every completion, Boulder advancement, and release. No OpenAI/GPT, Gemini, or other non-Grok consultation may replace the xAI/Grok Oracle review contract. `oracleReview.required=true` with `gate: "xai/grok"` is enforced in all advancement envelopes.
 
 See the agent definitions in `plugins/lfg/src/agents/*.json`, the registry loader in `lfg.py`, and `call_zai()` for the smoke-safe Z.ai/Zhipu adapter contract.
 
+Provider setup in LFG is metadata-only: commands record env var names, provider ids, and model hints, but never store API keys, OAuth codes, refresh tokens, CLI auth files, or keychain material.
+
 ## Relevance to LFG Grok Spawn Adapter
 
-The current implementation in `spawn_agent()` (and `resolve_omo_model_profile()`) returns a `fallback_manual_gate` because:
+The current implementation in `spawn_agent()` (and `resolve_omo_model_profile()`) returns a canonical provider-neutral envelope with `mode: "fallback"` and `status: "completed"` (or `blocked` / `failed` for graph and error cases). In fallback mode, `status: "completed"` means the **local contract envelope completed**, not that a real child agent executed. Runtime envelopes expose this distinction under `execution.completionMeaning`, `execution.actualChildExecution`, and `execution.nativeGrokSpawnVerified` because:
 
 - The public Responses API gives us excellent **tool-calling + stateful** agents.
 - It does **not** (yet) provide a first-class primitive for **named, persistent sub-agents** with separate identities inside the Grok Build host (the thing real OMO and our target architecture require).
@@ -70,6 +72,7 @@ Until Grok Build exposes a native `spawn_subagent(agent_id, ...)` or equivalent 
 - Do not assume the public xAI API gives us "free" named sub-agent spawning (it doesn't — that is a Grok Build host concern).
 - Do not weaken the requirement that Grok Oracle review gates every completion, even when execution uses approved non-Grok providers.
 - Do not treat the Responses API as a complete replacement for the OMO agent hierarchy — it is a powerful substrate, not the full orchestration system.
+- Do not treat `oracleReview.mode: "local-smoke"` / `reviewKind: "static-local-schema"` as a real Grok Oracle judgment. It proves the envelope carries the required gate contract only.
 
 ## Related Internal Documents
 
@@ -79,6 +82,19 @@ Until Grok Build exposes a native `spawn_subagent(agent_id, ...)` or equivalent 
 - `plugins/lfg/bin/lfg-mcp.py` (MCP exposure of OMO tools)
 
 **This document (`docs/reference.md`) is the canonical external reference.** When the xAI/Grok Build platform adds new primitives (especially around native sub-agent spawning), update this file first, then propagate the implications into ARCHITECTURE.md and the spawn adapter.
+
+## DAD-Inspired Internal Supervision Broker Plan
+
+LFG uses a small internal supervision broker inspired by DAD-style delegation control, but it is **not** an OMO agent, not a user-facing role, and not an alternate policy authority. Its API is recorded as `internal-non-agent` inside spawn/result envelopes only.
+
+The broker sits behind the existing orchestration APIs:
+
+- `spawn_agent()` for single OMO delegation.
+- `spawn_wave()` for ordered child-delegation envelopes.
+- `TeamRuntime` / `team_create()` for team state and member-policy checks.
+- `run_dependency_graph()` for deterministic dependency readiness.
+
+For each decision it records the selected lane, model profile, evidence class, and policy decision reason. It may deny execution when an unsupported provider is requested or when a caller attempts uncontrolled recursive spawning beyond the broker lease. These denials preserve OMO policy rather than bypassing it: hard-reject agents remain hard-rejected as team members, Grok Oracle review remains mandatory, and native Grok sub-agent spawning remains manual-gated until the platform exposes a first-class primitive.
 
 ---
 

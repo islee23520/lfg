@@ -1,14 +1,26 @@
 ---
 name: worker
-description: "LFG port of OMX `worker`: Team worker protocol (ACK, mailbox, task lifecycle) for tmux-based OMX teams"
+description: "Sisyphus-Junior category dispatch and team worker protocol (ACK, mailbox, task lifecycle)."
 user_invocable: true
-metadata:
-  package: "linalab-io/lfg"
-  source: "oh-my-codex/plugins/oh-my-codex/skills/worker/SKILL.md"
-  source_repo: "https://github.com/Yeachan-Heo/oh-my-codex"
-  port_kind: "grok-skill-adapter"
 ---
 
-# Worker — LFG Port
+# Worker — Sisyphus-Junior & Team Protocol
 
-LFG port of the OMX `worker` skill from oh-my-codex. Runtime provided by `lfg worker`, MCP `grok_build_worker`, and plugin surfaces.
+This skill handles the **Sisyphus-Junior** category dispatch and the underlying team worker protocol. Use it when a focused task needs to be executed by a category-specific specialist.
+
+## Usage
+
+```text
+/worker ack --task <task-id>
+/worker result --task <task-id> --status complete --evidence "..."
+```
+
+## Behavior
+
+- **Category Dispatch**: Sisyphus-Junior is spawned for focused tasks (e.g., `quick`, `deep`, `writing`) with a bounded scope.
+- **Team Protocol**: Workers use this surface to acknowledge tasks, report results, and update their status in the team tasklist.
+- **Evidence Discipline**: Every worker result must include concrete evidence (command output, traces) to satisfy the Oracle review gate.
+
+## Runtime
+
+Backed by `lfg worker`, `lfg spawn`, and MCP `grok_build_worker`.

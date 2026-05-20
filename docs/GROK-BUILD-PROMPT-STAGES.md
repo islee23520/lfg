@@ -8,7 +8,7 @@ For the lower-level implementation details, see `ARCHITECTURE.md`. For platform 
 
 - Official xAI / Responses API concepts: `input`, optional reasoning effort, tool/function calling, `previous_response_id`, `store`, and typed `output` / `output_text`.
 - LFG project concepts: Sisyphus intent ownership, Prometheus planning, Atlas checklist waves, Hephaestus deep work, Sisyphus-Junior category execution, Team Mode, Boulder state, and evidence gates.
-- Current spawn reality: `spawn_agent()` resolves OMO agents to Grok model profiles and persists a structured `fallback_manual_gate` envelope. Plugin-context named sub-agent spawning is still an evidence-gated target, not a completed runtime claim.
+- Current spawn reality: `spawn_agent()` resolves OMO agents to Grok model profiles and persists a canonical provider-neutral envelope with `mode=fallback` and normalized `status`. Plugin-context named sub-agent spawning is still an evidence-gated target, not a completed runtime claim.
 
 ## Picture: Prompt Lifecycle Across Layers
 
@@ -36,7 +36,7 @@ flowchart TD
     ATLAS --> SPAWN
     HEPH --> SPAWN
     JUNIOR --> SPAWN
-    SPAWN --> FALLBACK["Current implementation<br/>fallback_manual_gate envelope<br/>.lfg/runs/spawns/(uuid).json"]
+    SPAWN --> FALLBACK["Current implementation<br/>canonical mode=fallback envelope<br/>.lfg/runs/spawns/(run-id).json"]
     SPAWN -. future verified path .-> NATIVE["Target path<br/>Grok task / named sub-agent spawn<br/>only after evidence gate passes"]
 
     FALLBACK --> TEAM["Team Mode substrate<br/>TeamRuntime + mailbox + tasklist"]

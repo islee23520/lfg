@@ -21,7 +21,7 @@ required = {
 }
 missing = sorted(required - set(skills))
 assert not missing, missing
-assert len(skills) == 17, (len(skills), sorted(skills))
-print("grok-install-smoke=ok skills=17 key_skills_present")
+assert len(skills) == 21, (len(skills), sorted(skills))
+print("grok-install-smoke=ok skills=21 key_skills_present")
 PY
 echo "inspect-json=$OUT"

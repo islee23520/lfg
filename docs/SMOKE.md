@@ -10,8 +10,9 @@ The self-test directly verifies, in order:
 
 1. JSON manifests, `catalog/omo-skill-map.json`, plugin docs, and marketplace metadata.
 2. Hook redaction through `plugins/lfg/hooks/scripts/lfg-audit-hook.sh`.
-3. MCP stdio isolation and tool discovery from `plugins/lfg/bin/lfg-mcp.py`.
-4. State schema via `lfg --json doctor`.
+3. Bounded TODO continuation through `plugins/lfg/hooks/scripts/lfg-goal-harness.sh`.
+4. MCP stdio isolation and tool discovery from `plugins/lfg/bin/lfg-mcp.py`.
+5. State schema via `lfg --json doctor`.
 5. Release notes/source docs and marketplace package identity.
 6. Team dry-run planning with `noop` providers.
 7. Real tmux team lifecycle: create, status, resume, shutdown.
@@ -22,16 +23,18 @@ Expected evidence includes:
 ```text
 manifest-and-file-checks=ok
 marketplace-metadata=ok
+release-notes=ok
+marketplace-source=ok
 hook-smoke=ok
+todo-continuation=ok
+ruff-check=ok
 mcp-smoke=ok
 mcp-stdio-isolation=ok
 mcp-stderr-isolated=ok
 state-schema-versioning=ok
 state-schema-doctor=ok
-release-notes=ok
-marketplace-source=ok
-ruff-check=ok
 team-dry-run=ok
+models-auth=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
@@ -45,8 +48,20 @@ plugins/lfg/bin/grok-install-smoke.sh
 Expected evidence:
 
 ```text
-grok-install-smoke=ok skills=17 key_skills_present
+grok-install-smoke=ok skills=21 key_skills_present
 ```
+
+Real Grok named sub-agent spawning is a separate environment/manual gate. Run it only in an authenticated Grok Build environment where the host can spawn child agents and return their outputs:
+
+```sh
+grok --cwd "/var/folders/6r/g20fxk_s1ds24_h6lm971wt00000gn/T/opencode" \
+  --output-format streaming-json \
+  --max-turns 30 \
+  --no-alt-screen \
+  -p "T28 native subagent gate. Do not edit files. If your real subagent/task tool works, spawn two read-only child agents named researcher and critic in parallel. researcher output: one sentence explaining why generic Responses API calls are not native named sub-agent evidence. critic output: one sentence explaining why credentials presence is not native named sub-agent evidence. Then report child IDs, both outputs, and a one-sentence synthesis. If actual child spawn fails or IDs/outputs cannot be collected, output MANUAL_GATE_NOT_RUN with the failing prerequisite. Be concise; do not simulate child outputs."
+```
+
+Pass evidence must prove two named child spawns, two independent child outputs, and parent synthesis. If the transcript says `MANUAL_GATE_NOT_RUN` or lacks child output collection, keep native spawn manual-gated and record skip evidence instead of `grok-native-spawn-manual=ok`.
 
 Useful focused commands while debugging:
 

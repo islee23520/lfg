@@ -20,7 +20,7 @@ The older custom lineup below is preserved only for backward compatibility with 
 
 ## Category Mapping (Grok-native OMO)
 
-- First-class agents default to Grok models; approved optional execution providers are `codex`, `copilot`, and `zai`.
+- First-class agents default to Grok models except Hephaestus, which requires an approved GPT-style deep-specialist profile; approved optional execution providers are `codex`, `copilot`, and `zai`.
 - `deep` / `ultrabrain` → high reasoning Grok profiles
 - `artistry` → creative Grok profiles
 - Other categories map to appropriate reasoning levels, and every completion remains gated by Grok Oracle review.
