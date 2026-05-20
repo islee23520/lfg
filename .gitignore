@@ -8,4 +8,6 @@ target/
 __pycache__
 .pytest_cache
 .lfg/
-tests/
+.playwright-mcp
+.venv
+.ruff_cache

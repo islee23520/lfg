@@ -1,0 +1,36 @@
+{
+  "full_inventory_ids": [
+    "sisyphus",
+    "hephaestus",
+    "prometheus",
+    "atlas",
+    "oracle",
+    "librarian",
+    "explore",
+    "multimodal-looker",
+    "metis",
+    "momus",
+    "sisyphus-junior",
+    "builtin-agents"
+  ],
+  "primary_order": [
+    "sisyphus",
+    "hephaestus",
+    "prometheus",
+    "atlas"
+  ],
+  "target_ids": [
+    "sisyphus",
+    "hephaestus",
+    "prometheus",
+    "atlas",
+    "oracle",
+    "librarian",
+    "explore",
+    "multimodal-looker",
+    "metis",
+    "momus",
+    "sisyphus-junior",
+    "builtin-agents"
+  ]
+}

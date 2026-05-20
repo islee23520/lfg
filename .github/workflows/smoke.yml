@@ -30,7 +30,10 @@ jobs:
           python3 -m py_compile \
             plugins/lfg/bin/lfg.py \
             plugins/lfg/bin/lfg-mcp.py \
+            plugins/lfg/bin/self-test.py \
+            plugins/lfg/bin/grok-install-smoke.py \
+            plugins/lfg/src/runtime/cli.py \
             tests/smoke/test_grok_build_runtime.py
 
       - name: Run plugin self-test
-        run: plugins/lfg/bin/self-test.sh
+        run: python3 plugins/lfg/bin/self-test.py

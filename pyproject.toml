@@ -18,7 +18,7 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["ruff>=0.14.0"]
+dev = ["pytest>=8.0.0", "ruff>=0.14.0"]
 
 [tool.setuptools]
 include-package-data = true
@@ -38,16 +38,11 @@ extend-exclude = [
 
 [tool.ruff.lint]
 select = ["E", "F"]
-ignore = [
-  "E402",  # lfg.py keeps late imports near large runtime sections during migration
-  "E501",  # long prompt/evidence strings are product contracts
-  "E701",  # existing compact provider ordering code remains behavior-tested
-  "E702",  # smoke tests keep compact subprocess cleanup in repeated MCP cases
-  "E741",  # legacy local variable names are behavior-neutral
-  "E401",  # hook scripts keep tiny local imports in fallback parsing blocks
-]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/smoke/test_grok_build_runtime.py" = ["F401"]
-"plugins/lfg/bin/lfg.py" = ["F841"]
-"plugins/lfg/hooks/scripts/lfg-goal-harness.py" = ["F841"]
+"plugins/lfg/bin/lfg.py" = ["E402", "E501", "E701", "F841"]
+"plugins/lfg/hooks/scripts/lfg-goal-harness.py" = ["E401", "F841"]
+"plugins/lfg/src/runtime/cli.py" = ["E402", "E501", "E701", "F841"]
+"plugins/lfg/src/mcp/server.py" = ["E501"]
+"plugins/lfg/src/mcp/tools.py" = ["E501"]
+"tests/smoke/test_grok_build_runtime.py" = ["E501", "E702", "F401"]

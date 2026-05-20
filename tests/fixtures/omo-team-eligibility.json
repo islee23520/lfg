@@ -1,0 +1,11 @@
+{
+  "hard_reject_team_members": [
+    "prometheus",
+    "oracle",
+    "librarian",
+    "explore",
+    "multimodal-looker",
+    "metis",
+    "momus"
+  ]
+}
