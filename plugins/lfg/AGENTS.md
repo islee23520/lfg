@@ -16,13 +16,12 @@ plugins/lfg/
 ```
 
 ## WHERE TO LOOK
-- `bin/lfg.py`: Main runtime, state schema, goals, plans, team backend, hook bridge, slash parser.
+- `bin/lfg.py`: Thin gateway into `src/runtime/cli.py`.
 - `bin/lfg`: Default `lfg` wrapper for tmux backend launch.
 - `bin/ulw`: Specialized ultragoal launcher alias.
 - `bin/lfg-mcp.py`: Stdio JSON-RPC server exposing `grok_build_*` tools.
-- `bin/self-test.sh`: Local smoke bundle and manifest/evidence assertions.
+- `bin/self-test.py`: Python local smoke bundle and manifest/evidence assertions.
 - `hooks/scripts/lfg-goal-harness.py`: Hook-side active-goal and boulder prompt injection hotspot.
-- `hooks/scripts/lfg-goal-harness.sh`: Fail-open wrapper for the Python harness.
 - `src/agents/*.json`: Named team agent definitions (canonical).
 - `src/agents/harness.toml`: Harness config surfaced by self-test (canonical).
 
@@ -48,12 +47,17 @@ plugins/lfg/
 
 ## COMMANDS
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 python3 plugins/lfg/bin/lfg.py status
 python3 plugins/lfg/bin/lfg-mcp.py
 ```
 
 ## NOTES
-- `bin/lfg.py`, `bin/lfg-mcp.py`, and `hooks/scripts/lfg-goal-harness.py` are the largest implementation hotspots. Prefer narrow edits with focused smoke coverage.
-- `bin/self-test.sh` asserts many docs and scripts by literal evidence strings.
+- `src/runtime/cli.py`, `src/mcp/server.py`, and `hooks/scripts/lfg-goal-harness.py` are the largest implementation hotspots. Keep `bin/lfg.py` and `bin/lfg-mcp.py` as thin gateways.
+- `bin/self-test.py` asserts many docs and runtime surfaces by literal evidence strings.
 - Recent launch evidence uses `lfg-inside-tmux-status=ok`, not the older implicit attach wording.
+
+
+# Testing 
+- no *.sh testing use pytest and the lfg.py runtime with fixtures in tests/fixtures/evidence
+- test script should be made with runtime codes and run with pytest, not bash

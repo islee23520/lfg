@@ -21,10 +21,10 @@ Use this checklist before merging or tagging `islee23520/lfg`.
 ## Commands
 
 ```sh
-python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py tests/smoke/test_grok_build_runtime.py
-plugins/lfg/bin/self-test.sh
+python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py tests/smoke/test_grok_build_runtime.py
+python3 plugins/lfg/bin/self-test.py
 python3 -m ruff check .
-plugins/lfg/bin/grok-install-smoke.sh
+python3 plugins/lfg/bin/grok-install-smoke.py
 ```
 
 ## Expected installed surface

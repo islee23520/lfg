@@ -14,12 +14,14 @@ Executable verification gates for local smoke, release readiness, marketplace me
 - `verify-mcp-stdio-isolation.sh`: JSON-RPC stdout and stderr isolation.
 - `verify-state-schema.sh`: `.lfg/state/schema.json` and doctor state schema check.
 - `verify-remote-smoke.sh`: Uses `gh run list` and `gh run view` for latest pushed commit evidence.
+- `hook-bridge-install.py` / `hook-bridge-verify.py`: Python global hook bridge installer and manual Grok integration verifier.
 
 ## CONVENTIONS
-- Use `set -euo pipefail`.
-- Use `mktemp` plus `trap` for disposable state and tmux cleanup.
+- Use `set -euo pipefail` for shell gates; use stdlib-only Python for hook bridge scripts.
+- Use `mktemp`/`trap` or `tempfile`/`try-finally` for disposable state and tmux cleanup.
 - Emit exact `*=ok` evidence strings. Docs and self-test assert many of them literally.
 - Use embedded Python for JSON inspection instead of brittle shell parsing.
+- Use pytest for deterministic Python behavior tests instead of adding shell-only test scripts.
 - Separate missing environment from product failure in environment/manual gates.
 
 ## ANTI-PATTERNS
@@ -39,4 +41,4 @@ scripts/verify-state-schema.sh
 
 ## NOTES
 - Scripts are executable smoke gates and part of the release contract.
-- CI installs tmux, py-compiles `plugins/lfg/bin/lfg.py` and `plugins/lfg/bin/lfg-mcp.py`, then runs `plugins/lfg/bin/self-test.sh`.
+- CI installs tmux, py-compiles `plugins/lfg/bin/lfg.py` and `plugins/lfg/bin/lfg-mcp.py`, then runs `python3 plugins/lfg/bin/self-test.py`.

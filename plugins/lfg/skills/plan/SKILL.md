@@ -24,4 +24,4 @@ Use this skill to invoke **Prometheus** for strategic planning. Prometheus will 
 
 ## Runtime
 
-Backed by `lfg plan`, MCP `grok_build_plan`, and the Prometheus agent.
+Backed by `lfg plan`, MCP `plan`, and the Prometheus agent.

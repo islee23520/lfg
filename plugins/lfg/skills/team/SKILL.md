@@ -26,4 +26,4 @@ Create and manage parallel agent teams for complex implementation tasks. Team Mo
 
 ## Runtime
 
-Backed by `lfg team`, MCP `grok_build_team`, and the Team Mode runtime.
+Backed by `lfg team`, MCP `team`, and the Team Mode runtime.

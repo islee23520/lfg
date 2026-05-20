@@ -8,12 +8,12 @@
 |-------|-------------|------------------|
 | **Dependency-free smoke** | Runs with temporary state, no real Grok, no tmux, no provider credentials | `python3 -m unittest tests.smoke.test_grok_build_runtime -v` |
 | **Repo-native integration** | Uses local binaries, filesystem, deterministic fakes | `python3 -m unittest tests.smoke.test_grok_build_runtime -v`, focused verify scripts |
-| **Environment/manual** | Requires tmux, real Grok, installed symlinks, marketplace state | `plugins/lfg/bin/self-test.sh` |
+| **Environment/manual** | Requires tmux, real Grok, installed symlinks, marketplace state | `python3 plugins/lfg/bin/self-test.py` |
 
 ## Required Local Smoke
 
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 ```
 
 Must produce (among many others):
@@ -28,8 +28,8 @@ runtime-smoke-coverage=100%
 ## Aggregated Release Readiness
 
 ```sh
-plugins/lfg/bin/self-test.sh
-plugins/lfg/bin/self-test.sh plus marketplace remote smoke
+python3 plugins/lfg/bin/self-test.py
+python3 plugins/lfg/bin/self-test.py plus marketplace remote smoke
 ```
 
 These wrap the self-test plus focused gates for:

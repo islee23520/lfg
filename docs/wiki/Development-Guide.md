@@ -24,12 +24,12 @@ lfg agents list
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
 
 # Full local self-test (recommended before any push)
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 ```
 
 ## Code Organization
 
-- `plugins/lfg/bin/lfg.py` — main runtime (dependency-free Python)
+- `plugins/lfg/src/runtime/cli.py` — main runtime (dependency-free Python)
 - `plugins/lfg/src/agents/*.json` — canonical OMO agent definitions (SSOT)
 - `plugins/lfg/src/agents/` — bundled agent definitions and harness metadata
 - `docs/` — architecture, smoke, release contracts
@@ -41,7 +41,7 @@ plugins/lfg/bin/self-test.sh
 - Classify every new or changed test according to `docs/TEST_RULES.md`.
 - Do not reintroduce legacy Codex-derived workflow identity.
 - Update `docs/HOW-IT-WORKS.md` and the Wiki when runtime behavior changes.
-- Run `plugins/lfg/bin/self-test.sh` before opening a PR.
+- Run `python3 plugins/lfg/bin/self-test.py` before opening a PR.
 
 ## Useful Commands
 

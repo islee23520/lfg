@@ -24,4 +24,4 @@ Activate the **Ralph** loop for persistent, self-referential development. Ralph 
 
 ## Runtime
 
-Backed by `lfg ralph` and MCP `grok_build_ralph`.
+Backed by `lfg ralph` and MCP `ralph`.

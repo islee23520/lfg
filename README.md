@@ -38,6 +38,8 @@ The intended install path is inside Grok:
 5. Enable the plugin.
 6. Verify it discovers agent definitions, skills, hooks, MCP server, and runtime helpers.
 
+Grok is fully compatible with Claude Code plugin surfaces. LFG keeps `.agents/plugins/marketplace.json` and `plugins/lfg/.claude-plugin/plugin.json` as compatibility references, with `.grok/` files maintained as Grok-facing aliases whose shared fields are smoke-tested for alignment.
+
 Marketplace/package identity:
 
 ```text
@@ -221,19 +223,19 @@ python3 -m unittest tests.smoke.test_grok_build_runtime -v
 Run plugin self-test:
 
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 ```
 
 Run real local Grok install/discovery smoke when `~/.grok/bin/grok` is available:
 
 ```sh
-plugins/lfg/bin/grok-install-smoke.sh
+python3 plugins/lfg/bin/grok-install-smoke.py
 ```
 
 Run full local release readiness when preparing release:
 
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 ```
 
 Remote marketplace/Grok UI evidence is environment-specific and should be recorded separately when release scope requires it.
@@ -250,11 +252,11 @@ plugins/lfg/
   .claude-plugin/plugin.json             # compatibility manifest
   .mcp.json                              # MCP server config
   src/agents/harness.toml                # agent harness metadata (canonical)
-  bin/lfg.py                             # runtime, state, Grok spawn adapter
+  bin/lfg.py                             # gateway to src/runtime/cli.py
   bin/lfg                                # default runtime wrapper
   bin/ulw                                # ultrawork launcher wrapper
   bin/lfg-mcp.py                         # stdio JSON-RPC MCP server
-  bin/self-test.sh                       # local smoke test
+  bin/self-test.py                       # Python-managed local smoke test
   hooks/hooks.json                       # hook registration
   hooks/plugin smoke checks lfg-audit-hook.sh        # fail-open audit hook
   skills/*/SKILL.md                      # Grok slash surfaces backed by OMO semantics

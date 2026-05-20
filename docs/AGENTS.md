@@ -14,6 +14,7 @@ Documentation here defines the evidence contract for the OMO-to-Grok Build port.
 - `MARKETPLACE_RELEASE_NOTES.md`: User-facing release evidence and install path.
 - `RELEASE_TAGS.md`: Tag policy and verification commands.
 - `HOOK_EVIDENCE.md`: Hook discovery and replay evidence.
+- `GROK-EXTENSIONS-SSOT.md`: Skills, plugins, hooks, marketplaces, subagents, Claude Code compatibility, and AGENTS.md compatibility discovery rules.
 - `GROK-BUILD-PROMPT-STAGES.md`: Visual prompt-stage map showing xAI Responses API concepts vs. LFG/OMO orchestration behavior.
 - `agent-system/`: Design docs for named agents, categories, team templates, and OMO parity comparisons.
 - `evidence/oh-my-openagent-doc-diff.md`: Diff between LFG docs and the local Oh My OpenAgent reference tree.
@@ -22,7 +23,7 @@ Documentation here defines the evidence contract for the OMO-to-Grok Build port.
 ## CONVENTIONS
 
 - Treat command blocks and `*=ok` strings as contracts, not prose examples.
-- Keep `ROADMAP.md`, `README.md`, `ARCHITECTURE.md`, `SMOKE.md`, `RELEASE_CHECKLIST.md`, and `plugins/lfg/bin/self-test.sh` aligned when changing gates.
+- Keep `ROADMAP.md`, `README.md`, `ARCHITECTURE.md`, `SMOKE.md`, `RELEASE_CHECKLIST.md`, and `python3 plugins/lfg/bin/self-test.py` aligned when changing gates.
 - Keep marketplace identity fixed to `islee23520/lfg` unless the package is intentionally renamed.
 - Mention whether each gate is dependency-free smoke, repo-native integration, or environment/manual.
 - OMO agent names are canonical: Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, builtin-agents.
@@ -41,8 +42,8 @@ Documentation here defines the evidence contract for the OMO-to-Grok Build port.
 
 ```sh
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
-plugins/lfg/bin/self-test.sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
+python3 plugins/lfg/bin/self-test.py
 ```
 
 ## NOTES

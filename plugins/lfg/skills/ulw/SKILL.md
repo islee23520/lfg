@@ -24,4 +24,4 @@ ulw "your goal"
 
 ## Runtime
 
-Backed by `lfg ulw`, `ulw` binary, and MCP `grok_build_ultrawork`.
+Backed by `lfg ulw`, `ulw` binary, and MCP `ultrawork`.

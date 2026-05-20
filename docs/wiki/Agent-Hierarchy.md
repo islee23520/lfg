@@ -35,7 +35,7 @@ Hephaestus is the intentional exception from upstream OMO model matching: it req
 ## Verification
 
 Every agent JSON is validated during:
-- `plugins/lfg/bin/self-test.sh`
+- `python3 plugins/lfg/bin/self-test.py`
 - `lfg doctor`
 - `lfg --json doctor state schema check`
 

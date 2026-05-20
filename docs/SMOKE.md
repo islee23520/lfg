@@ -3,20 +3,20 @@
 `lfg` is a Python-first plugin runtime. The local smoke gate is the plugin self-test:
 
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 ```
 
 The self-test directly verifies, in order:
 
 1. JSON manifests, `catalog/omo-skill-map.json`, plugin docs, and marketplace metadata.
 2. Hook redaction through `plugins/lfg/hooks/scripts/lfg-audit-hook.sh`.
-3. Bounded TODO continuation through `plugins/lfg/hooks/scripts/lfg-goal-harness.sh`.
+3. Bounded TODO continuation and hook bridge contracts through `python3 -m pytest tests/smoke/test_hook_bridge_pytest.py -q`.
 4. MCP stdio isolation and tool discovery from `plugins/lfg/bin/lfg-mcp.py`.
 5. State schema via `lfg --json doctor`.
-5. Release notes/source docs and marketplace package identity.
-6. Team dry-run planning with `noop` providers.
-7. Real tmux team lifecycle: create, status, resume, shutdown.
-8. Full Python smoke matrix: `python3 -m unittest tests.smoke.test_grok_build_runtime -v`.
+6. Release notes/source docs and marketplace package identity.
+7. Team dry-run planning with `noop` providers.
+8. Real tmux team lifecycle: create, status, resume, shutdown.
+9. Full Python smoke matrix: `python3 -m unittest tests.smoke.test_grok_build_runtime -v`.
 
 Expected evidence includes:
 
@@ -26,6 +26,7 @@ marketplace-metadata=ok
 release-notes=ok
 marketplace-source=ok
 hook-smoke=ok
+hook-bridge-pytest=ok
 todo-continuation=ok
 ruff-check=ok
 mcp-smoke=ok
@@ -42,7 +43,7 @@ runtime-smoke-coverage=100%
 Additional marketplace install/discovery smoke remains available when a real Grok install is present:
 
 ```sh
-plugins/lfg/bin/grok-install-smoke.sh
+python3 plugins/lfg/bin/grok-install-smoke.py
 ```
 
 Expected evidence:
@@ -66,11 +67,11 @@ Pass evidence must prove two named child spawns, two independent child outputs, 
 Useful focused commands while debugging:
 
 ```sh
-python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py tests/smoke/test_grok_build_runtime.py
+python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py tests/smoke/test_grok_build_runtime.py
 plugins/lfg/bin/lfg --json doctor
 plugins/lfg/bin/lfg --json team create 3:executor "verify release" --providers noop --dry-run
 plugins/lfg/bin/lfg --json slash '/team providers'
 plugins/lfg/bin/lfg --json slash '/team preflight'
 ```
 
-The user-facing `omx-setup` command/skill/MCP compatibility surface remains intentionally preserved while the catalog filename is OMO-native.
+The user-facing setup skill/MCP surface is OMO-native. Legacy `omx-setup` CLI and `grok_build_omx_setup` calls remain accepted only as compatibility aliases until the coordinated runtime alias removal gate.

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generated": "2026-05-19",
+  "generated": "2026-05-20",
   "root": "docs/",
   "description": "LFG 프로젝트 공식 문서 JSON 인덱스. @docs/ 또는 AGENTS.md를 통해 문서를 참조하는 모든 에이전트(Sisyphus, Prometheus 등)는 반드시 이 파일을 먼저 읽은 후, 필요한 실제 문서를 Read 해야 한다. 이는 docs/를 서버처럼 동작하게 만드는 인덱스 계층이다.",
   "lookup_rules": {
@@ -91,6 +91,15 @@
       "priority": "medium"
     },
     {
+      "path": "GROK-EXTENSIONS-SSOT.md",
+      "title": "Grok Extensions SSOT Working Guide",
+      "section": "root",
+      "summary": "Grok skills, plugins, hooks, marketplaces, subagents, Claude Code compatibility, AGENTS.md compatibility의 발견 경로와 LFG packaging/verification 규칙을 정리한 SSOT 작업 가이드.",
+      "keywords": ["extensions", "skills", "plugins", "hooks", "marketplace", "subagents", "claude-code", "agents.md", "ssot"],
+      "priority": "critical",
+      "cross_refs": ["ARCHITECTURE.md", "SMOKE.md", "MARKETPLACE_INSTALL.md", "HOOK_EVIDENCE.md", "reference.md", "evidence/grok-subagent-spawning.md"]
+    },
+    {
       "path": "HOW-IT-WORKS.md",
       "title": "How It Works",
       "section": "root",
@@ -102,8 +111,8 @@
       "path": "reference.md",
       "title": "Grok Build / xAI Platform Reference",
       "section": "root",
-      "summary": "https://docs.x.ai/overview 를 Single Source of Truth로 하는 공식 참조 문서. Grok-native 동작 주장 시 반드시 확인.",
-      "keywords": ["reference", "xai", "grok", "responses-api"],
+      "summary": "https://docs.x.ai/overview, skills/plugins/marketplaces guide, xai-sdk-python를 Single Source of Truth로 하는 공식 참조 문서. Grok-native 동작 주장 시 반드시 확인.",
+      "keywords": ["reference", "xai", "grok", "responses-api", "skills", "plugins", "marketplaces", "xai-sdk-python"],
       "priority": "critical"
     },
     {
@@ -279,8 +288,8 @@
     }
   ],
   "stats": {
-    "total_files": 32,
-    "critical_files": 5,
-    "last_updated": "2026-05-19"
+    "total_files": 33,
+    "critical_files": 4,
+    "last_updated": "2026-05-20"
   }
 }

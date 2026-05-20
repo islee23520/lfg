@@ -20,9 +20,9 @@ Use this page as the authoritative checklist before merging or tagging `islee235
 ## Commands
 
 ```sh
-plugins/lfg/bin/self-test.sh
-plugins/lfg/bin/self-test.sh
-plugins/lfg/bin/self-test.sh plus marketplace remote smoke p1 lfg-v0.3.0-p1
+python3 plugins/lfg/bin/self-test.py
+python3 plugins/lfg/bin/self-test.py
+python3 plugins/lfg/bin/self-test.py plus marketplace remote smoke p1 lfg-v0.3.0-p1
 ```
 
 See the full list in `docs/RELEASE_CHECKLIST.md`.

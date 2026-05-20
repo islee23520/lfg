@@ -23,4 +23,4 @@ Use this skill to install or sync the LFG plugin and configure your AI providers
 
 ## Runtime
 
-Backed by `lfg setup`, `lfg auth login`, and MCP `grok_build_setup`.
+Backed by `lfg setup`, `lfg auth login`, and MCP `setup`.

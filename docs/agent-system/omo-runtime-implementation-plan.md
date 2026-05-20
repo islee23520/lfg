@@ -116,7 +116,7 @@ Target files:
 - `plugins/lfg/bin/lfg-mcp.py`
 - `plugins/lfg/src/agents/spawn.py`
 - `plugins/lfg/src/agents/results.py`
-- `plugins/lfg/bin/grok-install-smoke.sh`
+- `python3 plugins/lfg/bin/grok-install-smoke.py`
 - `docs/SMOKE.md`
 
 Tests to add or update:
@@ -231,9 +231,9 @@ Target files:
 - `plugins/lfg/bin/lfg-mcp.py`
 - `plugins/lfg/src/features/team.py`
 - `plugins/lfg/skills/team/SKILL.md`
-- `plugins/lfg/bin/self-test.sh team tmux lifecycle section`
-- `plugins/lfg/bin/self-test.sh team preflight section`
-- `plugins/lfg/bin/self-test.sh team provider section`
+- `python3 plugins/lfg/bin/self-test.py team tmux lifecycle section`
+- `python3 plugins/lfg/bin/self-test.py team preflight section`
+- `python3 plugins/lfg/bin/self-test.py team provider section`
 
 Tests to add or update:
 
@@ -245,7 +245,7 @@ Tests to add or update:
 Manual QA command:
 
 ```sh
-plugins/lfg/bin/self-test.sh team tmux lifecycle section
+python3 plugins/lfg/bin/self-test.py team tmux lifecycle section
 ```
 
 Dependencies:
@@ -388,8 +388,8 @@ Target files:
 - `plugins/lfg/hooks/hooks.json`
 - `plugins/lfg/hooks/plugin smoke checks lfg-audit-hook.sh`
 - `plugins/lfg/hooks/plugin smoke checks lfg-goal-harness.py`
-- `plugins/lfg/bin/self-test.sh MCP stdio section`
-- `plugins/lfg/bin/grok-install-smoke.sh`
+- `python3 plugins/lfg/bin/self-test.py MCP stdio section`
+- `python3 plugins/lfg/bin/grok-install-smoke.py`
 
 Tests to add or update:
 
@@ -401,7 +401,7 @@ Tests to add or update:
 Manual QA command:
 
 ```sh
-plugins/lfg/bin/self-test.sh MCP stdio section
+python3 plugins/lfg/bin/self-test.py MCP stdio section
 ```
 
 Dependencies:
@@ -426,9 +426,9 @@ Target files:
 - `docs/TEST_RULES.md`
 - `docs/ARCHITECTURE.md`
 - `docs/agent-system/*.md`
-- `plugins/lfg/bin/self-test.sh`
-- `plugins/lfg/bin/self-test.sh`
-- `plugins/lfg/bin/self-test.sh plus marketplace remote smoke`
+- `python3 plugins/lfg/bin/self-test.py`
+- `python3 plugins/lfg/bin/self-test.py`
+- `python3 plugins/lfg/bin/self-test.py plus marketplace remote smoke`
 - `.github/workflows/smoke.yml`
 
 Tests to add or update:
@@ -441,7 +441,7 @@ Tests to add or update:
 Manual QA command:
 
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 ```
 
 Dependencies:
@@ -459,8 +459,8 @@ Run these gates in order after each implementation wave reaches its exit criteri
 
 ```sh
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
-plugins/lfg/bin/self-test.sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
+python3 plugins/lfg/bin/self-test.py
 ```
 
 When Python runtime, MCP, model, or state code changes, also run:

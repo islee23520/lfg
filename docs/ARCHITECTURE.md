@@ -15,6 +15,8 @@ This document supersedes previous Codex-workflow-centered architecture notes.
 - Grok Build native sub-agent spawning is preferred where available; **xAI/Grok Oracle review is the mandatory product gate** (`oracleReview.required=true`) before any completion or Boulder advancement. Non-Grok reviewers are explicitly disallowed as replacement.
 - Runtime state is durable, inspectable, and schema-versioned under `.lfg/`.
 - Hooks and MCP surfaces are integration points, not hidden sources of truth.
+- Grok plugin packaging should follow the documented Grok/Claude Code compatible discovery model: skills, plugins, hooks, MCPs, agents, marketplaces, and `AGENTS.md`/Claude instruction files are first-class compatibility surfaces.
+- Real Grok/xAI API adapters should reference the official xAI Python SDK, but dependency-free smoke/runtime entrypoints must not hard-import it.
 - Verification evidence is part of the product contract.
 
 ---
@@ -42,7 +44,7 @@ The canonical registry now loads the 11 upstream OMO agents plus the `builtin-ag
 - `plugins/lfg/src/agents/sisyphus-junior.json` — bounded category executor
 - `plugins/lfg/src/agents/builtin-agents.json` — policy / factory layer
 
-**Loading code** (all in [plugins/lfg/bin/lfg.py](./plugins/lfg/bin/lfg.py)):
+**Loading code** (in `plugins/lfg/src/runtime/cli.py`; `plugins/lfg/bin/lfg.py` is a gateway):
 
 - `CANONICAL_OMO_AGENT_IDS` — list of the 11 OMO agents
 - `OMO_TEAM_ELIGIBILITY_REGISTRY` — canonical team-member contract
@@ -187,7 +189,7 @@ Grok Build
       ├─ Grok Spawn Adapter (real calls replacing the fallback)
       ├─ Runtime State (.lfg/ with separated runs)
       ├─ Surfaces (skills, hooks, bin/lfg.py, lfg-mcp.py, lfg/ulw)
-      └─ Verification (self-test.sh, smoke matrix, release scripts)
+      └─ Verification (self-test.py, smoke matrix, release scripts)
 ```
 
 Until then, the "Current Runtime Implementation" section above is the accurate map.
@@ -217,14 +219,14 @@ lfg spawn sisyphus-junior --category quick --task "smoke"
 
 **Plugin integrity**:
 ```sh
-plugins/lfg/bin/self-test.sh          # emits dozens of *=ok strings
+python3 plugins/lfg/bin/self-test.py          # emits dozens of *=ok strings
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
 ```
 
 **Release gates**:
 ```sh
-plugins/lfg/bin/self-test.sh
-plugins/lfg/bin/self-test.sh plus marketplace remote smoke
+python3 plugins/lfg/bin/self-test.py
+python3 plugins/lfg/bin/self-test.py plus marketplace remote smoke
 ```
 
 **Inside Grok**:
@@ -233,7 +235,7 @@ plugins/lfg/bin/self-test.sh plus marketplace remote smoke
 - `grok_build_omo_team_create` (with hyperplan)
 - The `/lfg` skill for surface stress-testing
 
-All of these are exercised by `self-test.sh` and the release-readiness scripts. Exact evidence strings are product contracts (see [docs/SMOKE.md](./docs/SMOKE.md) and [docs/TEST_RULES.md](./docs/TEST_RULES.md)).
+All of these are exercised by `self-test.py` and the release-readiness scripts. Exact evidence strings are product contracts (see [docs/SMOKE.md](./docs/SMOKE.md) and [docs/TEST_RULES.md](./docs/TEST_RULES.md)).
 
 ## Non-Goals (Unchanged)
 
@@ -254,6 +256,6 @@ All of these are exercised by `self-test.sh` and the release-readiness scripts. 
 
 ---
 
-**Last verified against**: current state of `plugins/lfg/bin/lfg.py` + `plugins/lfg/src/agents/*.json` on the omo-parity branch (May 2026).
+**Last verified against**: current state of `plugins/lfg/src/runtime/cli.py` + `plugins/lfg/src/agents/*.json` on the omo-parity branch (May 2026).
 
 This document is intended to be updated as each implementation slice lands. When the manual gate is removed and the default orchestration paths are rewired to the OMO registry, the "Current Implementation" section will be rewritten to reflect the new reality.

@@ -116,23 +116,23 @@ This proves Grok's hook engine fires for global hooks in the same headless/tool-
 Because Grok `0.1.211` fires global hooks but does not emit plugin hook audit records in the tested paths, `lfg` includes an optional bridge installer:
 
 ```sh
-plugins/lfg/scripts/install-lfg-global-hook-bridge.sh
+plugins/lfg/scripts/hook-bridge-install.py
 ```
 
 Verify it with:
 
 ```sh
-plugins/lfg/scripts/verify-lfg-global-hook-bridge.sh
+plugins/lfg/scripts/hook-bridge-verify.py
 ```
 
 Expected evidence:
 
 ```text
-lfg-global-hook-bridge=installed
+lfg-global-hook-bridge=installed-with-python-harness
 grok-global-hook-bridge=ok
 ```
 
-This installs a global `~/.grok/hooks/lfg-audit-bridge.json` that delegates to the installed plugin audit hook at `~/.grok/plugins/lfg/hooks/scripts/lfg-audit-hook.sh`. The verification runs a real Grok tool-use session and confirms `.lfg/events/audit.jsonl` is written.
+This installs a global `~/.grok/hooks/lfg-audit-bridge.json` that uses `lfg-audit-bridge.py` for audit events and routes critical continuation events directly through `lfg-goal-harness.py`. The verification runs a real Grok tool-use session and confirms `.lfg/events/audit.jsonl` is written.
 
 Runtime CLI support:
 
@@ -147,7 +147,7 @@ lfg doctor
 
 ## T18 continuation and recovery hooks
 
-`plugins/lfg/hooks/scripts/lfg-goal-harness.sh` remains a fail-open wrapper around `lfg-goal-harness.py`; wrapper failures exit 0 and stay silent. The Python harness may print prompt-injection text for hook events, but MCP never invokes this hook path and `plugins/lfg/bin/lfg-mcp.py` continues to reserve stdout for JSON-RPC frames only. Runtime diagnostics stay in returned JSON, stderr, or evidence files.
+`plugins/lfg/hooks/scripts/lfg-goal-harness.py` is the direct fail-open hook entrypoint for active-goal prompt injection. The Python harness may print prompt-injection text for hook events, but MCP never invokes this hook path and `plugins/lfg/bin/lfg-mcp.py` continues to reserve stdout for JSON-RPC frames only. Runtime diagnostics stay in returned JSON, stderr, or evidence files.
 
 The TODO continuation reminder ports the upstream OMO pattern from `orchestration.md` lines 279-294 using the literal marker:
 
@@ -168,7 +168,7 @@ The same hook/documentation contract represents the T18 recovery surfaces:
 Dependency-free smoke evidence:
 
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 ```
 
 Expected T18 evidence strings:
@@ -178,4 +178,3 @@ mcp-stdio-isolation=ok
 mcp-stderr-isolated=ok
 todo-continuation=ok
 ```
-

@@ -12,14 +12,14 @@ This package is the marketplace plugin surface for porting oh-my-openagent-style
 - `hooks/hooks.json` — hook registration
 - `hooks/scripts/lfg-audit-hook.sh` — fail-open audit hook
 - `.mcp.json` + `bin/lfg-mcp.py` — MCP server
-- `bin/lfg.py` — dependency-free runtime and future Grok spawn adapter
+- `bin/lfg.py` — gateway to the dependency-free runtime and future Grok spawn adapter
 - `src/agents/harness.toml` — agent harness metadata (canonical)
 - `src/agents/*.json` — named team agent definitions (canonical)
 
 ## Smoke test
 
 ```sh
-bin/self-test.sh
+bin/self-test.py
 ```
 
 ## Runtime

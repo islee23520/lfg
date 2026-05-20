@@ -23,4 +23,4 @@ This skill handles the **Sisyphus-Junior** category dispatch and the underlying 
 
 ## Runtime
 
-Backed by `lfg worker`, `lfg spawn`, and MCP `grok_build_worker`.
+Backed by `lfg worker`, `lfg spawn`, and MCP `worker`.
