@@ -18,7 +18,7 @@ Use this skill to install or sync the LFG plugin and configure your AI providers
 ## Behavior
 
 - **Plugin Sync**: Syncs the current plugin package into your Grok plugins directory.
-- **Provider Wizard**: In interactive mode, runs the OMO-style provider/subscription wizard for OpenAI, Z.ai, Copilot, Gemini, and Codex.
+- **Provider Wizard**: In interactive mode, runs the OMO-style provider/subscription wizard for OpenAI, Z.ai, Copilot, and Codex. These are bounded execution/consultation lanes only; xAI/Grok remains the mandatory Oracle gate.
 - **Auth Login**: Configures provider login metadata (environment variable names) without storing actual secrets.
 
 ## Runtime

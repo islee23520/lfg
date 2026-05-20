@@ -6,7 +6,7 @@ user_invocable: true
 
 # Team — OMO Team Mode
 
-Create and manage parallel agent teams for complex implementation tasks. Team Mode combines OMO mailbox/tasklist semantics with local tmux observability and Grok sub-agent spawning.
+Create and manage parallel agent teams for complex implementation tasks. Team Mode combines OMO mailbox/tasklist semantics with local tmux observability and canonical Grok sub-agent fallback envelopes; native Grok child execution remains manual-gated until T28 evidence passes.
 
 ## Usage
 
@@ -19,7 +19,7 @@ Create and manage parallel agent teams for complex implementation tasks. Team Mo
 
 ## Behavior
 
-- **Multi-Provider Swarm**: Launch teams using Grok sub-agents (`grok` provider) or external coding CLIs (`claude`, `codex`, `copilot`, etc.).
+- **Multi-Provider Swarm**: Launch teams using manual-gated Grok fallback lanes (`grok` provider) or external coding CLIs (`claude`, `codex`, `copilot`, etc.).
 - **Mailbox & Tasklist**: Workers communicate through a shared mailbox and execute tasks from a common tasklist.
 - **Tmux Visibility**: Local execution is backed by tmux, allowing you to observe worker progress in real-time.
 - **Hyperplan Integration**: Teams can be created as part of a Hyperplan adversarial planning session.

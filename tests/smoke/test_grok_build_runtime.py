@@ -172,10 +172,14 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(zai["resolvedModelProfile"]["provider"], "zai")
         self.assertEqual(zai["resolvedModelProfile"]["model"], "zai-coding-plan")
 
-        for provider in ["openai", "google", "xai", "grok", "codex", "copilot", "zai"]:
+        for provider in ["openai", "xai", "grok", "codex", "copilot", "zai"]:
             supported = self.run_lfg("agents", "inspect", "sisyphus", "--provider", provider)
             self.assertTrue(supported["ok"], supported)
             self.assertEqual(supported["resolvedModelProfile"]["provider"], "xai" if provider == "grok" else provider)
+
+        rejected_google = self.run_lfg("agents", "inspect", "sisyphus", "--provider", "google")
+        self.assertFalse(rejected_google["ok"], rejected_google)
+        self.assertIn("unsupported model provider", rejected_google["error"])
 
         rejected = self.run_lfg("agents", "inspect", "sisyphus", "--provider", "claude")
         self.assertFalse(rejected["ok"], rejected)
@@ -195,7 +199,7 @@ class RuntimeSmoke(unittest.TestCase):
             ("explore", None, "utility-runner", "xai", "medium"),
             ("librarian", None, "utility-runner", "xai", "medium"),
         ]
-        approved = {"codex", "copilot", "google", "grok", "openai", "xai", "zai"}
+        approved = {"codex", "copilot", "grok", "litellm", "openai", "xai", "zai"}
         for agent_id, category, role_fit, provider, reasoning in cases:
             args = ["agents", "inspect", agent_id]
             if category:
@@ -1201,7 +1205,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(provider["env"], "OPENAI_API_KEY")
 
     def test_setup_wizard_non_interactive_provider_flags(self) -> None:
-        setup = self.run_lfg("setup", "--no-tui", "--openai", "yes", "--zai", "yes", "--copilot", "no", "--google", "no", "--codex", "no")
+        setup = self.run_lfg("setup", "--no-tui", "--openai", "yes", "--zai", "yes", "--copilot", "no", "--codex", "no")
         self.assertTrue(setup["ok"], setup)
         self.assertEqual(setup["setupWizard"]["mode"], "non-interactive")
         self.assertEqual(setup["setupWizard"]["configuredProviderIds"], ["openai-main", "zai-main"])
@@ -1217,7 +1221,7 @@ class RuntimeSmoke(unittest.TestCase):
             cwd=str(REPO),
             env=self.env,
             text=True,
-            input="y\nn\nn\ny\nn\n",
+            input="y\nn\ny\nn\n",
             capture_output=True,
             check=True,
             timeout=20,
@@ -1714,6 +1718,13 @@ esac
         self.assertEqual(team["objective"], "fix tests")
         self.assertEqual([m["provider"] for m in team["members"]], ["grok", "subagent", "grok"])
         self.assertTrue(all("Do not overwrite teammate work" in m["prompt"] for m in team["members"]))
+        for member in team["members"]:
+            self.assertEqual(member["spawn_envelope"]["mode"], "fallback")
+            self.assertEqual(member["spawn_envelope"]["evidenceClass"], "dependency-free-smoke")
+            self.assertTrue(member["spawn_envelope"]["manual_gate_required"])
+            self.assertEqual(member["spawn_envelope"]["oracleReview"]["gate"], "xai/grok")
+            self.assertFalse(member["spawn_envelope"]["execution"]["actualChildExecution"])
+            self.assertEqual(member["spawned_as_subagent_status"], "manual_gate_required_fallback")
 
     def test_team_lifecycle_state_dry_run(self) -> None:
         team = self.run_lfg("team", "create", "2:reviewer", "review docs", "--providers", "claude,codex", "--dry-run")
@@ -2078,7 +2089,7 @@ esac
         self.assertIn("noop provider ready", module.provider_command("noop", "hello"))
         matrix = module.team_provider_matrix()
         providers = {row["provider"] for row in matrix}
-        expected = {"hermes", "claude", "codex", "gemini", "copilot", "zai", "opencode", "grok", "subagent", "noop"}
+        expected = {"hermes", "claude", "codex", "gemini", "copilot", "zai", "opencode", "grok", "subagent", "noop", "litellm"}
         self.assertEqual(expected, providers)
         self.assertTrue(next(row for row in matrix if row["provider"] == "noop")["available"])
         listed = self.run_lfg("team", "providers")
@@ -2938,10 +2949,50 @@ esac
         self.assertFalse(zai["result"]["config"]["keyConfigured"])
         self.assertEqual(zai["result"]["config"]["apiKeyEnv"], "ZAI_API_KEY|ZHIPU_API_KEY")
         self.assertIn("/chat/completions", zai["result"]["request"]["endpoint"])
+        self.assertNotIn("response", zai["result"])
+        self.assertIn("debug", zai["result"])
+        self.assertFalse(zai["result"]["debug"]["rawResponseExposed"])
         pointer = pathlib.Path(self.tmp.name) / "state" / "last-ask.json"
         self.assertTrue(pointer.exists())
         listed = self.run_lfg("ask", "list")
         self.assertEqual(listed["count"], 2)
+
+    def test_call_zai_redacts_raw_provider_response_from_public_shape(self) -> None:
+        module = load_grok_build_module()
+        original_urlopen = module.urllib.request.urlopen
+        original_key = os.environ.get("ZAI_API_KEY")
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps({
+                    "id": "provider-response-id",
+                    "choices": [{"message": {"content": "advisor text"}}],
+                    "provider_specific": {"raw": True},
+                }).encode("utf-8")
+
+        try:
+            os.environ["ZAI_API_KEY"] = "fixture-key"
+            module.urllib.request.urlopen = lambda *_args, **_kwargs: FakeResponse()
+            result = module.call_zai("review architecture", dry_run=False)
+        finally:
+            module.urllib.request.urlopen = original_urlopen
+            if original_key is None:
+                os.environ.pop("ZAI_API_KEY", None)
+            else:
+                os.environ["ZAI_API_KEY"] = original_key
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["output"], "advisor text")
+        self.assertNotIn("response", result)
+        self.assertNotIn("provider_specific", result)
+        self.assertFalse(result["debug"]["rawResponseExposed"])
+        self.assertIn("providerResponseRedacted", result["debug"])
 
     def test_mcp_ask_tool(self) -> None:
         proc = subprocess.Popen(

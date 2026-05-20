@@ -1,4 +1,19 @@
-# lfg: OMO Agent Hierarchy Parity for Grok Build
+Metadata-Version: 2.4
+Name: lfg
+Version: 0.3.0
+Summary: Python-first LFG Grok plugin runtime for OMO agent hierarchy parity
+Author: islee23520
+License: Proprietary
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: litellm>=1.85.0
+Provides-Extra: dev
+Requires-Dist: ruff>=0.14.0; extra == "dev"
+
+# islee23520/lfg
 
 **OMO agent hierarchy parity for Grok Build — Full Real Port in Progress.**
 
@@ -17,7 +32,7 @@ First-class agents default to Grok model profiles for Grok Build execution excep
 - Agent hierarchy: the canonical 11 OMO agents plus builtin-agents policy layer, with eligibility contracts enforced in runtime
 - Orchestration: task delegation, category routing, dependency waves, hostile critique, lead synthesis, hyperplan 3-round adversarial
 - Durable state: Boulder, continuation (Ralph-loop + TodoContinuationEnforcer), mailbox, shared tasklist, notepads, plans, team runtime
-- Team execution: tmux-backed local observability plus manual-gated Grok sub-agent fallback envelopes until real T28 evidence exists
+- Team execution: tmux-backed local observability plus Grok sub-agent spawning where available
 - "Magic" entrypoints: `ulw` / `ultrawork` keyword + IntentGate + model-specific Grok preambles
 - Quality gates: evidence strings (`*=ok`), critic review, tests, manual verification, release gates
 - Integration surfaces: Grok skills, hooks (5-tier safeCreateHook), MCP tools, CLI wrappers, marketplace metadata
@@ -95,9 +110,9 @@ Sisyphus receives request
   └─ Sisyphus synthesizes, verifies, and advances Boulder
 ```
 
-Agent entries default to Grok models for Grok Build execution except Hephaestus, whose OMO deep-specialist contract requires a GPT-style approved profile. Category routing may keep Grok reasoning profiles or use approved optional providers (`codex`, `copilot`, `zai`) for bounded execution or consultation lanes (`zai` is an HTTP/API adapter, not a required local CLI), but every completion still carries the mandatory xAI/Grok Oracle review envelope. OpenAI/GPT, Copilot, Gemini, and Z.ai consultation cannot replace that product gate.
+Agent entries default to Grok models for Grok Build execution except Hephaestus, whose OMO deep-specialist contract requires a GPT-style approved profile. Category routing may keep Grok reasoning profiles or use approved optional providers (`codex`, `copilot`, `zai`) for execution lanes (`zai` is an HTTP/API adapter, not a required local CLI), but every completion still carries a required Oracle review envelope backed by `openai/gpt-5.5` high with Copilot, Gemini, and Z.ai fallbacks.
 
-The next integration focus is replacing fallback/manual-gated spawn evidence with verified Grok-native sub-agent spawning after the T28 manual gate passes, while keeping `.lfg/` state, approved multi-provider routing, and Oracle review contracts stable.
+The next integration focus is replacing fallback/manual-gated spawn evidence with verified Grok-native sub-agent spawning while keeping `.lfg/` state, approved multi-provider routing, and Oracle review contracts stable.
 
 ## Full Real OMO Port — Phase 2 Complete (Big Synthesis)
 
@@ -159,7 +174,7 @@ Runtime state is stored under:
 
 `lfg models` shows default Grok-first model profiles plus configured provider metadata. `lfg auth login` records provider login metadata by environment variable name only; it never stores API keys.
 
-`lfg setup` syncs the current plugin package into `~/.grok/plugins/lfg` (or `--plugin-dir <path>`) and records setup state under `.lfg/state/setup.json`. When run from an interactive terminal, `lfg setup` automatically opens the OMO-style provider/subscription wizard for OpenAI, Z.ai, Copilot, and Codex; Grok Build/xAI login is assumed by the host and is not asked in the wizard. Use `--interactive` only to force the wizard, or `lfg setup --no-tui --openai yes --zai yes --copilot no --codex no` for deterministic automation. `lfg auth login` without arguments lets you pick from configured providers, and all auth/provider forms store only environment variable names, never secret values.
+`lfg setup` syncs the current plugin package into `~/.grok/plugins/lfg` (or `--plugin-dir <path>`) and records setup state under `.lfg/state/setup.json`. When run from an interactive terminal, `lfg setup` automatically opens the OMO-style provider/subscription wizard for OpenAI, Z.ai, Copilot, Gemini, and Codex; Grok Build/xAI login is assumed by the host and is not asked in the wizard. Use `--interactive` only to force the wizard, or `lfg setup --no-tui --openai yes --zai yes --copilot no --google no --codex no` for deterministic automation. `lfg auth login` without arguments lets you pick from configured providers, and all auth/provider forms store only environment variable names, never secret values.
 
 Target state layout:
 
@@ -177,7 +192,7 @@ Target state layout:
 
 ## Team Mode
 
-Team Mode is the durable multi-agent execution surface. It combines OMO mailbox/tasklist semantics with local tmux observability, optional external coding providers, and canonical manual-gated Grok sub-agent fallback envelopes until real native evidence exists.
+Team Mode is the durable multi-agent execution surface. It combines OMO mailbox/tasklist semantics with local tmux observability, optional external coding providers, and Grok sub-agent spawning where available.
 
 Target flow:
 
