@@ -77,7 +77,7 @@ Target files:
 - `tests/smoke/test_grok_build_runtime.py`
 - `plugins/lfg/bin/lfg.py`
 - `plugins/lfg/src/agents/harness.toml`
-- `plugins/lfg/src/agents/legacy/*.json`
+- historical custom-agent references and migration notes
 - `plugins/lfg/src/agents/registry.py`
 - `plugins/lfg/src/agents/models.py`
 
