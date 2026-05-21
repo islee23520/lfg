@@ -71,6 +71,7 @@ All future work should align with the OMO parity roadmap, not legacy Codex-deriv
 - State: runtime state belongs in `.lfg/` or the configured `GROK_PLUGIN_DATA` tree.
 - Team state: preserve legacy flat team-state compatibility until the M7/M8 state migration explicitly changes it.
 - Verification: smoke gates emit exact `*=ok` evidence strings. Docs and tests assert those strings literally.
+- All five `AGENTS.md` guides are part of the product contract and must stay structurally complete; `python3 plugins/lfg/bin/self-test.py` proves this with `agents-guides-valid=ok`.
 - Tests: classify every changed test as dependency-free smoke, repo-native integration, or environment/manual gate.
 
 ## ANTI-PATTERNS (THIS PROJECT)

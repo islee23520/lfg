@@ -140,6 +140,33 @@ def manifest_and_file_checks() -> None:
     print("marketplace-source=ok")
 
 
+def agents_guides_validity() -> None:
+    guides = {
+        REPO / "AGENTS.md": ["## OVERVIEW", "## CONVENTIONS", "## COMMANDS"],
+        REPO / "docs" / "AGENTS.md": ["## OVERVIEW", "## CONVENTIONS", "## COMMANDS"],
+        REPO / "tests" / "AGENTS.md": ["## OVERVIEW", "## CONVENTIONS", "## COMMANDS"],
+        ROOT / "AGENTS.md": ["## OVERVIEW", "## CONVENTIONS", "## COMMANDS"],
+        ROOT / "scripts" / "AGENTS.md": ["## OVERVIEW", "## CONVENTIONS", "## COMMANDS"],
+    }
+    for path, required_markers in guides.items():
+        text = path.read_text(encoding="utf-8")
+        assert len(text.splitlines()) >= 12, f"AGENTS guide too short: {path}"
+        for marker in required_markers:
+            assert marker in text, f"missing {marker} in {path}"
+
+    plugin_agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert "self-test.sh" not in plugin_agents, "plugins/lfg/AGENTS.md must reference self-test.py only"
+    assert "grok_build_* tools" not in plugin_agents, "plugins/lfg/AGENTS.md must describe short MCP tool names as canonical"
+
+    scripts_agents = (ROOT / "scripts" / "AGENTS.md").read_text(encoding="utf-8")
+    assert "verify-release-readiness" not in scripts_agents, "plugins/lfg/scripts/AGENTS.md must not describe removed shell gates"
+    assert "install-lfg-symlink.sh" not in scripts_agents, "plugins/lfg/scripts/AGENTS.md must not describe removed shell gates"
+    assert "verify-team-*.sh" not in scripts_agents, "plugins/lfg/scripts/AGENTS.md must not describe removed shell gates"
+    assert "verify-grok-*.sh" not in scripts_agents, "plugins/lfg/scripts/AGENTS.md must not describe removed shell gates"
+    assert "verify-state-schema.sh" not in scripts_agents, "plugins/lfg/scripts/AGENTS.md must not describe removed shell gates"
+    print("agents-guides-valid=ok")
+
+
 def hook_smoke(tmp: pathlib.Path) -> None:
     env = os.environ.copy()
     env.update({"GROK_PLUGIN_ROOT": str(ROOT), "GROK_PLUGIN_DATA": str(tmp), "GROK_HOOK_EVENT": "PreToolUse"})
@@ -243,6 +270,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = pathlib.Path(tmpdir)
         manifest_and_file_checks()
+        agents_guides_validity()
         hook_smoke(tmp)
         run(["python3", "-m", "pytest", "tests/smoke/test_hook_bridge_pytest.py", "-q"])
         print("hook-bridge-pytest=ok")

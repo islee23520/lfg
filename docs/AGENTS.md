@@ -24,6 +24,7 @@ Documentation here defines the evidence contract for the OMO-to-Grok Build port.
 
 - Treat command blocks and `*=ok` strings as contracts, not prose examples.
 - Keep `ROADMAP.md`, `README.md`, `ARCHITECTURE.md`, `SMOKE.md`, `RELEASE_CHECKLIST.md`, and `python3 plugins/lfg/bin/self-test.py` aligned when changing gates.
+- Keep all five `AGENTS.md` guides structurally complete and aligned with self-test; Wave 1 validity is proven by `agents-guides-valid=ok`.
 - Keep marketplace identity fixed to `islee23520/lfg` unless the package is intentionally renamed.
 - Mention whether each gate is dependency-free smoke, repo-native integration, or environment/manual.
 - OMO agent names are canonical: Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, builtin-agents.
