@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io  # noqa: E402
+import importlib  # noqa: E402
 import os  # noqa: E402
 import pathlib  # noqa: E402
 import sys  # noqa: E402
@@ -13,22 +14,44 @@ _HOOKS_DIR = pathlib.Path(__file__).resolve().parent
 if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
-from ambiguity_gate import compute_heuristic_ambiguity  # noqa: E402
-from boulder_persistence import persist_boulder_from_payload
-from compaction_protection import build_compaction_protection_injection
-from dispatch_gate import reserve_continuation_dispatch
-from injection import build_aggressive_injection, write_injection_artifacts
-from payload import detect_current_agent, extract_user_prompt_from_payload
-from run_discovery import find_active_runs
-from snapshot import get_goal_snapshot
-from state_io import boulder_path as _boulder_path
-from state_io import load_current_ultragoal, read_json, safe_child_path, validate_safe_id
-from state_io import read_boulder as _read_boulder
-from state_io import write_boulder as _write_boulder
-from task_helpers import evidence_identity, message_is_evidence, progress_evidence_fingerprint, task_is_pending
-from todo_continuation import incomplete_todo_items, todo_continuation_reminder
-from ralph_loop import ralph_continuation_reminder
-from stop_continuation_guard import stop_continuation_guard
+_ambiguity_gate = importlib.import_module("ambiguity_gate")
+_boulder_persistence = importlib.import_module("boulder_persistence")
+_compaction_protection = importlib.import_module("compaction_protection")
+_dispatch_gate = importlib.import_module("dispatch_gate")
+_injection = importlib.import_module("injection")
+_payload = importlib.import_module("payload")
+_run_discovery = importlib.import_module("run_discovery")
+_snapshot = importlib.import_module("snapshot")
+_state_io = importlib.import_module("state_io")
+_task_helpers = importlib.import_module("task_helpers")
+_todo_continuation = importlib.import_module("todo_continuation")
+_ralph_loop = importlib.import_module("ralph_loop")
+_stop_continuation_guard = importlib.import_module("stop_continuation_guard")
+compute_heuristic_ambiguity = _ambiguity_gate.compute_heuristic_ambiguity
+persist_boulder_from_payload = _boulder_persistence.persist_boulder_from_payload
+build_compaction_protection_injection = _compaction_protection.build_compaction_protection_injection
+reserve_continuation_dispatch = _dispatch_gate.reserve_continuation_dispatch
+build_aggressive_injection = _injection.build_aggressive_injection
+write_injection_artifacts = _injection.write_injection_artifacts
+detect_current_agent = _payload.detect_current_agent
+extract_user_prompt_from_payload = _payload.extract_user_prompt_from_payload
+find_active_runs = _run_discovery.find_active_runs
+get_goal_snapshot = _snapshot.get_goal_snapshot
+_boulder_path = _state_io.boulder_path
+load_current_ultragoal = _state_io.load_current_ultragoal
+read_json = _state_io.read_json
+safe_child_path = _state_io.safe_child_path
+validate_safe_id = _state_io.validate_safe_id
+_read_boulder = _state_io.read_boulder
+_write_boulder = _state_io.write_boulder
+evidence_identity = _task_helpers.evidence_identity
+message_is_evidence = _task_helpers.message_is_evidence
+progress_evidence_fingerprint = _task_helpers.progress_evidence_fingerprint
+task_is_pending = _task_helpers.task_is_pending
+incomplete_todo_items = _todo_continuation.incomplete_todo_items
+todo_continuation_reminder = _todo_continuation.todo_continuation_reminder
+ralph_continuation_reminder = _ralph_loop.ralph_continuation_reminder
+stop_continuation_guard = _stop_continuation_guard.stop_continuation_guard
 
 
 _SOURCE_CONTRACT_STRINGS = (

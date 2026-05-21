@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json  # noqa: E402
+import importlib  # noqa: E402
 import pathlib  # noqa: E402
 import sys  # noqa: E402
 import time  # noqa: E402
@@ -12,7 +13,10 @@ _HOOKS_DIR = pathlib.Path(__file__).resolve().parent
 if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
-from paths import SAFE_ID_RE, state_dir, ultragoal_dir  # noqa: E402
+_paths = importlib.import_module("paths")
+SAFE_ID_RE = _paths.SAFE_ID_RE
+state_dir = _paths.state_dir
+ultragoal_dir = _paths.ultragoal_dir
 
 
 def read_json(path: pathlib.Path, default: Any = None) -> Any:

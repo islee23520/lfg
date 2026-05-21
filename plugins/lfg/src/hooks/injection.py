@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json  # noqa: E402
+import importlib  # noqa: E402
 import pathlib  # noqa: E402
 import sys  # noqa: E402
 from typing import Any, Dict, List
@@ -11,13 +12,21 @@ _HOOKS_DIR = pathlib.Path(__file__).resolve().parent
 if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
-from ambiguity_gate import compute_heuristic_ambiguity  # noqa: E402
-from compaction_protection import build_compaction_protection_injection
-from paths import injection_file, injection_meta
-from task_helpers import task_is_pending
-from todo_continuation import todo_continuation_reminder
-from ralph_loop import ralph_continuation_reminder
-from stop_continuation_guard import stop_continuation_guard
+_ambiguity_gate = importlib.import_module("ambiguity_gate")
+_compaction_protection = importlib.import_module("compaction_protection")
+_paths = importlib.import_module("paths")
+_task_helpers = importlib.import_module("task_helpers")
+_todo_continuation = importlib.import_module("todo_continuation")
+_ralph_loop = importlib.import_module("ralph_loop")
+_stop_continuation_guard = importlib.import_module("stop_continuation_guard")
+compute_heuristic_ambiguity = _ambiguity_gate.compute_heuristic_ambiguity
+build_compaction_protection_injection = _compaction_protection.build_compaction_protection_injection
+injection_file = _paths.injection_file
+injection_meta = _paths.injection_meta
+task_is_pending = _task_helpers.task_is_pending
+todo_continuation_reminder = _todo_continuation.todo_continuation_reminder
+ralph_continuation_reminder = _ralph_loop.ralph_continuation_reminder
+stop_continuation_guard = _stop_continuation_guard.stop_continuation_guard
 
 
 def build_aggressive_injection(snapshot: Dict[str, Any], user_prompt: str, event: str) -> str:

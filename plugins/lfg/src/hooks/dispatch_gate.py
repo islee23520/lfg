@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib  # noqa: E402
+import importlib  # noqa: E402
 import importlib.util  # noqa: E402
 import os  # noqa: E402
 import pathlib  # noqa: E402
@@ -14,9 +15,13 @@ _HOOKS_DIR = pathlib.Path(__file__).resolve().parent
 if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
-from paths import dispatch_gate_dir, plugin_root  # noqa: E402
-from task_helpers import progress_evidence_fingerprint
-from todo_continuation import incomplete_todo_items
+_paths = importlib.import_module("paths")
+_task_helpers = importlib.import_module("task_helpers")
+_todo_continuation = importlib.import_module("todo_continuation")
+dispatch_gate_dir = _paths.dispatch_gate_dir
+plugin_root = _paths.plugin_root
+progress_evidence_fingerprint = _task_helpers.progress_evidence_fingerprint
+incomplete_todo_items = _todo_continuation.incomplete_todo_items
 
 
 def reserve_continuation_dispatch(injection: str, snapshot: Dict[str, Any], event: str) -> Dict[str, Any]:
