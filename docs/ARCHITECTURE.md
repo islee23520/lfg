@@ -58,7 +58,7 @@ Each entry contains: `id`, `name`, `family`, `role`, `mode`, `modelProfile`, `re
 
 All loaded agents default to `provider: "xai"` + `model: "xai/grok-4.3"`. `resolve_omo_model_profile()` also accepts approved execution providers (`codex`, `copilot`, `zai`; `zai` uses `ZAI_API_KEY`/`ZHIPU_API_KEY` only for explicit HTTP runs) and maps category → reasoning level while preserving Grok Oracle review as the completion gate.
 
-**Legacy compatibility layer**: `plugins/lfg/src/agents/legacy/` still contains the older `lina-orchestrator.json`, `gonow-worker.json`, `iz-architect.json`, `grok-consultant.json`. These are used only by existing `team create` specs that have not yet been migrated. They are **not** part of the canonical OMO registry.
+**Legacy compatibility note**: the older custom names (`lina`, `gonow`, `iz`, `grok`) are historical only. They are **not** bundled in the current plugin and are not valid `team create` spec members.
 
 See also: `plugins/lfg/src/agents/README.md` (the only doc that currently states the first-class vs legacy split correctly).
 
@@ -134,26 +134,26 @@ Plans created through LFG (`lfg plan create`, `grok_build_plan`, the `plan` skil
 - `lfg --json provider list`
 - `lfg --json doctor state schema check`
 - `lfg --json team create 3:executor "..."`
-- MCP tools: `grok_build_omo_agent_catalog`, `grok_build_omo_doctor`, `grok_build_omo_team_create`, `grok_build_omo_ulw`
+- MCP tools: canonical short names `omo_agent_catalog`, `omo_doctor`, `omo_team_create`, `omo_ulw` (legacy `grok_build_*` prefixes are dispatch aliases only)
 
 **Observability**:
-- `lfg doctor` — validates manifests, skill count (≥28), state schema, providers, hook bridge, etc.
+- `lfg doctor` — validates manifests, current skill/catalog contract, state schema, providers, hook bridge, etc.
 - `lfg doctor state schema check` — focused JSON state-schema verifier for `.lfg/`
 - `lfg setup` — syncs the plugin into `~/.grok/plugins/lfg` and records setup state.
 - `lfg provider add` — stdlib interactive provider setup; persists env-var names only.
 - `lfg status` — versions, active goals, catalog size, current goal/plan pointers
 - `lfg hud` — compact dashboard of goals, plans, teams, wiki notes
 
-**Higher-level orchestration (still largely legacy/hybrid)**:
-- `team_create()`, `ultragoal_spawn()`, `ralph_*`, most skills, and `worker` commands primarily use legacy specs (`"1:iz,1:gonow,1:grok"`) + external CLIs or generic prompts.
-- Hyperplan and certain MCP paths are starting to reference the new OMO catalog.
+**Higher-level orchestration (current transition state)**:
+- `team_create()` and `ultragoal_spawn()` now prefer canonical OMO team specs (`"1:sisyphus,1:atlas,1:sisyphus-junior"` or `"3:executor"`) instead of the old custom lineup.
+- Hyperplan and MCP OMO surfaces reference the first-class OMO catalog; legacy named agents are historical only and no longer valid team-spec members.
 - `TeamRuntime` + `TeamStateStore` provide the durable mailbox + tasklist coordination (mode-aware separated directories under `.lfg/runs/<mode>-<id>/` to match real OmO behavior).
 
 The "Sisyphus leads and spawns the other five via the Grok adapter" loop is **available today via explicit `spawn` + MCP**, but is not yet the default execution path for `ultragoal`, `team create`, or `ralph`.
 
 ### 5. State & Persistence (OmO-like)
 
-- Primary root: `$GROK_PLUGIN_DATA` (defaults to `./.lfg` or `~/.grok/lfg` data tree).
+- Primary root: `$GROK_PLUGIN_DATA` (defaults to `$PWD/.lfg`).
 - Wrappers (`bin/lfg`, `bin/ulw`) set `LFG_LAUNCHER` and `GROK_PLUGIN_DATA`.
 - Separated run directories (in lfg.py): `ultragoal/`, `ultrawork/`, `hyperplan/`, `runs/<mode>-<id>/teams/...` etc. — mirrors `~/.omo/state/team/<run-id>/` pattern.
 - `TeamStateStore`, `TeamMailbox`, `TeamTasklist` classes provide the coordination primitives.

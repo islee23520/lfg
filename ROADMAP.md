@@ -265,13 +265,13 @@ Legacy/transition evidence strings (to be migrated or removed):
 - [x] lfg-inside-tmux-status=ok
 
 
-### Preserved Skill Coverage Matrix
+### Active Skill Coverage Matrix
 
-This table preserves current skill-surface smoke contracts during the OMO migration. Rows will be renamed or replaced only with matching test/script changes.
+This table tracks the current active skill/runtime surfaces during the OMO migration. Historical aliases may still appear in evidence docs, but active runtime and smoke contracts must match this matrix.
 
 | Feature | Migration status |
 | --- | --- |
-| `/ai-slop-cleaner` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/ai-slop-cleaner` | Historical command-only compatibility surface; not an active skill/catalog surface |
 | `/analyze` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/ask` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/autopilot` | Preserved transition surface; migrate to OMO semantics in M12 |
@@ -284,17 +284,17 @@ This table preserves current skill-surface smoke contracts during the OMO migrat
 | `/design` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/doctor` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/hud` | Preserved transition surface; migrate to OMO semantics in M12 |
-| `/omx-setup` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/setup` | Active canonical setup surface for install-plan, check, and show |
 | `/performance-goal` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/pipeline` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/plan` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/ralph` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/ralplan` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/skill` | Preserved transition surface; migrate to OMO semantics in M12 |
-| `/team` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/team` | Active canonical non-trivial team execution surface |
 | `/ultragoal` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/ultraqa` | Preserved transition surface; migrate to OMO semantics in M12 |
-| `/ultrawork` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/ultrawork` | Historical command surface retained for compatibility; active continuation surface is `loop`/`ulw` |
 | `/visual-ralph` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/wiki` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/worker` | Preserved transition surface; migrate to OMO semantics in M12 |

@@ -81,7 +81,7 @@ Factory and policy layer. Resolves model profile, category, skill availability, 
 
 ### Full 11-Agent Catalog (Phase 2 Ported)
 
-The lfg-native registry starts with Sisyphus, Atlas, Sisyphus-Junior, Hephaestus, Prometheus, and builtin-agents, with legacy named agents kept only for compatibility under `plugins/lfg/src/agents/legacy/`.
+The lfg-native registry starts with Sisyphus, Atlas, Sisyphus-Junior, Hephaestus, Prometheus, and builtin-agents. Older custom agent names are historical only and are not bundled as valid team-spec members.
 
 ## Grok Build Execution Model
 
@@ -117,7 +117,7 @@ After a massive 14+ parallel ULW explorer swarm mapped the entire production OMO
 
 **Plus cross-cutting Persistence** (`persistence/`) — Boulder + Ralph-loop + `TodoContinuationEnforcer` + `SYSTEM DIRECTIVE` ("never stops until done") — `persistence-boulder-ralph-impl=ok`
 
-All modules are dependency-light Python, directly portable into `~/.grok/plugins/grok-build/omo/`, and exercised with live evidence strings.
+All modules are dependency-light Python, directly portable into the active plugin install surface at `~/.grok/plugins/lfg/`, and exercised with live evidence strings.
 
 **"The boulder is moving. The real OMO engine is here."**
 
@@ -145,13 +145,13 @@ plugins/lfg/bin/lfg doctor state schema check
 plugins/lfg/bin/lfg team providers
 plugins/lfg/bin/lfg team preflight
 plugins/lfg/bin/lfg team create 3:executor "verify release gates"
-plugins/lfg/bin/lfg team state <team-name>
+plugins/lfg/bin/lfg team status <team-name>
 plugins/lfg/bin/lfg setup
+plugins/lfg/bin/lfg setup check
+plugins/lfg/bin/lfg setup install-plan --marketplace islee23520/lfg
+plugins/lfg/bin/lfg setup show
 plugins/lfg/bin/lfg auth login openai --id openai-main --env OPENAI_API_KEY
-plugins/lfg/bin/lfg omx-setup check
 ```
-
-`omx-setup` remains the documented compatibility surface during the rename transition.
 
 Runtime state is stored under:
 
