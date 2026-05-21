@@ -15,9 +15,9 @@ code or provider SDKs.
 
 Current extracted slices:
 
-- `agent_registry.py` — OMO agent discovery, team eligibility, category routing,
+- `agent-registry.ts` — OMO agent discovery, team eligibility, category routing,
   and model-resolution policy.
-- `spawn_policy.py` — canonical spawn envelopes, manual-gate policy, internal
+- `spawn-policy.ts` — canonical spawn envelopes, manual-gate policy, internal
   supervision-broker records, and envelope validation.
-- `atlas_boulder.py` — Atlas task dependency progress, bounded delegation
+- `atlas-boulder.ts` — Atlas task dependency progress, bounded delegation
   records, and Boulder migration/build helpers.

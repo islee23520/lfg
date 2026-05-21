@@ -6,14 +6,14 @@
 
 | Class | Description | Example Commands |
 |-------|-------------|------------------|
-| **Dependency-free smoke** | Runs with temporary state, no real Grok, no tmux, no provider credentials | `python3 -m unittest tests.smoke.test_grok_build_runtime -v` |
-| **Repo-native integration** | Uses local binaries, filesystem, deterministic fakes | `python3 -m unittest tests.smoke.test_grok_build_runtime -v`, focused verify scripts |
-| **Environment/manual** | Requires tmux, real Grok, installed symlinks, marketplace state | `python3 plugins/lfg/bin/self-test.py` |
+| **Dependency-free smoke** | Runs with temporary state, no real Grok, no tmux, no provider credentials | `bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils` |
+| **Repo-native integration** | Uses local binaries, filesystem, deterministic fakes | `bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils`, focused verify scripts |
+| **Environment/manual** | Requires tmux, real Grok, installed symlinks, marketplace state | `bun plugins/lfg/bin/self-test.ts` |
 
 ## Required Local Smoke
 
 ```sh
-python3 plugins/lfg/bin/self-test.py
+bun plugins/lfg/bin/self-test.ts
 ```
 
 Must produce (among many others):
@@ -28,8 +28,8 @@ runtime-smoke-coverage=100%
 ## Aggregated Release Readiness
 
 ```sh
-python3 plugins/lfg/bin/self-test.py
-python3 plugins/lfg/bin/self-test.py plus marketplace remote smoke
+bun plugins/lfg/bin/self-test.ts
+bun plugins/lfg/bin/self-test.ts plus marketplace remote smoke
 ```
 
 These wrap the self-test plus focused gates for:

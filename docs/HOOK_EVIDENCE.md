@@ -116,23 +116,23 @@ This proves Grok's hook engine fires for global hooks in the same headless/tool-
 Because Grok `0.1.211` fires global hooks but does not emit plugin hook audit records in the tested paths, `lfg` includes an optional bridge installer:
 
 ```sh
-plugins/lfg/scripts/hook-bridge-install.py
+plugins/lfg/scripts/hook-bridge-install.ts
 ```
 
 Verify it with:
 
 ```sh
-plugins/lfg/scripts/hook-bridge-verify.py
+plugins/lfg/scripts/hook-bridge-verify.ts
 ```
 
 Expected evidence:
 
 ```text
-lfg-global-hook-bridge=installed-with-python-harness
+lfg-global-hook-bridge=installed-with-ts-harness
 grok-global-hook-bridge=ok
 ```
 
-This installs a global `~/.grok/hooks/lfg-audit-bridge.json` that uses `lfg-audit-bridge.py` for audit events and routes critical continuation events directly through `lfg-goal-harness.py`. The verification runs a real Grok tool-use session and confirms `.lfg/events/audit.jsonl` is written.
+This installs a global `~/.grok/hooks/lfg-audit-bridge.json` that uses `lfg-audit-bridge.ts` for audit events and routes critical continuation events directly through `lfg-goal-harness.ts`. The verification runs a real Grok tool-use session and confirms `.lfg/events/audit.jsonl` is written.
 
 Runtime CLI support:
 
@@ -147,7 +147,7 @@ lfg doctor
 
 ## T18 continuation and recovery hooks
 
-`plugins/lfg/hooks/scripts/lfg-goal-harness.py` is the fail-open hook entrypoint for active-goal prompt injection. Before printing hook text, the Python harness reserves the shared `.lfg/dispatch-gate/` continuation gate and records `manual_gate_required` evidence. MCP never invokes this hook path and `plugins/lfg/bin/lfg-mcp.py` continues to reserve stdout for JSON-RPC frames only. Runtime diagnostics stay in returned JSON, stderr, or evidence files.
+`plugins/lfg/hooks/scripts/lfg-goal-harness.ts` is the fail-open hook entrypoint for active-goal prompt injection. Before printing hook text, the TS harness reserves the shared `.lfg/dispatch-gate/` continuation gate and records `manual_gate_required` evidence. MCP never invokes this hook path and `plugins/lfg/bin/lfg-mcp.ts` continues to reserve stdout for JSON-RPC frames only. Runtime diagnostics stay in returned JSON, stderr, or evidence files.
 
 The TODO continuation reminder ports the upstream OMO pattern from `orchestration.md` lines 279-294 using the literal marker:
 
@@ -168,7 +168,7 @@ The same hook/documentation contract represents the T18 recovery surfaces:
 Dependency-free smoke evidence:
 
 ```sh
-python3 plugins/lfg/bin/self-test.py
+bun plugins/lfg/bin/self-test.ts
 ```
 
 Expected T18 evidence strings:

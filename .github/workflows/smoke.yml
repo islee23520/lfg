@@ -22,18 +22,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y tmux
 
-      - name: Install Python dev tools
-        run: python3 -m pip install ruff
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
 
-      - name: Verify Python syntax
-        run: |
-          python3 -m py_compile \
-            plugins/lfg/bin/lfg.py \
-            plugins/lfg/bin/lfg-mcp.py \
-            plugins/lfg/bin/self-test.py \
-            plugins/lfg/bin/grok-install-smoke.py \
-            plugins/lfg/src/runtime/cli.py \
-            tests/smoke/test_grok_build_runtime.py
+      - name: Install TypeScript dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Bun tests
+        run: bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils
 
       - name: Run plugin self-test
-        run: python3 plugins/lfg/bin/self-test.py
+        run: bun plugins/lfg/bin/self-test.ts

@@ -2,7 +2,7 @@
 
 **OMO agent hierarchy parity for Grok Build — audit-backed port in progress.**
 
-`lfg` is a Python-first plugin runtime and Grok marketplace plugin that ports the production oh-my-openagent (OMO) agent hierarchy and orchestration engine into LFG / Grok Build, with remaining native Grok child-spawn and default closed-loop parity tracked as explicit gates.
+`lfg` is a TypeScript/Bun plugin runtime and Grok marketplace plugin that ports the production oh-my-openagent (OMO) agent hierarchy and orchestration engine into LFG / Grok Build, with remaining native Grok child-spawn and default closed-loop parity tracked as explicit gates.
 
 **The goal is not a lightweight command demo.** The goal is a Grok-native agent operating system with Sisyphus orchestration, Prometheus planning, Atlas checklist execution, Hephaestus deep work, Sisyphus-Junior category execution, Hyperplan adversarial teams, Boulder + Ralph "never stops" persistence, 5-tier defensive hooks, IntentGate `ulw` bootstrap, and Team Mode — powered by multi-provider execution with Grok as the orchestrator/reviewer, Grok-discoverable OMO agent wrappers, passing T28 native child-spawn manual evidence, and deterministic fallback envelopes for dependency-free smoke paths.
 
@@ -107,7 +107,7 @@ The next integration focus is promoting the recorded T28 native child-spawn evid
 
 After a massive 14+ parallel ULW explorer swarm mapped the production OMO engine, the Huge Orchestration Team (ULW) executed Phase 2: shipping **7 audited module areas** of portable, high-fidelity logic:
 
-1. **Eligibility Contracts** (`contracts/eligibility.json` + `team/eligibility.py`) — verbatim `AGENT_ELIGIBILITY_REGISTRY` + hyperplan roster (`eligibility-contract-shipped=ok`)
+1. **Eligibility Contracts** (`contracts/eligibility.json` + `team/eligibility.ts`) — verbatim `AGENT_ELIGIBILITY_REGISTRY` + hyperplan roster (`eligibility-contract-shipped=ok`)
 2. **Agents Catalog** (`agents/`) — first-class LFG OMO agents plus support-agent metadata with identities and prompt loading (`agent-catalog-impl=ok`)
 3. **Ultrawork IntentGate** (`ultrawork/`) — keyword detection + Grok-4-3 harness preambles + bootstrap (`ultrawork-intentgate-impl=ok`)
 4. **BackgroundManager + Tmux Viz** (`background/`) — parallel delegation engine + live visibility (`background-manager-impl=ok`)
@@ -117,7 +117,7 @@ After a massive 14+ parallel ULW explorer swarm mapped the production OMO engine
 
 **Plus cross-cutting Persistence** (`persistence/`) — Boulder + Ralph-loop + `TodoContinuationEnforcer` + `SYSTEM DIRECTIVE` ("never stops until done") — `persistence-boulder-ralph-impl=ok`
 
-All modules are dependency-light Python, directly portable into the active plugin install surface at `~/.grok/plugins/lfg/`, and exercised with live evidence strings.
+All modules are dependency-light TypeScript/Bun, directly portable into the active plugin install surface at `~/.grok/plugins/lfg/`, and exercised with live evidence strings.
 
 **"The boulder is moving."** Native Grok child-spawn and default closed-loop parity remain explicit gates, not hidden completion claims.
 
@@ -207,35 +207,26 @@ The smoke-safe provider remains `noop` for dependency-free tests and preflight e
 
 ## Verify
 
-Install development lint tooling when preparing local changes:
-
-```sh
-python3 -m pip install -e .[dev]
-python3 -m ruff check .
-```
-
 Run dependency-free smoke tests:
 
 ```sh
-python3 -m unittest tests.smoke.test_grok_build_runtime -v
+bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils
 ```
 
 Run plugin self-test:
 
 ```sh
-python3 plugins/lfg/bin/self-test.py
+bun plugins/lfg/bin/self-test.ts
 ```
 
 Run real local Grok install/discovery smoke when `~/.grok/bin/grok` is available:
 
-```sh
-python3 plugins/lfg/bin/grok-install-smoke.py
-```
+`grok-install-smoke.py` was removed in TS cutover, manual Grok gate pending.
 
 Run full local release readiness when preparing release:
 
 ```sh
-python3 plugins/lfg/bin/self-test.py
+bun plugins/lfg/bin/self-test.ts
 ```
 
 Remote marketplace/Grok UI evidence is environment-specific and should be recorded separately when release scope requires it.
@@ -254,11 +245,11 @@ plugins/lfg/
   .mcp.json                              # MCP server config
   src/agents/harness.toml                # agent harness metadata (canonical)
   src/agents/*.json                      # runtime policy/registry definitions (canonical)
-  bin/lfg.py                             # gateway to src/runtime/cli.py
+  bin/lfg.ts                             # gateway to src/runtime-ts/index.ts
   bin/lfg                                # default runtime wrapper
   bin/ulw                                # ultrawork launcher wrapper
-  bin/lfg-mcp.py                         # stdio JSON-RPC MCP server
-  bin/self-test.py                       # Python-managed local smoke test
+  bin/lfg-mcp.ts                         # stdio JSON-RPC MCP server
+  bin/self-test.ts                       # Bun-managed local smoke test
   hooks/hooks.json                       # hook registration
   hooks/plugin smoke checks lfg-audit-hook.sh        # fail-open audit hook
   skills/*/SKILL.md                      # Grok slash surfaces backed by OMO semantics

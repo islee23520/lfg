@@ -36,12 +36,12 @@ Objective: freeze the runtime contract for the six required OMO agent families b
 
 Target files:
 
-- `tests/smoke/test_grok_build_runtime.py`
-- `plugins/lfg/bin/lfg.py`
-- `plugins/lfg/bin/lfg-mcp.py`
+- `plugins/lfg/src/smoke-ts/`
+- `plugins/lfg/bin/lfg.ts`
+- `plugins/lfg/bin/lfg-mcp.ts`
 - `plugins/lfg/src/agents/harness.toml`
-- `plugins/lfg/src/agents/registry.py`
-- `plugins/lfg/src/agents/__init__.py`
+- `plugins/lfg/src/agents/registry.ts`
+- `plugins/lfg/src/agents/index.ts`
 
 Tests to add or update:
 
@@ -74,19 +74,19 @@ Objective: make approved multi-provider model resolution a tested registry invar
 
 Target files:
 
-- `tests/smoke/test_grok_build_runtime.py`
-- `plugins/lfg/bin/lfg.py`
+- `plugins/lfg/src/smoke-ts/`
+- `plugins/lfg/bin/lfg.ts`
 - `plugins/lfg/src/agents/harness.toml`
 - historical custom-agent references and migration notes
-- `plugins/lfg/src/agents/registry.py`
-- `plugins/lfg/src/agents/models.py`
+- `plugins/lfg/src/agents/registry.ts`
+- `plugins/lfg/src/agents/models.ts`
 
 Tests to add or update:
 
 - Dependency-free smoke: assert every first-class agent defaults to a Grok/xAI model profile.
 - Dependency-free smoke: assert category-specific reasoning levels map to approved profiles and allowed overrides include `codex`, `copilot`, and `zai`.
 - Dependency-free smoke: assert user overrides may select only approved providers and reject unsupported model providers.
-- Repo-native integration: add `python3 -m unittest tests.smoke.test_grok_build_runtime -v` coverage for model profile serialization changes.
+- Repo-native integration: add `bun test plugins/lfg/src/smoke-ts` coverage for model profile serialization changes.
 
 Manual QA command:
 
@@ -111,12 +111,12 @@ Objective: implement a runtime adapter that can spawn one agent, spawn a paralle
 
 Target files:
 
-- `tests/smoke/test_grok_build_runtime.py`
-- `plugins/lfg/bin/lfg.py`
-- `plugins/lfg/bin/lfg-mcp.py`
-- `plugins/lfg/src/agents/spawn.py`
-- `plugins/lfg/src/agents/results.py`
-- `python3 plugins/lfg/bin/grok-install-smoke.py`
+- `plugins/lfg/src/smoke-ts/`
+- `plugins/lfg/bin/lfg.ts`
+- `plugins/lfg/bin/lfg-mcp.ts`
+- `plugins/lfg/src/agents/spawn.ts`
+- `plugins/lfg/src/agents/results.ts`
+- `grok-install-smoke.py` removed in TS cutover, manual Grok gate pending
 - `docs/SMOKE.md`
 
 Tests to add or update:
@@ -150,11 +150,11 @@ Objective: port category routing and ensure category tasks spawn Sisyphus-Junior
 
 Target files:
 
-- `tests/smoke/test_grok_build_runtime.py`
-- `plugins/lfg/bin/lfg.py`
-- `plugins/lfg/src/agents/categories.py`
-- `plugins/lfg/src/agents/router.py`
-- `plugins/lfg/src/agents/spawn.py`
+- `plugins/lfg/src/smoke-ts/`
+- `plugins/lfg/bin/lfg.ts`
+- `plugins/lfg/src/agents/categories.ts`
+- `plugins/lfg/src/agents/router.ts`
+- `plugins/lfg/src/agents/spawn.ts`
 - `plugins/lfg/skills/worker/SKILL.md`
 - `plugins/lfg/skills/team/SKILL.md`
 
@@ -188,11 +188,11 @@ Objective: port Boulder, continuation, mailbox, tasklist, notepad, and schema va
 
 Target files:
 
-- `tests/smoke/test_grok_build_runtime.py`
-- `plugins/lfg/bin/lfg.py`
-- `plugins/lfg/src/features/boulder.py`
-- `plugins/lfg/src/features/state_schema.py`
-- `plugins/lfg/hooks/plugin smoke checks lfg-goal-harness.py`
+- `plugins/lfg/src/smoke-ts/`
+- `plugins/lfg/bin/lfg.ts`
+- `plugins/lfg/src/features/boulder.ts`
+- `plugins/lfg/src/features/state-schema.ts`
+- `plugins/lfg/hooks/plugin smoke checks lfg-goal-harness.ts`
 - `lfg --json doctor state schema check`
 - `docs/SMOKE.md`
 
@@ -226,14 +226,14 @@ Objective: port member kinds, eligibility, mailbox delivery, task lifecycle, shu
 
 Target files:
 
-- `tests/smoke/test_grok_build_runtime.py`
-- `plugins/lfg/bin/lfg.py`
-- `plugins/lfg/bin/lfg-mcp.py`
-- `plugins/lfg/src/features/team.py`
+- `plugins/lfg/src/smoke-ts/`
+- `plugins/lfg/bin/lfg.ts`
+- `plugins/lfg/bin/lfg-mcp.ts`
+- `plugins/lfg/src/features/team.ts`
 - `plugins/lfg/skills/team/SKILL.md`
-- `python3 plugins/lfg/bin/self-test.py team tmux lifecycle section`
-- `python3 plugins/lfg/bin/self-test.py team preflight section`
-- `python3 plugins/lfg/bin/self-test.py team provider section`
+- `bun plugins/lfg/bin/self-test.ts team tmux lifecycle section`
+- `bun plugins/lfg/bin/self-test.ts team preflight section`
+- `bun plugins/lfg/bin/self-test.ts team provider section`
 
 Tests to add or update:
 
@@ -245,7 +245,7 @@ Tests to add or update:
 Manual QA command:
 
 ```sh
-python3 plugins/lfg/bin/self-test.py team tmux lifecycle section
+bun plugins/lfg/bin/self-test.ts team tmux lifecycle section
 ```
 
 Dependencies:
@@ -265,10 +265,10 @@ Objective: port adversarial planning with hostile critics, revision rounds, fina
 
 Target files:
 
-- `tests/smoke/test_grok_build_runtime.py`
-- `plugins/lfg/bin/lfg.py`
-- `plugins/lfg/src/features/hyperplan.py`
-- `plugins/lfg/src/features/team.py`
+- `plugins/lfg/src/smoke-ts/`
+- `plugins/lfg/bin/lfg.ts`
+- `plugins/lfg/src/features/hyperplan.ts`
+- `plugins/lfg/src/features/team.ts`
 - `plugins/lfg/skills/team/SKILL.md`
 - `docs/agent-system/hyperplan-teams.md`
 
@@ -303,10 +303,10 @@ Objective: port Prometheus interview-mode planning and Atlas checkbox execution 
 
 Target files:
 
-- `tests/smoke/test_grok_build_runtime.py`
-- `plugins/lfg/bin/lfg.py`
-- `plugins/lfg/src/features/prometheus.py`
-- `plugins/lfg/src/features/atlas.py`
+- `plugins/lfg/src/smoke-ts/`
+- `plugins/lfg/bin/lfg.ts`
+- `plugins/lfg/src/features/prometheus.ts`
+- `plugins/lfg/src/features/atlas.ts`
 - `plugins/lfg/skills/plan/SKILL.md`
 - `plugins/lfg/skills/deep-interview/SKILL.md`
 
@@ -341,11 +341,11 @@ Objective: port autonomous deep work and Ultrawork loops with explicit stop cond
 
 Target files:
 
-- `tests/smoke/test_grok_build_runtime.py`
-- `plugins/lfg/bin/lfg.py`
+- `plugins/lfg/src/smoke-ts/`
+- `plugins/lfg/bin/lfg.ts`
 - `plugins/lfg/bin/ulw`
-- `plugins/lfg/src/features/hephaestus.py`
-- `plugins/lfg/src/features/ultrawork.py`
+- `plugins/lfg/src/features/hephaestus.ts`
+- `plugins/lfg/src/features/ultrawork.ts`
 - `plugins/lfg/skills/ultrawork/SKILL.md`
 
 Tests to add or update:
@@ -379,17 +379,17 @@ Objective: expose OMO registry, spawn, team, Boulder, Hyperplan, Prometheus, Atl
 
 Target files:
 
-- `tests/smoke/test_grok_build_runtime.py`
-- `plugins/lfg/bin/lfg.py`
-- `plugins/lfg/bin/lfg-mcp.py`
+- `plugins/lfg/src/smoke-ts/`
+- `plugins/lfg/bin/lfg.ts`
+- `plugins/lfg/bin/lfg-mcp.ts`
 - `plugins/lfg/bin/lfg`
 - `plugins/lfg/bin/ulw`
 - `plugins/lfg/skills/*/SKILL.md`
 - `plugins/lfg/hooks/hooks.json`
 - `plugins/lfg/hooks/plugin smoke checks lfg-audit-hook.sh`
-- `plugins/lfg/hooks/plugin smoke checks lfg-goal-harness.py`
-- `python3 plugins/lfg/bin/self-test.py MCP stdio section`
-- `python3 plugins/lfg/bin/grok-install-smoke.py`
+- `plugins/lfg/hooks/plugin smoke checks lfg-goal-harness.ts`
+- `bun plugins/lfg/bin/self-test.ts MCP stdio section`
+- `grok-install-smoke.py` removed in TS cutover, manual Grok gate pending
 
 Tests to add or update:
 
@@ -401,7 +401,7 @@ Tests to add or update:
 Manual QA command:
 
 ```sh
-python3 plugins/lfg/bin/self-test.py MCP stdio section
+bun plugins/lfg/bin/self-test.ts MCP stdio section
 ```
 
 Dependencies:
@@ -426,22 +426,22 @@ Target files:
 - `docs/TEST_RULES.md`
 - `docs/ARCHITECTURE.md`
 - `docs/agent-system/*.md`
-- `python3 plugins/lfg/bin/self-test.py`
-- `python3 plugins/lfg/bin/self-test.py`
-- `python3 plugins/lfg/bin/self-test.py plus marketplace remote smoke`
+- `bun plugins/lfg/bin/self-test.ts`
+- `bun plugins/lfg/bin/self-test.ts`
+- `bun plugins/lfg/bin/self-test.ts plus marketplace remote smoke`
 - `.github/workflows/smoke.yml`
 
 Tests to add or update:
 
 - Dependency-free smoke: require all new OMO runtime smoke cases from Slices 1-10.
-- Repo-native integration: run `python3 -m unittest tests.smoke.test_grok_build_runtime -v` if Python runtime, MCP, model profile, or state surfaces changed.
+- Repo-native integration: run `bun test plugins/lfg/src/smoke-ts` if TypeScript runtime, MCP, model profile, or state surfaces changed.
 - Environment/manual gates: run focused Grok, tmux, installed symlink, hook, and MCP gates that match changed runtime surfaces.
 - Release-readiness scripts: update expected evidence strings only when tests and docs change together.
 
 Manual QA command:
 
 ```sh
-python3 plugins/lfg/bin/self-test.py
+bun plugins/lfg/bin/self-test.ts
 ```
 
 Dependencies:
@@ -458,15 +458,15 @@ Exit criteria:
 Run these gates in order after each implementation wave reaches its exit criteria:
 
 ```sh
-python3 -m unittest tests.smoke.test_grok_build_runtime -v
-python3 plugins/lfg/bin/self-test.py
-python3 plugins/lfg/bin/self-test.py
+bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils
+bun plugins/lfg/bin/self-test.ts
+bun plugins/lfg/bin/self-test.ts
 ```
 
-When Python runtime, MCP, model, or state code changes, also run:
+When TypeScript runtime, MCP, model, or state code changes, also run:
 
 ```sh
-python3 -m unittest tests.smoke.test_grok_build_runtime -v
+bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils
 ```
 
 When real Grok, tmux, marketplace, installed symlink, or provider behavior changes, also run the focused environment/manual gate listed in `docs/SMOKE.md` for that surface before claiming release readiness.

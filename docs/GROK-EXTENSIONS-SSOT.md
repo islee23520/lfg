@@ -90,8 +90,8 @@ plugins/lfg/.grok-plugin/plugin.json
 plugins/lfg/skills/*/SKILL.md
 plugins/lfg/hooks/hooks.json
 plugins/lfg/.mcp.json
-plugins/lfg/bin/lfg-mcp.py
-plugins/lfg/src/runtime/cli.py
+plugins/lfg/bin/lfg-mcp.ts
+plugins/lfg/src/runtime-ts/index.ts
 ```
 
 Compatibility surfaces are allowed only when they mirror the same product identity and do not replace the Grok package as the canonical path.
@@ -240,11 +240,11 @@ Use the smallest gate that proves the extension class changed:
 
 | Extension class | Primary verification |
 | --- | --- |
-| Plugin package shape | `python3 plugins/lfg/bin/self-test.py` |
-| Skill count/discovery | `python3 plugins/lfg/bin/self-test.py` and `plugins/lfg/bin/lfg doctor` |
-| MCP stdio isolation | `python3 plugins/lfg/bin/self-test.py` MCP stdio section |
+| Plugin package shape | `bun plugins/lfg/bin/self-test.ts` |
+| Skill count/discovery | `bun plugins/lfg/bin/self-test.ts` and `plugins/lfg/bin/lfg doctor` |
+| MCP stdio isolation | `bun plugins/lfg/bin/self-test.ts` MCP stdio section |
 | Marketplace metadata | `docs/MARKETPLACE_INSTALL.md` and marketplace smoke path |
-| Real Grok install/discovery | `python3 plugins/lfg/bin/grok-install-smoke.py` |
+| Real Grok install/discovery | `grok-install-smoke.py` removed in TS cutover, manual Grok gate pending |
 | Runtime agent/spawn behavior | `ARCHITECTURE.md`, `SMOKE.md`, and `evidence/grok-subagent-spawning.md` |
 
 Never report an extension as working only because the file exists. It is working only after the matching discovery or runtime surface has been exercised.

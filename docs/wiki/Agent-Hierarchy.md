@@ -37,7 +37,7 @@ Older custom names (`lina`, `gonow`, `iz`, `grok`) are historical only. They are
 ## Verification
 
 Every agent JSON is validated during:
-- `python3 plugins/lfg/bin/self-test.py`
+- `bun plugins/lfg/bin/self-test.ts`
 - `lfg doctor`
 - `lfg --json doctor state schema check`
 

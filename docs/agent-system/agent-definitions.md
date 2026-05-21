@@ -1,7 +1,7 @@
 # A. Agent Definition System (Named Purpose-Specific Agents)
 
 > **Historical / Design note (2026-05)**: This document captured the original proposal for custom LFG agents (`lina`, `gonow`, `iz`, `grok`).
-> The current canonical first-class implementation is the OMO hierarchy (`sisyphus` + family) living in `plugins/lfg/src/agents/*.json`, loaded via `load_omo_agent_registry()` in `plugins/lfg/src/runtime/cli.py`.
+> The current canonical first-class implementation is the OMO hierarchy (`sisyphus` + family) living in `plugins/lfg/src/agents/*.json`, loaded via `load_omo_agent_registry()` in `plugins/lfg/src/runtime-ts/index.ts`.
 > See the "Current Runtime Implementation" section of [docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) and `plugins/lfg/src/agents/README.md` for the live state.
 > Legacy definitions are historical reference only; current team specs must use canonical OMO agents or generic category roles.
 

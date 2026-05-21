@@ -8,6 +8,20 @@
 
 This document supersedes previous Codex-workflow-centered architecture notes.
 
+## TypeScript Migration (M14)
+
+**Active migration in progress.** The TypeScript runtime is now the active T11 verification surface, backed by Bun entrypoints and `omo-standalone` as a git submodule reference. See [docs/ts-cutover-adr.md](./ts-cutover-adr.md) for the frozen cutover contract.
+
+During the migration, the TypeScript runtime is the replacement runtime and legacy compatibility/reference surfaces remain until the T12 removal task. The TS self-test (`bun plugins/lfg/bin/self-test.ts`) preserves the same `*=ok` evidence strings as the previous self-test. See the ADR for submodule location (`plugins/lfg/vendor/omo-standalone/`), runtime host strategy (Bun for dev, compiled JS for shipping), and compatibility surface policy (full preservation on first cut).
+
+### TypeScript Runtime Surface
+
+- CLI gateway: `plugins/lfg/bin/lfg` launches `bun plugins/lfg/bin/lfg.ts`.
+- Runtime modules: `plugins/lfg/src/runtime-ts/` own the TypeScript command and service implementation.
+- MCP server: `bun plugins/lfg/bin/lfg-mcp.ts` loads `plugins/lfg/src/mcp-ts/` while preserving legacy alias compatibility.
+- Smoke runner: `bun plugins/lfg/bin/self-test.ts` loads `plugins/lfg/src/smoke-ts/` and emits the release evidence strings.
+- Legacy runtime files remain present until T12 and should only be described as transitional or compatibility paths, not the primary runtime.
+
 ## Core Principles
 
 - OMO agent hierarchy is the source of truth.
@@ -16,7 +30,7 @@ This document supersedes previous Codex-workflow-centered architecture notes.
 - Runtime state is durable, inspectable, and schema-versioned under `.lfg/`.
 - Hooks and MCP surfaces are integration points, not hidden sources of truth.
 - Grok plugin packaging should follow the documented Grok/Claude Code compatible discovery model: skills, plugins, hooks, MCPs, agents, marketplaces, and `AGENTS.md`/Claude instruction files are first-class compatibility surfaces.
-- Real Grok/xAI API adapters should reference the official xAI Python SDK, but dependency-free smoke/runtime entrypoints must not hard-import it.
+- Real Grok/xAI API adapters should reference the official xAI API/SDK surface, but dependency-free smoke/runtime entrypoints must not hard-import provider SDKs.
 - Verification evidence is part of the product contract.
 
 ---
@@ -44,13 +58,13 @@ The canonical registry now includes first-class LFG OMO agents, support-agent me
 - `plugins/lfg/src/agents/sisyphus-junior.json` — bounded category executor
 - `plugins/lfg/src/agents/builtin-agents.json` — policy / factory layer
 
-**Loading code** (`plugins/lfg/src/runtime/cli.py` loads constant tables from `plugins/lfg/src/runtime/constants.py`; `plugins/lfg/bin/lfg.py` is a gateway):
+**Loading code** (primary TS path: `plugins/lfg/src/runtime-ts/services/agent-registry.ts` and `plugins/lfg/src/runtime-ts/services/model-resolution.ts`; transitional compatibility path: `plugins/lfg/src/runtime-ts/index.ts` + `plugins/lfg/src/runtime-ts/constants.ts`):
 
-- `CANONICAL_OMO_AGENT_IDS` — list of the canonical OMO agent IDs, defined in `plugins/lfg/src/runtime/constants.py`
-- `OMO_TEAM_ELIGIBILITY_REGISTRY` — canonical team-member contract, defined in `plugins/lfg/src/runtime/constants.py`
-- `load_omo_agent_registry()` — reads the 12 JSON files from `plugins/lfg/src/agents/`
-- `OMO_AGENT_REGISTRY` and `_OMO_REGISTRY_INDEX` — the live in-memory registry
-- `agents_list()` and `agents_inspect()` — exposed via CLI and MCP
+- `CANONICAL_OMO_AGENT_IDS` — list of the canonical OMO agent IDs, defined in the TS runtime services and preserved in compatibility constants until T12.
+- `OMO_TEAM_ELIGIBILITY_REGISTRY` — canonical team-member contract, defined in the TS runtime services and preserved in compatibility constants until T12.
+- Agent registry loading reads the 12 JSON files from `plugins/lfg/src/agents/`.
+- Registry indexes are exposed through the TypeScript CLI and MCP surfaces.
+- `agents list` and `agents inspect` remain available via CLI and MCP.
 
 **Current registry contract** (live example from `lfg --json agents list`):
 
@@ -155,7 +169,7 @@ The "Sisyphus leads and spawns specialists via the Grok adapter" loop is **avail
 
 - Primary root: `$GROK_PLUGIN_DATA` (defaults to `$PWD/.lfg`).
 - Wrappers (`bin/lfg`, `bin/ulw`) set `LFG_LAUNCHER` and `GROK_PLUGIN_DATA`.
-- Separated run directories (in lfg.py): `ultragoal/`, `ultrawork/`, `hyperplan/`, `runs/<mode>-<id>/teams/...` etc. — mirrors `~/.omo/state/team/<run-id>/` pattern.
+- Separated run directories (in lfg.ts): `ultragoal/`, `ultrawork/`, `hyperplan/`, `runs/<mode>-<id>/teams/...` etc. — mirrors `~/.omo/state/team/<run-id>/` pattern.
 - `TeamStateStore`, `TeamMailbox`, `TeamTasklist` classes provide the coordination primitives.
 - Boulder / current-goal / current-plan / last-ultraqa pointers live at the top level for quick resumption.
 - `doctor` and the state-schema verifier (`lfg --json doctor state schema check`) enforce the contract.
@@ -188,8 +202,8 @@ Grok Build
       ├─ Agent Registry (the 6 OMO agents above)
       ├─ Grok Spawn Adapter (real calls replacing the fallback)
       ├─ Runtime State (.lfg/ with separated runs)
-      ├─ Surfaces (skills, hooks, bin/lfg.py, lfg-mcp.py, lfg/ulw)
-      └─ Verification (self-test.py, smoke matrix, release scripts)
+      ├─ Surfaces (skills, hooks, bin/lfg.ts, lfg-mcp.ts, lfg/ulw)
+      └─ Verification (self-test.ts, Bun smoke matrix, release scripts)
 ```
 
 Until then, the "Current Runtime Implementation" section above is the accurate map.
@@ -219,14 +233,14 @@ lfg spawn sisyphus-junior --category quick --task "smoke"
 
 **Plugin integrity**:
 ```sh
-python3 plugins/lfg/bin/self-test.py          # emits dozens of *=ok strings
-python3 -m unittest tests.smoke.test_grok_build_runtime -v
+bun plugins/lfg/bin/self-test.ts          # emits dozens of *=ok strings
+bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils
 ```
 
 **Release gates**:
 ```sh
-python3 plugins/lfg/bin/self-test.py
-python3 plugins/lfg/bin/self-test.py plus marketplace remote smoke
+bun plugins/lfg/bin/self-test.ts
+bun plugins/lfg/bin/self-test.ts plus marketplace remote smoke
 ```
 
 **Inside Grok**:
@@ -235,7 +249,7 @@ python3 plugins/lfg/bin/self-test.py plus marketplace remote smoke
 - `grok_build_omo_team_create` (with hyperplan)
 - The `/lfg` skill for surface stress-testing
 
-All of these are exercised by `self-test.py` and the release-readiness scripts. Exact evidence strings are product contracts (see [docs/SMOKE.md](./docs/SMOKE.md) and [docs/TEST_RULES.md](./docs/TEST_RULES.md)).
+All of these are exercised by `self-test.ts` and the release-readiness scripts. Exact evidence strings are product contracts (see [docs/SMOKE.md](./docs/SMOKE.md) and [docs/TEST_RULES.md](./docs/TEST_RULES.md)).
 
 ## Non-Goals (Unchanged)
 
@@ -256,6 +270,6 @@ All of these are exercised by `self-test.py` and the release-readiness scripts. 
 
 ---
 
-**Last verified against**: current state of `plugins/lfg/src/runtime/cli.py` + `plugins/lfg/src/agents/*.json` on the omo-parity branch (May 2026).
+**Last verified against**: current state of `plugins/lfg/src/runtime-ts/` + `plugins/lfg/src/mcp-ts/` + `plugins/lfg/src/agents/*.json` on the omo-parity branch (May 2026).
 
 This document is intended to be updated as each implementation slice lands. When the manual gate is removed and the default orchestration paths are rewired to the OMO registry, the "Current Implementation" section will be rewritten to reflect the new reality.

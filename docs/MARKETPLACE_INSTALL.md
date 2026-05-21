@@ -44,7 +44,7 @@ Repository:  https://github.com/islee23520/lfg.git
 Local metadata and documentation gate:
 
 ```sh
-python3 plugins/lfg/bin/self-test.py
+bun plugins/lfg/bin/self-test.ts
 ```
 
 Remote raw GitHub gate:

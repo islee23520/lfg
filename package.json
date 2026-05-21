@@ -1,0 +1,15 @@
+{
+  "name": "lfg",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "plugins/lfg",
+    "plugins/lfg/vendor-links/*"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "build": "bun run --filter './plugins/lfg' build"
+  }
+}

@@ -42,7 +42,7 @@ flowchart TD
     FALLBACK --> TEAM["Team Mode substrate<br/>TeamRuntime + mailbox + tasklist"]
     NATIVE --> TEAM
     TEAM --> DURABLE["Durable .lfg/ state<br/>plans, boulder, teams, runs, mailbox, tasklists"]
-    DURABLE --> VERIFY["Verification gates<br/>self-test.py, smoke matrix, release readiness, exact *=ok evidence"]
+    DURABLE --> VERIFY["Verification gates<br/>self-test.ts, smoke matrix, release readiness, exact *=ok evidence"]
     VERIFY --> FINAL["Synthesized answer / artifact"]
 
     STATEFUL -. official substrate .-> SIS
@@ -53,7 +53,7 @@ flowchart TD
 | Stage | Official xAI / Grok substrate | LFG behavior in this project | Current evidence boundary |
 | --- | --- | --- | --- |
 | 1. Prompt input | Responses API `input` receives role/content items. | User prompt reaches a plugin, CLI, skill, `lfg`, `ulw`, `team`, or `spawn` surface. | `reference.md`, `HOW-IT-WORKS.md` |
-| 2. Intent detection | Official docs do not define LFG-style intent stages. | LFG detects `ulw` / ultrawork / team / spawn paths and treats Sisyphus as the intent owner. | `plugins/lfg/src/runtime/cli.py`, `src/agents/sisyphus.json` |
+| 2. Intent detection | Official docs do not define LFG-style intent stages. | LFG detects `ulw` / ultrawork / team / spawn paths and treats Sisyphus as the intent owner. | `plugins/lfg/src/runtime-ts/index.ts`, `src/agents/sisyphus.json` |
 | 3. Model and policy resolution | xAI models support reasoning effort; Responses API exposes reasoning options. | `builtin-agents` and `resolve_omo_model_profile()` force first-class agents to `xai/grok-4.3` with category-specific reasoning. | `ARCHITECTURE.md`, `src/agents/builtin-agents.json` |
 | 4. Planning | Official layer has no Prometheus concept. | Prometheus handles non-trivial planning and produces verifiable plans before execution. | `src/agents/prometheus.json`, `agent-system/` docs |
 | 5. Delegation / execution | Responses API supports tool/function calling and stateful continuation. Local Grok evidence also documents task-style sub-agents, but plugin-context native spawning remains unverified. | Atlas, Hephaestus, and Sisyphus-Junior represent dependency waves, deep work, and bounded execution. `spawn_agent()` currently returns `fallback_manual_gate` and records evidence. | `ARCHITECTURE.md`, `evidence/grok-subagent-spawning.md`, `evidence/m1-grok-spawning-evidence-plan.md` |

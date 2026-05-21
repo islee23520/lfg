@@ -19,7 +19,7 @@ This directory is the **runtime source of truth** for first-class subagents that
 ## Policy vs Discovery
 
 - **Discovery** (this dir): purely filesystem driven. Drop a new `my-specialist.json` and it is immediately spawnable + listable.
-- **Policy / Contracts** (still in `src/runtime/constants.py`):
+- **Policy / Contracts** (in `src/runtime-ts/constants.ts`):
   - `CANONICAL_OMO_AGENT_IDS` — the required OMO hierarchy (must all exist)
   - `OMO_PRIMARY_AGENT_IDS`, eligibility maps, hard-reject lists, category profiles, etc.
   - New agents default to "unknown" team eligibility unless explicitly added to the policy tables.
@@ -28,7 +28,7 @@ This directory is the **runtime source of truth** for first-class subagents that
 
 1. Create `my-agent.json` in this directory following the existing schema (see `sisyphus.json` etc.).
 2. Give it a unique `id` that matches the filename stem.
-3. (Optional but recommended) Update the policy tables in `constants.py` if you want it to participate in teams, primary routing, etc.
+3. (Optional but recommended) Update the policy tables in `constants.ts` if you want it to participate in teams, primary routing, etc.
 4. Test with `lfg agents list --ids`, `lfg agents inspect my-agent`, `lfg spawn my-agent --task "..." --dry-run` style flows.
 
 ## Files here (canonical OMO set)

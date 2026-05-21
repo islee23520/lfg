@@ -64,8 +64,8 @@ LFG / Grok Build
           ├─ skills/*/SKILL.md          # Grok slash entrypoints backed by OMO semantics
           ├─ hooks/hooks.json           # fail-open hooks and bridge surfaces
           ├─ .mcp.json                  # MCP registration
-          ├─ bin/lfg-mcp.py             # stdio MCP server with agent/runtime/team tools
-          ├─ bin/lfg.py                 # dependency-light runtime and Grok spawn adapter
+          ├─ bin/lfg-mcp.ts             # stdio MCP server with agent/runtime/team tools
+          ├─ bin/lfg.ts                 # Bun/TypeScript runtime and Grok spawn adapter
           ├─ bin/lfg + bin/ulw          # default runtime wrappers
           └─ .lfg/                      # Boulder, mailbox, teams, plans, notepads, run state
 ```
@@ -97,7 +97,7 @@ LFG / Grok Build
 ### M0 — Contract Freeze and Audit
 
 - [x] Inventory every legacy Codex-derived reference in docs, skills, tests, metadata, scripts, runtime state, and release evidence.
-- [x] Inventory current OMO groundwork under `docs/agent-system/`, `plugins/lfg/src/agents/`, and `plugins/lfg/bin/lfg.py`.
+- [x] Inventory current OMO groundwork under `docs/agent-system/`, `plugins/lfg/src/agents/`, and `plugins/lfg/bin/lfg.ts`.
 - [x] Decide which legacy commands are deleted, renamed, or temporarily migrated.
 - [x] Produce an evidence-backed removal map before implementation.
 
@@ -186,11 +186,29 @@ LFG / Grok Build
 
 ### M13 — Release QA and Documentation Lock
 
-- [x] Run dependency-free smoke tests (`python3 plugins/lfg/bin/self-test.py`, `python3 -m unittest tests.smoke.test_grok_build_runtime -v`).
-- [x] Run repo-native integration checks (`python3 -m py_compile ...`, `python3 -m ruff check .`).
-- [x] Run real Grok manual gates where available (`python3 plugins/lfg/bin/grok-install-smoke.py`; T28 recorded as `grok-native-spawn-manual=ok`).
+- [x] Run dependency-free smoke tests (`bun plugins/lfg/bin/self-test.ts`, `bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils`).
+- [x] Run repo-native integration checks (Bun TS runtime/MCP/hooks/smoke test matrix).
+- [x] Run real Grok manual gates where available (`grok-install-smoke.py` removed in TS cutover, manual Grok gate pending; T28 recorded as `grok-native-spawn-manual=ok`).
 - [x] Update release checklist and smoke docs with exact evidence strings.
 - [ ] Perform post-implementation review before release.
+
+### M14 — TypeScript Runtime Cutover
+
+- [x] Add `omo-standalone` as pinned git submodule under `plugins/lfg/vendor/omo-standalone/`
+- [x] Scaffold Bun/TypeScript workspace (`package.json`, `bunfig.toml`, `tsconfig.base.json`)
+- [x] Build Bun parity test harness and shared smoke fixtures
+- [x] Build TS runtime foundation backed by omo-standalone adapters
+- [x] Port CLI core observation surfaces (status, doctor, agents, models, auth, provider, setup)
+- [x] Port OMO orchestration CLI surfaces (route, spawn, plan, atlas, hyperplan)
+- [x] Port team, ultrawork, and compatibility workflow CLI surfaces
+- [x] Port hooks and wrapper entrypoints to TS/JS
+- [x] Port MCP server to TypeScript with legacy alias compatibility
+- [x] Replace self-test and smoke suite with Bun tests (preserve exact evidence strings)
+- [x] Update docs, CI, manifests for TS runtime
+- [ ] Remove legacy runtime in final cutover commit
+- [ ] Run final review and manual Grok gates
+
+See [docs/ts-cutover-adr.md](../docs/ts-cutover-adr.md) for the frozen cutover contract.
 
 
 ## Parallel Execution Graph
@@ -202,6 +220,7 @@ Wave 3: M4 registry + M5 spawn adapter + M6 categories
 Wave 4: M7 state + M8 team mode + M9 hyperplan
 Wave 5: M10 Prometheus/Atlas + M11 Hephaestus/Ultrawork
 Wave 6: M12 runtime surface + M13 release QA
+Wave 7: M14 TypeScript runtime cutover
 ```
 
 

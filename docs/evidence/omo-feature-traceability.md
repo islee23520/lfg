@@ -11,7 +11,7 @@ Status meanings:
 
 | OMO feature area | Current LFG status | Evidence / verification path |
 | --- | --- | --- |
-| Agent registry: Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, builtin-agents plus support agents | wired | `python3 plugins/lfg/bin/self-test.py`; `tests/smoke/test_grok_build_runtime.py::RuntimeSmoke.test_omo_agent_registry_cli`; `lfg --json agents list`; Grok-discoverable plugin wrappers in `plugins/lfg/agents/*.md` |
+| Agent registry: Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, builtin-agents plus support agents | wired | `bun plugins/lfg/bin/self-test.ts`; `bun test plugins/lfg/src/smoke-ts`; `lfg --json agents list`; Grok-discoverable plugin wrappers in `plugins/lfg/agents/*.md` |
 | Category routing to Sisyphus-Junior | wired | `RuntimeSmoke.test_category_route_mutual_exclusion_and_bounds`; `RuntimeSmoke.test_mcp_exposes_runtime_and_team_tools`; `lfg --json route --category quick --task "..."`; `lfg --json slash "/route --category quick ..."`; MCP `route` |
 | Model/provider policy and Hephaestus deep-specialist guard | wired | `RuntimeSmoke.test_omo_model_family_matching_policy`; `RuntimeSmoke.test_t17_hephaestus_model_mismatch_blocks_and_ulw_requires_evidence` |
 | Grok Oracle review envelope requirement | wired for fallback envelopes | `RuntimeSmoke.test_spawn_envelope_requires_grok_oracle_review`; native Grok child execution remains separately manual-gated |
@@ -24,7 +24,7 @@ Status meanings:
 | Team Mode mailbox/tasklist/lifecycle/shutdown | wired with tmux/local provider lanes | `RuntimeSmoke.test_t13_team_lifecycle_mailbox_tasklist_and_shutdown`; `team-tmux-lifecycle=ok`; real Grok child lanes remain manual-gated |
 | Hyperplan hostile critics and lead synthesis | wired deterministic fallback | `RuntimeSmoke.test_t14_hyperplan_noop_artifact_and_bounded_roster`; `RuntimeSmoke.test_t14_hyperplan_missing_synthesis_blocks_completion` |
 | MCP canonical short-name surface | wired | `RuntimeSmoke.test_mcp_exposes_runtime_tools_for_skill_surface` now asserts `tools/list` exactly matches `plugins/lfg/src/mcp/tools.json` and exposes no `grok_build_*` names; route parity uses canonical MCP `route` |
-| Grok install/discovery smoke | wired environment gate | `python3 plugins/lfg/bin/grok-install-smoke.py`; evidence strings use discovered counts, e.g. `grok-install-smoke=ok skills=27 key_skills_present` and `grok-agent-discovery=ok agents=10 key_agents_present` |
+| Grok install/discovery smoke | wired environment gate | `grok-install-smoke.py` removed in TS cutover, manual Grok gate pending; historical evidence strings used discovered counts, e.g. `grok-install-smoke=ok skills=27 key_skills_present` and `grok-agent-discovery=ok agents=10 key_agents_present` |
 | Legacy/transition slash surfaces | transition | `ROADMAP.md` Active Skill Coverage Matrix; these remain compatibility surfaces unless each is promoted to an OMO-native default path |
 | Default closed loop: Sisyphus owns Boulder and automatically delegates normal Ultrawork/loop starts through spawn waves | wired for deterministic fallback | `RuntimeSmoke.test_t17_hephaestus_model_mismatch_blocks_and_ulw_requires_evidence`; `lfg --json ulw "..."` returns `defaultSpawnWave` and `defaultSpawnWavePlan`; `ultragoal`, `team create`, and `ralph` remain separate explicit transition surfaces |
 

@@ -8,7 +8,7 @@
 
 This document defines the exact invocation contract for LFG's OMO-style hooks when the runtime entrypoint is:
 
-- `bin/lfg-mcp.py` (MCP stdio JSON-RPC server for Grok tool calls)
+- `bin/lfg-mcp.ts` (MCP stdio JSON-RPC server for Grok tool calls)
 - `bin/ulw` (ultrawork / ultragoal swarm launcher)
 - `bin/lfg` (default)
 
@@ -17,16 +17,16 @@ Hooks must remain fail-open, respect stdin/stdout contracts, propagate environme
 ## Hook Registration Surface
 
 - Primary: `plugins/lfg/hooks/hooks.json` (used by host Grok/Claude for event wiring)
-- Global bridge: `~/.grok/hooks/lfg-audit-bridge.json` + `lfg-audit-bridge.py` (installed via `lfg hook-bridge install` or `scripts/hook-bridge-install.py`)
-- Critical events always route to `scripts/lfg-goal-harness.py` (or direct `src/hooks/goal_harness.py` in global bridge)
+- Global bridge: `~/.grok/hooks/lfg-audit-bridge.json` + `lfg-audit-bridge.ts` (installed via `lfg hook-bridge install` or `scripts/hook-bridge-install.ts`)
+- Critical events always route to `scripts/lfg-goal-harness.ts` (or direct `src/hooks-ts/` in global bridge)
 
 ## Invocation Paths
 
-### 1. Via lfg-mcp.py / MCP Tools
-- `bin/lfg-mcp.py` loads `src/mcp/server.py`
-- MCP server reads line-delimited JSON-RPC from stdin, writes JSON-RPC to stdout via `respond()` in `_helpers.py`
+### 1. Via lfg-mcp.ts / MCP Tools
+- `bin/lfg-mcp.ts` loads `src/mcp-ts/server.ts`
+- MCP server reads line-delimited JSON-RPC from stdin, writes JSON-RPC to stdout via `respond()` in `_helpers.ts`
 - Hook-related MCP tools:
-  - `grok_build_hook_bridge` (status/install) → calls `lfg hook-bridge` via subprocess (see `_handlers_observation.py:handle_hook_bridge`)
+  - `grok_build_hook_bridge` (status/install) → calls `lfg hook-bridge` via subprocess (see `_handlers_observation.ts:handle_hook_bridge`)
   - Other tools may indirectly trigger hooks via `run_lfg_json` which execs `bin/lfg --json ...`
 - **Contract**: MCP stdout MUST remain pure JSON-RPC. No hook code may print to stdout when imported in MCP process. Diagnostics go to stderr or result JSON. Subprocess calls capture stdout/stderr.
 
@@ -35,16 +35,16 @@ Hooks must remain fail-open, respect stdin/stdout contracts, propagate environme
   - `export LFG_LAUNCHER="ulw"`
   - `export GROK_PLUGIN_DATA="${GROK_PLUGIN_DATA:-$PWD/.lfg}"`
   - `export GROK_PLUGIN_ROOT=...`
-- Then execs `python3 .../lfg.py "$@"`
-- ULW identity is injected into prompts and agent behavior (see `cli.py:effective_launcher()`, ULW worker prompts)
+- Then execs `bun .../lfg.ts "$@"`
+- ULW identity is injected into prompts and agent behavior (see `index.ts:effective_launcher()`, ULW worker prompts)
 - Hooks fired by host during ULW session inherit the session env (including LFG_LAUNCHER if set at host level)
 
 ### 3. Hook Script Execution (Thin Router + Harness)
-- `hooks/scripts/lfg-goal-harness.py`:
+- `hooks/scripts/lfg-goal-harness.ts`:
   - Resolves plugin root via `GROK_PLUGIN_ROOT` or `CLAUDE_PLUGIN_ROOT` or parent dir
-  - Dynamically loads `src/hooks/goal_harness.py`
+  - Dynamically loads `src/hooks-ts/`
   - Calls `module.main()`
-- `src/hooks/goal_harness.py:main()`:
+- `src/hooks-ts/goal-harness.ts:main()`:
   - `event = os.environ.get("GROK_HOOK_EVENT", os.environ.get("CLAUDE_HOOK_EVENT", "unknown"))`
   - `raw_payload = sys.stdin.read() if not sys.stdin.isatty() else ""`
   - `sys.stdin = io.StringIO(raw_payload)`  # reset for safety / re-read compatibility
@@ -77,12 +77,12 @@ Optional for dispatch:
 
 ## dispatch_gate Integration
 
-- `src/hooks/dispatch_gate.py:reserve_continuation_dispatch()`:
-  - Dynamically imports `src/runtime/dispatch_gate.py`
+- `src/hooks-ts/dispatch-gate.ts:reserve_continuation_dispatch()`:
+  - Dynamically imports `src/runtime-ts/dispatch-gate.ts`
   - Calls `reserve_dispatch_gate(..., native_dispatch_supported=True, ...)`
   - Passes session_id from env, plan_id, boulder_version, reason=`hook:{event}:...`
   - Returns dict with `manualGateRequired`, `dispatchKey`, `artifactPath`, etc.
-- `src/runtime/dispatch_gate.py`:
+- `src/runtime-ts/dispatch-gate.ts`:
   - Creates `dispatch-{key}.json` in dispatch_root (under .lfg or configured)
   - Status: "dispatched" (if native) or "manual_gate_required"
   - Duplicate suppression supported.
@@ -92,9 +92,9 @@ Optional for dispatch:
 ## Gaps Closed in This Work
 
 - LFG_LAUNCHER now explicitly setdefault'ed in:
-  - `src/hooks/bridge_runtime.py` (global bridge generator)
-  - `scripts/hook_bridge/install.py` (legacy installer)
-  - `src/hooks/goal_harness.py:main()`
+  - `src/hooks-ts/bridge-runtime.ts` (global bridge generator)
+  - `scripts/hook_bridge/install.ts` (legacy installer)
+  - `src/hooks-ts/goal-harness.ts:main()`
 - native_dispatch_supported now defaults to True (Grok-native friendly)
 - Isolation verified: no stdout leakage paths between MCP and hook modules (dynamic loads only, no top-level imports of hook code in mcp/)
 

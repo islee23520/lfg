@@ -23,7 +23,7 @@ Documentation here defines the evidence contract for the OMO-to-Grok Build port.
 ## CONVENTIONS
 
 - Treat command blocks and `*=ok` strings as contracts, not prose examples.
-- Keep `ROADMAP.md`, `README.md`, `ARCHITECTURE.md`, `SMOKE.md`, `RELEASE_CHECKLIST.md`, and `python3 plugins/lfg/bin/self-test.py` aligned when changing gates.
+- Keep `ROADMAP.md`, `README.md`, `ARCHITECTURE.md`, `SMOKE.md`, `RELEASE_CHECKLIST.md`, and `bun plugins/lfg/bin/self-test.ts` aligned when changing gates.
 - Keep all five `AGENTS.md` guides structurally complete and aligned with self-test; Wave 1 validity is proven by `agents-guides-valid=ok`.
 - Keep marketplace identity fixed to `islee23520/lfg` unless the package is intentionally renamed.
 - Mention whether each gate is dependency-free smoke, repo-native integration, or environment/manual.
@@ -42,9 +42,8 @@ Documentation here defines the evidence contract for the OMO-to-Grok Build port.
 ## COMMANDS
 
 ```sh
-python3 -m unittest tests.smoke.test_grok_build_runtime -v
-python3 plugins/lfg/bin/self-test.py
-python3 plugins/lfg/bin/self-test.py
+bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils
+bun plugins/lfg/bin/self-test.ts
 ```
 
 ## NOTES

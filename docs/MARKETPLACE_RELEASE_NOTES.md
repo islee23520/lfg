@@ -1,8 +1,8 @@
 # Marketplace release notes
 
-## lfg 0.4.0 — OMO Agent Parity Lock
+## lfg 0.1.0 — OMO Agent Parity Preview (TS Runtime)
 
-Release tag: `lfg-v0.4.0`
+Release tag: `lfg-v0.1.0`
 
 Package: `islee23520/lfg`
 Marketplace source: `https://github.com/islee23520/lfg.git`
@@ -28,8 +28,8 @@ marketplace-metadata=ok
 release-notes=ok
 marketplace-source=ok
 hook-smoke=ok
+hook-bridge-smoke=ok
 todo-continuation=ok
-ruff-check=ok
 mcp-smoke=ok
 mcp-stdio-isolation=ok
 mcp-stderr-isolated=ok
@@ -50,8 +50,4 @@ Users should install from Grok's `/plugins` marketplace flow by adding this mark
 https://github.com/islee23520/lfg.git
 ```
 
-Local development/preview only: developers can sync the plugin into `~/.grok/plugins/lfg` with:
-
-```sh
-python3 plugins/lfg/bin/grok-install-smoke.py
-```
+Local development/preview only: `grok-install-smoke.py` was removed in TS cutover, manual Grok gate pending.

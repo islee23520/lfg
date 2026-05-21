@@ -1,22 +1,22 @@
 # Smoke verification
 
-`lfg` is a Python-first plugin runtime. The local smoke gate is the plugin self-test:
+`lfg` is migrating to a TypeScript runtime. The active local smoke gate is the Bun self-test:
 
 ```sh
-python3 plugins/lfg/bin/self-test.py
+bun plugins/lfg/bin/self-test.ts
 ```
 
 The self-test directly verifies, in order:
 
 1. JSON manifests, `catalog/omo-skill-map.json`, plugin docs, and marketplace metadata.
 2. Hook redaction through `plugins/lfg/hooks/scripts/lfg-audit-hook.sh`.
-3. Bounded TODO continuation and hook bridge contracts through `python3 -m pytest tests/smoke/test_hook_bridge_pytest.py -q`.
-4. MCP stdio isolation and tool discovery from `plugins/lfg/bin/lfg-mcp.py`.
+3. Bounded TODO continuation and hook bridge contracts through the TS smoke runner.
+4. MCP stdio isolation and tool discovery from `bun plugins/lfg/bin/lfg-mcp.ts`.
 5. State schema via `lfg --json doctor`.
 6. Release notes/source docs and marketplace package identity.
 7. Team dry-run planning with `noop` providers.
 8. Real tmux team lifecycle: create, status, resume, shutdown.
-9. Full Python smoke matrix: `python3 -m unittest tests.smoke.test_grok_build_runtime -v`.
+9. Full Bun smoke matrix: `bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils`.
 
 Expected evidence includes:
 
@@ -26,10 +26,9 @@ marketplace-metadata=ok
 release-notes=ok
 marketplace-source=ok
 hook-smoke=ok
-hook-bridge-pytest=ok
+hook-bridge-smoke=ok
 todo-continuation=ok
 continuation-gate=ok
-ruff-check=ok
 mcp-smoke=ok
 mcp-stdio-isolation=ok
 mcp-stderr-isolated=ok
@@ -42,11 +41,7 @@ team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
 
-Additional marketplace install/discovery smoke remains available when a real Grok install is present:
-
-```sh
-python3 plugins/lfg/bin/grok-install-smoke.py
-```
+Additional marketplace install/discovery smoke is removed in TS cutover, manual Grok gate pending.
 
 Expected evidence:
 
@@ -74,7 +69,8 @@ Latest local pass evidence is recorded in `docs/evidence/t28-grok-manual-gate-st
 Useful focused commands while debugging:
 
 ```sh
-python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py plugins/lfg/src/runtime/constants.py tests/smoke/test_grok_build_runtime.py
+bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils
+bun plugins/lfg/bin/self-test.ts
 plugins/lfg/bin/lfg --json doctor
 plugins/lfg/bin/lfg --json team create 3:executor "verify release" --providers noop --dry-run
 plugins/lfg/bin/lfg --json slash '/team providers'

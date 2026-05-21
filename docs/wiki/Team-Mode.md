@@ -49,10 +49,10 @@ Equivalent slash commands inside Grok:
 
 Team Mode behavior is covered by:
 
-- `python3 plugins/lfg/bin/self-test.py team tmux lifecycle section`
-- `python3 plugins/lfg/bin/self-test.py team preflight section`
-- `python3 plugins/lfg/bin/self-test.py team provider section`
-- `python3 plugins/lfg/bin/self-test.py` (contains `team-dry-run=ok`, `team-tmux-lifecycle=ok`)
+- `bun plugins/lfg/bin/self-test.ts team tmux lifecycle section`
+- `bun plugins/lfg/bin/self-test.ts team preflight section`
+- `bun plugins/lfg/bin/self-test.ts team provider section`
+- `bun plugins/lfg/bin/self-test.ts` (contains `team-dry-run=ok`, `team-tmux-lifecycle=ok`)
 
 All gates must emit exact `*=ok` evidence strings.
 

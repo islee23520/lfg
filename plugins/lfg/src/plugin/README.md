@@ -7,4 +7,4 @@ The Grok files should not invent unsupported JSON `$ref` or `extends` behavior. 
 - `plugins/lfg/.grok-plugin/plugin.json` mirrors the canonical values from `plugins/lfg/.claude-plugin/plugin.json`.
 - `.grok/plugins/marketplace.json` keeps Grok-specific schema identity, while shared plugin fields follow `.agents/plugins/marketplace.json`.
 
-Real Grok execution code belongs in optional runtime adapters under `src/`, guided by the official xAI Python SDK: https://github.com/xai-org/xai-sdk-python.
+Real Grok execution code belongs in optional runtime adapters under `src/`, guided by the official xAI SDK docs.

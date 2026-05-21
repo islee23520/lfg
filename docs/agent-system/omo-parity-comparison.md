@@ -77,7 +77,7 @@ This positions LFG as a **distinct but compatible** evolution in the agent orche
 ## 6. Implementation Status (M13 Lock)
 
 - [x] Finalize the Agent Definition + Category schemas (done — `plugins/lfg/src/agents/*.json`).
-- [x] Implement minimal registry + loader (done — `load_omo_agent_registry()` in `lfg.py`).
+- [x] Implement minimal registry + loader (done — `load_omo_agent_registry()` in `lfg.ts`).
 - [x] Add `hyperplan` as the first official team template (done — `hyperplan` skill + CLI).
 - [x] Start wiring AST-Grep and LSP as first-class tools for specialist OMO agents (done — OMO agent toolsets).
 - [x] Document the philosophy clearly (done — this document).

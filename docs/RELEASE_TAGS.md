@@ -5,10 +5,10 @@ The plugin uses explicit LFG release tags so marketplace installs and release no
 ## Current release tag
 
 ```text
-lfg-v0.4.0
+lfg-v0.1.0
 ```
 
-This tag points at the OMO Agent Parity Lock for package:
+This tag points at the OMO Agent Parity Preview (TS Runtime) for package:
 
 ```text
 islee23520/lfg
@@ -25,11 +25,11 @@ lfg-v<plugin-version>
 Before publishing or announcing a tag, run:
 
 ```sh
-git tag -v lfg-v0.4.0
+git tag -v lfg-v0.1.0
 ```
 
 Expected evidence:
 
 ```text
-release-tag=ok tag=lfg-v0.4.0
+release-tag=ok tag=lfg-v0.1.0
 ```

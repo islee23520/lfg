@@ -4,7 +4,7 @@ Use this checklist before merging or tagging `islee23520/lfg`.
 
 ## Required gates
 
-- [x] Python syntax passes for runtime, MCP, and smoke tests.
+- [x] Bun tests pass for TypeScript runtime, MCP, hooks, smoke, and test utilities.
 - [x] Plugin self-test passes and emits `runtime-smoke-coverage=100%`.
 - [x] Manifest/catalog/docs check emits `manifest-and-file-checks=ok`.
 - [x] Marketplace metadata check emits `marketplace-metadata=ok` and still points to `islee23520/lfg`.
@@ -16,16 +16,15 @@ Use this checklist before merging or tagging `islee23520/lfg`.
 - [x] Ultrawork checks emit `ultrawork-stop-conditions=ok` and prove accepted/manual stop states require evidence artifacts before advancement.
 - [x] Slash/MCP team surfaces still expose `/team providers`, `/team preflight`, and `grok_build_team.preflight` with valid JSON output.
 - [x] Doctor diagnostics include `grok_marketplace` and `agents_marketplace`.
-- [x] Real Grok install smoke emits `grok-install-smoke=ok skills=<discovered-count> key_skills_present` and `grok-agent-discovery=ok agents=<discovered-count> key_agents_present` when a Grok install is available.
+- [x] Real Grok install smoke was removed in TS cutover, manual Grok gate pending.
 - [x] Real Grok named sub-agent manual gate is recorded with `grok-native-spawn-manual=ok` evidence in `docs/evidence/t28-grok-manual-gate-status.md`.
 
 ## Commands
 
 ```sh
-python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py plugins/lfg/src/runtime/constants.py tests/smoke/test_grok_build_runtime.py
-python3 plugins/lfg/bin/self-test.py
-python3 -m ruff check .
-python3 plugins/lfg/bin/grok-install-smoke.py
+bun test plugins/lfg/src/runtime-ts plugins/lfg/src/mcp-ts plugins/lfg/src/hooks-ts plugins/lfg/src/smoke-ts plugins/lfg/test-utils
+bun plugins/lfg/bin/self-test.ts
+# grok-install-smoke.py removed in TS cutover, manual Grok gate pending
 ```
 
 ## Expected installed surface

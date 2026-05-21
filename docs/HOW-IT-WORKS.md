@@ -36,7 +36,7 @@ Each JSON defines:
 - `categories` the agent is allowed to handle
 - `tools` and `blockedTools`
 
-`load_omo_agent_registry()` in `plugins/lfg/src/runtime/cli.py` reads these files at runtime and builds the in-memory registry used by `lfg agents list`, `lfg agents inspect`, `spawn_agent()`, and MCP tools.
+`load_omo_agent_registry()` in `plugins/lfg/src/runtime-ts/index.ts` reads these files at runtime and builds the in-memory registry used by `lfg agents list`, `lfg agents inspect`, `spawn_agent()`, and MCP tools.
 
 Historical custom agent names are reference material only. They are **not** part of the first-class OMO registry and are not valid team-spec members.
 
@@ -84,7 +84,7 @@ All durable runtime state lives under `.lfg/` (or `$GROK_PLUGIN_DATA`):
 
 This project treats exact evidence strings as product contracts.
 
-- `python3 plugins/lfg/bin/self-test.py` must emit dozens of `*=ok` lines.
+- `bun plugins/lfg/bin/self-test.ts` must emit dozens of `*=ok` lines.
 - `docs/SMOKE.md` defines every gate (local, Grok install, tmux lifecycle, MCP isolation, marketplace source, hook discovery, etc.).
 - `docs/TEST_RULES.md` classifies every test as:
   - Dependency-free smoke
@@ -110,12 +110,12 @@ No claim is accepted without a matching evidence string.
 ## 8. Current Execution Flow (Team Mode ON)
 
 1. User invokes `lfg spawn ...` or `lfg team create ...`
-2. `src/runtime/cli.py` loads the 6 OMO agents via `load_omo_agent_registry()`
+2. `src/runtime-ts/index.ts` loads the 6 OMO agents via `load_omo_agent_registry()`
 3. `builtin-agents` resolves model + reasoning level for the requested category
 4. `spawn_agent()` or `team_create()` executes
 5. Team Mode coordinates mailbox/tasklist between spawned agents
 6. All results are written to `.lfg/`
-7. `lfg doctor`, `lfg status`, or `self-test.py` verifies evidence strings
+7. `lfg doctor`, `lfg status`, or `self-test.ts` verifies evidence strings
 
 ---
 
