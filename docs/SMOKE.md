@@ -51,8 +51,11 @@ python3 plugins/lfg/bin/grok-install-smoke.py
 Expected evidence:
 
 ```text
-grok-install-smoke=ok skills=21 key_skills_present
+grok-install-smoke=ok skills=<discovered-count> key_skills_present
+grok-agent-discovery=ok agents=<discovered-count> key_agents_present
 ```
+
+Latest observed local evidence: `grok-install-smoke=ok skills=27 key_skills_present` and `grok-agent-discovery=ok agents=10 key_agents_present`.
 
 Real Grok named sub-agent spawning is a separate environment/manual gate. Run it only in an authenticated Grok Build environment where the host can spawn child agents and return their outputs:
 
@@ -64,7 +67,9 @@ grok --cwd "/var/folders/6r/g20fxk_s1ds24_h6lm971wt00000gn/T/opencode" \
   -p "T28 native subagent gate. Do not edit files. If your real subagent/task tool works, spawn two read-only child agents named researcher and critic in parallel. researcher output: one sentence explaining why generic Responses API calls are not native named sub-agent evidence. critic output: one sentence explaining why credentials presence is not native named sub-agent evidence. Then report child IDs, both outputs, and a one-sentence synthesis. If actual child spawn fails or IDs/outputs cannot be collected, output MANUAL_GATE_NOT_RUN with the failing prerequisite. Be concise; do not simulate child outputs."
 ```
 
-Pass evidence must prove two named child spawns, two independent child outputs, and parent synthesis. If the transcript says `MANUAL_GATE_NOT_RUN` or lacks child output collection, keep native spawn manual-gated and record skip evidence instead of `grok-native-spawn-manual=ok`.
+Pass evidence must prove two named child spawns, two independent child outputs, and parent synthesis. If the transcript says `MANUAL_GATE_NOT_RUN`, says `MANUAL_GATE_FAILED`, or lacks child output collection, keep native spawn manual-gated and record skip/failure evidence instead of `grok-native-spawn-manual=ok`.
+
+Latest local pass evidence is recorded in `docs/evidence/t28-grok-manual-gate-status.md` as `grok-native-spawn-manual=ok` using the Grok-discoverable LFG plugin agents `lfg:explore` and `lfg:oracle`.
 
 Useful focused commands while debugging:
 
