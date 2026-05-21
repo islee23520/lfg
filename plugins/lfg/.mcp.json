@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "lfg-harness": {
-      "command": "python3",
-      "args": ["${GROK_PLUGIN_ROOT}/bin/lfg-mcp.py"],
+      "command": "bun",
+      "args": ["${GROK_PLUGIN_ROOT}/bin/lfg-mcp.ts"],
       "env": {}
     }
   }

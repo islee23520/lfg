@@ -24,4 +24,4 @@ fi
 export GROK_PLUGIN_DATA="${GROK_PLUGIN_DATA:-$PWD/.lfg}"
 export LFG_LAUNCHER="ulw"
 
-exec python3 "$SCRIPT_DIR/lfg.py" "$@"
+exec bun "$SCRIPT_DIR/lfg.ts" "$@"
