@@ -4,7 +4,7 @@ This document explains how the entire `lfg` system operates, from agent definiti
 
 ## 1. Core Goal
 
-`lfg` ports the **complete OMO (oh-my-openagent) agent hierarchy** into Grok Build as a real agent operating system.
+`lfg` ports the OMO (oh-my-openagent) agent hierarchy into Grok Build as a real agent operating system, with native Grok child-spawn and default closed-loop parity tracked as explicit release gates.
 
 - Sisyphus owns intent and Boulder
 - Prometheus plans
@@ -13,7 +13,7 @@ This document explains how the entire `lfg` system operates, from agent definiti
 - Sisyphus-Junior handles category-bounded tasks
 - builtin-agents resolves models, categories, and policies
 
-Most agents run on Grok models (`xai/grok-4.3`). Hephaestus is the intentional exception and uses its approved GPT-style deep-specialist profile. Grok-native sub-agent spawning is the target delegation path. Team Mode provides the durable multi-agent coordination layer.
+Most agents run on Grok models (`xai/grok-4.3`). Hephaestus is the intentional exception and uses its approved GPT-style deep-specialist profile. Current delegation has passing T28 manual evidence for Grok-discoverable child agents while dependency-free smoke paths continue to use deterministic fallback envelopes. Team Mode provides the durable multi-agent coordination layer.
 
 ## 2. Agent Registry (Source of Truth)
 
