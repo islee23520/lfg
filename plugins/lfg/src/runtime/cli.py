@@ -122,6 +122,8 @@ SUPERVISION_BROKER_VERSION = 1
 SUPERVISION_BROKER_MAX_DEPTH = 2
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 ENV_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]{0,127}$")
+LEGACY_TEAM_SPEC_NAMES = {"lina", "iz", "gonow", "grok"}
+CANONICAL_HYPERPLAN_TEAM_SPEC = "1:sisyphus,1:atlas,1:sisyphus-junior"
 SECRET_LIKE_VALUE_RE = re.compile(
     r"(?:"
     r"^sk-[A-Za-z0-9._-]{8,}$|"
@@ -516,8 +518,8 @@ def ultragoal_current_path() -> pathlib.Path:
 
 
 # =============================================================================
-# Boulder State (Direction A - Lina Boulder Management)
-# This is the core durable memory structure that Lina must actively maintain,
+# Boulder State (Direction A - Sisyphus Boulder Management)
+# This is the core durable memory structure that Sisyphus must actively maintain,
 # modeled directly after real OmO boulder.json behavior.
 # =============================================================================
 
@@ -535,7 +537,7 @@ def read_boulder(ugid: str) -> dict[str, Any]:
         data = {
             "version": 1,
             "ultragoal_id": ugid,
-            "last_updated_by": "lina",
+            "last_updated_by": "sisyphus",
             "last_updated_at": now(),
             "current_objective": "",
             "status_summary": "Boulder initialized. No progress recorded yet.",
@@ -544,15 +546,15 @@ def read_boulder(ugid: str) -> dict[str, Any]:
             "blockers": [],
             "next_actions": [],
             "recent_evidence": [],
-            "sisyphus_notes": "This boulder must be actively maintained by Lina every turn."
+            "sisyphus_notes": "This boulder must be actively maintained by Sisyphus every turn."
         }
         write_json(path, data)
     return data
 
 
 def write_boulder(ugid: str, boulder: dict[str, Any]) -> None:
-    """Write the boulder after Lina has updated it."""
-    boulder["last_updated_by"] = "boulder-state"
+    """Write the boulder after Sisyphus has updated it."""
+    boulder["last_updated_by"] = "sisyphus"
     boulder["last_updated_at"] = now()
     boulder.setdefault("updated_at", now())
     write_json(boulder_path(ugid), boulder)
@@ -603,7 +605,7 @@ def safe_write_boulder(ugid: str, boulder: dict[str, Any]) -> tuple[bool, str]:
         boulder.setdefault("schema_version", 2)
         boulder.setdefault("version", 2)
         boulder["ultragoal_id"] = ugid
-        boulder.setdefault("last_updated_by", "boulder-state")
+        boulder.setdefault("last_updated_by", "sisyphus")
         boulder.setdefault("last_updated_at", now())
         boulder.setdefault("updated_at", now())
 
@@ -848,10 +850,9 @@ def ultragoal_spawn(args: argparse.Namespace) -> dict[str, Any]:
 
     if template == "hyperplan" or "hyperplan" in template or "hyperplan" in spec_lower or getattr(args, "hyperplan", False):
         run_mode = "hyperplan"
-        # Expand hyperplan template to the canonical named-agent lineup (B + D)
-        # iz (deep/architect), grok (artistry/consultant), gonow (balanced/worker)
+        # Expand hyperplan template to the canonical OMO team lineup.
         if not explicit_spec or explicit_spec in ("3:executor", "executor"):
-            effective_spec = "1:iz,1:grok,1:gonow"
+            effective_spec = "1:sisyphus,1:atlas,1:sisyphus-junior"
         else:
             effective_spec = explicit_spec
     else:
@@ -904,17 +905,17 @@ def ultragoal_spawn(args: argparse.Namespace) -> dict[str, Any]:
         try:
             tl = runtime.get_tasklist(team_run.id)
             tl.create_task(
-                "Deep architecture & structural analysis (IZ)",
+                "Deep architecture & structural analysis (Hephaestus lane)",
                 "Use AST-Grep + LSP to map boundaries, risks, and long-term implications. Report evidence for leader verification.",
                 []
             )
             tl.create_task(
-                "Creative multi-perspective review & alternatives (Grok)",
+                "Creative multi-perspective review & alternatives (Artistry lane)",
                 "Apply artistry + deep synthesis. Surface novel options and critiques. Submit evidence.",
                 []
             )
             tl.create_task(
-                "Reliable execution, tests, and integration (GoNow)",
+                "Reliable execution, tests, and integration (Sisyphus-Junior lane)",
                 "Implement changes, verify with tests/git, submit clear evidence for verification.",
                 ["task-"]  # soft dep example; real would use ids after create
             )
@@ -2110,6 +2111,13 @@ def run_setup_wizard(args: argparse.Namespace) -> dict[str, Any] | None:
 
 def setup(args: argparse.Namespace) -> dict[str, Any]:
     """Install/sync the LFG Grok plugin and record setup state."""
+    setup_cmd = getattr(args, "setup_cmd", None)
+    if setup_cmd == "check":
+        return setup_check(args)
+    if setup_cmd == "install-plan":
+        return setup_install_plan(args)
+    if setup_cmd == "show":
+        return setup_show(args)
     ensure_dirs()
     dest = plugin_install_dest(args)
     dry_run = bool(getattr(args, "dry_run", False))
@@ -2868,11 +2876,11 @@ def ralplan_show(args: argparse.Namespace) -> dict[str, Any]:
     return record
 
 
-def omx_setup_path() -> pathlib.Path:
-    return STATE_DIR / "omx-setup.json"
+def setup_state_path() -> pathlib.Path:
+    return setup_path()
 
 
-def omx_setup_check(args: argparse.Namespace) -> dict[str, Any]:
+def setup_check(args: argparse.Namespace) -> dict[str, Any]:
     ensure_dirs()
     checks = {
         "pluginRootExists": ROOT.exists(),
@@ -2890,17 +2898,17 @@ def omx_setup_check(args: argparse.Namespace) -> dict[str, Any]:
         "checks": checks,
         "repo": detect_repo(pathlib.Path(args.cwd).resolve()),
     }
-    write_json(omx_setup_path(), record)
+    write_json(setup_state_path(), record)
     return record
 
 
-def omx_setup_plan(args: argparse.Namespace) -> dict[str, Any]:
+def setup_install_plan(args: argparse.Namespace) -> dict[str, Any]:
     ensure_dirs()
     steps = [
         "add marketplace source in Grok /plugins",
         "install islee23520/lfg",
         "enable plugin skills, hooks, and MCP server",
-        "run /omx-setup check",
+        "run /setup check",
         "run runtime self-test and Grok inspect smoke",
     ]
     record = {
@@ -2909,12 +2917,12 @@ def omx_setup_plan(args: argparse.Namespace) -> dict[str, Any]:
         "marketplace": args.marketplace or "islee23520/lfg",
         "steps": [{"id": i + 1, "status": "pending", "text": step} for i, step in enumerate(steps)],
     }
-    write_json(omx_setup_path(), record)
+    write_json(setup_state_path(), record)
     return record
 
 
-def omx_setup_show(args: argparse.Namespace) -> dict[str, Any]:
-    return read_json(omx_setup_path(), {"omxSetup": []})
+def setup_show(args: argparse.Namespace) -> dict[str, Any]:
+    return read_json(setup_state_path(), {"setup": []})
 
 def skill_list(args: argparse.Namespace) -> dict[str, Any]:
     data = read_json(CATALOG_PATH, {"skills": []})
@@ -3780,16 +3788,21 @@ def parse_team_spec(spec: str) -> list[tuple[int, str]]:
 
     Supports:
         "3:executor"               -> [(3, "executor")]
-        "1:iz,2:gonow,1:grok"      -> [(1, "iz"), (2, "gonow"), (1, "grok")]
-        "iz,gonow,grok"            -> [(1, "iz"), (1, "gonow"), (1, "grok")]
+        "1:sisyphus,2:atlas,1:sisyphus-junior" -> [(1, "sisyphus"), (2, "atlas"), (1, "sisyphus-junior")]
+        "sisyphus,atlas,sisyphus-junior"       -> [(1, "sisyphus"), (1, "atlas"), (1, "sisyphus-junior")]
     """
     parts = [p.strip() for p in spec.split(",") if p.strip()]
     result = []
     for part in parts:
         if ":" in part:
             n, name = part.split(":", 1)
-            result.append((max(1, int(n)), name or "executor"))
+            role_name = name or "executor"
+            if role_name.lower() in LEGACY_TEAM_SPEC_NAMES:
+                raise SystemExit(f"legacy team member '{role_name}' has been removed; use canonical OMO agents or category roles")
+            result.append((max(1, int(n)), role_name))
         else:
+            if part.lower() in LEGACY_TEAM_SPEC_NAMES:
+                raise SystemExit(f"legacy team member '{part}' has been removed; use canonical OMO agents or category roles")
             result.append((1, part))
     return result if result else [(1, "executor")]
 
@@ -3797,9 +3810,9 @@ def parse_team_spec(spec: str) -> list[tuple[int, str]]:
 
 
 def load_agent_definition(name: str) -> dict | None:
-    """Load a named LFG agent definition (e.g. 'iz', 'lina').
-    Scans the user dir and plugin src/agents/legacy/ for any *.json whose internal 'name' field matches.
-    This supports files named iz-architect.json etc.
+    """Load a named LFG agent definition.
+    Scans the user dir and bundled canonical agent definitions for any *.json whose internal 'name' field matches.
+    Historical custom names like iz/lina are rejected earlier at team-spec parsing time.
     """
     candidates = []
     # user dir (higher priority)
@@ -3810,11 +3823,6 @@ def load_agent_definition(name: str) -> dict | None:
     plugin_dir = ROOT / "src" / "agents"
     if plugin_dir.exists():
         candidates.extend(sorted(plugin_dir.glob("*.json")))
-
-    # legacy named agents (compatibility layer)
-    legacy_dir = ROOT / "src" / "agents" / "legacy"
-    if legacy_dir.exists():
-        candidates.extend(sorted(legacy_dir.glob("*.json")))
 
     for p in candidates:
         try:
@@ -5325,12 +5333,9 @@ def team_provider_matrix() -> list[dict[str, Any]]:
 
 
 def resolve_providers_for_agent(agent_name: str, installed: list[str]) -> list[str]:
-    """Resolve providers for a named LFG agent (lina, gonow, iz, grok, etc.).
+    """Resolve providers for a named canonical LFG/OMO agent.
 
-    Respects the agent's `default_category`:
-        - deep       → opencode, codex, claude, grok
-        - artistry   → gemini, grok, claude
-        - ultrabrain → grok, codex, opencode
+    Respects the agent's `default_category` and keeps Grok/subagent first for current team runtime lanes.
     """
     agent_def = load_agent_definition(agent_name)
     if not agent_def:
@@ -5985,7 +5990,10 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
     if nested:
         return nested
     cwd = pathlib.Path(args.cwd).resolve()
-    spec_parts = parse_team_spec(args.spec)   # now returns list of (count, name)
+    raw_spec = args.spec
+    if str(raw_spec or "").strip().lower() == "hyperplan":
+        raw_spec = CANONICAL_HYPERPLAN_TEAM_SPEC
+    spec_parts = parse_team_spec(raw_spec)   # now returns list of (count, name)
     total_members = sum(count for count, _ in spec_parts)
     if total_members > TEAM_MAX_MEMBERS:
         return team_error(
@@ -6061,7 +6069,7 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
     user_specified_providers = bool(args.providers)
 
     # Support spec_parts from parse_team_spec: list of (count, role_or_agent)
-    # This enables "iz,gonow,grok" and "1:iz,2:gonow" and named agents with category-driven providers (B wiring)
+    # This enables canonical OMO agent specs like "sisyphus,atlas,sisyphus-junior"
     global_idx = 0
     for count, role in spec_parts:
         for ii in range(count):
@@ -6072,7 +6080,7 @@ def team_create(args: argparse.Namespace) -> dict[str, Any]:
             is_deep = False
 
             if agent_def:
-                # === Named LFG agent path (lina/gonow/iz/grok) with ULW + category mapping (deep->codex etc) ===
+                # === Named canonical OMO agent path with ULW + category mapping ===
                 effective_role = agent_def.get("role", role)
                 effective_category = agent_def.get("default_category")
                 if user_specified_providers:
@@ -6321,7 +6329,7 @@ def team_agents_list(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "agents": agents,
         "count": len(agents),
-        "note": "All agents run with ULW identity (LFG_LAUNCHER=ulw). Use them with `lfg team create iz,gonow,grok ...`"
+        "note": "All agents run with ULW identity (LFG_LAUNCHER=ulw). Use them with `lfg team create sisyphus,atlas,sisyphus-junior ...`"
     }
 
 
@@ -7170,7 +7178,7 @@ def main(argv: list[str] | None = None) -> int:
             "ultragoal", "ultrawork", "loop", "autopilot", "ask", "analyze", "design",
             "worker", "backend", "auth", "models", "slash", "hook-bridge", "grok-build",
             "performance-goal", "visual-ralph", "autoresearch", "deep-interview",
-            "ai-slop-cleaner", "omx-setup", "pipeline", "ralplan", "route", "resume",
+            "ai-slop-cleaner", "pipeline", "ralplan", "route", "resume",
             "synthesize", "dependency-graph", "spawn-wave", "spawn-envelope", "agents",
             "mcp", "notifications", "configure-notifications",
         }
@@ -7324,7 +7332,7 @@ def main(argv: list[str] | None = None) -> int:
     ugc.set_defaults(fn=ultragoal_create)
     ugsp = ugsub.add_parser("spawn")
     ugsp.add_argument("objective")
-    ugsp.add_argument("--spec", default="3:executor", help="team spec like 1:iz,1:gonow,1:grok or 3:executor")
+    ugsp.add_argument("--spec", default="3:executor", help="team spec like 1:sisyphus,1:atlas,1:sisyphus-junior or 3:executor")
     ugsp.add_argument("--id")
     ugsp.add_argument("--checklist")
     ugsp.add_argument("--brief")
@@ -7332,7 +7340,7 @@ def main(argv: list[str] | None = None) -> int:
     ugsp.add_argument("--providers", default="grok,subagent")
     ugsp.add_argument("--dry-run", action="store_true")
     ugsp.add_argument("--hyperplan", action="store_true", help="Launch in Hyperplan rigorous mode (separated state + adversarial team)")
-    ugsp.add_argument("--template", help="Named team template, e.g. hyperplan (expands to iz+gonow+grok with deep/artistry categories)")
+    ugsp.add_argument("--template", help="Named team template, e.g. hyperplan (expands to canonical OMO agents)")
     ugsp.set_defaults(fn=ultragoal_spawn)
     ugs = ugsub.add_parser("status")
     ugs.add_argument("--id")
@@ -7527,6 +7535,14 @@ def main(argv: list[str] | None = None) -> int:
     authl.set_defaults(fn=auth_login)
 
     setupp = sub.add_parser("setup", help="Install/sync the LFG Grok plugin and prepare provider state")
+    setupsub = setupp.add_subparsers(dest="setup_cmd", required=False)
+    setupc = setupsub.add_parser("check")
+    setupc.set_defaults(fn=setup)
+    setupps = setupsub.add_parser("install-plan")
+    setupps.add_argument("--marketplace")
+    setupps.set_defaults(fn=setup)
+    setups = setupsub.add_parser("show")
+    setups.set_defaults(fn=setup)
     setupp.add_argument("--plugin-dir", help="destination plugin directory, defaults to ~/.grok/plugins/lfg")
     setupp.add_argument("--dry-run", action="store_true")
     setupp.add_argument("--interactive", action="store_true", help="run the OMO-style provider setup wizard")
@@ -7661,16 +7677,6 @@ def main(argv: list[str] | None = None) -> int:
     args.add_argument("--id")
     args.set_defaults(fn=autoresearch_goal_show)
 
-
-    omxs = sub.add_parser("omx-setup")
-    omxsub = omxs.add_subparsers(dest="omx_setup_cmd", required=True)
-    omxc = omxsub.add_parser("check")
-    omxc.set_defaults(fn=omx_setup_check)
-    omxp = omxsub.add_parser("install-plan")
-    omxp.add_argument("--marketplace")
-    omxp.set_defaults(fn=omx_setup_plan)
-    omxsh = omxsub.add_parser("show")
-    omxsh.set_defaults(fn=omx_setup_show)
 
     skp = sub.add_parser("skill")
     sksub = skp.add_subparsers(dest="skill_cmd", required=True)

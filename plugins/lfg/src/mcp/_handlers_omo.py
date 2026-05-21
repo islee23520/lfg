@@ -11,7 +11,7 @@ from plugins.lfg.src.mcp._helpers import (
 
 def handle_setup(arguments):
     action = arguments.get("action")
-    cmd = [str(ROOT / "bin" / "lfg"), "--json", "omx-setup"]
+    cmd = [str(ROOT / "bin" / "lfg"), "--json", "setup"]
     if action == "check":
         cmd += ["check"]
     elif action == "install-plan":
@@ -59,7 +59,7 @@ def handle_omo_agent_catalog(arguments):
 
 def handle_omo_team_create(arguments):
     objective = arguments.get("objective") or "OMO huge orchestration"
-    spec = arguments.get("spec") or ("hyperplan" if arguments.get("hyperplan") else "3:executor")
+    spec = arguments.get("spec") or "hyperplan"
     cmd = ["team", "create", spec, objective]
     if arguments.get("name"):
         cmd += ["--name", arguments["name"]]
@@ -89,7 +89,7 @@ def handle_omo_ulw(arguments):
                 cmd += ["--id", arguments["id"]]
         return text_result(run_lfg_json(cmd, timeout=30, launcher="ulw"))
     if act == "hyperplan-sim":
-        cmd = ["team", "create", "3:executor", arguments.get("objective") or "hyperplan simulation via lfg MCP", "--providers", "grok,subagent", "--dry-run"]
+        cmd = ["team", "create", "hyperplan", arguments.get("objective") or "hyperplan simulation via lfg MCP", "--providers", "grok,subagent", "--dry-run"]
         return text_result(run_lfg_json(cmd, timeout=30, launcher="ulw"))
     if act == "intent":
         return text_result({
@@ -112,7 +112,6 @@ def handle_omo_doctor(arguments):
 
 HANDLERS = {
     "grok_build_setup": handle_setup,
-    "grok_build_omx_setup": handle_setup,
     "grok_build_omo_agent_catalog": handle_omo_agent_catalog,
     "grok_build_omo_team_create": handle_omo_team_create,
     "grok_build_omo_ulw": handle_omo_ulw,

@@ -1542,9 +1542,32 @@ class RuntimeSmoke(unittest.TestCase):
         for removed in {"ai-slop-cleaner", "omx-setup", "ultrawork"}:
             self.assertNotIn(removed, skill_names)
             self.assertNotIn(removed, catalog_names)
+        for active_doc in [
+            REPO / "ROADMAP.md",
+            REPO / "docs" / "HOW-IT-WORKS.md",
+            REPO / "docs" / "agent-system" / "README.md",
+            REPO / "docs" / "agent-system" / "hyperplan-teams.md",
+            REPO / "docs" / "agent-system" / "categories.md",
+            REPO / "docs" / "agent-system" / "omo-parity-comparison.md",
+            REPO / "docs" / "wiki" / "Verification.md",
+            REPO / "docs" / "wiki" / "Release-Process.md",
+            REPO / "lfg.egg-info" / "PKG-INFO",
+        ]:
+            text = active_doc.read_text(encoding="utf-8")
+            self.assertNotIn("/omx-setup", text, str(active_doc))
+            self.assertNotIn("grok_build_omx_setup", text, str(active_doc))
+            self.assertNotIn("iz,gonow,grok", text, str(active_doc))
+            self.assertNotIn("skills=17", text, str(active_doc))
+            self.assertNotIn("self-test.sh", text, str(active_doc))
+            self.assertNotIn("grok-install-smoke.sh", text, str(active_doc))
+            self.assertNotIn("~/.grok/plugins/grok-build/omo/", text, str(active_doc))
+            self.assertNotIn("All agents run on Grok models (`xai/grok-4.3`)", text, str(active_doc))
+            self.assertNotIn('"agent": "iz"', text, str(active_doc))
+            self.assertNotIn('"agent": "grok"', text, str(active_doc))
+            self.assertNotIn('"agent": "gonow"', text, str(active_doc))
+            self.assertNotIn("plugins/lfg/src/agents/legacy/", text, str(active_doc))
         for rel in [
             "docs/features/ai-slop-cleaner-runtime.md",
-            "docs/features/omx-setup-runtime.md",
             "docs/features/ultrawork-runtime.md",
         ]:
             self.assertTrue((PLUGIN / rel).exists(), rel)
@@ -1748,6 +1771,7 @@ class RuntimeSmoke(unittest.TestCase):
             self.assertNotIn("Cargo.toml", text, str(doc))
             self.assertNotIn("Cargo.lock", text, str(doc))
             self.assertNotIn("cargo test", text, str(doc))
+            self.assertNotIn("skills=17", text, str(doc))
 
     def test_test_rules_doc_contract(self) -> None:
         rules = (REPO / "docs" / "TEST_RULES.md").read_text(encoding="utf-8")
@@ -1992,13 +2016,49 @@ esac
         self.assertTrue(slash["team"]["ultragoal"].startswith("ultragoal-"))
 
     def test_named_agent_provider_override_is_respected(self) -> None:
-        team = self.run_lfg("team", "create", "iz,gonow,grok", "provider override", "--providers", "noop", "--dry-run")
+        team = self.run_lfg("team", "create", "sisyphus,atlas,sisyphus-junior", "provider override", "--providers", "noop", "--dry-run")
         self.assertEqual([m["provider"] for m in team["members"]], ["noop", "noop", "noop"])
         self.assertTrue(all("noop provider ready" in m["command"] for m in team["members"]))
 
+    def test_ultragoal_hyperplan_template_uses_canonical_omo_agents(self) -> None:
+        spawned = self.run_lfg("ultragoal", "spawn", "canonical hyperplan", "--template", "hyperplan", "--id", "hyperplan-omo", "--dry-run")
+        roles = [m["role"] for m in spawned["team"]["members"]]
+        self.assertEqual(roles, ["sisyphus", "atlas", "sisyphus-junior"])
+        self.assertNotIn("iz", roles)
+        self.assertNotIn("gonow", roles)
+        self.assertNotIn("grok", roles)
+
+    def test_team_create_hyperplan_uses_canonical_omo_agents(self) -> None:
+        team = self.run_lfg("team", "create", "hyperplan", "direct hyperplan", "--providers", "noop", "--dry-run")
+        roles = [m["role"] for m in team["members"]]
+        self.assertEqual(roles, ["sisyphus", "atlas", "sisyphus-junior"])
+        self.assertEqual([m["provider"] for m in team["members"]], ["noop", "noop", "noop"])
+
+    def test_mcp_omo_team_create_hyperplan_uses_canonical_omo_agents(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "omo_team_create", "arguments": {"objective": "mcp hyperplan", "dryRun": True, "providers": "noop"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        team_payload = payload["data"] if "data" in payload else payload
+        roles = [m["role"] for m in team_payload["members"]]
+        self.assertEqual(roles, ["sisyphus", "atlas", "sisyphus-junior"])
+
     def test_rejects_unsafe_provider_and_team_name(self) -> None:
         bad_provider = subprocess.run(
-            [str(LFG), "--json", "team", "create", "1:iz", "bad provider", "--providers", "noop;touch /tmp/pwn", "--dry-run"],
+            [str(LFG), "--json", "team", "create", "1:sisyphus", "bad provider", "--providers", "noop;touch /tmp/pwn", "--dry-run"],
             cwd=str(REPO),
             env=self.env,
             text=True,
@@ -2009,7 +2069,7 @@ esac
         self.assertIn("unknown provider", bad_provider.stderr)
 
         bad_name = subprocess.run(
-            [str(LFG), "--json", "team", "create", "1:iz", "bad name", "--name", "bad'name", "--providers", "noop", "--dry-run"],
+            [str(LFG), "--json", "team", "create", "1:sisyphus", "bad name", "--name", "bad'name", "--providers", "noop", "--dry-run"],
             cwd=str(REPO),
             env=self.env,
             text=True,
@@ -2927,16 +2987,16 @@ esac
         self.assertIn('"gate": "pass"', critique_payload["stdout"])
 
 
-    def test_omx_setup_check_plan_show(self) -> None:
-        check = self.run_lfg("omx-setup", "check")
+    def test_setup_check_plan_show(self) -> None:
+        check = self.run_lfg("setup", "check")
         self.assertEqual(check["status"], "ok")
         self.assertTrue(check["checks"]["manifestExists"])
-        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "islee23520/lfg")
+        plan = self.run_lfg("setup", "install-plan", "--marketplace", "islee23520/lfg")
         self.assertEqual(plan["status"], "planned")
-        shown = self.run_lfg("omx-setup", "show")
+        shown = self.run_lfg("setup", "show")
         self.assertEqual(shown["marketplace"], "islee23520/lfg")
 
-    def test_mcp_setup_tool_keeps_legacy_omx_alias(self) -> None:
+    def test_mcp_setup_tool_rejects_legacy_omx_alias(self) -> None:
         proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         assert proc.stdin and proc.stdout
         messages = [
@@ -2956,12 +3016,12 @@ esac
             proc.kill(); proc.wait(timeout=5)
         proc.stdout.close()
         plan_payload = json.loads(replies[1]["result"]["content"][0]["text"])
-        show_payload = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(plan_payload["returncode"], 0)
-        self.assertEqual(show_payload["returncode"], 0)
+        self.assertIn("error", replies[2])
         self.assertIn("error", replies[3])
         self.assertIn('"status": "planned"', plan_payload["stdout"])
-        self.assertIn('islee23520/lfg', show_payload["stdout"])
+        self.assertIn("grok_build_omx_setup", replies[2]["error"]["message"])
+        self.assertIn("omx_setup", replies[3]["error"]["message"])
 
     def test_skill_list_search_catalog(self) -> None:
         listed = self.run_lfg("skill", "list")
@@ -3592,20 +3652,20 @@ class IdentityAlignmentSmoke(unittest.TestCase):
         legacy = self.AGENTS_DIR / "legacy"
         self.assertFalse(legacy.exists(), "legacy agent mode should not be bundled under src/agents/legacy")
 
-    def test_boulder_last_updated_by_is_lina(self) -> None:
+    def test_boulder_last_updated_by_is_sisyphus(self) -> None:
         src = (PLUGIN / "src" / "runtime" / "cli.py").read_text(encoding="utf-8")
-        self.assertIn('"last_updated_by": "lina"', src)
-        self.assertNotIn('"last_updated_by": "Sisyphus"', src)
+        self.assertIn('"last_updated_by": "sisyphus"', src)
+        self.assertNotIn('"last_updated_by": "lina"', src)
+        self.assertNotIn('"last_updated_by": "boulder-state"', src)
 
-    def test_harness_injection_uses_lina(self) -> None:
+    def test_harness_injection_uses_sisyphus(self) -> None:
         src = self.HARNESS.read_text(encoding="utf-8")
-        self.assertIn("You are Lina", src)
-        self.assertNotIn("You are Sisyphus", src)
-        self.assertNotIn('"last_updated_by": "Sisyphus"', src)
-        self.assertNotIn('owner": "Hephaestus | Oracle | Sisyphus"', src)
-        self.assertNotIn("operating as Sisyphus", src)
-        self.assertIn('"last_updated_by": "lina"', src)
-        self.assertIn('owner": "gonow | iz | lina"', src)
+        self.assertIn("You are Sisyphus", src)
+        self.assertNotIn("You are Lina", src)
+        self.assertIn('"last_updated_by": "sisyphus"', src)
+        self.assertIn('owner": "atlas | hephaestus | sisyphus"', src)
+        self.assertNotIn('owner": "gonow | iz | lina"', src)
+        self.assertNotIn("operating as Lina", src)
 
     def test_harness_uses_local_boulder_helpers(self) -> None:
         src = self.HARNESS.read_text(encoding="utf-8")
@@ -3635,16 +3695,21 @@ class TeamSpecAndAgentLoadingSmoke(unittest.TestCase):
         self.mod = load_grok_build_module()
 
     def test_parse_team_spec_named_no_count(self) -> None:
-        result = self.mod.parse_team_spec("iz,gonow,grok")
-        self.assertEqual(result, [(1, "iz"), (1, "gonow"), (1, "grok")])
+        result = self.mod.parse_team_spec("sisyphus,atlas,sisyphus-junior")
+        self.assertEqual(result, [(1, "sisyphus"), (1, "atlas"), (1, "sisyphus-junior")])
 
     def test_parse_team_spec_named_with_count(self) -> None:
-        result = self.mod.parse_team_spec("1:iz,2:gonow,1:grok")
-        self.assertEqual(result, [(1, "iz"), (2, "gonow"), (1, "grok")])
+        result = self.mod.parse_team_spec("1:sisyphus,2:atlas,1:sisyphus-junior")
+        self.assertEqual(result, [(1, "sisyphus"), (2, "atlas"), (1, "sisyphus-junior")])
 
     def test_parse_team_spec_generic(self) -> None:
         result = self.mod.parse_team_spec("3:executor")
         self.assertEqual(result, [(3, "executor")])
+
+    def test_parse_team_spec_rejects_legacy_named_agents(self) -> None:
+        for spec in ("iz,gonow,grok", "1:iz,2:gonow,1:grok", "lina"):
+            with self.assertRaises(SystemExit):
+                self.mod.parse_team_spec(spec)
 
     def test_bundled_agent_sisyphus_loads(self) -> None:
         agent = self.mod.load_agent_definition("sisyphus")
@@ -3692,7 +3757,7 @@ class HarnessRuntimeSmoke(unittest.TestCase):
     def test_boulder_read_write_without_runtime_import(self) -> None:
         self.harness.write_boulder("ug-test", {"version": 1, "ultragoal_id": "ug-test", "status_summary": "ok"})
         boulder = self.harness.read_boulder("ug-test")
-        self.assertEqual(boulder["last_updated_by"], "lina")
+        self.assertEqual(boulder["last_updated_by"], "sisyphus")
         self.assertEqual(boulder["status_summary"], "ok")
 
     def test_boulder_path_rejects_traversal(self) -> None:
