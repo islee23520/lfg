@@ -34,7 +34,7 @@ Environment/manual gates cover behavior that depends on tmux, the real Grok plug
 Run the narrowest gate that proves the changed surface, then widen before release:
 
 ```sh
-python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py tests/smoke/test_grok_build_runtime.py
+python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py plugins/lfg/src/runtime/constants.py tests/smoke/test_grok_build_runtime.py
 python3 -m ruff check .
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
 python3 plugins/lfg/bin/self-test.py

@@ -28,6 +28,7 @@ marketplace-source=ok
 hook-smoke=ok
 hook-bridge-pytest=ok
 todo-continuation=ok
+continuation-gate=ok
 ruff-check=ok
 mcp-smoke=ok
 mcp-stdio-isolation=ok
@@ -36,6 +37,7 @@ state-schema-versioning=ok
 state-schema-doctor=ok
 team-dry-run=ok
 models-auth=ok
+ultrawork-stop-conditions=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
 ```
@@ -67,7 +69,7 @@ Pass evidence must prove two named child spawns, two independent child outputs, 
 Useful focused commands while debugging:
 
 ```sh
-python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py tests/smoke/test_grok_build_runtime.py
+python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py plugins/lfg/src/runtime/constants.py tests/smoke/test_grok_build_runtime.py
 plugins/lfg/bin/lfg --json doctor
 plugins/lfg/bin/lfg --json team create 3:executor "verify release" --providers noop --dry-run
 plugins/lfg/bin/lfg --json slash '/team providers'

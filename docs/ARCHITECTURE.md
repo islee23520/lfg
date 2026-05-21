@@ -44,10 +44,10 @@ The canonical registry now loads the 11 upstream OMO agents plus the `builtin-ag
 - `plugins/lfg/src/agents/sisyphus-junior.json` — bounded category executor
 - `plugins/lfg/src/agents/builtin-agents.json` — policy / factory layer
 
-**Loading code** (in `plugins/lfg/src/runtime/cli.py`; `plugins/lfg/bin/lfg.py` is a gateway):
+**Loading code** (`plugins/lfg/src/runtime/cli.py` loads constant tables from `plugins/lfg/src/runtime/constants.py`; `plugins/lfg/bin/lfg.py` is a gateway):
 
-- `CANONICAL_OMO_AGENT_IDS` — list of the 11 OMO agents
-- `OMO_TEAM_ELIGIBILITY_REGISTRY` — canonical team-member contract
+- `CANONICAL_OMO_AGENT_IDS` — list of the 11 OMO agents, defined in `plugins/lfg/src/runtime/constants.py`
+- `OMO_TEAM_ELIGIBILITY_REGISTRY` — canonical team-member contract, defined in `plugins/lfg/src/runtime/constants.py`
 - `load_omo_agent_registry()` — reads the 12 JSON files from `plugins/lfg/src/agents/`
 - `OMO_AGENT_REGISTRY` and `_OMO_REGISTRY_INDEX` — the live in-memory registry
 - `agents_list()` and `agents_inspect()` — exposed via CLI and MCP

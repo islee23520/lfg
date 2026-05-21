@@ -239,6 +239,15 @@
       "cross_refs": ["ARCHITECTURE.md", "GROK-BUILD-PROMPT-STAGES.md", "agent-system/omo-parity-comparison.md", "agent-system/omo-runtime-implementation-plan.md"]
     },
     {
+      "path": "evidence/omo-package-layering-refactor-report.md",
+      "title": "OMO Package Layering Refactor Report",
+      "section": "evidence",
+      "summary": "로컬 Oh My OpenAgent 참조 트리에서 pure TypeScript core, AST-grep MCP package, platform binary package layering을 어떻게 분리했는지 근거/추론으로 정리한 리포트.",
+      "keywords": ["omo", "oh-my-openagent", "package-layering", "pure-typescript", "ast-grep", "mcp", "platform-binaries", "evidence"],
+      "priority": "high",
+      "cross_refs": ["evidence/oh-my-openagent-doc-diff.md", "agent-system/omo-runtime-implementation-plan.md", "ARCHITECTURE.md"]
+    },
+    {
       "path": "evidence/m0-legacy-audit.md",
       "title": "M0 Legacy Audit",
       "section": "evidence",
@@ -288,7 +297,7 @@
     }
   ],
   "stats": {
-    "total_files": 33,
+    "total_files": 34,
     "critical_files": 4,
     "last_updated": "2026-05-20"
   }

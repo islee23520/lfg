@@ -7,6 +7,7 @@ The migration target is not a mechanical file split. OMO's original TypeScript d
 Real Grok/xAI API adapters should reference the official Python SDK repository, `https://github.com/xai-org/xai-sdk-python`, but SDK imports must remain optional. Dependency-free smoke paths and bin entrypoints must still run with only the Python standard library.
 
 - `hooks/` owns hook behavior and prompt/state injection.
+- `core/` owns dependency-free OMO policy modules that runtime, MCP, and plugin adapters can delegate to without importing adapter code.
 - `plugin/` owns plugin manifest/runtime composition boundaries.
 - `tools/` owns callable tool surfaces and validation.
 - `mcp/` owns MCP server definitions and protocol adapters.

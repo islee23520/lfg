@@ -66,7 +66,7 @@ All future work should align with the OMO parity roadmap, not legacy Codex-deriv
 - Spawning: Grok native sub-agent spawning is the target delegation path; local deterministic fallback is required for smoke tests.
 - MCP: `lfg-mcp.py` stdout is JSON-RPC only. Stderr isolation is tested by the MCP section of `plugins/lfg/bin/self-test.py`.
 - MCP tool names in `plugins/lfg/src/mcp/tools.json` are OMO-native short names and `tools.py` is only the loader. Legacy `grok_build_*` aliases may be accepted in dispatch for compatibility, but must not be exposed as canonical tools.
-- Hooks: critical active-goal events call `plugins/lfg/hooks/scripts/lfg-goal-harness.py` directly. Global hook bridge logic lives in small Python modules under `plugins/lfg/scripts/hook_bridge/`; entry scripts should stay thin.
+- Hooks: critical active-goal events call `plugins/lfg/hooks/scripts/lfg-goal-harness.py` (thin router) which delegates to `plugins/lfg/src/hooks/goal_harness.py`. Real implementation lives under `src/hooks/` as independent modules (state_io, todo_continuation, injection, dispatch_gate, etc.). Global hook bridge logic lives in small Python modules under `plugins/lfg/scripts/hook_bridge/`; entry scripts should stay thin.
 - `.agents/` is compatibility metadata, not a place for internal hook implementation. Keep internal hook behavior under `plugins/lfg/hooks/` or `plugins/lfg/scripts/hook_bridge/`.
 - State: runtime state belongs in `.lfg/` or the configured `GROK_PLUGIN_DATA` tree.
 - Team state: preserve legacy flat team-state compatibility until the M7/M8 state migration explicitly changes it.
@@ -91,7 +91,7 @@ All future work should align with the OMO parity roadmap, not legacy Codex-deriv
 
 ```sh
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
-python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py
+python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py plugins/lfg/src/runtime/constants.py
 python3 -m ruff check .
 python3 plugins/lfg/bin/self-test.py
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
