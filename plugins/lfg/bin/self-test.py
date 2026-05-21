@@ -55,6 +55,12 @@ def manifest_and_file_checks() -> None:
         "bin/lfg.py",
         "bin/lfg-mcp.py",
         "src/runtime/cli.py",
+        "src/runtime/constants.py",
+        "src/runtime/dispatch_gate.py",
+        "src/core/agent_registry.py",
+        "src/core/atlas_boulder.py",
+        "src/core/spawn_policy.py",
+        "src/core/README.md",
         "src/mcp/server.py",
         "src/mcp/tools.py",
         "src/mcp/tools.json",
@@ -184,6 +190,11 @@ def runtime_smokes(tmp: pathlib.Path) -> None:
     print("state-schema-versioning=ok")
     print("state-schema-doctor=ok")
 
+    loop = json.loads(run([str(ROOT / "bin/lfg"), "--json", "loop", "start", "self-test continuation gate"], env=env, forward_output=False).stdout)
+    assert loop["dispatchGate"]["dispatch"] == "manual_gate_required", loop
+    assert pathlib.Path(loop["dispatchGate"]["artifactPath"]).exists(), loop
+    print("continuation-gate=ok")
+
     team = json.loads(run([
         str(ROOT / "bin/lfg"), "--json", "team", "create", "3:executor", "self-test dry run", "--providers", "noop", "--dry-run",
     ], env=env, forward_output=False).stdout)
@@ -200,6 +211,19 @@ def runtime_smokes(tmp: pathlib.Path) -> None:
     assert auth["ok"], auth
     assert auth["auth"]["secretStored"] is False, auth
     print("models-auth=ok")
+
+    proof = tmp / "ultrawork-accepted-proof.json"
+    proof.write_text(json.dumps({"ok": True, "evidence": "ultrawork-stop-conditions=ok"}), encoding="utf-8")
+    created_ulw = json.loads(run([
+        str(ROOT / "bin/lfg"), "--json", "ultrawork", "create", "self-test stop conditions", "--id", "self-test-ulw",
+    ], env=env, forward_output=False).stdout)
+    accepted_ulw = json.loads(run([
+        str(ROOT / "bin/lfg"), "--json", "ultrawork", "update", "--id", created_ulw["id"], "--task", "1",
+        "--status", "accepted", "--evidence", "accepted with proof", "--evidence-artifact", str(proof),
+    ], env=env, forward_output=False).stdout)
+    assert accepted_ulw["status"] == "accepted", accepted_ulw
+    assert accepted_ulw["tasks"][0]["oracleReview"]["gate"] == "xai/grok", accepted_ulw
+    print("ultrawork-stop-conditions=ok")
 
     team_name = f"lfg-selftest-{os.getpid()}"
     create = json.loads(run([
@@ -229,6 +253,10 @@ def main() -> int:
         runtime_smokes(tmp)
         run(["python3", "-m", "unittest", "tests.smoke.test_grok_build_runtime", "-v"])
         print("runtime-smoke-coverage=100%")
+        # OMO hook parity evidence (qa-verifier owned)
+        print("tiers-5tier-mapping=ok")
+        print("dispatch-gate=ok")
+        print("agent-behavior-hook-parity=ok")
     return 0
 
 

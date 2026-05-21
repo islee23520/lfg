@@ -7,6 +7,7 @@ stateful goal, plan, team, and QA loops under .lfg.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -22,61 +23,81 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-ROOT = pathlib.Path(os.environ.get("GROK_PLUGIN_ROOT") or pathlib.Path(__file__).resolve().parents[2])
+def _load_runtime_constants():
+    constants_path = pathlib.Path(__file__).with_name("constants.py")
+    spec = importlib.util.spec_from_file_location("_lfg_runtime_constants", constants_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"failed to load runtime constants from {constants_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-DATA = pathlib.Path(os.environ.get("GROK_PLUGIN_DATA") or pathlib.Path.cwd() / ".lfg")
-STATE_DIR = DATA / "state"
-RUNS_DIR = DATA / "runs"
-PLANS_DIR = DATA / "plans"
-CATALOG_PATH = ROOT / "catalog" / "omo-skill-map.json"
-STATE_SCHEMA_VERSION = 2
-ATLAS_BOULDER_SCHEMA_VERSION = 2
-MAILBOX_DELIVERY_TTL_SECONDS = 10 * 60
-APPROVED_MODEL_PROVIDERS = {"openai", "xai", "grok", "codex", "copilot", "zai"}
-DEFAULT_MODEL_PROVIDER = "openai"
-MODEL_PROVIDER_ALIASES = {"grok": "xai", "github-copilot": "copilot", "zai-coding-plan": "zai"}
-PROVIDER_DEFAULT_MODELS = {"openai": "openai/gpt-5.5", "xai": "xai/grok-4.3", "grok": "xai/grok-4.3", "codex": "openai-codex", "copilot": "github-copilot", "zai": "zai-coding-plan"}
-HEPHAESTUS_APPROVED_MODEL_PROFILES = ({"provider": "openai", "model": "openai/gpt-5.5", "reasoning": "medium"}, {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "medium"})
-ZAI_CODING_PLAN_BASE_URL = "https://api.z.ai/api/coding/paas/v4"
-ZAI_GENERAL_BASE_URL = "https://api.z.ai/api/paas/v4"
-ZAI_DEFAULT_MODEL = "glm-4.6"
-GROK_ORACLE_REVIEW = {"required": True, "gate": "xai/grok", "provider": "xai", "model": "xai/grok-4.3", "variant": "high", "fallback_models": [], "role": "oracle", "strict": True, "mode": "local-smoke", "reviewKind": "static-local-schema", "realGrokJudgment": False, "status": "passed"}
-SPAWN_ENVELOPE_SCHEMA_VERSION = 1
-SPAWN_ENVELOPE_STATUSES = {"completed", "blocked", "failed"}
-SPAWN_ENVELOPE_MODES = {"native-grok", "fallback"}
-SPAWN_ENVELOPE_EVIDENCE_CLASSES = {
-    "dependency-free-smoke",
-    "repo-native-integration",
-    "real-grok-manual-gate",
-}
-COMPLETION_STATUSES = {"complete", "completed", "pass", "passed"}
-EVIDENCE_ARTIFACT_KINDS = {"command-output", "trace", "envelope"}
-TEAM_MODE_TOOL_NAMES = (
-    "team_create",
-    "team_delete",
-    "team_shutdown_request",
-    "team_approve_shutdown",
-    "team_reject_shutdown",
-    "team_send_message",
-    "team_task_create",
-    "team_task_list",
-    "team_task_update",
-    "team_task_get",
-    "team_status",
-    "team_list",
-)
-TEAM_MAX_MEMBERS = 8
-TEAM_MAX_PARALLEL_WORKERS = 4
-TEAM_MAX_MESSAGE_BYTES = 32 * 1024
-TEAM_MAX_UNREAD_BYTES = 256 * 1024
-TEAM_MAX_MESSAGES_PER_RUN = 10000
-TEAM_MEMBER_BLOCKED_TOOLS = ("delegate-task", "team_create", "team_delete", "wait_for_reply", "sync_wait")
-HYPERPLAN_REQUIRED_CRITIC_CATEGORIES = ("unspecified-low", "unspecified-high", "ultrabrain", "artistry")
-HYPERPLAN_OPTIONAL_CRITIC_CATEGORIES = ("deep",)
-HYPERPLAN_MAX_CRITICS = 5
-HYPERPLAN_CRITIQUE_ROUNDS = ("independent-analysis", "cross-attack", "defend-refine")
-HYPERPLAN_REVISION_ROUNDS = ("lead-revision", "final-tightening")
-ATLAS_NOTEPAD_CATEGORIES = ("learnings", "decisions", "issues", "verification", "problems")
+
+_RUNTIME_CONSTANTS = _load_runtime_constants()
+ROOT = _RUNTIME_CONSTANTS.ROOT
+DATA = _RUNTIME_CONSTANTS.DATA
+STATE_DIR = _RUNTIME_CONSTANTS.STATE_DIR
+RUNS_DIR = _RUNTIME_CONSTANTS.RUNS_DIR
+PLANS_DIR = _RUNTIME_CONSTANTS.PLANS_DIR
+CATALOG_PATH = _RUNTIME_CONSTANTS.CATALOG_PATH
+STATE_SCHEMA_VERSION = _RUNTIME_CONSTANTS.STATE_SCHEMA_VERSION
+ATLAS_BOULDER_SCHEMA_VERSION = _RUNTIME_CONSTANTS.ATLAS_BOULDER_SCHEMA_VERSION
+MAILBOX_DELIVERY_TTL_SECONDS = _RUNTIME_CONSTANTS.MAILBOX_DELIVERY_TTL_SECONDS
+APPROVED_MODEL_PROVIDERS = _RUNTIME_CONSTANTS.APPROVED_MODEL_PROVIDERS
+DEFAULT_MODEL_PROVIDER = _RUNTIME_CONSTANTS.DEFAULT_MODEL_PROVIDER
+MODEL_PROVIDER_ALIASES = _RUNTIME_CONSTANTS.MODEL_PROVIDER_ALIASES
+PROVIDER_DEFAULT_MODELS = _RUNTIME_CONSTANTS.PROVIDER_DEFAULT_MODELS
+HEPHAESTUS_APPROVED_MODEL_PROFILES = _RUNTIME_CONSTANTS.HEPHAESTUS_APPROVED_MODEL_PROFILES
+ZAI_CODING_PLAN_BASE_URL = _RUNTIME_CONSTANTS.ZAI_CODING_PLAN_BASE_URL
+ZAI_GENERAL_BASE_URL = _RUNTIME_CONSTANTS.ZAI_GENERAL_BASE_URL
+ZAI_DEFAULT_MODEL = _RUNTIME_CONSTANTS.ZAI_DEFAULT_MODEL
+GROK_ORACLE_REVIEW = _RUNTIME_CONSTANTS.GROK_ORACLE_REVIEW
+SPAWN_ENVELOPE_SCHEMA_VERSION = _RUNTIME_CONSTANTS.SPAWN_ENVELOPE_SCHEMA_VERSION
+SPAWN_ENVELOPE_STATUSES = _RUNTIME_CONSTANTS.SPAWN_ENVELOPE_STATUSES
+SPAWN_ENVELOPE_MODES = _RUNTIME_CONSTANTS.SPAWN_ENVELOPE_MODES
+SPAWN_ENVELOPE_EVIDENCE_CLASSES = _RUNTIME_CONSTANTS.SPAWN_ENVELOPE_EVIDENCE_CLASSES
+COMPLETION_STATUSES = _RUNTIME_CONSTANTS.COMPLETION_STATUSES
+EVIDENCE_ARTIFACT_KINDS = _RUNTIME_CONSTANTS.EVIDENCE_ARTIFACT_KINDS
+TEAM_MODE_TOOL_NAMES = _RUNTIME_CONSTANTS.TEAM_MODE_TOOL_NAMES
+TEAM_MAX_MEMBERS = _RUNTIME_CONSTANTS.TEAM_MAX_MEMBERS
+TEAM_MAX_PARALLEL_WORKERS = _RUNTIME_CONSTANTS.TEAM_MAX_PARALLEL_WORKERS
+TEAM_MAX_MESSAGE_BYTES = _RUNTIME_CONSTANTS.TEAM_MAX_MESSAGE_BYTES
+TEAM_MAX_UNREAD_BYTES = _RUNTIME_CONSTANTS.TEAM_MAX_UNREAD_BYTES
+TEAM_MAX_MESSAGES_PER_RUN = _RUNTIME_CONSTANTS.TEAM_MAX_MESSAGES_PER_RUN
+TEAM_MEMBER_BLOCKED_TOOLS = _RUNTIME_CONSTANTS.TEAM_MEMBER_BLOCKED_TOOLS
+HYPERPLAN_REQUIRED_CRITIC_CATEGORIES = _RUNTIME_CONSTANTS.HYPERPLAN_REQUIRED_CRITIC_CATEGORIES
+HYPERPLAN_OPTIONAL_CRITIC_CATEGORIES = _RUNTIME_CONSTANTS.HYPERPLAN_OPTIONAL_CRITIC_CATEGORIES
+HYPERPLAN_MAX_CRITICS = _RUNTIME_CONSTANTS.HYPERPLAN_MAX_CRITICS
+HYPERPLAN_CRITIQUE_ROUNDS = _RUNTIME_CONSTANTS.HYPERPLAN_CRITIQUE_ROUNDS
+HYPERPLAN_REVISION_ROUNDS = _RUNTIME_CONSTANTS.HYPERPLAN_REVISION_ROUNDS
+ATLAS_NOTEPAD_CATEGORIES = _RUNTIME_CONSTANTS.ATLAS_NOTEPAD_CATEGORIES
+ULTRAWORK_STOP_STATES = {"accepted", "blocked", "budget_exhausted", "manual_review_required", "failed"}
+ULTRAWORK_EVIDENCE_REQUIRED_STATES = COMPLETION_STATUSES | ULTRAWORK_STOP_STATES
+SETUP_PROVIDER_WIZARD = _RUNTIME_CONSTANTS.SETUP_PROVIDER_WIZARD
+TEAM_PROVIDER_EXECUTABLES = _RUNTIME_CONSTANTS.TEAM_PROVIDER_EXECUTABLES
+DEEP_ROLES = _RUNTIME_CONSTANTS.DEEP_ROLES
+LFG_AGENTS_DIR = _RUNTIME_CONSTANTS.LFG_AGENTS_DIR
+CANONICAL_OMO_AGENT_IDS = _RUNTIME_CONSTANTS.CANONICAL_OMO_AGENT_IDS
+OMO_PRIMARY_AGENT_IDS = _RUNTIME_CONSTANTS.OMO_PRIMARY_AGENT_IDS
+OMO_ELIGIBLE_TEAM_MEMBER_IDS = _RUNTIME_CONSTANTS.OMO_ELIGIBLE_TEAM_MEMBER_IDS
+OMO_CONDITIONAL_TEAM_MEMBER_IDS = _RUNTIME_CONSTANTS.OMO_CONDITIONAL_TEAM_MEMBER_IDS
+OMO_HARD_REJECT_TEAM_MEMBER_IDS = _RUNTIME_CONSTANTS.OMO_HARD_REJECT_TEAM_MEMBER_IDS
+OMO_TEAM_ELIGIBILITY_REGISTRY = _RUNTIME_CONSTANTS.OMO_TEAM_ELIGIBILITY_REGISTRY
+OMO_CATEGORY_MODEL_PROFILES = _RUNTIME_CONSTANTS.OMO_CATEGORY_MODEL_PROFILES
+OMO_UPSTREAM_CATEGORY_NAMES = _RUNTIME_CONSTANTS.OMO_UPSTREAM_CATEGORY_NAMES
+OMO_LFG_SUPPORTED_CATEGORY_NAMES = _RUNTIME_CONSTANTS.OMO_LFG_SUPPORTED_CATEGORY_NAMES
+OMO_CATEGORY_MIGRATION_NOTES = _RUNTIME_CONSTANTS.OMO_CATEGORY_MIGRATION_NOTES
+OMO_CATEGORY_ROUTE_BLOCKED_TOOLS = _RUNTIME_CONSTANTS.OMO_CATEGORY_ROUTE_BLOCKED_TOOLS
+OMO_CATEGORY_ROUTE_VERIFICATION_GATE = _RUNTIME_CONSTANTS.OMO_CATEGORY_ROUTE_VERIFICATION_GATE
+OMO_REASONING_LEVELS = _RUNTIME_CONSTANTS.OMO_REASONING_LEVELS
+OMO_MODEL_MATCHING_SOURCE = _RUNTIME_CONSTANTS.OMO_MODEL_MATCHING_SOURCE
+OMO_RUNTIME_FALLBACK_POLICY = _RUNTIME_CONSTANTS.OMO_RUNTIME_FALLBACK_POLICY
+BACKGROUND_CONCURRENCY_CONFIG = _RUNTIME_CONSTANTS.BACKGROUND_CONCURRENCY_CONFIG
+OMO_ROLE_FIT_POLICIES = _RUNTIME_CONSTANTS.OMO_ROLE_FIT_POLICIES
+OMO_AGENT_ROLE_FIT = _RUNTIME_CONSTANTS.OMO_AGENT_ROLE_FIT
+OMO_CATEGORY_ROLE_FIT = _RUNTIME_CONSTANTS.OMO_CATEGORY_ROLE_FIT
+del _RUNTIME_CONSTANTS
+
 
 
 class EvidenceGateError(Exception):
@@ -240,7 +261,7 @@ def ensure_state_schema() -> dict[str, Any]:
         "migrations": migrations,
         "migrationStatus": "current" if previous == STATE_SCHEMA_VERSION else "migrated",
         # T11 schema roots
-        "roots": ["state", "boulder", "notepads", "mailbox", "tasklists", "teams", "wiki", "plans", "ultragoal", "hyperplan"],
+        "roots": ["state", "boulder", "notepads", "mailbox", "tasklists", "teams", "wiki", "plans", "ultragoal", "hyperplan", "dispatch-gate"],
     }
     path.write_text(jdump(schema) + "\n", encoding="utf-8")
     return schema
@@ -250,7 +271,7 @@ def ensure_dirs() -> None:
     for p in (DATA, STATE_DIR, RUNS_DIR, PLANS_DIR):
         p.mkdir(parents=True, exist_ok=True)
     # T11/T14: full .lfg/ schema roots for Boulder, continuation, notepad, mailbox, tasklist, teams, Hyperplan
-    for extra in ("boulder", "notepads", "mailbox", "tasklists", "teams", "wiki", "evidence", "hyperplan"):
+    for extra in ("boulder", "notepads", "mailbox", "tasklists", "teams", "wiki", "evidence", "hyperplan", "dispatch-gate"):
         (DATA / extra).mkdir(parents=True, exist_ok=True)
     ensure_state_schema()
 
@@ -277,6 +298,12 @@ def read_json(path: pathlib.Path, default: Any = None) -> Any:
     if not path.exists():
         return default
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+_AGENT_CORE = load_src_module("_lfg_core_agent_registry", ROOT / "src" / "core" / "agent_registry.py")
+_SPAWN_CORE = load_src_module("_lfg_core_spawn_policy", ROOT / "src" / "core" / "spawn_policy.py")
+_ATLAS_CORE = load_src_module("_lfg_core_atlas_boulder", ROOT / "src" / "core" / "atlas_boulder.py")
+_DISPATCH_GATE = load_src_module("_lfg_runtime_dispatch_gate", ROOT / "src" / "runtime" / "dispatch_gate.py")
 
 
 def evidence_dir() -> pathlib.Path:
@@ -525,8 +552,9 @@ def read_boulder(ugid: str) -> dict[str, Any]:
 
 def write_boulder(ugid: str, boulder: dict[str, Any]) -> None:
     """Write the boulder after Lina has updated it."""
-    boulder["last_updated_by"] = "lina"
+    boulder["last_updated_by"] = "boulder-state"
     boulder["last_updated_at"] = now()
+    boulder.setdefault("updated_at", now())
     write_json(boulder_path(ugid), boulder)
 
 
@@ -572,10 +600,12 @@ def safe_write_boulder(ugid: str, boulder: dict[str, Any]) -> tuple[bool, str]:
         if not isinstance(boulder, dict):
             return False, "boulder is not a dict"
 
-        boulder.setdefault("version", 1)
+        boulder.setdefault("schema_version", 2)
+        boulder.setdefault("version", 2)
         boulder["ultragoal_id"] = ugid
-        boulder.setdefault("last_updated_by", "lina")
+        boulder.setdefault("last_updated_by", "boulder-state")
         boulder.setdefault("last_updated_at", now())
+        boulder.setdefault("updated_at", now())
 
         # Light normalization for common missing fields
         boulder.setdefault("status_summary", "")
@@ -1009,10 +1039,11 @@ def ultrawork_update(args: argparse.Namespace) -> dict[str, Any]:
     if idx < 0 or idx >= len(rec.get("tasks", [])):
         raise SystemExit(f"task out of range: {args.task}")
     evidence_artifact_paths = evidence_artifacts_from_args(args)
+    gate_status = "complete" if str(args.status).lower() in ULTRAWORK_EVIDENCE_REQUIRED_STATES else args.status
     try:
-        completion_metadata = completion_evidence_metadata(args.status, args.evidence or "", evidence_artifact_paths, record_type="ultrawork task")
+        completion_metadata = completion_evidence_metadata(gate_status, args.evidence or "", evidence_artifact_paths, record_type="ultrawork task")
     except EvidenceGateError as exc:
-        if str(args.status).lower() in COMPLETION_STATUSES:
+        if str(args.status).lower() in ULTRAWORK_EVIDENCE_REQUIRED_STATES:
             rec["tasks"][idx]["status"] = "needs_evidence"
             rec["tasks"][idx]["evidence"] = args.evidence or ""
             rec["tasks"][idx]["evidenceArtifactPaths"] = evidence_artifact_paths
@@ -1035,14 +1066,15 @@ def ultrawork_update(args: argparse.Namespace) -> dict[str, Any]:
     rec["tasks"][idx]["evidence"] = args.evidence or ""
     rec["tasks"][idx]["evidenceArtifactPaths"] = evidence_artifact_paths
     rec["tasks"][idx]["evidenceArtifacts"] = evidence_artifact_paths
-    if args.status in COMPLETION_STATUSES:
+    if str(args.status).lower() in ULTRAWORK_EVIDENCE_REQUIRED_STATES:
         rec["tasks"][idx]["oracleReview"] = completion_metadata["oracleReview"]
-    if all(t.get("status") == "complete" for t in rec.get("tasks", [])):
-        rec["status"] = "complete"
+    if all(t.get("status") in {"complete", "accepted"} for t in rec.get("tasks", [])):
+        rec["status"] = "accepted" if any(t.get("status") == "accepted" for t in rec.get("tasks", [])) else "complete"
         rec["gate"] = "pass"
-    elif any(t.get("status") == "blocked" for t in rec.get("tasks", [])):
-        rec["status"] = "blocked"
-        rec["gate"] = "blocked"
+    elif any(t.get("status") in ULTRAWORK_STOP_STATES for t in rec.get("tasks", [])):
+        stop_status = next(t.get("status") for t in rec.get("tasks", []) if t.get("status") in ULTRAWORK_STOP_STATES)
+        rec["status"] = stop_status
+        rec["gate"] = stop_status
     elif any(t.get("status") == "needs_evidence" for t in rec.get("tasks", [])):
         rec["status"] = "blocked"
         rec["gate"] = "needs_evidence"
@@ -1088,6 +1120,8 @@ def ulw_sisyphus_discipline(strategy: str) -> dict[str, Any]:
         "completionPolicy": {
             "proseOnlyCompletionAllowed": False,
             "allowedStopConditions": ["verified_completion", "explicit_blocker", "user_cancelled"],
+            "ultraworkStopStates": sorted(ULTRAWORK_STOP_STATES),
+            "evidenceRequiredBeforeAdvancement": True,
             "blockerEscalationRequired": True,
         },
     }
@@ -1118,22 +1152,18 @@ def detect_ulw_intent(text: str) -> dict[str, Any]:
     return {"triggered": False}
 
 
-def activate_ulw_mode(goal: str, explicit: bool = True, cwd: str | None = None) -> dict[str, Any]:
-    """Activate full OMO-style Ultrawork (hybrid design). Creates durable state + returns Sisyphus preamble ready data."""
-    ensure_dirs()
-    uid = f"ultrawork-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
-    active_plan = current_active_plan_summary()
+def build_ulw_activation(goal: str, explicit: bool, cwd: str | None, uid: str, active_plan: dict[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any]]:
     strategy = "existing-plan" if active_plan else "autonomous-exploration"
     tasks = [step.get("text") or step.get("task") or step.get("objective") for step in (active_plan or {}).get("steps", []) if isinstance(step, dict)]
     tasks = [str(task) for task in tasks if task] or [goal]
-
+    ts = now()
     record = {
         "id": uid,
         "objective": goal,
         "status": "active",
         "gate": "needs_evidence",
-        "createdAt": now(),
-        "updatedAt": now(),
+        "createdAt": ts,
+        "updatedAt": ts,
         "mode": "ultrawork",
         "explicit": explicit,
         "leadAgent": "sisyphus",
@@ -1152,10 +1182,6 @@ def activate_ulw_mode(goal: str, explicit: bool = True, cwd: str | None = None) 
         "preamble_injected": False,
         "repo": detect_repo(pathlib.Path(cwd or os.getcwd()).resolve()),
     }
-    write_json(ultrawork_path(uid), record)
-    write_json(STATE_DIR / "current-ultrawork.json", {"id": uid, "path": str(ultrawork_path(uid)), "updatedAt": now()})
-
-    # Generate Sisyphus + IntentGate style preamble (core of OMO ulw)
     preamble = (
         "You are now in full OMO Ultrawork mode (LFG + Sisyphus lead). "
         "Own the intent, maintain the Boulder, delegate via the OMO catalog (Prometheus for planning, Hephaestus for deep work, Atlas for checklists). "
@@ -1163,8 +1189,7 @@ def activate_ulw_mode(goal: str, explicit: bool = True, cwd: str | None = None) 
         "Do not mark prose-only completion as done; escalate missing evidence as a blocker. "
         "Report progress using durable checkpoints. This run is persistent across sessions."
     )
-
-    return {
+    return record, {
         "ulw_id": uid,
         "status": "activated",
         "gate": "needs_evidence",
@@ -1180,6 +1205,17 @@ def activate_ulw_mode(goal: str, explicit: bool = True, cwd: str | None = None) 
     }
 
 
+def activate_ulw_mode(goal: str, explicit: bool = True, cwd: str | None = None, uid: str | None = None, active_plan: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Activate full OMO-style Ultrawork (hybrid design). Creates durable state + returns Sisyphus preamble ready data."""
+    ensure_dirs()
+    resolved_uid = uid or f"ultrawork-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    resolved_plan = active_plan if active_plan is not None else current_active_plan_summary()
+    record, activated = build_ulw_activation(goal, explicit, cwd, resolved_uid, resolved_plan)
+    write_json(ultrawork_path(resolved_uid), record)
+    write_json(STATE_DIR / "current-ultrawork.json", {"id": resolved_uid, "path": str(ultrawork_path(resolved_uid)), "updatedAt": now()})
+    return activated
+
+
 def ulw_intent(args: argparse.Namespace) -> dict[str, Any]:
     """Handler for `lfg ulw "goal"` and `/ulw` (hybrid design)."""
     goal = " ".join(args.objective) if getattr(args, "objective", None) else ""
@@ -1187,7 +1223,9 @@ def ulw_intent(args: argparse.Namespace) -> dict[str, Any]:
         return {"error": "no objective provided for ulw", "usage": "lfg ulw \"your goal\""}
 
     trigger = detect_ulw_intent(goal)
-    return activate_ulw_mode(goal, explicit=trigger.get("explicit", True), cwd=getattr(args, "cwd", None))
+    loop = loop_start(argparse.Namespace(objective=goal, cwd=getattr(args, "cwd", None)))
+    activated = loop.get("activation", {})
+    return {**loop, **activated, "dispatchGate": loop.get("dispatchGate"), "loop": {key: value for key, value in loop.items() if key != "activation"}}
 
 
 def ultrawork_show(args: argparse.Namespace) -> dict[str, Any]:
@@ -1205,11 +1243,78 @@ def loop_path() -> pathlib.Path:
     return STATE_DIR / "grok-build-loop.json"
 
 
+def dispatch_gate_root() -> pathlib.Path:
+    return DATA / "dispatch-gate"
+
+
+def loop_dispatch_identity(objective: str, active_plan: dict[str, Any] | None) -> dict[str, str]:
+    objective_hash = hashlib.sha256(objective.encode("utf-8")).hexdigest()[:12]
+    plan_id = str((active_plan or {}).get("id") or "no-active-plan") if isinstance(active_plan, dict) else "no-active-plan"
+    session_id = os.environ.get("GROK_SESSION_ID") or os.environ.get("OPENCODE_SESSION_ID") or "local-loop"
+    boulder_version = str(ATLAS_BOULDER_SCHEMA_VERSION)
+    reason = f"loop_start:{objective_hash}"
+    target_agent = "sisyphus"
+    key = _DISPATCH_GATE.dispatch_key(
+        session_id=session_id,
+        plan_id=plan_id,
+        boulder_version=boulder_version,
+        reason=reason,
+        target_agent=target_agent,
+    )
+    return {
+        "sessionId": session_id,
+        "planId": plan_id,
+        "boulderVersion": boulder_version,
+        "reason": reason,
+        "targetAgent": target_agent,
+        "ultraworkId": f"ultrawork-{key}",
+    }
+
+
+def reserve_loop_dispatch_gate(activated: dict[str, Any], identity: dict[str, str]) -> dict[str, Any]:
+    snapshot = {
+        "objective": activated.get("objective"),
+        "ultraworkId": activated.get("ulw_id"),
+        "statePath": activated.get("state_path"),
+        "plan": activated.get("plan"),
+        "tasks": activated.get("tasks", []),
+        "strategy": activated.get("strategy"),
+    }
+    return _DISPATCH_GATE.reserve_dispatch_gate(
+        dispatch_root=dispatch_gate_root(),
+        session_id=identity["sessionId"],
+        plan_id=identity["planId"],
+        boulder_version=identity["boulderVersion"],
+        reason=identity["reason"],
+        target_agent=identity["targetAgent"],
+        prompt=str(activated.get("preamble") or activated.get("objective") or ""),
+        state_snapshot=snapshot,
+        native_dispatch_supported=False,
+        now_value=now(),
+    )
+
+
 def loop_start(args: argparse.Namespace) -> dict[str, Any]:
     objective = str(getattr(args, "objective", "") or "").strip()
     if not objective:
         raise SystemExit("loop start requires an objective")
-    activated = activate_ulw_mode(objective, explicit=True, cwd=getattr(args, "cwd", None))
+    ensure_dirs()
+    active_plan = current_active_plan_summary()
+    identity = loop_dispatch_identity(objective, active_plan)
+    _, preview = build_ulw_activation(objective, True, getattr(args, "cwd", None), identity["ultraworkId"], active_plan)
+    dispatch_gate = reserve_loop_dispatch_gate(preview, identity)
+    if dispatch_gate.get("duplicateSuppressed"):
+        snapshot = dispatch_gate.get("stateSnapshot") or {}
+        activated = {
+            **preview,
+            "ulw_id": snapshot.get("ultraworkId") or preview["ulw_id"],
+            "state_path": snapshot.get("statePath") or preview["state_path"],
+            "plan": snapshot.get("plan"),
+            "tasks": snapshot.get("tasks", preview.get("tasks", [])),
+            "strategy": snapshot.get("strategy") or preview.get("strategy"),
+        }
+    else:
+        activated = activate_ulw_mode(objective, explicit=True, cwd=getattr(args, "cwd", None), uid=identity["ultraworkId"], active_plan=active_plan)
     record = {
         "ok": True,
         "status": "active",
@@ -1220,6 +1325,7 @@ def loop_start(args: argparse.Namespace) -> dict[str, Any]:
         "objective": objective,
         "updatedAt": now(),
     }
+    record["dispatchGate"] = dispatch_gate
     write_json(loop_path(), record)
     return {**record, "activation": activated}
 
@@ -1946,7 +2052,7 @@ def copy_plugin_tree(src: pathlib.Path, dest: pathlib.Path) -> None:
     shutil.copytree(src, dest, dirs_exist_ok=True, ignore=ignore)
 
 
-SETUP_PROVIDER_WIZARD = [{"flag": "openai", "kind": "openai", "id": "openai-main", "question": "Do you have OpenAI access for GPT-style execution/consultation lanes?", "default": True}, {"flag": "zai", "kind": "zai", "id": "zai-main", "question": "Do you have a Z.ai Coding Plan subscription?", "default": False}, {"flag": "copilot", "kind": "copilot", "id": "copilot-main", "question": "Do you have a GitHub Copilot subscription?", "default": False}, {"flag": "codex", "kind": "codex", "id": "codex-main", "question": "Do you have Codex CLI access for execution lanes?", "default": False}]
+
 def setup_choice_enabled(value: str | None) -> bool:
     return (value or "no").lower() in {"yes", "y", "true", "1", "on"}
 
@@ -3105,92 +3211,38 @@ def atlas_append_notepad(plan_id: str, category: str, body: str) -> None:
 
 
 def atlas_step_id(step: dict[str, Any]) -> str:
-    return str(step.get("id"))
+    return _ATLAS_CORE.step_id(step)
 
 
 def atlas_completed_step_ids(plan: dict[str, Any]) -> set[str]:
-    return {atlas_step_id(step) for step in plan.get("steps", []) if str(step.get("status", "")).lower() in COMPLETION_STATUSES or step.get("status") in {"done", "completed"}}
+    return _ATLAS_CORE.completed_step_ids(plan, completion_statuses=COMPLETION_STATUSES)
 
 
 def atlas_step_dependencies(step: dict[str, Any]) -> list[str]:
-    deps = step.get("depends_on") or step.get("dependsOn") or step.get("dependencies") or []
-    if isinstance(deps, str):
-        return [d.strip() for d in deps.split(",") if d.strip()]
-    if isinstance(deps, list):
-        return [str(d) for d in deps]
-    return []
+    return _ATLAS_CORE.step_dependencies(step)
 
 
 def atlas_progress(plan: dict[str, Any]) -> dict[str, Any]:
-    steps = plan.get("steps", [])
-    completed = atlas_completed_step_ids(plan)
-    total = len(steps)
-    blocked = []
-    next_task = None
-    for step in steps:
-        sid = atlas_step_id(step)
-        status = str(step.get("status", "pending")).lower()
-        if sid in completed:
-            continue
-        unresolved = [dep for dep in atlas_step_dependencies(step) if dep not in completed]
-        if unresolved:
-            blocked.append({"taskId": sid, "dependsOn": unresolved, "reason": "unresolved-dependency"})
-            continue
-        if status not in {"blocked", "cancelled"} and next_task is None:
-            next_task = step
-    return {
-        "total": total,
-        "completed": len(completed),
-        "remaining": max(total - len(completed), 0),
-        "percent": round((len(completed) / total) * 100, 2) if total else 100.0,
-        "blocked": blocked,
-        "nextTask": next_task,
-    }
+    return _ATLAS_CORE.progress(plan, completion_statuses=COMPLETION_STATUSES)
 
 
 def atlas_delegate_record(plan: dict[str, Any], task: dict[str, Any] | None, wisdom: dict[str, str]) -> dict[str, Any] | None:
-    if not task:
-        return None
-    return {
-        "agent": "sisyphus-junior",
-        "category": task.get("category") or "deep",
-        "taskId": atlas_step_id(task),
-        "task": task.get("text") or task.get("task") or task.get("objective"),
-        "bounded": True,
-        "atlasWritesImplementationCode": False,
-        "instructions": "Atlas delegates this bounded task; the worker must implement and return concrete evidenceArtifactPaths before Atlas can check it off.",
-        "wisdom": wisdom,
-        "planId": plan.get("id"),
-    }
+    return _ATLAS_CORE.delegate_record(plan, task, wisdom)
 
 
 def atlas_build_boulder(plan: dict[str, Any], *, session_id: str | None = None, existing: dict[str, Any] | None = None) -> dict[str, Any]:
-    progress = atlas_progress(plan)
     existing = existing or {}
-    session_ids = list(existing.get("session_ids") or existing.get("sessions") or [])
     sid = session_id or f"atlas-{time.strftime('%Y%m%d-%H%M%S')}"
-    if sid not in session_ids:
-        session_ids.append(sid)
     active_plan = str(PLANS_DIR / f"{plan['id']}.json")
-    return {
-        "schemaVersion": 1,
-        "kind": "atlas-boulder",
-        "active_plan": active_plan,
-        "activePlan": active_plan,
-        "plan_id": plan["id"],
-        "plan_name": plan.get("title") or plan["id"],
-        "session_ids": session_ids,
-        "sessions": session_ids,
-        "started_at": existing.get("started_at") or now(),
-        "updated_at": now(),
-        "status": "complete" if progress["remaining"] == 0 else "active",
-        "progress": {k: v for k, v in progress.items() if k != "nextTask"},
-        "blockers": progress["blocked"],
-        "continuation_notes": existing.get("continuation_notes") or [],
-        "next_task_id": atlas_step_id(progress["nextTask"]) if progress.get("nextTask") else None,
-        "notepads": atlas_init_notepads(plan["id"]),
-        "recent_evidence": existing.get("recent_evidence") or [],
-    }
+    return _ATLAS_CORE.build_boulder(
+        plan,
+        progress_payload=atlas_progress(plan),
+        session_id=sid,
+        existing=existing,
+        active_plan=active_plan,
+        now_value=now(),
+        notepads=atlas_init_notepads(plan["id"]),
+    )
 
 
 def atlas_boulder_lock_path(plan_id: str) -> pathlib.Path:
@@ -3222,31 +3274,19 @@ class AtlasBoulderLock:
 
 
 def migrate_atlas_boulder(plan: dict[str, Any], existing: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    if not existing:
-        return {}, {"status": "none", "from": None, "to": ATLAS_BOULDER_SCHEMA_VERSION, "applied": False}
-    previous = existing.get("schemaVersion")
-    if previous == ATLAS_BOULDER_SCHEMA_VERSION:
-        return existing, {"status": "current", "from": previous, "to": ATLAS_BOULDER_SCHEMA_VERSION, "applied": False}
-    migrated = dict(existing)
-    migrated["schemaVersion"] = ATLAS_BOULDER_SCHEMA_VERSION
-    migrated.setdefault("kind", "atlas-boulder")
-    migrated.setdefault("plan_id", plan["id"])
-    migrated.setdefault("active_plan", str(PLANS_DIR / f"{plan['id']}.json"))
-    migrated.setdefault("activePlan", migrated["active_plan"])
-    migrated["revision"] = int(migrated.get("revision", 0)) + 1
-    migrated.setdefault("migrations", []).append({
-        "id": f"atlas-boulder-v{previous or 0}-to-v{ATLAS_BOULDER_SCHEMA_VERSION}",
-        "from": previous,
-        "to": ATLAS_BOULDER_SCHEMA_VERSION,
-        "status": "applied",
-        "ts": now(),
-    })
-    return migrated, {"status": "migrated", "from": previous, "to": ATLAS_BOULDER_SCHEMA_VERSION, "applied": True}
+    return _ATLAS_CORE.migrate_boulder(
+        plan,
+        existing,
+        schema_version=ATLAS_BOULDER_SCHEMA_VERSION,
+        active_plan=str(PLANS_DIR / f"{plan['id']}.json"),
+        now_value=now(),
+    )
 
 
 def atlas_persist_boulder(plan: dict[str, Any], boulder: dict[str, Any]) -> None:
     prior = read_json(atlas_boulder_path(plan["id"]), {})
-    boulder["schemaVersion"] = ATLAS_BOULDER_SCHEMA_VERSION
+    boulder["schema_version"] = 2
+    boulder["schemaVersion"] = 2  # legacy compat
     boulder["revision"] = int(prior.get("revision", 0)) + 1 if isinstance(prior, dict) else 1
     write_json(atlas_boulder_path(plan["id"]), boulder)
     write_json(atlas_current_boulder_path(), {"planId": plan["id"], "path": str(atlas_boulder_path(plan["id"])), "updatedAt": now(), "revision": boulder["revision"]})
@@ -3419,6 +3459,47 @@ def status(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def grok_build_agent_known_keywords_payload() -> dict[str, Any]:
+    entries = [
+        {
+            "keyword": f"@{agent['id']}",
+            "insertText": f"@{agent['id']}",
+            "agentId": agent["id"],
+            "name": agent["name"],
+            "family": agent["family"],
+            "mode": agent["mode"],
+            "source": "plugins/lfg/src/agents/*.json",
+            "command": f"lfg spawn {agent['id']}",
+        }
+        for agent in OMO_AGENT_REGISTRY
+    ]
+    return {
+        "ok": True,
+        "status": "ok",
+        "registrationKind": "known-keyword",
+        "host": "grok-build",
+        "trigger": "@",
+        "source": "plugins/lfg/src/agents/*.json",
+        "keywords": entries,
+        "ids": [entry["keyword"] for entry in entries],
+        "count": len(entries),
+        "usage": "Type @ followed by any listed agent id inside the LFG Grok Build wrapper.",
+    }
+
+
+def grok_build_agent_keyword_ids() -> list[str]:
+    return grok_build_agent_known_keywords_payload()["ids"]
+
+
+def grok_build_keywords_cmd(args: argparse.Namespace) -> dict[str, Any]:
+    payload = grok_build_agent_known_keywords_payload()
+    if getattr(args, "ids", False) or getattr(args, "completion", False):
+        if getattr(args, "json", False):
+            return {"ok": True, "ids": payload["ids"], "count": payload["count"]}
+        return {"ok": True, "ids": payload["ids"], "count": payload["count"], "_raw_text": "\n".join(payload["ids"])}
+    return payload
+
+
 def grok_build_wrapper_guide() -> dict[str, Any]:
     diagram = """+-------------------- tmux session --------------------+
 |                                                       |
@@ -3429,7 +3510,7 @@ def grok_build_wrapper_guide() -> dict[str, Any]:
 |  +----------------+    +--------------------------+   |
 |                                                       |
 +-------------------------------------------------------+"""
-    return {"topology": "[tmux [grok-build]]", "diagram": diagram, "nativeGrok": {"provider": "xai", "model": "xai/grok-4.3", "rule": "Grok Oracle review is mandatory; child sub-agent spawning remains manual-gated until T28 passes."}, "approvedProviders": {"providers": sorted(APPROVED_MODEL_PROVIDERS), "rule": "Optional provider lanes are explicit metadata entries and do not replace the xAI/Grok Oracle gate."}, "commands": {"startWrapper": "lfg grok-build start", "dryRunWrapper": "lfg grok-build start --dry-run", "status": "lfg grok-build status", "sendPrompt": "lfg grok-build send 'implement the plan'", "switchModel": "lfg grok-build model xai/grok-4.3 --provider xai", "loop": "lfg loop start 'continue until verified'"}, "paneRoles": ["leader", "architect", "implementer", "reviewer"]}
+    return {"topology": "[tmux [grok-build]]", "diagram": diagram, "nativeGrok": {"provider": "xai", "model": "xai/grok-4.3", "rule": "Grok Oracle review is mandatory; child sub-agent spawning remains manual-gated until T28 passes."}, "approvedProviders": {"providers": sorted(APPROVED_MODEL_PROVIDERS), "rule": "Optional provider lanes are explicit metadata entries and do not replace the xAI/Grok Oracle gate."}, "knownKeywords": grok_build_agent_known_keywords_payload(), "commands": {"startWrapper": "lfg grok-build start", "dryRunWrapper": "lfg grok-build start --dry-run", "status": "lfg grok-build status", "knownKeywords": "lfg grok-build keywords", "sendPrompt": "lfg grok-build send 'implement the plan'", "switchModel": "lfg grok-build model xai/grok-4.3 --provider xai", "loop": "lfg loop start 'continue until verified'"}, "paneRoles": ["leader", "architect", "implementer", "reviewer"]}
 
 def find_verify_commands(cwd: pathlib.Path) -> list[list[str]]:
     candidates: list[list[str]] = []
@@ -3545,13 +3626,11 @@ def attach_backend_from_tmux_pane(state: dict[str, Any], cwd: pathlib.Path) -> d
 
 
 def lfg_launch(args: argparse.Namespace) -> dict[str, Any]:
-    """Default `lfg`/`ulw` behavior. Shows the Grok Build tmux wrapper guide."""
-    # Check if launched as `ulw` with a goal (magic keyword path)
-    if effective_launcher() == "ulw" and getattr(args, "objective", None):
-        trigger = detect_ulw_intent(args.objective)
-        if trigger.get("triggered"):
-            return activate_ulw_mode(args.objective, explicit=trigger.get("explicit", True))
+    """Default `lfg`/`ulw` behavior. Shows the Grok Build tmux wrapper guide.
 
+    Note: direct `ulw "goal"` activation is handled via early argv rewrite in main()
+    before we ever reach a no-cmd lfg_launch path. This keeps the default path simple.
+    """
     state = status(args)
     state["status"] = "ready"
     state["mode"] = "lfg-runtime"
@@ -3594,12 +3673,24 @@ def grok_build_tmux_start(args: argparse.Namespace) -> dict[str, Any]:
         model_result = models_switch(argparse.Namespace(model=args.model, provider=getattr(args, "provider", None), reasoning=getattr(args, "reasoning", None), source="grok-build-tmux-start"))
     exists = subprocess.run(["tmux", "has-session", "-t", name], text=True, capture_output=True).returncode == 0
     guide = grok_build_wrapper_guide()
+    keyword_line = " ".join(grok_build_agent_keyword_ids())
+    keyword_file = STATE_DIR / "grok-build-known-keywords.json"
+    keyword_export_command = (
+        f"mkdir -p {shlex.quote(str(STATE_DIR))}; "
+        f"if python3 {shlex.quote(str(ROOT / 'bin' / 'lfg.py'))} --json grok-build keywords > {shlex.quote(str(keyword_file))} 2>/dev/null; then "
+        f"export LFG_GROK_BUILD_KNOWN_KEYWORDS_FILE={shlex.quote(str(keyword_file))}; "
+        f"export LFG_GROK_BUILD_KNOWN_KEYWORDS={shlex.quote(keyword_line)}; "
+        "fi; "
+    )
     command = (
         "printf '%s\n' 'lfg tmux wrapper ready: [tmux [grok-build]]'; "
         "printf '%s\n' 'leader pane: orchestration + dispatch'; "
         "printf '%s\n' 'worker panes: architect | implementer | reviewer'; "
         "printf '%s\n' 'Grok is Grok-first host execution, not an LFG provider.'; "
         "printf '%s\n' 'Optional providers are explicit: lfg models switch openai/gpt-5.5 --provider openai'; "
+        f"{keyword_export_command}"
+        f"printf '%s\n' {shlex.quote('Known @agent keywords: ' + keyword_line)}; "
+        f"printf '%s\n' {shlex.quote('Known keyword registry file: ' + str(keyword_file))}; "
         "printf '%s\n' 'Use lfg grok-build model <model> to send /model into this session.'; "
         "if command -v grok >/dev/null 2>&1; then exec grok; "
         "else printf '%s\n' 'grok executable not found; control shell remains open.'; exec $SHELL; fi"
@@ -3703,24 +3794,7 @@ def parse_team_spec(spec: str) -> list[tuple[int, str]]:
     return result if result else [(1, "executor")]
 
 
-TEAM_PROVIDER_EXECUTABLES = {
-    "hermes": "hermes",
-    "claude": "claude",
-    "codex": "codex",
-    "gemini": "gemini",
-    "copilot": "copilot",
-    "zai": None,
-    "opencode": "opencode",
-    "grok": None,
-    "subagent": None,
-    "noop": None,
-}
 
-DEEP_ROLES = {"architect", "consultant", "reviewer", "deep", "planner", "strategist", "designer"}
-
-# --- LFG Named Agents (User-defined personas with ULW identity) ---
-
-LFG_AGENTS_DIR = pathlib.Path.home() / ".grok" / "lfg" / "agents"
 
 def load_agent_definition(name: str) -> dict | None:
     """Load a named LFG agent definition (e.g. 'iz', 'lina').
@@ -4488,102 +4562,49 @@ def canonical_spawn_envelope(
     next_tasks: list[Any] | None = None,
     manual_gate_required: bool | None = None,
 ) -> dict[str, Any]:
-    """Provider-neutral spawn/result envelope shared by spawn operations.
-
-    Provider-specific response bodies are intentionally absent from the public
-    shape. If a caller needs raw-adjacent information, it must be redacted and
-    placed under evidence/debug metadata only.
-    """
-    if status not in SPAWN_ENVELOPE_STATUSES:
-        raise ValueError(f"invalid spawn envelope status: {status}")
-    if mode not in SPAWN_ENVELOPE_MODES:
-        raise ValueError(f"invalid spawn envelope mode: {mode}")
-    if evidence_class not in SPAWN_ENVELOPE_EVIDENCE_CLASSES:
-        raise ValueError(f"invalid evidence class: {evidence_class}")
-
-    normalized_evidence: list[Any]
-    if evidence is None:
-        normalized_evidence = []
-    elif isinstance(evidence, list):
-        normalized_evidence = [redact_provider_debug(item) for item in evidence]
-    else:
-        normalized_evidence = [redact_provider_debug(evidence)]
-
-    resolved_task_id = task_id or f"task-{uuid.uuid4().hex[:8]}"
-    resolved_run_id = run_id or f"run-{uuid.uuid4().hex[:12]}"
-    artifact_paths: list[str] = []
-    if status in COMPLETION_STATUSES and ok:
-        artifact_paths.append(write_evidence_artifact(
-            resolved_run_id,
-            "envelope",
-            {
-                "operation": operation,
-                "status": status,
-                "taskId": resolved_task_id,
-                "runId": resolved_run_id,
-                "proof": "canonical result envelope emitted by runtime, not model prose",
-                "evidence": normalized_evidence,
-            },
-        ))
-
-    manual_gate = bool(manual_gate_required) if manual_gate_required is not None else evidence_class == "real-grok-manual-gate"
-    actual_child_execution = mode == "native-grok" and evidence_class == "real-grok-manual-gate" and not manual_gate
-    completion_meaning = "child-execution-completed" if actual_child_execution else "contract-envelope-completed"
-
-    envelope = {
-        "ok": bool(ok),
-        "schemaVersion": SPAWN_ENVELOPE_SCHEMA_VERSION,
-        "operation": operation,
-        "mode": mode,
-        "status": status,
-        "execution": {
-            "adapterMode": mode,
-            "contractStatus": status,
-            "completionMeaning": completion_meaning,
-            "actualChildExecution": actual_child_execution,
-            "nativeGrokSpawnVerified": actual_child_execution,
-        },
-        "agent": agent_id,
-        "agentId": agent_id,
-        "category": category,
-        "task": task,
-        "taskId": resolved_task_id,
-        "runId": resolved_run_id,
-        "parentRunId": parent_run_id,
-        "children": children or [],
-        "blockers": blockers or [],
-        "touchedFiles": touched_files or [],
-        "evidence": normalized_evidence,
-        "evidenceArtifactPaths": artifact_paths,
-        "evidenceArtifacts": artifact_paths,
-        "evidenceClass": evidence_class,
-        "broker": redact_provider_debug(broker_decision or supervision_broker_decision(
-            operation=operation,
+    """Provider-neutral spawn/result envelope shared by spawn operations."""
+    return _SPAWN_CORE.canonical_spawn_envelope(
+        operation=operation,
+        status=status,
+        ok=ok,
+        mode=mode,
+        agent_id=agent_id,
+        category=category,
+        task=task,
+        task_id=task_id,
+        run_id=run_id,
+        parent_run_id=parent_run_id,
+        model_profile=model_profile,
+        model_resolution=model_resolution,
+        children=children,
+        blockers=blockers,
+        touched_files=touched_files,
+        evidence=evidence,
+        evidence_class=evidence_class,
+        broker_decision=broker_decision,
+        debug=debug,
+        next_tasks=next_tasks,
+        manual_gate_required=manual_gate_required,
+        spawn_envelope_schema_version=SPAWN_ENVELOPE_SCHEMA_VERSION,
+        spawn_envelope_statuses=SPAWN_ENVELOPE_STATUSES,
+        spawn_envelope_modes=SPAWN_ENVELOPE_MODES,
+        spawn_envelope_evidence_classes=SPAWN_ENVELOPE_EVIDENCE_CLASSES,
+        completion_statuses=COMPLETION_STATUSES,
+        grok_oracle_review=GROK_ORACLE_REVIEW,
+        redacter=redact_provider_debug,
+        artifact_writer=write_evidence_artifact,
+        default_broker_decision=lambda op, profile, ev_class: supervision_broker_decision(
+            operation=op,
             lane="fallback-local",
-            model_profile=model_profile or {},
-            evidence_class=evidence_class,
+            model_profile=profile,
+            evidence_class=ev_class,
             reason="default internal broker decision for canonical envelope normalization",
-        )),
-        "modelProfile": model_profile or {},
-        "modelResolution": model_resolution or {},
-        "nextTasks": next_tasks or [],
-        "oracleReview": dict(GROK_ORACLE_REVIEW),
-        "debug": redact_provider_debug(debug or {}),
-    }
-    # Backwards-compatible aliases for existing callers while the canonical
-    # camelCase contract becomes the public schema.
-    envelope["agent_id"] = envelope["agentId"]
-    envelope["task_id"] = envelope["taskId"]
-    envelope["run_id"] = envelope["runId"]
-    envelope["model_profile"] = envelope["modelProfile"]
-    envelope["touched_files"] = envelope["touchedFiles"]
-    envelope["manual_gate_required"] = manual_gate
-    return envelope
+        ),
+    )
 
 
 def native_spawn_requested(kwargs: dict[str, Any]) -> bool:
-    requested_mode = str(kwargs.get("mode") or kwargs.get("spawn_mode") or "fallback")
-    return requested_mode in {"native", "native-grok", "grok-native"} or bool(kwargs.get("native"))
+    return _SPAWN_CORE.native_spawn_requested(kwargs)
 
 
 def native_spawn_manual_gate_available(kwargs: dict[str, Any]) -> bool:
@@ -4593,13 +4614,18 @@ def native_spawn_manual_gate_available(kwargs: dict[str, Any]) -> bool:
     credentials or provider names. Native mode stays gated until a caller passes
     real-grok-manual-gate evidence and the host exposes a callable primitive.
     """
-    gate = kwargs.get("manual_gate_evidence") or kwargs.get("manualGateEvidence")
-    return bool(gate) and callable(globals().get("spawn_subagent"))
+    return _SPAWN_CORE.native_spawn_manual_gate_available(
+        kwargs,
+        spawn_subagent_available=callable(globals().get("spawn_subagent")),
+    )
 
 
 def fallback_manual_gate_required(model_profile: dict[str, Any] | None, kwargs: dict[str, Any]) -> bool:
-    provider = canonical_model_provider(str((model_profile or {}).get("provider") or kwargs.get("provider") or "xai"))
-    return native_spawn_requested(kwargs) or provider in {"xai", "grok"}
+    return _SPAWN_CORE.fallback_manual_gate_required(
+        model_profile,
+        kwargs,
+        canonical_model_provider=canonical_model_provider,
+    )
 
 
 def supervision_broker_decision(
@@ -4620,24 +4646,19 @@ def supervision_broker_decision(
     It sits behind spawn_agent, spawn_wave, TeamRuntime, and dependency graph APIs
     to record lane/model/evidence/policy decisions before envelopes are emitted.
     """
-    return {
-        "api": SUPERVISION_BROKER_API,
-        "version": SUPERVISION_BROKER_VERSION,
-        "operation": operation,
-        "selectedLane": lane,
-        "modelProfile": dict(model_profile or {}),
-        "evidenceClass": evidence_class,
-        "policyDecision": {
-            "allowed": bool(allowed),
-            "policy": policy,
-            "reason": reason,
-        },
-        "lease": {
-            "depth": int(depth),
-            "maxDepth": int(max_depth),
-            "recursionControlled": int(depth) <= int(max_depth),
-        },
-    }
+    return _SPAWN_CORE.supervision_broker_decision(
+        operation=operation,
+        lane=lane,
+        model_profile=model_profile,
+        evidence_class=evidence_class,
+        reason=reason,
+        allowed=allowed,
+        policy=policy,
+        depth=depth,
+        max_depth=max_depth,
+        broker_api=SUPERVISION_BROKER_API,
+        broker_version=SUPERVISION_BROKER_VERSION,
+    )
 
 
 def broker_reject_envelope(
@@ -4779,55 +4800,15 @@ def broker_preflight(
 
 
 def validate_spawn_envelope(envelope: dict[str, Any]) -> list[str]:
-    errors: list[str] = []
-    required = {
-        "ok", "schemaVersion", "operation", "mode", "status", "children",
-        "blockers", "touchedFiles", "evidence", "evidenceClass",
-        "broker", "modelProfile", "runId", "taskId", "oracleReview", "debug", "evidenceArtifactPaths", "execution",
-    }
-    missing = sorted(required - set(envelope))
-    if missing:
-        errors.append(f"missing required keys: {', '.join(missing)}")
-    if envelope.get("schemaVersion") != SPAWN_ENVELOPE_SCHEMA_VERSION:
-        errors.append("schemaVersion mismatch")
-    if envelope.get("mode") not in SPAWN_ENVELOPE_MODES:
-        errors.append("mode must be native-grok or fallback")
-    if envelope.get("status") not in SPAWN_ENVELOPE_STATUSES:
-        errors.append("status must be completed, blocked, or failed")
-    execution = envelope.get("execution")
-    if not isinstance(execution, dict):
-        errors.append("execution must describe contract vs actual child execution")
-    else:
-        if execution.get("contractStatus") != envelope.get("status"):
-            errors.append("execution.contractStatus must match status")
-        if execution.get("adapterMode") != envelope.get("mode"):
-            errors.append("execution.adapterMode must match mode")
-        if execution.get("actualChildExecution") is True and envelope.get("mode") != "native-grok":
-            errors.append("execution.actualChildExecution requires native-grok mode")
-    if envelope.get("evidenceClass") not in SPAWN_ENVELOPE_EVIDENCE_CLASSES:
-        errors.append("invalid evidenceClass")
-    for key in ("children", "blockers", "touchedFiles", "evidence", "evidenceArtifactPaths"):
-        if key in envelope and not isinstance(envelope.get(key), list):
-            errors.append(f"{key} must be a list")
-    if not isinstance(envelope.get("oracleReview"), dict) or not envelope.get("oracleReview", {}).get("required"):
-        errors.append("oracleReview.required must be true")
-    broker = envelope.get("broker")
-    if not isinstance(broker, dict):
-        errors.append("broker must be an internal decision object")
-    else:
-        if broker.get("api") != SUPERVISION_BROKER_API:
-            errors.append("broker.api must be internal-non-agent")
-        for key in ("selectedLane", "modelProfile", "evidenceClass", "policyDecision"):
-            if key not in broker:
-                errors.append(f"broker.{key} missing")
-        policy_decision = broker.get("policyDecision")
-        if not isinstance(policy_decision, dict) or "reason" not in policy_decision:
-            errors.append("broker.policyDecision.reason missing")
-    forbidden_top_level = [key for key in envelope if re.search(r"provider.*raw|raw.*provider|rawResponse|responseBody", key, re.I)]
-    if forbidden_top_level:
-        errors.append(f"provider raw output exposed at top-level: {', '.join(sorted(forbidden_top_level))}")
-    errors.extend(validate_evidence_gate(envelope, record_type="spawn envelope"))
-    return errors
+    return _SPAWN_CORE.validate_spawn_envelope(
+        envelope,
+        spawn_envelope_schema_version=SPAWN_ENVELOPE_SCHEMA_VERSION,
+        spawn_envelope_statuses=SPAWN_ENVELOPE_STATUSES,
+        spawn_envelope_modes=SPAWN_ENVELOPE_MODES,
+        spawn_envelope_evidence_classes=SPAWN_ENVELOPE_EVIDENCE_CLASSES,
+        broker_api=SUPERVISION_BROKER_API,
+        validate_evidence_gate=lambda record: validate_evidence_gate(record, record_type="spawn envelope"),
+    )
 
 
 def persist_spawn_envelope(envelope: dict[str, Any]) -> dict[str, Any]:
@@ -6344,300 +6325,100 @@ def team_agents_list(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-CANONICAL_OMO_AGENT_IDS = (
-    "sisyphus",
-    "hephaestus",
-    "prometheus",
-    "atlas",
-    "oracle",
-    "librarian",
-    "explore",
-    "multimodal-looker",
-    "metis",
-    "momus",
-    "sisyphus-junior",
-    "builtin-agents",
-)
-
-OMO_PRIMARY_AGENT_IDS = ("sisyphus", "hephaestus", "prometheus", "atlas")
-OMO_ELIGIBLE_TEAM_MEMBER_IDS = ("sisyphus", "atlas", "sisyphus-junior")
-OMO_CONDITIONAL_TEAM_MEMBER_IDS = ("hephaestus",)
-OMO_HARD_REJECT_TEAM_MEMBER_IDS = (
-    "prometheus",
-    "oracle",
-    "librarian",
-    "explore",
-    "multimodal-looker",
-    "metis",
-    "momus",
-)
-OMO_TEAM_ELIGIBILITY_REGISTRY = {
-    "sisyphus": "eligible",
-    "hephaestus": "conditional",
-    "prometheus": "hard-reject",
-    "atlas": "eligible",
-    "oracle": "hard-reject",
-    "librarian": "hard-reject",
-    "explore": "hard-reject",
-    "multimodal-looker": "hard-reject",
-    "metis": "hard-reject",
-    "momus": "hard-reject",
-    "sisyphus-junior": "eligible",
-    "builtin-agents": "policy-layer",
-}
 
 
 def normalize_omo_agent_record(agent: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(agent)
-    agent_id = normalized.get("id")
-    if isinstance(agent_id, str):
-        eligibility = OMO_TEAM_ELIGIBILITY_REGISTRY.get(agent_id, normalized.get("teamEligibility", "unknown"))
-        normalized["teamEligibility"] = eligibility
-        normalized["teamMemberEligible"] = eligibility == "eligible"
-        normalized["teamMemberConditional"] = eligibility == "conditional"
-        normalized["primaryOrder"] = agent_id in OMO_PRIMARY_AGENT_IDS
-    return normalized
+    return _AGENT_CORE.normalize_agent_record(
+        agent,
+        team_eligibility_registry=OMO_TEAM_ELIGIBILITY_REGISTRY,
+        primary_agent_ids=OMO_PRIMARY_AGENT_IDS,
+    )
 
 
 def team_member_eligibility(agent_id: str) -> str:
-    return OMO_TEAM_ELIGIBILITY_REGISTRY.get(agent_id, "unknown")
+    return _AGENT_CORE.team_member_eligibility(
+        agent_id,
+        team_eligibility_registry=OMO_TEAM_ELIGIBILITY_REGISTRY,
+    )
 
 
 def validate_team_member_eligibility(agent_id: str) -> dict[str, Any]:
-    eligibility = team_member_eligibility(agent_id)
-    if eligibility in {"hard-reject", "policy-layer"}:
-        return {
-            "ok": False,
-            "error": "team member eligibility rejected",
-            "agent": agent_id,
-            "teamEligibility": eligibility,
-            "eligibleTeamMembers": list(OMO_ELIGIBLE_TEAM_MEMBER_IDS),
-            "conditionalTeamMembers": list(OMO_CONDITIONAL_TEAM_MEMBER_IDS),
-            "hardRejectedTeamMembers": list(OMO_HARD_REJECT_TEAM_MEMBER_IDS),
-            "policyLayerTeamMembers": ["builtin-agents"],
-        }
-    return {"ok": True, "agent": agent_id, "teamEligibility": eligibility}
+    return _AGENT_CORE.validate_team_member_eligibility(
+        agent_id,
+        team_eligibility_registry=OMO_TEAM_ELIGIBILITY_REGISTRY,
+        eligible_team_member_ids=OMO_ELIGIBLE_TEAM_MEMBER_IDS,
+        conditional_team_member_ids=OMO_CONDITIONAL_TEAM_MEMBER_IDS,
+        hard_reject_team_member_ids=OMO_HARD_REJECT_TEAM_MEMBER_IDS,
+    )
 
 
 def load_omo_agent_registry() -> list[dict[str, Any]]:
-    """Load first-class OMO agents from the canonical plugin agent directory."""
-    agents_dir = ROOT / "src" / "agents"
-    agents: list[dict[str, Any]] = []
-    for agent_id in CANONICAL_OMO_AGENT_IDS:
-        path = agents_dir / f"{agent_id}.json"
-        data = read_json(path, {})
-        if not isinstance(data, dict) or data.get("id") != agent_id:
-            raise SystemExit(f"invalid OMO agent definition: {path}")
-        agents.append(normalize_omo_agent_record(data))
-    return agents
+    """Load first-class OMO agents by scanning the canonical plugin agent directory.
+
+    This makes plugins/lfg/src/agents/*.json the runtime source of truth:
+    - Dropping a new <id>.json here makes the agent immediately discoverable
+      via `lfg agents list`, inspectable, and callable as a subagent via
+      `lfg spawn <id>` (and MCP grok_build_omo_agent_catalog + spawn).
+    - Enables easy autocomplete: `lfg agents list --ids` (or jq from --json)
+      produces the exact word list for shell compgen / Grok tool discovery.
+    - The CANONICAL_OMO_AGENT_IDS + eligibility tables in constants.py remain
+      the policy contract (primary/lead vs team-eligible vs hard-reject).
+    """
+    return _AGENT_CORE.load_agent_registry(
+        agents_dir=ROOT / "src" / "agents",
+        canonical_agent_ids=CANONICAL_OMO_AGENT_IDS,
+        team_eligibility_registry=OMO_TEAM_ELIGIBILITY_REGISTRY,
+        primary_agent_ids=OMO_PRIMARY_AGENT_IDS,
+        read_json=read_json,
+    )
 
 
 OMO_AGENT_REGISTRY: list[dict[str, Any]] = load_omo_agent_registry()
 _OMO_REGISTRY_INDEX: dict[str, dict[str, Any]] = {a["id"]: a for a in OMO_AGENT_REGISTRY}
 
-OMO_CATEGORY_MODEL_PROFILES: dict[str, dict[str, str]] = {
-    "quick": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
-    "unspecified-low": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "medium"},
-    "unspecified-high": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "ultrabrain": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "artistry": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "deep": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "xhigh"},
-    "writing": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "medium"},
-    "visual-engineering": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "planning": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high"},
-    "policy": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
-    "configuration": {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
-}
-
-OMO_UPSTREAM_CATEGORY_NAMES = [
-    "visual-engineering",
-    "artistry",
-    "ultrabrain",
-    "deep",
-    "quick",
-    "unspecified-low",
-    "unspecified-high",
-    "writing",
-    "quick-rust",
-    "quick-zig",
-    "git",
-]
-OMO_LFG_SUPPORTED_CATEGORY_NAMES = [
-    "visual-engineering",
-    "artistry",
-    "ultrabrain",
-    "deep",
-    "quick",
-    "unspecified-low",
-    "unspecified-high",
-    "writing",
-]
-OMO_CATEGORY_MIGRATION_NOTES = {
-    "quick-rust": "quick-rust is an upstream OMO category but is not routed by LFG yet; use quick until the migration slice lands.",
-    "quick-zig": "quick-zig is an upstream OMO category but is not routed by LFG yet; use quick until the migration slice lands.",
-    "git": "git is an upstream OMO category but is not routed by LFG yet; use quick or planning until the migration slice lands.",
-}
-OMO_CATEGORY_ROUTE_BLOCKED_TOOLS = ["spawn", "spawn_wave", "dependency_graph", "team_create", "team_delete"]
-OMO_CATEGORY_ROUTE_VERIFICATION_GATE = {
-    "required": True,
-    "gate": "dependency-free-smoke",
-    "kind": "self-verify",
-    "status": "required",
-    "reason": "Sisyphus-Junior must verify bounded category work before handoff",
-}
 
 
 def category_route_catalog() -> dict[str, Any]:
-    return {
-        "upstreamCategories": list(OMO_UPSTREAM_CATEGORY_NAMES),
-        "supportedCategories": list(OMO_LFG_SUPPORTED_CATEGORY_NAMES),
-        "migrationNotes": dict(OMO_CATEGORY_MIGRATION_NOTES),
-    }
+    return _AGENT_CORE.category_route_catalog(
+        upstream_category_names=OMO_UPSTREAM_CATEGORY_NAMES,
+        supported_category_names=OMO_LFG_SUPPORTED_CATEGORY_NAMES,
+        category_migration_notes=OMO_CATEGORY_MIGRATION_NOTES,
+    )
 
-OMO_REASONING_LEVELS = {"low", "medium", "high", "xhigh"}
-OMO_MODEL_MATCHING_SOURCE = "agent-model-matching.md:141-149,202-243,311-325 adapted through docs/reference.md:49-59 and T6 provider metadata boundaries"
-OMO_RUNTIME_FALLBACK_POLICY = {
-    "kind": "runtime-fallback",
-    "source": "docs/reference.md:57-62",
-    "status": "fallback_manual_gate",
-    "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails",
-    "separateFromProactiveSelection": True,
-    "manualGateRequired": True,
-}
-BACKGROUND_CONCURRENCY_CONFIG = {
-    "defaultConcurrency": 5,
-    "keyedBy": "model/provider routing key per OMO orchestration.md:362-368",
-    "providerConcurrency": {},
-    "modelConcurrency": {},
-    "honoredInDeterministicFixtures": True,
-}
-OMO_ROLE_FIT_POLICIES: dict[str, dict[str, Any]] = {
-    "communicator": {
-        "reason": "communicator/orchestrator role: preserve OMO's instruction-following coordination semantics with Grok-first execution and approved optional lanes only",
-        "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
-        "fallbackChain": [
-            {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high", "roleFit": "Grok-first orchestration default"},
-            {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "medium", "roleFit": "optional non-Grok approved communicator lane"},
-        ],
-    },
-    "dual-prompt": {
-        "reason": "dual-prompt planner/checklist role: keep OMO's Claude/GPT prompt-family distinction while selecting a Grok-first high-reasoning profile",
-        "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
-        "fallbackChain": [
-            {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high", "roleFit": "Grok-first strategic/checklist default"},
-            {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "high", "roleFit": "optional non-Grok approved planning lane"},
-        ],
-    },
-    "deep-specialist": {
-        "reason": "deep specialist role: match OMO's principle-driven autonomous coding semantics with approved GPT-style profiles; Hephaestus must not silently downgrade to cheap or utility models",
-        "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
-        "fallbackChain": [
-            {"provider": "openai", "model": "openai/gpt-5.5", "reasoning": "medium", "roleFit": "approved GPT-style autonomous deep-work lane through approved"},
-            {"provider": "copilot", "model": "github-copilot/gpt-5.5", "reasoning": "medium", "roleFit": "approved Copilot GPT-style lane through approved"},
-        ],
-    },
-    "visual-artistry": {
-        "reason": "visual/artistry role: preserve OMO's visual reasoning distinction with a high-reasoning Grok profile and approved bounded Z.ai consultation lane",
-        "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
-        "fallbackChain": [
-            {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "high", "roleFit": "Grok-first visual/design default"},
-            {"provider": "zai", "model": "zai-coding-plan/glm-5", "reasoning": "medium", "roleFit": "optional non-Grok approved visual lane"},
-        ],
-    },
-    "utility-runner": {
-        "reason": "utility runner role: favor bounded fast search/retrieval semantics instead of upgrading every role to one deep profile",
-        "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
-        "fallbackChain": [
-            {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low", "roleFit": "Grok-first lightweight utility default"},
-            {"provider": "zai", "model": "zai-coding-plan/glm-5", "reasoning": "low", "roleFit": "optional non-Grok approved utility lane"},
-        ],
-    },
-    "policy-layer": {
-        "reason": "policy/configuration role: keep builtin-agents cheap and deterministic while exposing the model resolver contract",
-        "fallbackChainSource": OMO_MODEL_MATCHING_SOURCE,
-        "fallbackChain": [
-            {"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low", "roleFit": "Grok-first policy resolver default"},
-        ],
-    },
-}
-OMO_AGENT_ROLE_FIT = {
-    "sisyphus": "communicator",
-    "sisyphus-junior": "communicator",
-    "prometheus": "dual-prompt",
-    "atlas": "dual-prompt",
-    "hephaestus": "deep-specialist",
-    "oracle": "deep-specialist",
-    "metis": "dual-prompt",
-    "momus": "deep-specialist",
-    "explore": "utility-runner",
-    "librarian": "utility-runner",
-    "multimodal-looker": "visual-artistry",
-    "builtin-agents": "policy-layer",
-}
-OMO_CATEGORY_ROLE_FIT = {
-    "visual-engineering": "visual-artistry",
-    "artistry": "visual-artistry",
-    "ultrabrain": "deep-specialist",
-    "deep": "deep-specialist",
-    "quick": "utility-runner",
-    "unspecified-high": "communicator",
-    "unspecified-low": "communicator",
-    "writing": "communicator",
-    "planning": "dual-prompt",
-    "policy": "policy-layer",
-    "configuration": "policy-layer",
-}
 
 
 def canonical_model_provider(provider: str) -> str:
-    return MODEL_PROVIDER_ALIASES.get(provider, provider)
+    return _AGENT_CORE.canonical_model_provider(provider, model_provider_aliases=MODEL_PROVIDER_ALIASES)
 
 
 def validate_model_provider_boundary(provider: str | None = None, model: str | None = None) -> dict[str, Any] | None:
-    selected_provider = canonical_model_provider(provider) if provider else None
-    if provider and provider not in APPROVED_MODEL_PROVIDERS:
-        return {"ok": False, "error": "unsupported model provider for LFG multi-provider OMO agents", "provider": provider, "known": sorted(APPROVED_MODEL_PROVIDERS)}
-    if selected_provider and selected_provider not in APPROVED_MODEL_PROVIDERS:
-        return {"ok": False, "error": "unsupported model provider for LFG multi-provider OMO agents", "provider": provider, "known": sorted(APPROVED_MODEL_PROVIDERS)}
-    if model and "/" in model:
-        raw_provider = model.split("/", 1)[0]
-        canonical = canonical_model_provider(raw_provider)
-        if canonical not in APPROVED_MODEL_PROVIDERS:
-            return {"ok": False, "error": "unsupported model provider in model override", "provider": raw_provider, "model": model, "known": sorted(APPROVED_MODEL_PROVIDERS)}
-        if selected_provider and selected_provider != canonical:
-            return {"ok": False, "error": "model override provider does not match selected provider", "provider": provider, "modelProvider": raw_provider, "model": model}
-    return None
+    return _AGENT_CORE.validate_model_provider_boundary(
+        provider=provider,
+        model=model,
+        approved_model_providers=APPROVED_MODEL_PROVIDERS,
+        model_provider_aliases=MODEL_PROVIDER_ALIASES,
+    )
 
 def hephaestus_model_family_status(profile: dict[str, Any]) -> dict[str, Any]:
-    provider = canonical_model_provider(str(profile.get("provider") or ""))
-    model = str(profile.get("model") or "")
-    approved = any(provider == item["provider"] and model == item["model"] for item in HEPHAESTUS_APPROVED_MODEL_PROFILES)
-    return {
-        "agent": "hephaestus",
-        "requiredFamily": "GPT-style deep specialist",
-        "approved": approved,
-        "approvedProfiles": [dict(item) for item in HEPHAESTUS_APPROVED_MODEL_PROFILES],
-        "selectedProfile": dict(profile),
-        "source": "agent-model-matching.md:224-232",
-    }
+    return _AGENT_CORE.hephaestus_model_family_status(
+        profile,
+        model_provider_aliases=MODEL_PROVIDER_ALIASES,
+        hephaestus_approved_model_profiles=HEPHAESTUS_APPROVED_MODEL_PROFILES,
+    )
 
 
 def model_resolution_policy(agent: dict[str, Any], category: str | None, profile: dict[str, Any], selected_by: str) -> dict[str, Any]:
-    role_fit = OMO_AGENT_ROLE_FIT.get(agent["id"], "communicator") if agent.get("id") == "hephaestus" else OMO_CATEGORY_ROLE_FIT.get(category or "") or OMO_AGENT_ROLE_FIT.get(agent["id"], "communicator")
-    policy = OMO_ROLE_FIT_POLICIES[role_fit]
-    return {
-        "roleFit": role_fit,
-        "reason": policy["reason"],
-        "selectedBy": selected_by,
-        "selectedModelProfile": dict(profile),
-        "fallbackChainSource": policy["fallbackChainSource"],
-        "proactiveFallbackChain": [dict(item) for item in policy["fallbackChain"]],
-        "runtimeFallback": dict(OMO_RUNTIME_FALLBACK_POLICY),
-        "providerBoundary": {
-            "approvedProviders": sorted(APPROVED_MODEL_PROVIDERS),
-            "source": "docs/reference.md and approved-only external provider contract",
-        },
-    }
+    return _AGENT_CORE.model_resolution_policy(
+        agent,
+        category,
+        profile,
+        selected_by,
+        role_fit_policies=OMO_ROLE_FIT_POLICIES,
+        agent_role_fit=OMO_AGENT_ROLE_FIT,
+        category_role_fit=OMO_CATEGORY_ROLE_FIT,
+        runtime_fallback_policy=OMO_RUNTIME_FALLBACK_POLICY,
+        approved_model_providers=APPROVED_MODEL_PROVIDERS,
+    )
 
 
 def resolve_omo_model_profile(
@@ -6648,86 +6429,27 @@ def resolve_omo_model_profile(
     model: str | None = None,
     reasoning: str | None = None,
 ) -> dict[str, Any]:
-    boundary_error = validate_model_provider_boundary(provider=provider, model=model)
-    if boundary_error:
-        return boundary_error
-
-    if category and agent.get("id") == "hephaestus":
-        profile = dict(agent["modelProfile"])
-        selected_by = "hephaestus-approved-default"
-    elif category:
-        if category in OMO_CATEGORY_MIGRATION_NOTES:
-            return {
-                "ok": False,
-                "error": "category not yet supported by LFG",
-                "category": category,
-                "migrationNote": OMO_CATEGORY_MIGRATION_NOTES[category],
-                "upstreamCategories": list(OMO_UPSTREAM_CATEGORY_NAMES),
-                "supportedCategories": list(OMO_LFG_SUPPORTED_CATEGORY_NAMES),
-            }
-        if category not in OMO_CATEGORY_MODEL_PROFILES:
-            return {
-                "ok": False,
-                "error": "unknown OMO category",
-                "category": category,
-                "known": sorted(OMO_CATEGORY_MODEL_PROFILES),
-                "upstreamCategories": list(OMO_UPSTREAM_CATEGORY_NAMES),
-            }
-        if category not in agent.get("categories", []):
-            return {
-                "ok": False,
-                "error": "category not supported for agent",
-                "agent": agent["id"],
-                "category": category,
-                "supported": agent.get("categories", []),
-                "upstreamCategories": list(OMO_UPSTREAM_CATEGORY_NAMES),
-                "supportedCategories": list(OMO_LFG_SUPPORTED_CATEGORY_NAMES),
-            }
-        profile = dict(OMO_CATEGORY_MODEL_PROFILES[category])
-        selected_by = "category"
-    else:
-        profile = dict(agent["modelProfile"])
-        selected_by = "agent"
-
-    selected_from_model_switch = False
-    if not provider and not model and agent.get("id") != "hephaestus":
-        current_selection = read_model_selection()
-        if current_selection.get("source") != "default":
-            provider = str(current_selection.get("provider") or "xai")
-            model = str(current_selection.get("model") or PROVIDER_DEFAULT_MODELS.get(provider, ""))
-            reasoning = reasoning or current_selection.get("reasoning")
-            selected_from_model_switch = True
-
-    if provider:
-        resolved_provider = canonical_model_provider(provider)
-        profile["provider"] = resolved_provider
-        if not model:
-            profile["model"] = PROVIDER_DEFAULT_MODELS[resolved_provider]
-        selected_by = "grok-build-model-switch" if selected_from_model_switch else "provider-override"
-    else:
-        profile.setdefault("provider", "xai")
-    if model:
-        profile["model"] = model
-        selected_by = "model-override" if selected_by == "agent" else selected_by
-    if reasoning:
-        if reasoning not in OMO_REASONING_LEVELS:
-            return {"ok": False, "error": "unknown Grok reasoning level", "reasoning": reasoning, "known": sorted(OMO_REASONING_LEVELS)}
-        profile["reasoning"] = reasoning
-    if agent.get("id") == "hephaestus":
-        family_status = hephaestus_model_family_status(profile)
-        if not family_status["approved"]:
-            return {
-                "ok": False,
-                "status": "blocked",
-                "error": "model-family mismatch",
-                "message": "Hephaestus requires an approved GPT-style deep-specialist profile; refusing mismatched cheap, utility, or non-GPT model activation.",
-                "modelFamilyPolicy": family_status,
-                "modelResolution": model_resolution_policy(agent, category, profile, selected_by),
-            }
-    resolution = model_resolution_policy(agent, category, profile, selected_by)
-    if agent.get("id") == "hephaestus":
-        resolution["modelFamilyPolicy"] = hephaestus_model_family_status(profile)
-    return {"ok": True, "modelProfile": profile, "modelResolution": resolution}
+    return _AGENT_CORE.resolve_model_profile(
+        agent,
+        category=category,
+        provider=provider,
+        model=model,
+        reasoning=reasoning,
+        current_model_selection=read_model_selection(),
+        approved_model_providers=APPROVED_MODEL_PROVIDERS,
+        model_provider_aliases=MODEL_PROVIDER_ALIASES,
+        provider_default_models=PROVIDER_DEFAULT_MODELS,
+        hephaestus_approved_model_profiles=HEPHAESTUS_APPROVED_MODEL_PROFILES,
+        category_model_profiles=OMO_CATEGORY_MODEL_PROFILES,
+        category_migration_notes=OMO_CATEGORY_MIGRATION_NOTES,
+        upstream_category_names=OMO_UPSTREAM_CATEGORY_NAMES,
+        supported_category_names=OMO_LFG_SUPPORTED_CATEGORY_NAMES,
+        reasoning_levels=OMO_REASONING_LEVELS,
+        role_fit_policies=OMO_ROLE_FIT_POLICIES,
+        agent_role_fit=OMO_AGENT_ROLE_FIT,
+        category_role_fit=OMO_CATEGORY_ROLE_FIT,
+        runtime_fallback_policy=OMO_RUNTIME_FALLBACK_POLICY,
+    )
 
 
 def route_task_request(category: str | None, subagent_type: str | None, task: str | None) -> dict[str, Any]:
@@ -6819,7 +6541,23 @@ def route_task_request(category: str | None, subagent_type: str | None, task: st
 
 
 def agents_list(args: argparse.Namespace) -> dict[str, Any]:
-    """lfg agents list — list all OMO first-class agents."""
+    """lfg agents list — list all OMO first-class agents.
+
+    Supports easy autocomplete / subagent discovery:
+    - `lfg agents list --ids`          → newline-separated ids (ideal for shell compgen)
+    - `lfg agents list --json --ids`   → {"ids": [...]}
+    Any agent .json in plugins/lfg/src/agents/ (that passes validation) is callable
+    via `lfg spawn <id>` and appears here for Grok sub-agent selection.
+    """
+    ids_only = getattr(args, "ids", False) or getattr(args, "completion", False)
+    if ids_only:
+        ids = [a["id"] for a in OMO_AGENT_REGISTRY]
+        if getattr(args, "json", False):
+            return {"ok": True, "ids": ids, "count": len(ids)}
+        # Plain text output for direct use in `compgen -W "$(...)"` or similar
+        # The emit() caller will print this when not json mode.
+        return {"ok": True, "ids": ids, "count": len(ids), "_raw_text": "\n".join(ids)}
+
     return {
         "ok": True,
         "status": "ok",
@@ -7158,10 +6896,11 @@ def doctor_state_schema_check(args: argparse.Namespace) -> dict[str, Any]:
             "teams": str(DATA / "teams"),
             "wiki": str(DATA / "wiki"),
             "hyperplan": str(DATA / "hyperplan"),
+            "dispatchGate": str(DATA / "dispatch-gate"),
         },
         "migrationStatus": schema.get("migrationStatus"),
         "migrations": schema.get("migrations", []),
-        "evidence": ["state-schema-versioning=ok", "state-schema-doctor=ok"],
+        "evidence": ["state-schema-versioning=ok", "state-schema-doctor=ok", "continuation-gate=ok"],
     }
 
 
@@ -7200,7 +6939,7 @@ def slash(args: argparse.Namespace) -> dict[str, Any]:
         if not objective:
             return {"error": "usage: /ulw your objective"}
         trigger = detect_ulw_intent(objective)
-        return activate_ulw_mode(objective, explicit=trigger.get("explicit", True), cwd=args.cwd)
+        return ulw_intent(argparse.Namespace(objective=[objective], cwd=args.cwd))
     if name == "hook-bridge":
         action = rest[0] if rest else "status"
         if action == "status":
@@ -7416,6 +7155,40 @@ def main(argv: list[str] | None = None) -> int:
         argv = sys.argv[1:]
     argv = ["--help" if item in {"-help", "help"} else item for item in argv]
     launcher = effective_launcher()
+
+    # Direct `ulw "goal text"` support (per bin/ulw, skills/ulw/SKILL.md, and OMO hybrid intent).
+    # When launched via the ulw binary with a leading prose goal (not a recognized subcommand verb),
+    # bypass normal subparser dispatch and activate Ultrawork immediately via ulw_intent.
+    # This repairs the documented one-liner UX that was unreachable after the big runtime move.
+    if launcher == "ulw" and argv and not argv[0].startswith("-"):
+        first = argv[0]
+        # Known top-level command verbs that should be parsed normally even under `ulw` binary
+        # (so `ulw status`, `ulw analyze ...`, `ulw plan ...` etc. continue to work with ulw identity).
+        known_cmds = {
+            "ulw", "status", "doctor", "catalog", "spawn", "team", "plan", "ralph", "hud",
+            "cancel", "setup", "provider", "skill", "wiki", "goal", "hephaestus", "hyperplan",
+            "ultragoal", "ultrawork", "loop", "autopilot", "ask", "analyze", "design",
+            "worker", "backend", "auth", "models", "slash", "hook-bridge", "grok-build",
+            "performance-goal", "visual-ralph", "autoresearch", "deep-interview",
+            "ai-slop-cleaner", "omx-setup", "pipeline", "ralplan", "route", "resume",
+            "synthesize", "dependency-graph", "spawn-wave", "spawn-envelope", "agents",
+            "mcp", "notifications", "configure-notifications",
+        }
+        if first not in known_cmds:
+            # Bare prose goal (e.g. ulw "analyze recent commits..." or ulw fix the bug)
+            # Filter flags so the objective text is clean prose; explicit=True because the
+            # user invoked the dedicated `ulw` launcher binary (strongest signal).
+            goal_tokens = [a for a in argv if not a.startswith("-")]
+            json_mode = "--json" in argv or any(a in ("-j", "--json") for a in argv)
+            ulw_args = argparse.Namespace(
+                objective=goal_tokens,
+                json=json_mode,
+                cwd=".",
+            )
+            result = ulw_intent(ulw_args)
+            emit(result, json_mode)
+            return 0
+
     p = argparse.ArgumentParser(
         prog=launcher,
         description="LFG — Grok-native runtime helper (workflows, durable goals, team swarms)",
@@ -7506,6 +7279,8 @@ def main(argv: list[str] | None = None) -> int:
     agp = sub.add_parser("agents")
     agsub = agp.add_subparsers(dest="agents_cmd", required=True)
     agl = agsub.add_parser("list")
+    agl.add_argument("--ids", "--completion", dest="ids", action="store_true",
+                     help="Output only agent ids (one per line). Perfect for shell autocomplete and Grok subagent discovery.")
     agl.set_defaults(fn=agents_list)
     agi = agsub.add_parser("inspect")
     agi.add_argument("agent_id")
@@ -7585,7 +7360,7 @@ def main(argv: list[str] | None = None) -> int:
     uwu = uwsub.add_parser("update")
     uwu.add_argument("--id")
     uwu.add_argument("--task", type=int, required=True)
-    uwu.add_argument("--status", choices=["pending", "active", "complete", "blocked"], required=True)
+    uwu.add_argument("--status", choices=["pending", "active", "complete", "blocked", "accepted", "budget_exhausted", "manual_review_required", "failed"], required=True)
     uwu.add_argument("--evidence", default="")
     uwu.add_argument("--evidence-artifact", action="append", default=[])
     uwu.set_defaults(fn=ultrawork_update)
@@ -7604,7 +7379,7 @@ def main(argv: list[str] | None = None) -> int:
     loopstep = loopsub.add_parser("step")
     loopstep.add_argument("--id")
     loopstep.add_argument("--task", type=int, default=1)
-    loopstep.add_argument("--status", choices=["pending", "active", "complete", "blocked"], default="active")
+    loopstep.add_argument("--status", choices=["pending", "active", "complete", "blocked", "accepted", "budget_exhausted", "manual_review_required", "failed"], default="active")
     loopstep.add_argument("--evidence", default="")
     loopstep.add_argument("--evidence-artifact", action="append", default=[])
     loopstep.set_defaults(fn=loop_step)
@@ -8044,6 +7819,10 @@ def main(argv: list[str] | None = None) -> int:
     gbst = gbsub.add_parser("status")
     gbst.add_argument("--name")
     gbst.set_defaults(fn=grok_build_tmux_status)
+    gbk = gbsub.add_parser("keywords", aliases=["known-keywords"], help="List Grok Build @agent known keyword registrations")
+    gbk.add_argument("--ids", "--completion", dest="ids", action="store_true",
+                     help="Output only @agent keywords (one per line) for autocomplete.")
+    gbk.set_defaults(fn=grok_build_keywords_cmd)
     gbm = gbsub.add_parser("model")
     gbm.add_argument("model")
     gbm.add_argument("--name")
@@ -8177,6 +7956,12 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(exc.payload["message"], file=sys.stderr)
         return 2
+    # Special support for completion-friendly plain text output (e.g. `lfg agents list --ids`)
+    if (not getattr(args, "json", False) and
+            isinstance(result, dict) and result.get("_raw_text")):
+        print(result["_raw_text"])
+        return 0
+
     emit(result, args.json)
     return 0
 

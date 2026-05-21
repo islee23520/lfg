@@ -26,7 +26,7 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path({str(root)!r})
-AUDIT = ROOT / "hooks" / "scripts" / "lfg-audit-hook.sh"
+    AUDIT = ROOT / "src" / "hooks" / "audit_hook.sh"
 
 
 def main() -> int:
@@ -34,6 +34,7 @@ def main() -> int:
     env = os.environ.copy()
     env.setdefault("GROK_PLUGIN_ROOT", str(ROOT))
     env.setdefault("GROK_PLUGIN_DATA", str(pathlib.Path({str(plugin_data())!r})))
+    env.setdefault("LFG_LAUNCHER", os.environ.get("LFG_LAUNCHER", "lfg"))
     if AUDIT.exists():
         subprocess.run([str(AUDIT)], input=payload, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
     return 0
@@ -62,8 +63,8 @@ def main() -> int:
     hooks = hook_dir()
     hooks.mkdir(parents=True, exist_ok=True)
 
-    harness = root / "hooks" / "scripts" / "lfg-goal-harness.py"
-    audit = root / "hooks" / "scripts" / "lfg-audit-hook.sh"
+    harness = root / "src" / "hooks" / "goal_harness.py"
+    audit = root / "src" / "hooks" / "audit_hook.sh"
     bridge = hooks / "lfg-audit-bridge.py"
     config = hooks / "lfg-audit-bridge.json"
 
