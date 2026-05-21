@@ -31,7 +31,7 @@ plugins/lfg/
 - Use `validate_safe_id` and `safe_child_path` for user-controlled filesystem names.
 - Team mode is tmux-backed. Provider commands and preflight output are tested as contracts.
 - Supported team providers include `hermes`, `claude`, `codex`, `gemini`, `copilot`, `opencode`, `grok`, `subagent`, and `noop`.
-- `grok` and `subagent` represent native Grok sub-agents; external CLI providers are discovered/preflighted separately.
+- `grok` and `subagent` represent Grok sub-agent fallback lanes for dependency-free runtime paths; real host child-spawn evidence is tracked by the T28 manual gate, and external CLI providers are discovered/preflighted separately.
 - `lfg-mcp.py` stdout must be JSON-RPC only. Put diagnostics on stderr or in returned JSON.
 - Hook harnesses must stay fail-open and bounded. A hook failure must not break the host session.
 - Preserve legacy flat team-state compatibility when changing team storage or `TeamStateStore`.

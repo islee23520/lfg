@@ -130,7 +130,7 @@
     },
     {
       "name": "ulw",
-      "description": "Activate full OMO-style Ultrawork mode: Sisyphus-led autonomous execution with Boulder persistence.",
+      "description": "Activate OMO-style Ultrawork mode: Sisyphus-led autonomous execution with Boulder persistence.",
       "source": "local",
       "sourceType": "builtin-markdown",
       "grokPath": "skills/ulw/SKILL.md"
