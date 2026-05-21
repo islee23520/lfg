@@ -12,6 +12,6 @@ Real Grok/xAI API adapters should reference the official Python SDK repository, 
 - `tools/` owns callable tool surfaces and validation.
 - `mcp/` owns MCP server definitions and protocol adapters.
 - `features/` owns workflow modules such as ultragoal, team, ultrawork, and boulder state.
-- `agents/` owns the canonical 11 OMO agents plus `builtin-agents` policy layer; legacy named agents live under `agents/legacy/`.
+- `agents/` owns the canonical 11 OMO agents plus `builtin-agents` policy layer; historical custom names are not bundled as active team-spec members.
 
 Durable run state belongs under the project `.lfg/` directory by default, matching the lfg runtime convention. Explicit `GROK_PLUGIN_DATA` still overrides this for tests and installed-plugin scenarios.

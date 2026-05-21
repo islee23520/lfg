@@ -41,7 +41,7 @@ This directory is the **runtime source of truth** for first-class subagents that
 - oracle.json, librarian.json, explore.json, multimodal-looker.json, metis.json, momus.json (specialist critics / tools)
 - builtin-agents.json (policy / factory layer)
 
-Legacy named agents (lina, gonow, iz, grok, ...) live only in `legacy/` for backward compatibility with old team specs. They are **not** part of the OMO registry.
+Legacy named agents (lina, gonow, iz, grok, ...) are historical only. They are **not** part of the OMO registry and are no longer valid team-spec members.
 
 See:
 - `docs/agent-system/`
