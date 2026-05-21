@@ -58,9 +58,9 @@ All gates must emit exact `*=ok` evidence strings.
 
 ## Current Status
 
-- Team Mode: **Enabled** in this session
-- `team_*` tools are the authoritative orchestration interface
-- Legacy flat team-state compatibility is still preserved for migration
+- Team Mode becomes active when `team_mode.enabled=true` in the host configuration.
+- When enabled, `team_*` tools are the authoritative orchestration interface for Team Mode workflows.
+- Legacy flat team-state compatibility is still preserved for migration.
 
 ---
 
