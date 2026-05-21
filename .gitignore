@@ -10,4 +10,5 @@ __pycache__
 .lfg/
 .playwright-mcp
 .venv
-.ruff_cache
+.ruff_cache/
+.debugging
