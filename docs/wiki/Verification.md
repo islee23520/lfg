@@ -41,7 +41,7 @@ These wrap the self-test plus focused gates for:
 
 ## Key Evidence Contracts
 
-- `grok-install-smoke=ok skills=21 key_skills_present`
+- `grok-install-smoke=ok skills=<discovered-count> key_skills_present`
 - `team-tmux-lifecycle=ok`
 - `mcp-stdio-isolation=ok`
 - `state-schema-versioning=ok`

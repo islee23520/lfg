@@ -28,7 +28,7 @@ This wiki contains the living documentation for how the OMO agent system is port
 
 - Branch: `feature/lfg-agent-orchestration-omo-parity`
 - Team Mode: **Enabled**
-- Current focus: OMO parity + Grok-native spawn adapter
+- Current focus: OMO parity + Grok spawn adapter with manual-gated native child-spawn evidence
 
 ---
 
