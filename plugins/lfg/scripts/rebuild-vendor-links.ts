@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { existsSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -7,6 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const pluginRoot = join(__dirname, "..")
 const vendorLinks = join(pluginRoot, "vendor-links")
 const omoPackages = join(pluginRoot, "vendor", "omo-standalone", "packages")
+const sentinelEntry = join(omoPackages, "utils", "src", "index.ts")
 
 const PACKAGES = [
   "adapter-codex", "adapter-opencode", "agents-md-core", "ast-grep-core",
@@ -18,11 +19,14 @@ const PACKAGES = [
 let built = 0
 let failed = 0
 
+if (!existsSync(sentinelEntry)) {
+  console.log("SKIP vendor-links rebuild: plugins/lfg/vendor/omo-standalone is not initialized")
+  process.exit(0)
+}
+
 for (const pkg of PACKAGES) {
   const srcDir = join(omoPackages, pkg)
   const srcEntry = join(srcDir, "src", "index.ts")
-  const distDir = join(srcDir, "dist")
-  const distFile = join(distDir, "index.js")
   const linkDir = join(vendorLinks, pkg)
   const linkDist = join(linkDir, "dist")
   const linkDistFile = join(linkDist, "index.js")
@@ -33,12 +37,12 @@ for (const pkg of PACKAGES) {
     continue
   }
 
-  mkdirSync(distDir, { recursive: true })
+  mkdirSync(linkDist, { recursive: true })
 
   const externals = ["@oh-my-opencode/*"]
   const proc = Bun.spawnSync([
     "bun", "build", srcEntry,
-    "--outdir", distDir,
+    "--outfile", linkDistFile,
     "--target", "bun",
     "--format", "esm",
     ...externals.flatMap((e) => ["--external", e]),
@@ -50,9 +54,6 @@ for (const pkg of PACKAGES) {
     failed++
     continue
   }
-
-  mkdirSync(linkDist, { recursive: true })
-  copyFileSync(distFile, linkDistFile)
 
   const linkPkg = join(linkDir, "package.json")
   if (!existsSync(linkPkg)) {

@@ -3,6 +3,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)))
+const packagesRoot = join(pluginRoot, "vendor", "omo-standalone", "packages")
 const scopeRoot = join(pluginRoot, "vendor", "omo-standalone", "node_modules", "@oh-my-opencode")
 
 const packages = [
@@ -23,6 +24,11 @@ const packages = [
   "ulw-loop-state",
   "utils",
 ]
+
+if (!Bun.file(join(packagesRoot, "utils", "src", "index.ts")).size) {
+  console.log("SKIP OMO node_modules link: plugins/lfg/vendor/omo-standalone is not initialized")
+  process.exit(0)
+}
 
 rmSync(join(pluginRoot, "vendor", "omo-standalone", "node_modules"), { force: true, recursive: true })
 mkdirSync(scopeRoot, { recursive: true })

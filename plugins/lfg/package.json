@@ -37,7 +37,8 @@
   ],
   "scripts": {
     "build": "bun build ./src/runtime-ts/index.ts --outdir ./dist --target bun --format esm --sourcemap=external",
-    "postinstall": "bun ./scripts/rebuild-vendor-links.ts && bun ./scripts/link-omo-node-modules.mjs",
+    "postinstall": "bun -e \"console.log('LFG plugin postinstall: no-op; run bun ./scripts/link-omo-node-modules.mjs && bun ./scripts/rebuild-vendor-links.ts after initializing plugins/lfg/vendor/omo-standalone if you need to refresh vendor-links')\"",
+    "refresh:vendor-links": "bun ./scripts/link-omo-node-modules.mjs && bun ./scripts/rebuild-vendor-links.ts",
     "test": "bun test ./src/runtime-ts/ ./src/mcp-ts/",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
