@@ -27,7 +27,7 @@ Approved optional execution providers (`codex`, `copilot`, `zai`) may be used fo
    - Prompt augmentation (injected into `build_worker_prompt`)
    - Tool bias (e.g., deep loves AST-Grep + LSP)
 
-3. When a named agent (iz, grok, etc.) is used, its `default_category` is applied unless overridden.
+3. When a first-class OMO agent or category-backed worker is used, its allowed categories and model profile are resolved through the canonical registry unless explicitly overridden.
 
 Example category definition (`deep.json`):
 
@@ -35,7 +35,7 @@ Example category definition (`deep.json`):
 {
   "name": "deep",
   "display_name": "Deep Reasoning",
-  "preferred_providers": ["codex", "claude", "grok"],
+  "preferred_providers": ["xai", "codex", "copilot", "zai"],
   "reasoning_effort": "high",
   "prompt_additions": [
     "Take maximum thinking depth. Consider second and third order effects.",
@@ -47,15 +47,15 @@ Example category definition (`deep.json`):
 
 ## Integration Points
 
-- `resolve_providers_for_role()` / `resolve_providers_for_agent()` will consult the category.
-- When spawning a `grok` sub-agent for a "deep" category agent → use `subagent_type="plan"` + high-reasoning instructions.
-- For external CLIs (e.g. `opencode -p` for deep, plain for quick).
+- `resolve_omo_model_profile()` and category routing consult the category mapping.
+- When spawning a canonical OMO bounded worker for a `deep` or `ultrabrain` task, the runtime resolves the approved Grok-first profile and verification gate.
+- For explicit non-Grok execution lanes when approved optional providers are configured.
 
 ## Philosophy Alignment
 
 This directly supports the user's goal:
-- **codex** for serious deep work (IZ, Grok consultant)
+- Grok-first category routing with approved optional execution lanes where explicitly configured
 - Optional creative consultation lanes for artistic angles, without replacing the xAI/Grok Oracle gate
 - Keeps the system flexible to whatever the user has installed, while allowing strong defaults.
 
-This layer makes the "iz architect + deep (codex)" or "grok consultant + artistry" combinations feel natural while preserving mandatory xAI/Grok Oracle review.
+This layer makes combinations like `sisyphus-junior + artistry`, `hephaestus + deep`, or `atlas + planning` feel natural while preserving mandatory xAI/Grok Oracle review.
