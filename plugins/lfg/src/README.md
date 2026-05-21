@@ -1,10 +1,10 @@
 # LFG source layout
 
-This directory defines the lfg-native Grok Build plugin boundaries. The runtime implementation is intentionally dependency-free under `src/runtime/cli.py`; `bin/` entrypoints should stay thin gateways.
+This directory defines the lfg-native Grok Build plugin boundaries. The runtime implementation is intentionally dependency-free under `src/runtime-ts/index.ts`; `bin/` entrypoints should stay thin gateways.
 
-The migration target is not a mechanical file split. OMO's original TypeScript domain logic must be preserved as Python modules with the same conceptual boundaries: orchestration policy stays separate from transport adapters, state machines stay separate from CLI parsing, and generated/plugin metadata stays separate from executable runtime behavior.
+The migration target is not a mechanical file split. OMO's original TypeScript domain logic must be preserved as TypeScript modules with the same conceptual boundaries: orchestration policy stays separate from transport adapters, state machines stay separate from CLI parsing, and generated/plugin metadata stays separate from executable runtime behavior.
 
-Real Grok/xAI API adapters should reference the official Python SDK repository, `https://github.com/xai-org/xai-sdk-python`, but SDK imports must remain optional. Dependency-free smoke paths and bin entrypoints must still run with only the Python standard library.
+Real Grok/xAI API adapters should reference the official xAI SDK docs, but SDK imports must remain optional. Dependency-free smoke paths and bin entrypoints must still run with only the Bun/TypeScript runtime.
 
 - `hooks/` owns hook behavior and prompt/state injection.
 - `core/` owns dependency-free OMO policy modules that runtime, MCP, and plugin adapters can delegate to without importing adapter code.
