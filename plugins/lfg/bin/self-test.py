@@ -49,6 +49,12 @@ def manifest_and_file_checks() -> None:
 
     for rel in [
         "skills/lfg/SKILL.md",
+        "agents/sisyphus.md",
+        "agents/sisyphus-junior.md",
+        "agents/prometheus.md",
+        "agents/atlas.md",
+        "agents/hephaestus.md",
+        "agents/oracle.md",
         "src/agents/harness.toml",
         "hooks/scripts/lfg-audit-hook.sh",
         "hooks/scripts/lfg-goal-harness.py",
@@ -75,6 +81,13 @@ def manifest_and_file_checks() -> None:
     assert os.access(ROOT / "bin" / "grok-install-smoke.py", os.X_OK), "bin/grok-install-smoke.py executable"
     assert not (ROOT / "bin" / "self-test.sh").exists(), "shell smoke scripts are forbidden"
     assert not (ROOT / "bin" / "grok-install-smoke.sh").exists(), "shell install smoke scripts are forbidden"
+
+    plugin_agent_names = {
+        path.stem
+        for path in (ROOT / "agents").glob("*.md")
+    }
+    for required_agent in {"sisyphus", "sisyphus-junior", "prometheus", "atlas", "hephaestus", "oracle", "builtin-agents"}:
+        assert required_agent in plugin_agent_names, f"missing Grok-discoverable plugin agent: {required_agent}"
 
     hooks = json.loads((ROOT / "hooks/hooks.json").read_text())["hooks"]
     hook_commands = {
