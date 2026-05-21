@@ -50,7 +50,7 @@ def test_global_hook_bridge_installer_writes_python_commands(tmp_path: pathlib.P
     payload = json.loads(config.read_text(encoding="utf-8"))
     serialized = json.dumps(payload)
     assert "lfg-audit-bridge.py" in serialized
-    assert "lfg-goal-harness.py" in serialized
+    assert "goal_harness.py" in serialized
     assert "lfg-audit-bridge.sh" not in serialized
     assert "lfg-goal-harness.sh" not in serialized
 
@@ -64,7 +64,7 @@ def test_lfg_hook_bridge_install_status_uses_python_bridge(tmp_path: pathlib.Pat
     assert installed["ok"] is True
     assert installed["valid"] is True
     assert installed["script"].endswith("lfg-audit-bridge.py")
-    assert installed["harness"].endswith("lfg-goal-harness.py")
+    assert installed["harness"].endswith("goal_harness.py")
 
     status = run([str(PLUGIN / "bin" / "lfg"), "--json", "hook-bridge", "status"], env=env)
     assert status.returncode == 0, status.stderr
@@ -73,7 +73,7 @@ def test_lfg_hook_bridge_install_status_uses_python_bridge(tmp_path: pathlib.Pat
     assert current["valid"] is True
 
     config_text = (home / ".grok" / "hooks" / "lfg-audit-bridge.json").read_text(encoding="utf-8")
-    assert "lfg-goal-harness.py" in config_text
+    assert "goal_harness.py" in config_text
     assert "lfg-goal-harness.sh" not in config_text
 
 
@@ -98,6 +98,13 @@ def test_goal_harness_python_entrypoint_preserves_todo_continuation(tmp_path: pa
     assert second.returncode == 0
     assert "[SYSTEM REMINDER - TODO CONTINUATION]" in first.stdout
     assert "[SYSTEM REMINDER - TODO CONTINUATION]" not in second.stdout
+    dispatch_artifacts = sorted((tmp_path / "dispatch-gate").glob("*.json"))
+    assert len(dispatch_artifacts) == 1
+    dispatch = json.loads(dispatch_artifacts[0].read_text(encoding="utf-8"))
+    assert dispatch["dispatch"] == "manual_gate_required"
+    assert dispatch["stateSnapshot"]["ultragoalId"] == "ug-selftest"
+    assert dispatch["stateSnapshot"]["todoContinuationReminder"] is True
+    assert dispatch["evidence"] == ["continuation-gate=ok"]
 
     write_json(
         boulder_dir / "boulder.json",

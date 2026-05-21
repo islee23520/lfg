@@ -76,6 +76,184 @@ class RuntimeSmoke(unittest.TestCase):
         }, indent=2) + "\n", encoding="utf-8")
         return str(path)
 
+    def test_lfg_core_agent_registry_layer(self) -> None:
+        """OMO registry/spawn/Atlas policy lives in dependency-free core modules used by runtime."""
+        core_path = PLUGIN / "src" / "core" / "agent_registry.py"
+        spec = importlib.util.spec_from_file_location("lfg_core_agent_registry_smoke", core_path)
+        assert spec and spec.loader
+        core = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(core)
+
+        spawn_core_path = PLUGIN / "src" / "core" / "spawn_policy.py"
+        spawn_spec = importlib.util.spec_from_file_location("lfg_core_spawn_policy_smoke", spawn_core_path)
+        assert spawn_spec and spawn_spec.loader
+        spawn_core = importlib.util.module_from_spec(spawn_spec)
+        spawn_spec.loader.exec_module(spawn_core)
+
+        atlas_core_path = PLUGIN / "src" / "core" / "atlas_boulder.py"
+        atlas_spec = importlib.util.spec_from_file_location("lfg_core_atlas_boulder_smoke", atlas_core_path)
+        assert atlas_spec and atlas_spec.loader
+        atlas_core = importlib.util.module_from_spec(atlas_spec)
+        atlas_spec.loader.exec_module(atlas_core)
+
+        constants_path = PLUGIN / "src" / "runtime" / "constants.py"
+        constants_spec = importlib.util.spec_from_file_location("lfg_runtime_constants_smoke", constants_path)
+        assert constants_spec and constants_spec.loader
+        constants = importlib.util.module_from_spec(constants_spec)
+        constants_spec.loader.exec_module(constants)
+
+        registry = core.load_agent_registry(
+            agents_dir=PLUGIN / "src" / "agents",
+            canonical_agent_ids=constants.CANONICAL_OMO_AGENT_IDS,
+            team_eligibility_registry=constants.OMO_TEAM_ELIGIBILITY_REGISTRY,
+            primary_agent_ids=constants.OMO_PRIMARY_AGENT_IDS,
+        )
+        cli_registry = self.run_lfg("agents", "list")
+
+        self.assertEqual([agent["id"] for agent in registry], [agent["id"] for agent in cli_registry["agents"]])
+        self.assertEqual(registry[0]["id"], "sisyphus")
+        self.assertTrue(registry[0]["primaryOrder"])
+        self.assertTrue(registry[0]["teamMemberEligible"])
+
+        runtime_src = (PLUGIN / "src" / "runtime" / "cli.py").read_text(encoding="utf-8")
+        core_src = "\n".join(path.read_text(encoding="utf-8") for path in (core_path, spawn_core_path, atlas_core_path))
+        self.assertNotIn("subprocess", core_src)
+        self.assertNotIn("urllib", core_src)
+        self.assertIn("_AGENT_CORE.load_agent_registry", runtime_src)
+        self.assertIn("_AGENT_CORE.resolve_model_profile", runtime_src)
+        self.assertIn("_SPAWN_CORE.canonical_spawn_envelope", runtime_src)
+        self.assertIn("_SPAWN_CORE.validate_spawn_envelope", runtime_src)
+        self.assertIn("_ATLAS_CORE.progress", runtime_src)
+        self.assertIn("_ATLAS_CORE.build_boulder", runtime_src)
+        self.assertIn("_DISPATCH_GATE.reserve_dispatch_gate", runtime_src)
+
+        broker = spawn_core.supervision_broker_decision(
+            operation="spawn",
+            lane="fallback-local",
+            model_profile={"provider": "xai"},
+            evidence_class="dependency-free-smoke",
+            reason="smoke",
+            max_depth=2,
+            broker_api="internal-non-agent",
+            broker_version=1,
+        )
+        envelope = spawn_core.canonical_spawn_envelope(
+            operation="spawn",
+            status="completed",
+            ok=True,
+            mode="fallback",
+            agent_id="sisyphus-junior",
+            category="quick",
+            task="bounded",
+            task_id="task-core",
+            run_id="run-core",
+            parent_run_id=None,
+            model_profile={"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
+            model_resolution={},
+            children=[],
+            blockers=[],
+            touched_files=[],
+            evidence=["core=ok"],
+            evidence_class="dependency-free-smoke",
+            broker_decision=broker,
+            debug={},
+            next_tasks=[],
+            manual_gate_required=False,
+            spawn_envelope_schema_version=1,
+            spawn_envelope_statuses={"completed", "blocked", "failed"},
+            spawn_envelope_modes={"native-grok", "fallback"},
+            spawn_envelope_evidence_classes={"dependency-free-smoke", "repo-native-integration", "real-grok-manual-gate"},
+            completion_statuses={"complete", "completed", "pass", "passed"},
+            grok_oracle_review={"required": True, "gate": "xai/grok"},
+            redacter=lambda value: value,
+            artifact_writer=None,
+            default_broker_decision=lambda _op, _profile, _evidence_class: broker,
+        )
+        errors = spawn_core.validate_spawn_envelope(
+            envelope,
+            spawn_envelope_schema_version=1,
+            spawn_envelope_statuses={"completed", "blocked", "failed"},
+            spawn_envelope_modes={"native-grok", "fallback"},
+            spawn_envelope_evidence_classes={"dependency-free-smoke", "repo-native-integration", "real-grok-manual-gate"},
+            broker_api="internal-non-agent",
+            validate_evidence_gate=lambda _record: [],
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(envelope["execution"]["completionMeaning"], "contract-envelope-completed")
+
+        plan = {
+            "id": "plan-core",
+            "steps": [
+                {"id": "1", "status": "completed"},
+                {"id": "2", "status": "pending", "depends_on": "1"},
+                {"id": "3", "status": "pending", "depends_on": ["2"]},
+            ],
+        }
+        progress = atlas_core.progress(plan, completion_statuses={"complete", "completed", "pass", "passed"})
+        self.assertEqual(progress["completed"], 1)
+        self.assertEqual(progress["nextTask"]["id"], "2")
+        self.assertEqual(progress["blocked"], [{"taskId": "3", "dependsOn": ["2"], "reason": "unresolved-dependency"}])
+
+    def test_continuation_dispatch_gate_manual_gate_artifact(self) -> None:
+        gate_path = PLUGIN / "src" / "runtime" / "dispatch_gate.py"
+        spec = importlib.util.spec_from_file_location("lfg_runtime_dispatch_gate_smoke", gate_path)
+        assert spec and spec.loader
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+
+        dispatch_root = pathlib.Path(self.tmp.name) / "dispatch-gate-fixture"
+        first = gate.reserve_dispatch_gate(
+            dispatch_root=dispatch_root,
+            session_id="session-1",
+            plan_id="plan-1",
+            boulder_version="2",
+            reason="loop_start",
+            target_agent="sisyphus",
+            prompt="continue",
+            state_snapshot={"todo": ["verify"]},
+            native_dispatch_supported=False,
+            now_value="2026-05-20T00:00:00Z",
+        )
+        self.assertEqual(first["dispatch"], "manual_gate_required")
+        self.assertFalse(first["duplicateSuppressed"])
+        self.assertTrue(pathlib.Path(first["artifactPath"]).exists())
+        artifact = json.loads(pathlib.Path(first["artifactPath"]).read_text(encoding="utf-8"))
+        self.assertEqual(artifact["stateSnapshot"], {"todo": ["verify"]})
+        self.assertEqual(artifact["evidence"], ["continuation-gate=ok"])
+
+        second = gate.reserve_dispatch_gate(
+            dispatch_root=dispatch_root,
+            session_id="session-1",
+            plan_id="plan-1",
+            boulder_version="2",
+            reason="loop_start",
+            target_agent="sisyphus",
+            prompt="continue again",
+            state_snapshot={"todo": ["verify again"]},
+            native_dispatch_supported=False,
+            now_value="2026-05-20T00:00:01Z",
+        )
+        self.assertEqual(second["decision"], "duplicate_suppressed")
+        self.assertTrue(second["duplicateSuppressed"])
+        self.assertEqual(second["artifactPath"], first["artifactPath"])
+        self.assertTrue(second["manualGateRequired"])
+        self.assertEqual(second["stateSnapshot"], {"todo": ["verify"]})
+
+        started = self.run_lfg("loop", "start", "dispatch gate smoke")
+        self.assertEqual(started["dispatchGate"]["dispatch"], "manual_gate_required")
+        self.assertIn("continuation-gate=ok", started["dispatchGate"]["evidence"])
+        self.assertTrue(pathlib.Path(started["dispatchGate"]["artifactPath"]).exists())
+        started_artifact = json.loads(pathlib.Path(started["dispatchGate"]["artifactPath"]).read_text(encoding="utf-8"))
+        self.assertEqual(started["ultraworkId"], started_artifact["stateSnapshot"]["ultraworkId"])
+        repeated = self.run_lfg("loop", "start", "dispatch gate smoke")
+        self.assertTrue(repeated["dispatchGate"]["duplicateSuppressed"])
+        self.assertEqual(repeated["dispatchGate"]["artifactPath"], started["dispatchGate"]["artifactPath"])
+        self.assertEqual(repeated["ultraworkId"], started["ultraworkId"])
+        self.assertEqual(repeated["ultraworkId"], repeated["dispatchGate"]["stateSnapshot"]["ultraworkId"])
+        state_check = self.run_lfg("doctor", "state", "schema", "check")
+        self.assertIn("dispatchGate", state_check["stateRoots"])
+        self.assertIn("continuation-gate=ok", state_check["evidence"])
+
 
     def test_omo_agent_registry_cli(self) -> None:
         registry = self.run_lfg("agents", "list")
@@ -86,6 +264,22 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(set(contract["target_ids"]).issubset(ids), ids)
         self.assertEqual(ids, contract["full_inventory_ids"])
         self.assertEqual(registry["count"], len(contract["full_inventory_ids"]))
+        keywords = self.run_lfg("grok-build", "keywords")
+        self.assertTrue(keywords["ok"], keywords)
+        self.assertEqual(keywords["trigger"], "@")
+        self.assertEqual(keywords["registrationKind"], "known-keyword")
+        self.assertEqual(keywords["ids"], [f"@{agent_id}" for agent_id in ids])
+        self.assertEqual([entry["agentId"] for entry in keywords["keywords"]], ids)
+        self.assertTrue(all(entry["keyword"].startswith("@") for entry in keywords["keywords"]))
+        keyword_ids = self.run_lfg("grok-build", "keywords", "--ids")
+        self.assertEqual(keyword_ids, {"ok": True, "ids": keywords["ids"], "count": len(ids)})
+        wrapper = self.run_lfg("grok-build", "start", "--dry-run")
+        self.assertEqual(wrapper["guide"]["knownKeywords"]["ids"], keywords["ids"])
+        self.assertIn("Known @agent keywords:", wrapper["command"])
+        self.assertIn("LFG_GROK_BUILD_KNOWN_KEYWORDS_FILE", wrapper["command"])
+        self.assertIn("LFG_GROK_BUILD_KNOWN_KEYWORDS=", wrapper["command"])
+        self.assertIn("grok-build-known-keywords.json", wrapper["command"])
+        self.assertIn("@sisyphus-junior", wrapper["command"])
         self.assertIn("deep", registry["categoryModelProfiles"])
         for profile in registry["categoryModelProfiles"].values():
             self.assertEqual(profile["provider"], "xai")
@@ -352,8 +546,18 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(activated["leadAgent"], "sisyphus")
         self.assertEqual(activated["strategy"], "existing-plan")
         self.assertEqual(activated["plan"]["id"], plan["id"])
+        self.assertEqual(activated["dispatchGate"]["dispatch"], "manual_gate_required")
+        self.assertIn("continuation-gate=ok", activated["dispatchGate"]["evidence"])
         self.assertFalse(activated["sisyphusDiscipline"]["bypassesEvidenceGates"])
         self.assertFalse(activated["sisyphusDiscipline"]["completionPolicy"]["proseOnlyCompletionAllowed"])
+        self.assertEqual(activated["sisyphusDiscipline"]["completionPolicy"]["ultraworkStopStates"], [
+            "accepted",
+            "blocked",
+            "budget_exhausted",
+            "failed",
+            "manual_review_required",
+        ])
+        self.assertTrue(activated["sisyphusDiscipline"]["completionPolicy"]["evidenceRequiredBeforeAdvancement"])
 
         rejected = subprocess.run(
             [str(LFG), "--json", "ultrawork", "update", "--id", activated["ulw_id"], "--task", "1", "--status", "complete", "--evidence", "success prose only"],
@@ -372,6 +576,23 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(shown["gate"], "needs_evidence")
         self.assertEqual(shown["tasks"][0]["status"], "needs_evidence")
         self.assertEqual(shown["blockers"][-1]["code"], "missing-evidence")
+
+        accepted_missing = subprocess.run(
+            [str(LFG), "--json", "ultrawork", "update", "--id", activated["ulw_id"], "--task", "1", "--status", "accepted", "--evidence", "accepted without artifact"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=20,
+        )
+        self.assertEqual(accepted_missing.returncode, 2, accepted_missing.stdout + accepted_missing.stderr)
+        self.assertEqual(json.loads(accepted_missing.stdout)["error"], "missing-evidence")
+        proof = self.evidence_artifact("t17-ulw-accepted")
+        accepted = self.run_lfg("ultrawork", "update", "--id", activated["ulw_id"], "--task", "1", "--status", "accepted", "--evidence", "accepted with artifact", "--evidence-artifact", proof)
+        self.assertEqual(accepted["status"], "accepted")
+        self.assertEqual(accepted["gate"], "accepted")
+        self.assertEqual(accepted["tasks"][0]["oracleReview"]["gate"], "xai/grok")
 
     def test_t10_background_concurrency_honored_in_deterministic_fixtures(self) -> None:
         """Background concurrency config keyed by model/provider is honored."""
@@ -1235,7 +1456,7 @@ class RuntimeSmoke(unittest.TestCase):
     def test_status_and_catalog(self) -> None:
         status = self.run_lfg("status")
         self.assertTrue(status["ok"])
-        self.assertEqual(status["version"], "0.3.0")
+        self.assertEqual(status["version"], "0.0.1")
         self.assertEqual(status["catalogSkills"], 21)
 
         catalog = self.run_lfg("catalog")
@@ -1354,7 +1575,7 @@ class RuntimeSmoke(unittest.TestCase):
             proc.wait(timeout=5)
         proc.stdout.close()
 
-        self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.3.0")
+        self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.0.1")
         tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
         expected = {
             "analyze",
@@ -1456,7 +1677,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("lfg-v0.4.0", release_tag_doc)
 
         hook_doc = (REPO / "docs" / "HOOK_EVIDENCE.md").read_text(encoding="utf-8")
-        self.assertIn("scripts/lfg-audit-hook.sh", hook_doc)
+        self.assertIn("src/hooks/audit_hook.sh", hook_doc)
         self.assertIn("lfg hook-bridge install", hook_doc)
         self.assertIn("grok_build_hook_bridge", hook_doc)
         self.assertIn("[SYSTEM REMINDER - TODO CONTINUATION]", hook_doc)
@@ -1572,6 +1793,8 @@ class RuntimeSmoke(unittest.TestCase):
             """#!/usr/bin/env bash
 if [[ "${1:-}" == "update" && "${2:-}" == "--check" ]]; then exit 0; fi
 printf 'fake-grok-launched args=%s\n' "$*"
+printf 'known-file=%s\n' "${LFG_GROK_BUILD_KNOWN_KEYWORDS_FILE:-}"
+printf 'known-keywords=%s\n' "${LFG_GROK_BUILD_KNOWN_KEYWORDS:-}"
 """,
             encoding="utf-8",
         )
@@ -1581,12 +1804,20 @@ printf 'fake-grok-launched args=%s\n' "$*"
 
         proc = subprocess.run([str(LFG)], cwd=str(REPO), env=env, text=True, capture_output=True, check=True, timeout=20)
         self.assertIn("fake-grok-launched", proc.stdout)
+        self.assertIn("Known @agent keywords:", proc.stderr)
+        self.assertIn("@sisyphus-junior", proc.stdout)
+        keyword_file_line = next(line for line in proc.stdout.splitlines() if line.startswith("known-file="))
+        keyword_file = pathlib.Path(keyword_file_line.removeprefix("known-file="))
+        self.assertTrue(keyword_file.exists())
+        keyword_payload = json.loads(keyword_file.read_text(encoding="utf-8"))
+        self.assertEqual(keyword_payload["registrationKind"], "known-keyword")
+        self.assertIn("@sisyphus-junior", keyword_payload["ids"])
 
         runtime = subprocess.run([str(LFG), "--json", "status"], cwd=str(REPO), env=self.env, text=True, capture_output=True, check=True, timeout=20)
         launched = json.loads(runtime.stdout)
         self.assertTrue(launched["ok"])
         self.assertEqual(launched["launcher"], "lfg")
-        self.assertEqual(launched["version"], "0.3.0")
+        self.assertEqual(launched["version"], "0.0.1")
         self.assertNotIn("attachCommand", launched)
 
     def test_lfg_default_asks_before_grok_update_and_restart(self) -> None:
@@ -2041,7 +2272,7 @@ esac
             proc.wait(timeout=5)
         proc.stdout.close()
 
-        self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.3.0")
+        self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.0.1")
         tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
         for name in {"catalog", "runtime", "team", "slash", "hook_bridge", "models", "auth", "provider", "spawn", "boulder", "hyperplan", "atlas"}:
             self.assertIn(name, tool_names)
@@ -2127,7 +2358,7 @@ esac
         self.assertTrue(pathlib.Path(installed["config"]).exists())
         self.assertTrue(os.access(installed["script"], os.X_OK))
         script = pathlib.Path(installed["script"]).read_text(encoding="utf-8")
-        self.assertIn("lfg-audit-hook.sh", script)
+        self.assertIn("audit_hook.sh", script)
         doctor = self.run_lfg("doctor")
         bridge = next(check for check in doctor["checks"] if check["name"] == "global_hook_bridge")
         self.assertIn("installed=True valid=True", bridge["evidence"])
@@ -3354,7 +3585,8 @@ esac
 class IdentityAlignmentSmoke(unittest.TestCase):
     AGENTS_DIR = PLUGIN / "src" / "agents"
     GROK_BUILD = PLUGIN / "bin" / "lfg.py"
-    HARNESS = PLUGIN / "hooks" / "scripts" / "lfg-goal-harness.py"
+    HARNESS = PLUGIN / "src" / "hooks" / "goal_harness.py"
+    HARNESS_ROUTER = PLUGIN / "hooks" / "scripts" / "lfg-goal-harness.py"
 
     def test_legacy_agent_files_are_not_bundled(self) -> None:
         legacy = self.AGENTS_DIR / "legacy"
@@ -3445,7 +3677,7 @@ class HarnessRuntimeSmoke(unittest.TestCase):
         self.original_env = os.environ.copy()
         os.environ["GROK_PLUGIN_DATA"] = self.tmp.name
         self.module_name = "lfg_goal_harness_test"
-        spec = importlib.util.spec_from_file_location(self.module_name, PLUGIN / "hooks" / "scripts" / "lfg-goal-harness.py")
+        spec = importlib.util.spec_from_file_location(self.module_name, PLUGIN / "src" / "hooks" / "goal_harness.py")
         assert spec and spec.loader
         self.harness = importlib.util.module_from_spec(spec)
         sys.modules[self.module_name] = self.harness
