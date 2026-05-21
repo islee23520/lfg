@@ -1,0 +1,9 @@
+[install]
+exact = true
+saveTextLockfile = true
+
+[install.scopes]
+# Force @oh-my-opencode to resolve locally
+
+[test]
+root = "."

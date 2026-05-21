@@ -1,0 +1,3 @@
+[submodule "plugins/lfg/vendor/omo-standalone"]
+	path = plugins/lfg/vendor/omo-standalone
+	url = https://github.com/islee23520/omo-standalone.git

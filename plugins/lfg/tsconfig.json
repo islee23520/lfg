@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "baseUrl": "../..",
+    "paths": {
+      "@oh-my-opencode/*": [
+        "plugins/lfg/vendor-links/*/index.ts",
+        "plugins/lfg/vendor/omo-standalone/packages/*/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "bin/self-test.ts",
+    "bin/lfg-mcp.ts",
+    "src/mcp-ts/**/*.ts",
+    "src/smoke-ts/**/*.ts",
+    "src/runtime-ts/**/*.ts",
+    "test-utils/**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "vendor/omo-standalone/node_modules",
+    "vendor/omo-standalone/packages/*/dist"
+  ]
+}
