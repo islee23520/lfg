@@ -6,7 +6,7 @@ Use this page as the authoritative checklist before merging or tagging `islee235
 
 - [ ] Local smoke passes with `runtime-smoke-coverage=100%`
 - [ ] Aggregated local release-readiness passes with `release-readiness-local=ok`
-- [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=17`
+- [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=21 key_skills_present`
 - [ ] Installed `lfg` symlink surface smoke passes
 - [ ] Team preflight + provider matrix smoke passes
 - [ ] Team tmux lifecycle smoke passes with `team-tmux-lifecycle=ok`

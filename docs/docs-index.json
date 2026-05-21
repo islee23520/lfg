@@ -137,8 +137,8 @@
       "path": "agent-system/agent-definitions.md",
       "title": "Agent Definitions",
       "section": "agent-system",
-      "summary": "Named agent 상세 스펙 (Sisyphus, Prometheus 등).",
-      "keywords": ["agent-definitions", "sisyphus", "prometheus"],
+      "summary": "Historical named-agent proposal plus notes on how the canonical OMO registry replaced it.",
+      "keywords": ["agent-definitions", "historical", "omo-registry"],
       "priority": "high"
     },
     {
