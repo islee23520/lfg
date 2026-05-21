@@ -94,7 +94,7 @@ Factory and policy layer. Resolves model profile, category, skill availability, 
 
 ### Full 11-Agent Catalog (Phase 2 Ported)
 
-The lfg-native registry starts with Sisyphus, Atlas, Sisyphus-Junior, Hephaestus, Prometheus, and builtin-agents, with legacy named agents kept only for compatibility under `plugins/lfg/src/agents/legacy/`.
+The lfg-native registry starts with Sisyphus, Atlas, Sisyphus-Junior, Hephaestus, Prometheus, and builtin-agents. Older custom agent names are historical only and are not bundled as valid team-spec members.
 
 ## Grok Build Execution Model
 
@@ -110,7 +110,7 @@ Sisyphus receives request
   └─ Sisyphus synthesizes, verifies, and advances Boulder
 ```
 
-Agent entries default to Grok models for Grok Build execution except Hephaestus, whose OMO deep-specialist contract requires a GPT-style approved profile. Category routing may keep Grok reasoning profiles or use approved optional providers (`codex`, `copilot`, `zai`) for execution lanes (`zai` is an HTTP/API adapter, not a required local CLI), but every completion still carries a required Oracle review envelope backed by `openai/gpt-5.5` high with Copilot, Gemini, and Z.ai fallbacks.
+Agent entries default to Grok models for Grok Build execution except Hephaestus, whose OMO deep-specialist contract requires a GPT-style approved profile. Category routing may keep Grok reasoning profiles or use approved optional providers (`codex`, `copilot`, `zai`) for bounded execution or consultation lanes (`zai` is an HTTP/API adapter, not a required local CLI), but every completion still carries the mandatory xAI/Grok Oracle review envelope. OpenAI/GPT, Copilot, Gemini, and Z.ai consultation cannot replace that product gate.
 
 The next integration focus is replacing fallback/manual-gated spawn evidence with verified Grok-native sub-agent spawning while keeping `.lfg/` state, approved multi-provider routing, and Oracle review contracts stable.
 
@@ -130,7 +130,7 @@ After a massive 14+ parallel ULW explorer swarm mapped the entire production OMO
 
 **Plus cross-cutting Persistence** (`persistence/`) — Boulder + Ralph-loop + `TodoContinuationEnforcer` + `SYSTEM DIRECTIVE` ("never stops until done") — `persistence-boulder-ralph-impl=ok`
 
-All modules are dependency-light Python, directly portable into `~/.grok/plugins/grok-build/omo/`, and exercised with live evidence strings.
+All modules are dependency-light Python, directly portable into the active plugin install surface at `~/.grok/plugins/lfg/`, and exercised with live evidence strings.
 
 **"The boulder is moving. The real OMO engine is here."**
 
@@ -158,13 +158,13 @@ plugins/lfg/bin/lfg doctor state schema check
 plugins/lfg/bin/lfg team providers
 plugins/lfg/bin/lfg team preflight
 plugins/lfg/bin/lfg team create 3:executor "verify release gates"
-plugins/lfg/bin/lfg team state <team-name>
+plugins/lfg/bin/lfg team status <team-name>
 plugins/lfg/bin/lfg setup
+plugins/lfg/bin/lfg setup check
+plugins/lfg/bin/lfg setup install-plan --marketplace islee23520/lfg
+plugins/lfg/bin/lfg setup show
 plugins/lfg/bin/lfg auth login openai --id openai-main --env OPENAI_API_KEY
-plugins/lfg/bin/lfg omx-setup check
 ```
-
-`omx-setup` remains the documented compatibility surface during the rename transition.
 
 Runtime state is stored under:
 
@@ -174,7 +174,7 @@ Runtime state is stored under:
 
 `lfg models` shows default Grok-first model profiles plus configured provider metadata. `lfg auth login` records provider login metadata by environment variable name only; it never stores API keys.
 
-`lfg setup` syncs the current plugin package into `~/.grok/plugins/lfg` (or `--plugin-dir <path>`) and records setup state under `.lfg/state/setup.json`. When run from an interactive terminal, `lfg setup` automatically opens the OMO-style provider/subscription wizard for OpenAI, Z.ai, Copilot, Gemini, and Codex; Grok Build/xAI login is assumed by the host and is not asked in the wizard. Use `--interactive` only to force the wizard, or `lfg setup --no-tui --openai yes --zai yes --copilot no --google no --codex no` for deterministic automation. `lfg auth login` without arguments lets you pick from configured providers, and all auth/provider forms store only environment variable names, never secret values.
+`lfg setup` syncs the current plugin package into `~/.grok/plugins/lfg` (or `--plugin-dir <path>`) and records setup state under `.lfg/state/setup.json`. When run from an interactive terminal, `lfg setup` automatically opens the OMO-style provider/subscription wizard for OpenAI, Z.ai, Copilot, and Codex; Grok Build/xAI login is assumed by the host and is not asked in the wizard. Use `--interactive` only to force the wizard, or `lfg setup --no-tui --openai yes --zai yes --copilot no --codex no` for deterministic automation. `lfg auth login` without arguments lets you pick from configured providers, and all auth/provider forms store only environment variable names, never secret values.
 
 Target state layout:
 
@@ -236,19 +236,19 @@ python3 -m unittest tests.smoke.test_grok_build_runtime -v
 Run plugin self-test:
 
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 ```
 
 Run real local Grok install/discovery smoke when `~/.grok/bin/grok` is available:
 
 ```sh
-plugins/lfg/bin/grok-install-smoke.sh
+python3 plugins/lfg/bin/grok-install-smoke.py
 ```
 
 Run full local release readiness when preparing release:
 
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 ```
 
 Remote marketplace/Grok UI evidence is environment-specific and should be recorded separately when release scope requires it.
@@ -269,7 +269,7 @@ plugins/lfg/
   bin/lfg                                # default runtime wrapper
   bin/ulw                                # ultrawork launcher wrapper
   bin/lfg-mcp.py                         # stdio JSON-RPC MCP server
-  bin/self-test.sh                       # local smoke test
+  bin/self-test.py                       # local smoke test
   hooks/hooks.json                       # hook registration
   hooks/plugin smoke checks lfg-audit-hook.sh        # fail-open audit hook
   skills/*/SKILL.md                      # Grok slash surfaces backed by OMO semantics

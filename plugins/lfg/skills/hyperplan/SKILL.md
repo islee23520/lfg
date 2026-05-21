@@ -13,6 +13,12 @@ You (the orchestrator) become the **Lead** of a 5-member adversarial team. The 5
 
 This is not consensus building. This is intellectual combat. Weakness gets exposed. Lazy thinking gets eviscerated. Only what survives the gauntlet makes it into the plan.
 
+## IMPORTANT SURFACE DISTINCTION
+
+- `/hyperplan` and the `hyperplan` skill are the adversarial planning surface described in this file.
+- `team create hyperplan` and MCP `omo_team_create` use the canonical runtime default team expansion (`sisyphus`, `atlas`, `sisyphus-junior`) for the current direct team surface.
+- Do not assume those direct team surfaces automatically create the 5 hostile category members unless the dedicated hyperplan planning flow explicitly does so.
+
 ## HARD PRECONDITIONS
 
 Before starting, verify:
