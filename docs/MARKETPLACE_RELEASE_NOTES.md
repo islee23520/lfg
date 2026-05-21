@@ -39,7 +39,7 @@ team-dry-run=ok
 models-auth=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
-grok-install-smoke=ok skills=21 key_skills_present
+grok-install-smoke=ok skills=<discovered-count> key_skills_present
 ```
 
 ### Install path

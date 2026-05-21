@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Documentation here defines the evidence contract for the OMO-to-Grok Build port. Docs must describe `lfg` as an OMO agent hierarchy parity project: Grok-model agents, Grok-native sub-agent spawning, durable `.lfg/` state, Team Mode, Hyperplan, Boulder, and quality gates.
+Documentation here defines the evidence contract for the OMO-to-Grok Build port. Docs must describe `lfg` as an OMO agent hierarchy parity project: Grok-model agents, explicit native-spawn gates with deterministic/manual fallback envelopes, durable `.lfg/` state, Team Mode, Hyperplan, Boulder, and quality gates.
 
 ## WHERE TO LOOK
 

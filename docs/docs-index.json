@@ -91,6 +91,15 @@
       "priority": "medium"
     },
     {
+      "path": "evidence/omo-feature-traceability.md",
+      "title": "OMO Feature Traceability Matrix",
+      "section": "evidence",
+      "summary": "Active feature-by-feature parity status matrix for LFG's OMO port, including wired, manual-gated, and transition rows with verification paths.",
+      "keywords": ["omo", "parity", "traceability", "evidence", "manual-gated", "spawn"],
+      "priority": "critical",
+      "cross_refs": ["ARCHITECTURE.md", "SMOKE.md", "RELEASE_CHECKLIST.md", "evidence/grok-subagent-spawning.md"]
+    },
+    {
       "path": "GROK-EXTENSIONS-SSOT.md",
       "title": "Grok Extensions SSOT Working Guide",
       "section": "root",
@@ -297,8 +306,8 @@
     }
   ],
   "stats": {
-    "total_files": 34,
-    "critical_files": 4,
+    "total_files": 35,
+    "critical_files": 5,
     "last_updated": "2026-05-20"
   }
 }
