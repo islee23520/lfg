@@ -10,7 +10,7 @@ Port OmO's "hyperplan" concept — a pre-defined, high-rigor, adversarial team c
 - Strong validation that prevents weak team compositions
 - Often combined with "ultrawork" for execution
 
-## Proposed LFG Version (LFG + ULW flavored)
+## Current LFG Version (LFG + ULW flavored)
 
 ### Team Template Example: `hyperplan`
 
@@ -19,11 +19,11 @@ Port OmO's "hyperplan" concept — a pre-defined, high-rigor, adversarial team c
   "name": "hyperplan",
   "description": "Adversarial high-quality architecture and strategy team (OmO Hyperplan inspired)",
   "required_roles": [
-    { "agent": "iz", "category": "deep" },
-    { "agent": "grok", "category": "ultrabrain" },
-    { "agent": "gonow", "category": "quick" }
+    { "agent": "sisyphus", "category": "unspecified-high" },
+    { "agent": "atlas", "category": "unspecified-low" },
+    { "agent": "sisyphus-junior", "category": "ultrabrain" }
   ],
-  "adversarial_categories": ["unspecified-low", "unspecified-high"],
+  "adversarial_categories": ["unspecified-low", "unspecified-high", "artistry", "ultrabrain"],
   "workflow": "hyperplan-ultrawork",
   "min_members": 3,
   "validation_rules": [
@@ -47,7 +47,7 @@ The runtime will:
 - Validate the team composition
 - Inject the multi-round adversarial protocol into the prompts
 - Force ULW identity + proper ledger reporting
-- Use the mapped categories (iz gets deep=codex, etc.)
+- Use canonical OMO agents and category-backed critic lanes instead of the removed legacy custom lineup
 
 ## Benefits
 - Users get OmO-level rigor without having to manually craft complex team specs every time.

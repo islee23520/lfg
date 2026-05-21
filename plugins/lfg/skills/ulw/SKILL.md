@@ -1,6 +1,6 @@
 ---
 name: ulw
-description: "Activate full OMO-style Ultrawork mode: Sisyphus-led autonomous execution with Boulder persistence."
+description: "Activate OMO-style Ultrawork mode: Sisyphus-led autonomous execution with Boulder persistence."
 user_invocable: true
 ---
 
@@ -24,4 +24,4 @@ ulw "your goal"
 
 ## Runtime
 
-Backed by `lfg ulw`, `ulw` binary, and MCP `grok_build_ultrawork`.
+Backed by `lfg ulw`, `ulw` binary, and MCP `ultrawork`.

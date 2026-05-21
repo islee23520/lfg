@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generated": "2026-05-19",
+  "generated": "2026-05-20",
   "root": "docs/",
   "description": "LFG 프로젝트 공식 문서 JSON 인덱스. @docs/ 또는 AGENTS.md를 통해 문서를 참조하는 모든 에이전트(Sisyphus, Prometheus 등)는 반드시 이 파일을 먼저 읽은 후, 필요한 실제 문서를 Read 해야 한다. 이는 docs/를 서버처럼 동작하게 만드는 인덱스 계층이다.",
   "lookup_rules": {
@@ -91,6 +91,24 @@
       "priority": "medium"
     },
     {
+      "path": "evidence/omo-feature-traceability.md",
+      "title": "OMO Feature Traceability Matrix",
+      "section": "evidence",
+      "summary": "Active feature-by-feature parity status matrix for LFG's OMO port, including wired, manual-gated, and transition rows with verification paths.",
+      "keywords": ["omo", "parity", "traceability", "evidence", "manual-gated", "spawn"],
+      "priority": "critical",
+      "cross_refs": ["ARCHITECTURE.md", "SMOKE.md", "RELEASE_CHECKLIST.md", "evidence/grok-subagent-spawning.md"]
+    },
+    {
+      "path": "GROK-EXTENSIONS-SSOT.md",
+      "title": "Grok Extensions SSOT Working Guide",
+      "section": "root",
+      "summary": "Grok skills, plugins, hooks, marketplaces, subagents, Claude Code compatibility, AGENTS.md compatibility의 발견 경로와 LFG packaging/verification 규칙을 정리한 SSOT 작업 가이드.",
+      "keywords": ["extensions", "skills", "plugins", "hooks", "marketplace", "subagents", "claude-code", "agents.md", "ssot"],
+      "priority": "critical",
+      "cross_refs": ["ARCHITECTURE.md", "SMOKE.md", "MARKETPLACE_INSTALL.md", "HOOK_EVIDENCE.md", "reference.md", "evidence/grok-subagent-spawning.md"]
+    },
+    {
       "path": "HOW-IT-WORKS.md",
       "title": "How It Works",
       "section": "root",
@@ -102,8 +120,8 @@
       "path": "reference.md",
       "title": "Grok Build / xAI Platform Reference",
       "section": "root",
-      "summary": "https://docs.x.ai/overview 를 Single Source of Truth로 하는 공식 참조 문서. Grok-native 동작 주장 시 반드시 확인.",
-      "keywords": ["reference", "xai", "grok", "responses-api"],
+      "summary": "https://docs.x.ai/overview, skills/plugins/marketplaces guide, xai-sdk-python를 Single Source of Truth로 하는 공식 참조 문서. Grok-native 동작 주장 시 반드시 확인.",
+      "keywords": ["reference", "xai", "grok", "responses-api", "skills", "plugins", "marketplaces", "xai-sdk-python"],
       "priority": "critical"
     },
     {
@@ -128,8 +146,8 @@
       "path": "agent-system/agent-definitions.md",
       "title": "Agent Definitions",
       "section": "agent-system",
-      "summary": "Named agent 상세 스펙 (Sisyphus, Prometheus 등).",
-      "keywords": ["agent-definitions", "sisyphus", "prometheus"],
+      "summary": "Historical named-agent proposal plus notes on how the canonical OMO registry replaced it.",
+      "keywords": ["agent-definitions", "historical", "omo-registry"],
       "priority": "high"
     },
     {
@@ -230,6 +248,15 @@
       "cross_refs": ["ARCHITECTURE.md", "GROK-BUILD-PROMPT-STAGES.md", "agent-system/omo-parity-comparison.md", "agent-system/omo-runtime-implementation-plan.md"]
     },
     {
+      "path": "evidence/omo-package-layering-refactor-report.md",
+      "title": "OMO Package Layering Refactor Report",
+      "section": "evidence",
+      "summary": "로컬 Oh My OpenAgent 참조 트리에서 pure TypeScript core, AST-grep MCP package, platform binary package layering을 어떻게 분리했는지 근거/추론으로 정리한 리포트.",
+      "keywords": ["omo", "oh-my-openagent", "package-layering", "pure-typescript", "ast-grep", "mcp", "platform-binaries", "evidence"],
+      "priority": "high",
+      "cross_refs": ["evidence/oh-my-openagent-doc-diff.md", "agent-system/omo-runtime-implementation-plan.md", "ARCHITECTURE.md"]
+    },
+    {
       "path": "evidence/m0-legacy-audit.md",
       "title": "M0 Legacy Audit",
       "section": "evidence",
@@ -279,8 +306,8 @@
     }
   ],
   "stats": {
-    "total_files": 32,
+    "total_files": 35,
     "critical_files": 5,
-    "last_updated": "2026-05-19"
+    "last_updated": "2026-05-20"
   }
 }

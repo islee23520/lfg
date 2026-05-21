@@ -8,3 +8,7 @@ target/
 __pycache__
 .pytest_cache
 .lfg/
+.playwright-mcp
+.venv
+.ruff_cache/
+.debugging

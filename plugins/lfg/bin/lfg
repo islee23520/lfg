@@ -67,10 +67,32 @@ grok_update_check() {
   esac
 }
 
+lfg_export_grok_build_known_keywords() {
+  local state_dir="$GROK_PLUGIN_DATA/state"
+  local keyword_file="$state_dir/grok-build-known-keywords.json"
+  local keyword_ids=""
+  mkdir -p "$state_dir"
+
+  if python3 "$SCRIPT_DIR/lfg.py" --json grok-build keywords > "$keyword_file" 2>/dev/null; then
+    export LFG_GROK_BUILD_KNOWN_KEYWORDS_FILE="$keyword_file"
+  else
+    rm -f "$keyword_file"
+    return 0
+  fi
+
+  keyword_ids="$(python3 "$SCRIPT_DIR/lfg.py" grok-build keywords --ids 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+  if [[ -n "$keyword_ids" ]]; then
+    export LFG_GROK_BUILD_KNOWN_KEYWORDS="$keyword_ids"
+    echo "lfg: Known @agent keywords: $keyword_ids" >&2
+    echo "lfg: known keyword registry exported: $keyword_file" >&2
+  fi
+}
+
 if [[ $# -eq 0 ]]; then
   if command -v grok >/dev/null 2>&1; then
     GROK_BIN="$(command -v grok)"
     grok_update_check "$GROK_BIN"
+    lfg_export_grok_build_known_keywords
     exec "$GROK_BIN"
   fi
   echo "lfg: grok executable not found; install Grok CLI or run 'lfg status' for the runtime helper" >&2

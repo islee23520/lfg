@@ -23,4 +23,4 @@ Use this skill to diagnose and fix issues with your LFG installation, state sche
 
 ## Runtime
 
-Backed by `lfg doctor` and MCP `grok_build_doctor`.
+Backed by `lfg doctor` and MCP `doctor`.

@@ -19,10 +19,9 @@ plugins/lfg/
 - `bin/lfg.py`: Main runtime, state schema, goals, plans, team backend, hook bridge, slash parser.
 - `bin/lfg`: Default `lfg` wrapper for tmux backend launch.
 - `bin/ulw`: Specialized ultragoal launcher alias.
-- `bin/lfg-mcp.py`: Stdio JSON-RPC server exposing `grok_build_*` tools.
-- `bin/self-test.sh`: Local smoke bundle and manifest/evidence assertions.
-- `hooks/scripts/lfg-goal-harness.py`: Hook-side active-goal and boulder prompt injection hotspot.
-- `hooks/scripts/lfg-goal-harness.sh`: Fail-open wrapper for the Python harness.
+- `bin/lfg-mcp.py`: Stdio JSON-RPC server exposing canonical short MCP tool names; `grok_build_*` aliases remain compatibility-only in dispatch.
+- `bin/self-test.py`: Local smoke bundle and manifest/evidence assertions.
+- `hooks/scripts/lfg-goal-harness.py`: Thin router delegating to `src/hooks/goal_harness.py` (modular OMO-style hook implementation).
 - `src/agents/*.json`: Named team agent definitions (canonical).
 - `src/agents/harness.toml`: Harness config surfaced by self-test (canonical).
 
@@ -32,7 +31,7 @@ plugins/lfg/
 - Use `validate_safe_id` and `safe_child_path` for user-controlled filesystem names.
 - Team mode is tmux-backed. Provider commands and preflight output are tested as contracts.
 - Supported team providers include `hermes`, `claude`, `codex`, `gemini`, `copilot`, `opencode`, `grok`, `subagent`, and `noop`.
-- `grok` and `subagent` represent native Grok sub-agents; external CLI providers are discovered/preflighted separately.
+- `grok` and `subagent` represent Grok sub-agent fallback lanes for dependency-free runtime paths; real host child-spawn evidence is tracked by the T28 manual gate, and external CLI providers are discovered/preflighted separately.
 - `lfg-mcp.py` stdout must be JSON-RPC only. Put diagnostics on stderr or in returned JSON.
 - Hook harnesses must stay fail-open and bounded. A hook failure must not break the host session.
 - Preserve legacy flat team-state compatibility when changing team storage or `TeamStateStore`.
@@ -48,12 +47,12 @@ plugins/lfg/
 
 ## COMMANDS
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 python3 plugins/lfg/bin/lfg.py status
 python3 plugins/lfg/bin/lfg-mcp.py
 ```
 
 ## NOTES
-- `bin/lfg.py`, `bin/lfg-mcp.py`, and `hooks/scripts/lfg-goal-harness.py` are the largest implementation hotspots. Prefer narrow edits with focused smoke coverage.
-- `bin/self-test.sh` asserts many docs and scripts by literal evidence strings.
+- `bin/lfg.py`, `bin/lfg-mcp.py`, and `src/hooks/goal_harness.py` (plus its sibling modules) are the largest implementation hotspots. Prefer narrow edits with focused smoke coverage.
+- `bin/self-test.py` asserts many docs and scripts by literal evidence strings, including `agents-guides-valid=ok`.
 - Recent launch evidence uses `lfg-inside-tmux-status=ok`, not the older implicit attach wording.

@@ -39,7 +39,7 @@ team-dry-run=ok
 models-auth=ok
 team-tmux-lifecycle=ok
 runtime-smoke-coverage=100%
-grok-install-smoke=ok skills=21 key_skills_present
+grok-install-smoke=ok skills=<discovered-count> key_skills_present
 ```
 
 ### Install path
@@ -53,5 +53,5 @@ https://github.com/islee23520/lfg.git
 Local development/preview only: developers can sync the plugin into `~/.grok/plugins/lfg` with:
 
 ```sh
-plugins/lfg/bin/grok-install-smoke.sh
+python3 plugins/lfg/bin/grok-install-smoke.py
 ```

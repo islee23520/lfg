@@ -1,24 +1,14 @@
 {
   "name": "lfg",
-  "version": "0.3.0",
+  "version": "0.0.1",
   "description": "OMO agent hierarchy parity runtime for Grok Build.",
   "author": {
     "name": "islee23520"
   },
   "homepage": "https://github.com/islee23520/lfg",
   "repository": "https://github.com/islee23520/lfg",
-  "skills": "./skills",
-  "agents": "./src/agents",
-  "mcpServers": "./.mcp.json",
-  "lspServers": "./.lsp.json",
   "metadata": {
     "packageName": "islee23520/lfg",
-    "compatibility": [
-      "grok",
-      "claude-code",
-      "agents-md"
-    ],
-    "lfg": true,
     "reference": "https://github.com/code-yeongyu/oh-my-openagent",
     "scope": "Port the OMO agent hierarchy and orchestration model into LFG/Grok Build."
   }

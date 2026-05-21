@@ -24,4 +24,4 @@ Use this skill to start or resume work on an active plan. This command triggers 
 
 ## Runtime
 
-Backed by `lfg atlas start-work` and MCP `grok_build_atlas` with `action: "start-work"`.
+Backed by `lfg atlas start-work` and MCP `atlas` with `action: "start-work"`.

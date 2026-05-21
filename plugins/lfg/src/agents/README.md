@@ -1,32 +1,49 @@
-# LFG Agent Definitions
+# OMO Agent Definitions (plugins/lfg/src/agents/)
 
-This directory is the canonical lfg-native agent registry for the Grok Build plugin.
+This directory is the **runtime source of truth** for first-class subagents that can be called/spawned in LFG.
 
-## First-Class Agents
+## How it works (as of the dynamic registry change)
 
-The runtime loads these files directly for `lfg agents list`, `lfg agents inspect`, spawn planning, MCP agent inspection, and smoke contracts:
+- Any `*.json` file here with a valid `{"id": "...", ...}` shape is **automatically discovered**.
+- `load_omo_agent_registry()` scans the directory (no more hardcoded list for discovery).
+- The agents become:
+  - Visible in `lfg agents list`
+  - Inspectable: `lfg agents inspect <id>`
+  - **Callable as subagents**: `lfg spawn <id> [--category X] [--task "..."]`
+  - Available to Grok via MCP (`grok_build_omo_agent_catalog` + `grok_build_spawn`)
+  - Usable in teams, ultragoal spawns, Hyperplan, etc. (subject to eligibility policy)
+- **Autocomplete support**:
+  - `lfg agents list --ids` → clean newline-separated list of ids (perfect for `compgen`, scripts, or Grok tool-choice prompts)
+  - `lfg agents list --json --ids` → `{"ids": [...]}` for programmatic use
 
-- `sisyphus.json` — main orchestrator
-- `hephaestus.json` — autonomous deep worker
-- `prometheus.json` — planning agent
-- `atlas.json` — checklist/dependency-wave executor
-- `oracle.json` — read-only plan compliance reviewer
-- `librarian.json` — documentation search specialist
-- `explore.json` — read-only codebase explorer
-- `multimodal-looker.json` — visual / multimodal inspector
-- `metis.json` — gap analyzer and pre-plan critic
-- `momus.json` — ruthless reviewer / validator
-- `sisyphus-junior.json` — bounded category executor
-- `builtin-agents.json` — model/category/policy resolver
+## Policy vs Discovery
 
-Loaded agents default to Grok profiles except Hephaestus, which follows the OMO deep-specialist contract and requires an approved GPT-style profile (`openai/gpt-5.5` or Copilot GPT-5.5). Hephaestus refuses cheap, utility, or mismatched model-family overrides instead of silently degrading.
+- **Discovery** (this dir): purely filesystem driven. Drop a new `my-specialist.json` and it is immediately spawnable + listable.
+- **Policy / Contracts** (still in `src/runtime/constants.py`):
+  - `CANONICAL_OMO_AGENT_IDS` — the required OMO hierarchy (must all exist)
+  - `OMO_PRIMARY_AGENT_IDS`, eligibility maps, hard-reject lists, category profiles, etc.
+  - New agents default to "unknown" team eligibility unless explicitly added to the policy tables.
 
-## Team Eligibility
+## Adding a new subagent
 
-- Eligible: `sisyphus`, `atlas`, `sisyphus-junior`
-- Conditional: `hephaestus`
-- Hard-reject: `prometheus`, `oracle`, `librarian`, `explore`, `multimodal-looker`, `metis`, `momus`, `builtin-agents`
+1. Create `my-agent.json` in this directory following the existing schema (see `sisyphus.json` etc.).
+2. Give it a unique `id` that matches the filename stem.
+3. (Optional but recommended) Update the policy tables in `constants.py` if you want it to participate in teams, primary routing, etc.
+4. Test with `lfg agents list --ids`, `lfg agents inspect my-agent`, `lfg spawn my-agent --task "..." --dry-run` style flows.
 
-## Legacy Compatibility
+## Files here (canonical OMO set)
 
-`legacy/` contains older Lina, GoNow, IZ, and Grok named-agent definitions kept only for existing team specs such as `iz,gonow,grok`. They are not part of the first-class OMO registry.
+- sisyphus.json (main orchestrator)
+- sisyphus-junior.json (category-bounded executor)
+- prometheus.json (planner / interviewer)
+- hephaestus.json (autonomous deep worker — special model profile)
+- atlas.json (checklist / dependency wave driver)
+- oracle.json, librarian.json, explore.json, multimodal-looker.json, metis.json, momus.json (specialist critics / tools)
+- builtin-agents.json (policy / factory layer)
+
+Legacy named agents (lina, gonow, iz, grok, ...) are historical only. They are **not** part of the OMO registry and are no longer valid team-spec members.
+
+See:
+- `docs/agent-system/`
+- `docs/ARCHITECTURE.md` (Current Runtime Implementation section)
+- `ROADMAP.md` (M4/M5 agent registry + spawn adapter)

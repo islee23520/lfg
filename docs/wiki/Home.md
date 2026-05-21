@@ -10,7 +10,7 @@ This wiki contains the living documentation for how the OMO agent system is port
 
 - [How It Works](./How-It-Works.md) — End-to-end runtime overview
 - [Architecture](./Architecture.md) — Current implementation and vision
-- [Agent Hierarchy](./Agent-Hierarchy.md) — The 6 canonical OMO agents
+- [Agent Hierarchy](./Agent-Hierarchy.md) — The canonical OMO agent registry and primary agent order
 - [Team Mode](./Team-Mode.md) — Multi-agent orchestration with durable state
 - [Verification & Smoke](./Verification.md) — Evidence contracts and release gates
 - [Release Process](./Release-Process.md) — Checklist before merge/tag
@@ -28,7 +28,7 @@ This wiki contains the living documentation for how the OMO agent system is port
 
 - Branch: `feature/lfg-agent-orchestration-omo-parity`
 - Team Mode: **Enabled**
-- Current focus: OMO parity + Grok-native spawn adapter
+- Current focus: OMO parity + Grok spawn adapter with manual-gated native child-spawn evidence
 
 ---
 

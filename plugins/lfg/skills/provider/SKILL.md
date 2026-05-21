@@ -24,4 +24,4 @@ Manage your AI providers and model profiles. This skill allows you to list avail
 
 ## Runtime
 
-Backed by `lfg provider` and MCP `grok_build_provider`.
+Backed by `lfg provider` and MCP `provider`.

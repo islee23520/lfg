@@ -4,7 +4,7 @@
 
 **Port the OMO agent hierarchy to Grok Build.**
 
-`lfg` is the Grok Build implementation of an OMO-style agent operating system. The architecture centers on Grok-led orchestration, approved optional coding providers, Grok-native sub-agent spawning where available, durable `.lfg/` state, and explicit verification gates.
+`lfg` is the Grok Build implementation of an OMO-style agent operating system. The architecture centers on Grok-led orchestration, approved optional coding providers, Grok-discoverable OMO agent wrappers, passing T28 native child-spawn manual evidence, deterministic fallback envelopes for dependency-free smoke paths, durable `.lfg/` state, and explicit verification gates.
 
 This document supersedes previous Codex-workflow-centered architecture notes.
 
@@ -15,6 +15,8 @@ This document supersedes previous Codex-workflow-centered architecture notes.
 - Grok Build native sub-agent spawning is preferred where available; **xAI/Grok Oracle review is the mandatory product gate** (`oracleReview.required=true`) before any completion or Boulder advancement. Non-Grok reviewers are explicitly disallowed as replacement.
 - Runtime state is durable, inspectable, and schema-versioned under `.lfg/`.
 - Hooks and MCP surfaces are integration points, not hidden sources of truth.
+- Grok plugin packaging should follow the documented Grok/Claude Code compatible discovery model: skills, plugins, hooks, MCPs, agents, marketplaces, and `AGENTS.md`/Claude instruction files are first-class compatibility surfaces.
+- Real Grok/xAI API adapters should reference the official xAI Python SDK, but dependency-free smoke/runtime entrypoints must not hard-import it.
 - Verification evidence is part of the product contract.
 
 ---
@@ -27,7 +29,7 @@ This section describes exactly how the code currently wires the OMO agent hierar
 
 ### 1. The OMO Agent Registry (Source of Truth)
 
-The canonical registry now loads the 11 upstream OMO agents plus the `builtin-agents` policy layer:
+The canonical registry now includes first-class LFG OMO agents, support-agent metadata, and the `builtin-agents` policy layer:
 
 - `plugins/lfg/src/agents/sisyphus.json` — main orchestrator
 - `plugins/lfg/src/agents/hephaestus.json` — autonomous deep worker
@@ -42,10 +44,10 @@ The canonical registry now loads the 11 upstream OMO agents plus the `builtin-ag
 - `plugins/lfg/src/agents/sisyphus-junior.json` — bounded category executor
 - `plugins/lfg/src/agents/builtin-agents.json` — policy / factory layer
 
-**Loading code** (all in [plugins/lfg/bin/lfg.py](./plugins/lfg/bin/lfg.py)):
+**Loading code** (`plugins/lfg/src/runtime/cli.py` loads constant tables from `plugins/lfg/src/runtime/constants.py`; `plugins/lfg/bin/lfg.py` is a gateway):
 
-- `CANONICAL_OMO_AGENT_IDS` — list of the 11 OMO agents
-- `OMO_TEAM_ELIGIBILITY_REGISTRY` — canonical team-member contract
+- `CANONICAL_OMO_AGENT_IDS` — list of the canonical OMO agent IDs, defined in `plugins/lfg/src/runtime/constants.py`
+- `OMO_TEAM_ELIGIBILITY_REGISTRY` — canonical team-member contract, defined in `plugins/lfg/src/runtime/constants.py`
 - `load_omo_agent_registry()` — reads the 12 JSON files from `plugins/lfg/src/agents/`
 - `OMO_AGENT_REGISTRY` and `_OMO_REGISTRY_INDEX` — the live in-memory registry
 - `agents_list()` and `agents_inspect()` — exposed via CLI and MCP
@@ -54,9 +56,9 @@ The canonical registry now loads the 11 upstream OMO agents plus the `builtin-ag
 
 Each entry contains: `id`, `name`, `family`, `role`, `mode`, `modelProfile`, `reasoningLevel`, `categories`, `tools`, `blockedTools`, `enabled`, `promptSource`, `teamEligibility`.
 
-All loaded agents default to `provider: "xai"` + `model: "xai/grok-4.3"`. `resolve_omo_model_profile()` also accepts approved execution providers (`codex`, `copilot`, `zai`; `zai` uses `ZAI_API_KEY`/`ZHIPU_API_KEY` only for explicit HTTP runs) and maps category → reasoning level while preserving Grok Oracle review as the completion gate.
+Loaded agents default to `provider: "xai"` + `model: "xai/grok-4.3"` except Hephaestus, whose deep-worker contract intentionally uses the approved GPT-style profile `openai/gpt-5.5`. `resolve_omo_model_profile()` also accepts approved execution providers (`codex`, `copilot`, `zai`; `zai` uses `ZAI_API_KEY`/`ZHIPU_API_KEY` only for explicit HTTP runs) and maps category → reasoning level while preserving Grok Oracle review as the completion gate.
 
-**Legacy compatibility layer**: `plugins/lfg/src/agents/legacy/` still contains the older `lina-orchestrator.json`, `gonow-worker.json`, `iz-architect.json`, `grok-consultant.json`. These are used only by existing `team create` specs that have not yet been migrated. They are **not** part of the canonical OMO registry.
+**Legacy compatibility note**: the older custom names (`lina`, `gonow`, `iz`, `grok`) are historical only. They are **not** bundled in the current plugin and are not valid `team create` spec members.
 
 See also: `plugins/lfg/src/agents/README.md` (the only doc that currently states the first-class vs legacy split correctly).
 
@@ -113,9 +115,9 @@ See also: `plugins/lfg/src/agents/README.md` (the only doc that currently states
     ```
 6. Persists the record under `RUNS_DIR / "spawns"` for later inspection.
 
-**There is no actual Grok sub-agent spawn call yet.** The real native spawning primitive is still behind the manual gate documented in `docs/evidence/grok-subagent-spawning.md`. `spawn_wave()`, `run_dependency_graph()`, `synthesize()`, and `resume()` now share the same canonical envelope contract.
+Dependency-free runtime calls still use deterministic fallback envelopes, while real Grok host child spawning is evidenced by the T28 manual gate in `docs/evidence/t28-grok-manual-gate-status.md`. `spawn_wave()`, `run_dependency_graph()`, `synthesize()`, and `resume()` now share the same canonical envelope contract.
 
-This is the precise current state of "Grok-native delegation for OMO agents."
+This is the precise current state of Grok-led delegation for OMO agents: recorded host-native child-spawn evidence exists, and dependency-free runtime execution remains fallback-envelope based.
 
 ### 4. Entry Points & Surfaces (How You Reach the OMO Layer)
 
@@ -132,26 +134,26 @@ Plans created through LFG (`lfg plan create`, `grok_build_plan`, the `plan` skil
 - `lfg --json provider list`
 - `lfg --json doctor state schema check`
 - `lfg --json team create 3:executor "..."`
-- MCP tools: `grok_build_omo_agent_catalog`, `grok_build_omo_doctor`, `grok_build_omo_team_create`, `grok_build_omo_ulw`
+- MCP tools: canonical short names `omo_agent_catalog`, `omo_doctor`, `omo_team_create`, `omo_ulw` (legacy `grok_build_*` prefixes are dispatch aliases only)
 
 **Observability**:
-- `lfg doctor` — validates manifests, skill count (≥28), state schema, providers, hook bridge, etc.
+- `lfg doctor` — validates manifests, current skill/catalog contract, state schema, providers, hook bridge, etc.
 - `lfg doctor state schema check` — focused JSON state-schema verifier for `.lfg/`
 - `lfg setup` — syncs the plugin into `~/.grok/plugins/lfg` and records setup state.
 - `lfg provider add` — stdlib interactive provider setup; persists env-var names only.
 - `lfg status` — versions, active goals, catalog size, current goal/plan pointers
 - `lfg hud` — compact dashboard of goals, plans, teams, wiki notes
 
-**Higher-level orchestration (still largely legacy/hybrid)**:
-- `team_create()`, `ultragoal_spawn()`, `ralph_*`, most skills, and `worker` commands primarily use legacy specs (`"1:iz,1:gonow,1:grok"`) + external CLIs or generic prompts.
-- Hyperplan and certain MCP paths are starting to reference the new OMO catalog.
+**Higher-level orchestration (current transition state)**:
+- `team_create()` and `ultragoal_spawn()` now prefer canonical OMO team specs (`"1:sisyphus,1:atlas,1:sisyphus-junior"` or `"3:executor"`) instead of the old custom lineup.
+- Hyperplan and MCP OMO surfaces reference the first-class OMO catalog; legacy named agents are historical only and no longer valid team-spec members.
 - `TeamRuntime` + `TeamStateStore` provide the durable mailbox + tasklist coordination (mode-aware separated directories under `.lfg/runs/<mode>-<id>/` to match real OmO behavior).
 
-The "Sisyphus leads and spawns the other five via the Grok adapter" loop is **available today via explicit `spawn` + MCP**, but is not yet the default execution path for `ultragoal`, `team create`, or `ralph`.
+The "Sisyphus leads and spawns specialists via the Grok adapter" loop is **available today via explicit `spawn` + MCP** and is now the default `ulw` activation path through `defaultSpawnWave` / `defaultSpawnWavePlan`. `ultragoal`, `team create`, and `ralph` remain separate explicit transition surfaces until each is promoted into the same default OMO-native loop.
 
 ### 5. State & Persistence (OmO-like)
 
-- Primary root: `$GROK_PLUGIN_DATA` (defaults to `./.lfg` or `~/.grok/lfg` data tree).
+- Primary root: `$GROK_PLUGIN_DATA` (defaults to `$PWD/.lfg`).
 - Wrappers (`bin/lfg`, `bin/ulw`) set `LFG_LAUNCHER` and `GROK_PLUGIN_DATA`.
 - Separated run directories (in lfg.py): `ultragoal/`, `ultrawork/`, `hyperplan/`, `runs/<mode>-<id>/teams/...` etc. — mirrors `~/.omo/state/team/<run-id>/` pattern.
 - `TeamStateStore`, `TeamMailbox`, `TeamTasklist` classes provide the coordination primitives.
@@ -165,12 +167,12 @@ The "Sisyphus leads and spawns the other five via the Grok adapter" loop is **av
 - Category-aware model resolution.
 - `lfg agents` + `lfg spawn` + MCP catalog surfaces.
 - Durable, mode-separated TeamRuntime + mailbox/tasklist.
-- All the classic LFG/ULW surfaces (`ultragoal`, `ralph`, `team`, skills) continue to function; `ulw` activation now persists Sisyphus-led discipline and blocks prose-only completion without evidence.
+- `ulw` activation persists Sisyphus-led discipline, creates a deterministic default spawn wave, and blocks prose-only completion without evidence; classic LFG surfaces (`ultragoal`, `ralph`, `team`, skills) continue to function as explicit transition paths.
 
-**What is still behind the gate or legacy**:
-- Actual Grok native `spawn_subagent` call for OMO-named agents (manual gate).
-- Default orchestration for most user commands still uses the old named-agent + CLI/provider model.
-- Full "Sisyphus owns the boulder and delegates via spawn waves" closed loop is not yet the automatic path.
+**What is still transition-scoped**:
+- Dependency-free runtime execution uses fallback envelopes; the real Grok host child-spawn proof remains manual evidence, not a dependency-free native call.
+- `ultragoal`, `team create`, and `ralph` are explicit surfaces, not yet promoted into the default `ulw` closed loop.
+- Full automatic closed-loop parity across every legacy command remains tracked in `docs/evidence/omo-feature-traceability.md` rather than claimed as complete.
 
 See [ROADMAP.md](./ROADMAP.md) (M0–M13) and [docs/agent-system/omo-runtime-implementation-plan.md](./docs/agent-system/omo-runtime-implementation-plan.md) (the test-first slice plan) for the remaining work.
 
@@ -187,7 +189,7 @@ Grok Build
       ├─ Grok Spawn Adapter (real calls replacing the fallback)
       ├─ Runtime State (.lfg/ with separated runs)
       ├─ Surfaces (skills, hooks, bin/lfg.py, lfg-mcp.py, lfg/ulw)
-      └─ Verification (self-test.sh, smoke matrix, release scripts)
+      └─ Verification (self-test.py, smoke matrix, release scripts)
 ```
 
 Until then, the "Current Runtime Implementation" section above is the accurate map.
@@ -217,14 +219,14 @@ lfg spawn sisyphus-junior --category quick --task "smoke"
 
 **Plugin integrity**:
 ```sh
-plugins/lfg/bin/self-test.sh          # emits dozens of *=ok strings
+python3 plugins/lfg/bin/self-test.py          # emits dozens of *=ok strings
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
 ```
 
 **Release gates**:
 ```sh
-plugins/lfg/bin/self-test.sh
-plugins/lfg/bin/self-test.sh plus marketplace remote smoke
+python3 plugins/lfg/bin/self-test.py
+python3 plugins/lfg/bin/self-test.py plus marketplace remote smoke
 ```
 
 **Inside Grok**:
@@ -233,7 +235,7 @@ plugins/lfg/bin/self-test.sh plus marketplace remote smoke
 - `grok_build_omo_team_create` (with hyperplan)
 - The `/lfg` skill for surface stress-testing
 
-All of these are exercised by `self-test.sh` and the release-readiness scripts. Exact evidence strings are product contracts (see [docs/SMOKE.md](./docs/SMOKE.md) and [docs/TEST_RULES.md](./docs/TEST_RULES.md)).
+All of these are exercised by `self-test.py` and the release-readiness scripts. Exact evidence strings are product contracts (see [docs/SMOKE.md](./docs/SMOKE.md) and [docs/TEST_RULES.md](./docs/TEST_RULES.md)).
 
 ## Non-Goals (Unchanged)
 
@@ -254,6 +256,6 @@ All of these are exercised by `self-test.sh` and the release-readiness scripts. 
 
 ---
 
-**Last verified against**: current state of `plugins/lfg/bin/lfg.py` + `plugins/lfg/src/agents/*.json` on the omo-parity branch (May 2026).
+**Last verified against**: current state of `plugins/lfg/src/runtime/cli.py` + `plugins/lfg/src/agents/*.json` on the omo-parity branch (May 2026).
 
 This document is intended to be updated as each implementation slice lands. When the manual gate is removed and the default orchestration paths are rewired to the OMO registry, the "Current Implementation" section will be rewritten to reflect the new reality.

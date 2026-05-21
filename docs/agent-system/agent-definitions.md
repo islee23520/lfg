@@ -1,9 +1,9 @@
 # A. Agent Definition System (Named Purpose-Specific Agents)
 
 > **Historical / Design note (2026-05)**: This document captured the original proposal for custom LFG agents (`lina`, `gonow`, `iz`, `grok`).
-> The current canonical first-class implementation is the OMO hierarchy (`sisyphus` + family) living in `plugins/lfg/src/agents/*.json`, loaded via `load_omo_agent_registry()` in `lfg.py`.
+> The current canonical first-class implementation is the OMO hierarchy (`sisyphus` + family) living in `plugins/lfg/src/agents/*.json`, loaded via `load_omo_agent_registry()` in `plugins/lfg/src/runtime/cli.py`.
 > See the "Current Runtime Implementation" section of [docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) and `plugins/lfg/src/agents/README.md` for the live state.
-> Legacy definitions are kept only in `src/agents/legacy/` for backward compatibility with existing team specs.
+> Legacy definitions are historical reference only; current team specs must use canonical OMO agents or generic category roles.
 
 ## Goal (Original Design)
 Allow users to define, register, and reuse **named agents** with clear identity, role, and behavior — similar to OmO's subagent_type + category system, but tailored to LFG + ULW.
@@ -17,7 +17,7 @@ Allow users to define, register, and reuse **named agents** with clear identity,
 
 ## Proposed Agent Definition Format (JSON)
 
-Location: `~/.grok/lfg/agents/<name>.json`; bundled compatibility definitions live in `plugins/lfg/src/agents/legacy/`.
+Location: `~/.grok/lfg/agents/<name>.json`; this section is historical proposal material, not the current bundled runtime layout.
 
 Example: `iz-architect.json`
 
@@ -48,7 +48,7 @@ Similar files:
 
 1. `resolve_providers_for_role()` will be extended to `resolve_providers_for_agent(name)`
 2. `build_worker_prompt()` will accept agent definition and merge role + category + identity
-3. When user writes `lfg team create iz,gonow,grok "..."`, the system looks up the definitions
+3. Historical note: older drafts used `lfg team create iz,gonow,grok "..."`, but current runtime team specs must use canonical OMO agents such as `sisyphus,atlas,sisyphus-junior` or generic roles like `3:executor`
 4. For `grok` provider + named agent → calls `spawn_subagent` with the agent's specific prompt + `subagent_type`
 
 ## Benefits over Current Role-Only System

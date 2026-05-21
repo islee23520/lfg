@@ -1,0 +1,1665 @@
+[
+  {
+    "name": "catalog",
+    "description": "Return the OMO-to-Grok skill catalog for islee23520/lfg.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "status",
+    "description": "Return install/status paths for the lfg plugin.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "runtime",
+    "description": "Run a safe lfg runtime query such as status, catalog, doctor, hud, pipeline_list, skill_list, skill_search, plan_list, wiki_list, wiki_search, backend_status, or team_status.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "status",
+            "catalog",
+            "doctor",
+            "hud",
+            "pipeline_list",
+            "skill_list",
+            "skill_search",
+            "plan_list",
+            "wiki_list",
+            "wiki_search",
+            "backend_status",
+            "team_status",
+            "hook_bridge_status"
+          ]
+        },
+        "team": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "doctor",
+    "description": "Run LFG doctor diagnostics.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "hook_bridge",
+    "description": "Status/install the optional global Grok hook bridge that delegates to the lfg plugin audit hook.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "status",
+            "install"
+          ]
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "backend_start",
+    "description": "Start the explicit LFG team tmux session used by /team.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "team",
+    "description": "Create/status/resume/shutdown an LFG tmux team. Creation defaults to dryRun=true unless explicitly false.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "delete",
+            "shutdown_request",
+            "approve_shutdown",
+            "reject_shutdown",
+            "send_message",
+            "task_create",
+            "task_list",
+            "task_update",
+            "task_get",
+            "status",
+            "list",
+            "resume",
+            "shutdown",
+            "providers",
+            "preflight"
+          ]
+        },
+        "spec": {
+          "type": "string",
+          "description": "team spec like 3:executor"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "team": {
+          "type": "string"
+        },
+        "member": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "actor": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "providers": {
+          "type": "string",
+          "description": "comma list, default grok,subagent"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ultrawork",
+    "description": "Create/show/update durable ultrawork batch task state.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "update",
+            "show"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "tasks": {
+          "type": "string"
+        },
+        "task": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "active",
+            "complete",
+            "blocked"
+          ]
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "agents",
+    "description": "List or inspect OMO first-class agents in the LFG registry.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "list",
+            "inspect"
+          ]
+        },
+        "agent": {
+          "type": "string",
+          "description": "agent id for inspect, e.g. sisyphus"
+        },
+        "category": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "reasoning": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "spawn",
+    "description": "Spawn an OMO agent through the same lfg-native spawn adapter used by the CLI.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "reasoning": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "fallback",
+            "native-grok"
+          ],
+          "default": "fallback"
+        }
+      },
+      "required": [
+        "agent"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "route",
+    "description": "Route a category or explicit subagent task through the OMO category policy used by the CLI.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "subagentType": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "provider",
+    "description": "List, show, or add provider/model metadata without storing secret values.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "list",
+            "show",
+            "add"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "boulder",
+    "description": "Inspect Boulder state via the CLI-backed Atlas or ultragoal state surfaces.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "atlas_status",
+            "ultragoal_show",
+            "ultragoal_status"
+          ],
+          "default": "atlas_status"
+        },
+        "planId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "ultragoalId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "atlas",
+    "description": "Start, inspect, or update Atlas plan execution using the CLI parity surface.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "start-work",
+            "status",
+            "checkbox"
+          ]
+        },
+        "planId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "active",
+            "blocked",
+            "complete",
+            "completed"
+          ]
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "learning": {
+          "type": "string"
+        },
+        "decision": {
+          "type": "string"
+        },
+        "issue": {
+          "type": "string"
+        },
+        "verification": {
+          "type": "string"
+        },
+        "problem": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "hyperplan",
+    "description": "Run the deterministic Hyperplan adversarial planning surface through the CLI.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "objective": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "teamName": {
+          "type": "string"
+        },
+        "noDeep": {
+          "type": "boolean",
+          "default": false
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "objective"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ralph",
+    "description": "Create/show/step durable Ralph loop state.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "step",
+            "show"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "maxIterations": {
+          "type": "integer"
+        },
+        "stopCondition": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "complete",
+            "blocked"
+          ]
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "worker",
+    "description": "Record/list worker ACK and result state for team mode.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "ack",
+            "result",
+            "status"
+          ]
+        },
+        "worker": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "result": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "blocked",
+            "failed"
+          ]
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cleanup",
+    "description": "Create/list durable ai-slop-cleaner cleanup reports; no automatic edits in MVP.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "list"
+          ]
+        },
+        "scope": {
+          "type": "string"
+        },
+        "verification": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "autoresearch",
+    "description": "Create/show/add-source for durable research runs.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "add-source",
+            "show"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "deep_interview",
+    "description": "Create/show/answer durable requirement intake interviews.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "answer",
+            "show"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "questions": {
+          "type": "string"
+        },
+        "question": {
+          "type": "integer"
+        },
+        "answer": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "design",
+    "description": "Add/list durable design decisions under plugin data.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "add",
+            "list"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "decision": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "notifications",
+    "description": "Set/show dry-run notification configuration under plugin data.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "set",
+            "show"
+          ]
+        },
+        "channel": {
+          "type": "string",
+          "enum": [
+            "console",
+            "slack",
+            "webhook",
+            "none"
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "models",
+    "description": "Show or switch LFG model routing. Approved provider lanes remain metadata-only; xAI/Grok Oracle review is mandatory.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "show",
+            "switch"
+          ],
+          "default": "show"
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "xai",
+            "grok",
+            "codex",
+            "copilot",
+            "zai"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "reasoning": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "auth",
+    "description": "Configure provider login metadata without storing secret values.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "login"
+          ]
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "xai",
+            "grok",
+            "codex",
+            "copilot",
+            "zai"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "provider"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ask",
+    "description": "Record an external advisor request; defaults to dry-run safety.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "xai",
+            "grok",
+            "codex",
+            "copilot",
+            "zai"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "analyze",
+    "description": "Create/list lightweight durable repo analysis reports.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "list"
+          ]
+        },
+        "focus": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "code_review",
+    "description": "Create/list lightweight durable code review reports from git status/diff evidence.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "list"
+          ]
+        },
+        "objective": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "pipeline",
+    "description": "Create/list/update durable staged workflow pipelines under plugin data.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "list",
+            "update"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "stages": {
+          "type": "string",
+          "description": "semicolon or newline separated stages"
+        },
+        "stage": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "active",
+            "complete",
+            "blocked"
+          ]
+        },
+        "note": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "autopilot",
+    "description": "Create/show/advance strict ralplan -> ralph -> code-review autopilot workflow state.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "advance",
+            "show"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "active",
+            "complete",
+            "blocked"
+          ]
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "performance_goal",
+    "description": "Create/show/measure evaluator-gated performance goal state.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "measure",
+            "show"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "metrics": {
+          "type": "string"
+        },
+        "metric": {
+          "type": "string"
+        },
+        "baseline": {
+          "type": "number"
+        },
+        "current": {
+          "type": "number"
+        },
+        "target": {
+          "type": "number"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "visual_ralph",
+    "description": "Create/show/verdict durable visual Ralph UI matching loop state.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "verdict",
+            "show"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "threshold": {
+          "type": "number"
+        },
+        "score": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "blocked"
+          ]
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "autoresearch_goal",
+    "description": "Create/show/critique durable professor-critic autoresearch goal state.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "critique",
+            "show"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "hypotheses": {
+          "type": "string"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "revise",
+            "blocked"
+          ]
+        },
+        "critic": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "setup",
+    "description": "Check/show/plan LFG OMO setup state for plugin installation.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "check",
+            "install-plan",
+            "show"
+          ]
+        },
+        "marketplace": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "skill",
+    "description": "List/search the LFG OMO skill catalog.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "list",
+            "search"
+          ]
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "hud",
+    "description": "Return compact LFG workflow status summary.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cancel",
+    "description": "Clear current LFG workflow pointers without deleting durable history.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "description": "comma list: goal,plan,team,ultraqa or all"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ultraqa",
+    "description": "Create an adversarial QA smoke run and persist evidence under plugin data.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "objective": {
+          "type": "string"
+        },
+        "noRun": {
+          "type": "boolean",
+          "default": true
+        },
+        "timeout": {
+          "type": "integer",
+          "default": 60
+        }
+      },
+      "required": [
+        "objective"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "goal",
+    "description": "Create/list/update durable LFG goal state under plugin data; foundation for /ultragoal.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "list",
+            "update"
+          ]
+        },
+        "objective": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "blocked",
+            "complete",
+            "cancelled"
+          ]
+        },
+        "checklist": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ultragoal",
+    "description": "Create/status/checkpoint durable multi-goal ultragoal plans (OMO parity); manages brief, goals.json, ledger + backing goal primitive.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "status",
+            "checkpoint",
+            "show",
+            "spawn"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "brief": {
+          "type": "string"
+        },
+        "checklist": {
+          "type": "string"
+        },
+        "spec": {
+          "type": "string",
+          "description": "team spec for spawn, e.g. 3:executor"
+        },
+        "providers": {
+          "type": "string",
+          "description": "comma list for spawned team"
+        },
+        "team": {
+          "type": "string",
+          "description": "team name for spawn"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": true
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "complete",
+            "blocked",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "story": {
+          "type": "string"
+        },
+        "goal_json": {
+          "type": "string"
+        },
+        "force_gate": {
+          "type": "boolean"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ralplan",
+    "description": "Create/show/review durable consensus planning state.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "review",
+            "show"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "string"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "approve",
+            "revise",
+            "block"
+          ]
+        },
+        "reviewer": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "evidenceArtifactPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "plan",
+    "description": "Create or list durable LFG plan state under plugin data. Create returns rich preview struct for Grok-native popup/card rendering of the generated plan Markdown.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "list"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "string",
+          "description": "semicolon or newline separated steps"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "wiki",
+    "description": "Add/list/search durable LFG wiki notes under plugin data.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "add",
+            "list",
+            "search"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "slash",
+    "description": "Parse and execute an LFG-supported Grok slash command such as /team, /route, /ulw, /loop, /plan, or /ultragoal. Defaults to dryRun=true.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "providers": {
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "omo_agent_catalog",
+    "description": "Return the lfg-native canonical first-class agent catalog from plugins/lfg/src/agents.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "include_prompt_hints": {
+          "type": "boolean",
+          "default": true
+        },
+        "filter": {
+          "type": "string",
+          "enum": [
+            "all",
+            "eligible_team_members",
+            "lead_agents",
+            "hyperplan"
+          ],
+          "default": "all"
+        },
+        "with_eligibility": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "omo_team_create",
+    "description": "Create (or dry-run) an OMO-powered team using the full agent hierarchy or hyperplan adversarial roster. Supports named agents (sisyphus, hephaestus, ...) and first-class hyperplan template.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "objective": {
+          "type": "string"
+        },
+        "spec": {
+          "type": "string",
+          "default": "hyperplan"
+        },
+        "name": {
+          "type": "string"
+        },
+        "providers": {
+          "type": "string",
+          "default": "grok,subagent"
+        },
+        "hyperplan": {
+          "type": "boolean",
+          "default": false
+        },
+        "template": {
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": true
+        },
+        "ultragoal_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "objective"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "omo_ulw",
+    "description": "OMO Ultrawork / ULW entrypoint. Create durable ultrawork, apply OMO IntentGate preambles (Sisyphus lead + parallel delegation), or run hyperplan simulation using the full agent catalog.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "run",
+            "intent",
+            "hyperplan-sim",
+            "show"
+          ],
+          "default": "create"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "tasks": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string",
+          "default": "grok"
+        },
+        "hyperplan": {
+          "type": "boolean",
+          "default": false
+        },
+        "deep": {
+          "type": "boolean",
+          "default": false
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "omo_doctor",
+    "description": "Run the lfg-native doctor for plugin, state, MCP, and team readiness.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "json": {
+          "type": "boolean",
+          "default": true
+        },
+        "project_root": {
+          "type": "string"
+        },
+        "include_hyperplan_roster": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+]

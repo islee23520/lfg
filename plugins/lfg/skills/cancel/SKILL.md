@@ -22,4 +22,4 @@ Use this skill to cancel any active LFG execution mode. This command stops the c
 
 ## Runtime
 
-Backed by `lfg cancel` and MCP `grok_build_cancel`.
+Backed by `lfg cancel` and MCP `cancel`.

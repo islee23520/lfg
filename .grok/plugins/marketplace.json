@@ -1,25 +1,16 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "$schema": "https://grok.com/plugin-marketplace.schema.json",
   "name": "islee23520",
-  "description": "LinaLab LFG plugins for OMO agent hierarchy parity in Grok Build.",
-  "owner": {
-    "name": "islee23520"
-  },
+  "description": "LFG plugins for OMO agent hierarchy parity in Grok Build.",
   "plugins": [
     {
       "name": "lfg",
-      "description": "OMO agent hierarchy parity runtime for Grok Build.",
-      "author": {
-        "name": "islee23520"
-      },
-      "category": "development",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/islee23520/lfg.git",
         "path": "plugins/lfg",
         "ref": "main"
       },
-      "homepage": "https://github.com/islee23520/lfg",
       "metadata": {
         "packageName": "islee23520/lfg",
         "reference": "https://github.com/code-yeongyu/oh-my-openagent"

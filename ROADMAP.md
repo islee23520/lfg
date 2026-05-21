@@ -1,10 +1,10 @@
-# Roadmap — `islee23520/lfg`
+# Roadmap — `LFG: OMO Agent Hierarchy Parity for Grok Build` 
 
 ## North Star
 
-Build **full OMO agent hierarchy parity for Grok Build**.
+Build **audit-backed OMO agent hierarchy parity for Grok Build**, with unfinished native child-spawn behavior tracked as explicit gates rather than hidden completion claims.
 
-`lfg` is no longer a Codex-workflow adaptation. The product target is to port the core [oh-my-openagent](https://github.com/sst/opencode/tree/dev/packages/oh-my-openagent) agent hierarchy and orchestration model into **Grok Build**, using Grok as the orchestrator/reviewer, approved optional coding providers for execution lanes, and Grok-native sub-agent spawning where available.
+`lfg` is no longer a Codex-workflow adaptation. The product target is to port the core [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) agent hierarchy and orchestration model into **Grok Build**, using Grok as the orchestrator/reviewer, approved optional coding providers for execution lanes, Grok-discoverable OMO agent wrappers, passing T28 native child-spawn manual evidence, and deterministic fallback envelopes for dependency-free smoke paths.
 
 Core constraints:
 
@@ -83,7 +83,7 @@ LFG / Grok Build
 
 ### OMO Runtime Patterns
 
-- Grok-native sub-agent spawning adapter plus approved multi-provider execution lanes.
+- Grok sub-agent spawn adapter with deterministic/manual-gated fallback envelopes plus approved multi-provider execution lanes.
 - Category routing: `quick`, `deep`, `ultrabrain`, `artistry`, `visual-engineering`, `writing`, `unspecified-low`, `unspecified-high`.
 - Boulder state: current goal, evidence, blockers, continuation notes, recent attempts.
 - Mailbox and shared tasklist for team execution.
@@ -186,10 +186,10 @@ LFG / Grok Build
 
 ### M13 — Release QA and Documentation Lock
 
-- [ ] Run dependency-free smoke tests.
-- [ ] Run repo-native integration checks.
-- [ ] Run real Grok manual gates where available.
-- [ ] Update release checklist and smoke docs with exact evidence strings.
+- [x] Run dependency-free smoke tests (`python3 plugins/lfg/bin/self-test.py`, `python3 -m unittest tests.smoke.test_grok_build_runtime -v`).
+- [x] Run repo-native integration checks (`python3 -m py_compile ...`, `python3 -m ruff check .`).
+- [x] Run real Grok manual gates where available (`python3 plugins/lfg/bin/grok-install-smoke.py`; T28 recorded as `grok-native-spawn-manual=ok`).
+- [x] Update release checklist and smoke docs with exact evidence strings.
 - [ ] Perform post-implementation review before release.
 
 
@@ -237,7 +237,9 @@ Required evidence strings currently asserted by smoke/release gates:
 - [x] models-auth=ok
 - [x] team-tmux-lifecycle=ok
 - [x] runtime-smoke-coverage=100%
-- [x] grok-install-smoke=ok skills=21 key_skills_present (manual/env gate)
+- [x] grok-install-smoke=ok skills=<discovered-count> key_skills_present (manual/env gate)
+- [x] grok-agent-discovery=ok agents=<discovered-count> key_agents_present (manual/env gate)
+- [x] grok-native-spawn-manual=ok (T28 manual Grok host gate)
 
 Additional smoke/release strings preserved by current docs and tests:
 
@@ -265,13 +267,13 @@ Legacy/transition evidence strings (to be migrated or removed):
 - [x] lfg-inside-tmux-status=ok
 
 
-### Preserved Skill Coverage Matrix
+### Active Skill Coverage Matrix
 
-This table preserves current skill-surface smoke contracts during the OMO migration. Rows will be renamed or replaced only with matching test/script changes.
+This table tracks the current active skill/runtime surfaces during the OMO migration. Historical aliases may still appear in evidence docs, but active runtime and smoke contracts must match this matrix.
 
 | Feature | Migration status |
 | --- | --- |
-| `/ai-slop-cleaner` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/ai-slop-cleaner` | Historical command-only compatibility surface; not an active skill/catalog surface |
 | `/analyze` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/ask` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/autopilot` | Preserved transition surface; migrate to OMO semantics in M12 |
@@ -284,17 +286,17 @@ This table preserves current skill-surface smoke contracts during the OMO migrat
 | `/design` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/doctor` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/hud` | Preserved transition surface; migrate to OMO semantics in M12 |
-| `/omx-setup` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/setup` | Active canonical setup surface for install-plan, check, and show |
 | `/performance-goal` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/pipeline` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/plan` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/ralph` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/ralplan` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/skill` | Preserved transition surface; migrate to OMO semantics in M12 |
-| `/team` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/team` | Active canonical non-trivial team execution surface |
 | `/ultragoal` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/ultraqa` | Preserved transition surface; migrate to OMO semantics in M12 |
-| `/ultrawork` | Preserved transition surface; migrate to OMO semantics in M12 |
+| `/ultrawork` | Historical command surface retained for compatibility; active continuation surface is `loop`/`ulw` |
 | `/visual-ralph` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/wiki` | Preserved transition surface; migrate to OMO semantics in M12 |
 | `/worker` | Preserved transition surface; migrate to OMO semantics in M12 |

@@ -1,282 +1,648 @@
 {
-  "schemaVersion": 1,
   "envelopes": [
     {
-      "ok": true,
-      "schemaVersion": 1,
-      "operation": "spawn",
-      "mode": "fallback",
-      "status": "completed",
-      "execution": {
-        "adapterMode": "fallback",
-        "contractStatus": "completed",
-        "completionMeaning": "contract-envelope-completed",
-        "actualChildExecution": false,
-        "nativeGrokSpawnVerified": false
-      },
       "agent": "sisyphus-junior",
       "agentId": "sisyphus-junior",
-      "category": "quick",
-      "task": "fixture completed",
-      "taskId": "fixture-completed",
-      "runId": "fixture-run-completed",
-      "parentRunId": null,
-      "children": [],
+      "agent_id": "sisyphus-junior",
       "blockers": [],
-      "touchedFiles": [],
-      "evidence": [
-        {
-          "summary": "completed fixture"
-        }
-      ],
-      "evidenceClass": "dependency-free-smoke",
       "broker": {
         "api": "internal-non-agent",
-        "version": 1,
-        "operation": "spawn",
-        "selectedLane": "fallback-local",
+        "evidenceClass": "dependency-free-smoke",
+        "lease": {
+          "depth": 0,
+          "maxDepth": 2,
+          "recursionControlled": true
+        },
         "modelProfile": {
-          "provider": "xai",
-          "model": "xai/grok-4.3",
+          "model": "openai-codex",
+          "provider": "codex",
           "reasoning": "low"
         },
-        "evidenceClass": "dependency-free-smoke",
+        "operation": "spawn",
         "policyDecision": {
           "allowed": true,
           "policy": "omo-policy",
-          "reason": "fixture broker decision"
+          "reason": "OMO policy selected bounded fallback lane; native Grok sub-agent primitive remains manual-gated"
         },
-        "lease": {
-          "depth": 0,
-          "maxDepth": 2,
-          "recursionControlled": true
+        "selectedLane": "approved-provider:codex",
+        "version": 1
+      },
+      "category": "quick",
+      "children": [],
+      "debug": {
+        "runtimeFallback": {
+          "kind": "runtime-fallback",
+          "manualGateRequired": true,
+          "separateFromProactiveSelection": true,
+          "source": "docs/reference.md:57-62",
+          "status": "fallback_manual_gate",
+          "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
         }
       },
+      "evidence": [
+        {
+          "class": "dependency-free-smoke",
+          "providerOutput": "[not-executed:fallback]",
+          "summary": "dependency-free fallback spawn for sisyphus-junior"
+        }
+      ],
+      "evidenceArtifactPaths": [
+        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/evidence/spawn-envelope-0.json"
+      ],
+      "evidenceArtifacts": [
+        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/evidence/spawn-envelope-0.json"
+      ],
+      "evidenceClass": "dependency-free-smoke",
+      "execution": {
+        "actualChildExecution": false,
+        "adapterMode": "fallback",
+        "completionMeaning": "contract-envelope-completed",
+        "contractStatus": "completed",
+        "nativeGrokSpawnVerified": false
+      },
+      "manual_gate_required": false,
+      "mode": "fallback",
       "modelProfile": {
-        "provider": "xai",
-        "model": "xai/grok-4.3",
+        "model": "openai-codex",
+        "provider": "codex",
         "reasoning": "low"
       },
-      "modelResolution": {},
-      "nextTasks": [],
-      "oracleReview": {
-        "required": true,
-        "gate": "xai/grok"
-      },
-      "debug": {},
-      "evidenceArtifactPaths": [
-        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/task-12-command-output-evidence.json"
-      ],
-      "evidenceArtifacts": [
-        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/task-12-command-output-evidence.json"
-      ]
-    },
-    {
-      "ok": false,
-      "schemaVersion": 1,
-      "operation": "run_dependency_graph",
-      "mode": "fallback",
-      "status": "blocked",
-      "execution": {
-        "adapterMode": "fallback",
-        "contractStatus": "blocked",
-        "completionMeaning": "contract-envelope-completed",
-        "actualChildExecution": false,
-        "nativeGrokSpawnVerified": false
-      },
-      "agent": null,
-      "agentId": null,
-      "category": null,
-      "task": null,
-      "taskId": "fixture-blocked",
-      "runId": "fixture-run-blocked",
-      "parentRunId": null,
-      "children": [
-        {
-          "taskId": "B",
-          "status": "blocked"
-        }
-      ],
-      "blockers": [
-        {
-          "taskId": "B",
-          "dependsOn": [
-            "A"
+      "modelResolution": {
+        "fallbackChainSource": "agent-model-matching.md:141-149,202-243,311-325 adapted through docs/reference.md:49-59 and T6 provider metadata boundaries",
+        "proactiveFallbackChain": [
+          {
+            "model": "xai/grok-4.3",
+            "provider": "xai",
+            "reasoning": "low",
+            "roleFit": "Grok-first lightweight utility default"
+          },
+          {
+            "model": "github-copilot/gpt-5.5",
+            "provider": "copilot",
+            "reasoning": "low",
+            "roleFit": "approved optional utility lane"
+          },
+          {
+            "model": "zai-coding-plan/glm-5",
+            "provider": "zai",
+            "reasoning": "low",
+            "roleFit": "approved cheap utility fallback"
+          }
+        ],
+        "providerBoundary": {
+          "approvedProviders": [
+            "codex",
+            "copilot",
+            "grok",
+            "openai",
+            "xai",
+            "zai"
           ],
-          "reason": "unresolved-dependency"
-        }
-      ],
-      "touchedFiles": [],
-      "evidence": [
-        {
-          "summary": "blocked fixture"
-        }
-      ],
-      "evidenceClass": "dependency-free-smoke",
-      "broker": {
-        "api": "internal-non-agent",
-        "version": 1,
-        "operation": "run_dependency_graph",
-        "selectedLane": "dependency-graph:deterministic",
-        "modelProfile": {},
-        "evidenceClass": "dependency-free-smoke",
-        "policyDecision": {
-          "allowed": true,
-          "policy": "omo-policy",
-          "reason": "fixture graph decision"
+          "source": "docs/reference.md:49-53 and T6 metadata-only provider contract"
         },
-        "lease": {
-          "depth": 0,
-          "maxDepth": 2,
-          "recursionControlled": true
-        }
-      },
-      "modelProfile": {},
-      "modelResolution": {},
-      "nextTasks": [],
-      "oracleReview": {
-        "required": true,
-        "gate": "xai/grok"
-      },
-      "debug": {},
-      "evidenceArtifactPaths": [],
-      "evidenceArtifacts": []
-    },
-    {
-      "ok": false,
-      "schemaVersion": 1,
-      "operation": "spawn",
-      "mode": "fallback",
-      "status": "failed",
-      "execution": {
-        "adapterMode": "fallback",
-        "contractStatus": "failed",
-        "completionMeaning": "contract-envelope-completed",
-        "actualChildExecution": false,
-        "nativeGrokSpawnVerified": false
-      },
-      "agent": "unknown-agent",
-      "agentId": "unknown-agent",
-      "category": null,
-      "task": "fixture failed",
-      "taskId": "fixture-failed",
-      "runId": "fixture-run-failed",
-      "parentRunId": null,
-      "children": [],
-      "blockers": [
-        {
-          "code": "unknown-agent",
-          "agent": "unknown-agent"
-        }
-      ],
-      "touchedFiles": [],
-      "evidence": [
-        {
-          "summary": "failed fixture"
-        }
-      ],
-      "evidenceClass": "dependency-free-smoke",
-      "broker": {
-        "api": "internal-non-agent",
-        "version": 1,
-        "operation": "spawn",
-        "selectedLane": "rejected",
-        "modelProfile": {},
-        "evidenceClass": "dependency-free-smoke",
-        "policyDecision": {
-          "allowed": false,
-          "policy": "omo-policy",
-          "reason": "fixture rejection"
+        "reason": "utility runner role: favor bounded fast search/retrieval semantics instead of upgrading every role to one deep profile",
+        "roleFit": "utility-runner",
+        "runtimeFallback": {
+          "kind": "runtime-fallback",
+          "manualGateRequired": true,
+          "separateFromProactiveSelection": true,
+          "source": "docs/reference.md:57-62",
+          "status": "fallback_manual_gate",
+          "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
         },
-        "lease": {
-          "depth": 0,
-          "maxDepth": 2,
-          "recursionControlled": true
+        "selectedBy": "provider-override",
+        "selectedModelProfile": {
+          "model": "openai-codex",
+          "provider": "codex",
+          "reasoning": "low"
         }
       },
-      "modelProfile": {},
-      "modelResolution": {},
+      "model_profile": {
+        "model": "openai-codex",
+        "provider": "codex",
+        "reasoning": "low"
+      },
       "nextTasks": [],
-      "oracleReview": {
-        "required": true,
-        "gate": "xai/grok"
-      },
-      "debug": {
-        "providerRawOutput": "[REDACTED]"
-      },
-      "evidenceArtifactPaths": [],
-      "evidenceArtifacts": []
-    },
-    {
       "ok": true,
-      "schemaVersion": 1,
-      "operation": "spawn_wave",
-      "mode": "fallback",
-      "status": "completed",
-      "execution": {
-        "adapterMode": "fallback",
-        "contractStatus": "completed",
-        "completionMeaning": "contract-envelope-completed",
-        "actualChildExecution": false,
-        "nativeGrokSpawnVerified": false
+      "operation": "spawn",
+      "oracleReview": {
+        "fallback_models": [],
+        "gate": "xai/grok",
+        "mode": "local-smoke",
+        "model": "xai/grok-4.3",
+        "provider": "xai",
+        "realGrokJudgment": false,
+        "required": true,
+        "reviewKind": "static-local-schema",
+        "role": "oracle",
+        "status": "passed",
+        "strict": true,
+        "variant": "high"
       },
-      "agent": null,
-      "agentId": null,
-      "category": null,
-      "task": null,
-      "taskId": "fixture-wave",
-      "runId": "fixture-run-wave",
       "parentRunId": null,
-      "children": [
-        {
-          "taskId": "task-A",
-          "status": "completed"
-        },
-        {
-          "taskId": "task-B",
-          "status": "completed"
-        }
-      ],
-      "blockers": [],
+      "recordPath": "/private/var/folders/6r/g20fxk_s1ds24_h6lm971wt00000gn/T/tmp7pl3532q/runs/spawns/run-073b21b60c60.json",
+      "record_path": "/private/var/folders/6r/g20fxk_s1ds24_h6lm971wt00000gn/T/tmp7pl3532q/runs/spawns/run-073b21b60c60.json",
+      "runId": "run-073b21b60c60",
+      "run_id": "run-073b21b60c60",
+      "runtimeFallback": {
+        "kind": "runtime-fallback",
+        "manualGateRequired": true,
+        "separateFromProactiveSelection": true,
+        "source": "docs/reference.md:57-62",
+        "status": "fallback_manual_gate",
+        "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
+      },
+      "schemaVersion": 1,
+      "session_id": "run-073b21b60c60",
+      "status": "completed",
+      "task": "fixture 0",
+      "taskId": "task-323797aa",
+      "task_id": "task-323797aa",
       "touchedFiles": [],
-      "evidence": [
-        {
-          "summary": "wave fixture"
-        }
-      ],
-      "evidenceClass": "dependency-free-smoke",
+      "touched_files": []
+    },
+    {
+      "agent": "sisyphus-junior",
+      "agentId": "sisyphus-junior",
+      "agent_id": "sisyphus-junior",
+      "blockers": [],
       "broker": {
         "api": "internal-non-agent",
-        "version": 1,
-        "operation": "spawn_wave",
-        "selectedLane": "spawn-wave:fallback-local",
-        "modelProfile": {},
         "evidenceClass": "dependency-free-smoke",
-        "policyDecision": {
-          "allowed": true,
-          "policy": "omo-policy",
-          "reason": "fixture wave decision"
-        },
         "lease": {
           "depth": 0,
           "maxDepth": 2,
           "recursionControlled": true
+        },
+        "modelProfile": {
+          "model": "openai-codex",
+          "provider": "codex",
+          "reasoning": "low"
+        },
+        "operation": "spawn",
+        "policyDecision": {
+          "allowed": true,
+          "policy": "omo-policy",
+          "reason": "OMO policy selected bounded fallback lane; native Grok sub-agent primitive remains manual-gated"
+        },
+        "selectedLane": "approved-provider:codex",
+        "version": 1
+      },
+      "category": "quick",
+      "children": [],
+      "debug": {
+        "runtimeFallback": {
+          "kind": "runtime-fallback",
+          "manualGateRequired": true,
+          "separateFromProactiveSelection": true,
+          "source": "docs/reference.md:57-62",
+          "status": "fallback_manual_gate",
+          "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
         }
       },
-      "modelProfile": {},
-      "modelResolution": {},
-      "nextTasks": [],
-      "oracleReview": {
-        "required": true,
-        "gate": "xai/grok"
-      },
-      "debug": {},
+      "evidence": [
+        {
+          "class": "dependency-free-smoke",
+          "providerOutput": "[not-executed:fallback]",
+          "summary": "dependency-free fallback spawn for sisyphus-junior"
+        }
+      ],
       "evidenceArtifactPaths": [
-        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/task-12-command-output-evidence.json"
+        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/evidence/spawn-envelope-1.json"
       ],
       "evidenceArtifacts": [
-        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/task-12-command-output-evidence.json"
-      ]
+        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/evidence/spawn-envelope-1.json"
+      ],
+      "evidenceClass": "dependency-free-smoke",
+      "execution": {
+        "actualChildExecution": false,
+        "adapterMode": "fallback",
+        "completionMeaning": "contract-envelope-completed",
+        "contractStatus": "completed",
+        "nativeGrokSpawnVerified": false
+      },
+      "manual_gate_required": false,
+      "mode": "fallback",
+      "modelProfile": {
+        "model": "openai-codex",
+        "provider": "codex",
+        "reasoning": "low"
+      },
+      "modelResolution": {
+        "fallbackChainSource": "agent-model-matching.md:141-149,202-243,311-325 adapted through docs/reference.md:49-59 and T6 provider metadata boundaries",
+        "proactiveFallbackChain": [
+          {
+            "model": "xai/grok-4.3",
+            "provider": "xai",
+            "reasoning": "low",
+            "roleFit": "Grok-first lightweight utility default"
+          },
+          {
+            "model": "github-copilot/gpt-5.5",
+            "provider": "copilot",
+            "reasoning": "low",
+            "roleFit": "approved optional utility lane"
+          },
+          {
+            "model": "zai-coding-plan/glm-5",
+            "provider": "zai",
+            "reasoning": "low",
+            "roleFit": "approved cheap utility fallback"
+          }
+        ],
+        "providerBoundary": {
+          "approvedProviders": [
+            "codex",
+            "copilot",
+            "grok",
+            "openai",
+            "xai",
+            "zai"
+          ],
+          "source": "docs/reference.md:49-53 and T6 metadata-only provider contract"
+        },
+        "reason": "utility runner role: favor bounded fast search/retrieval semantics instead of upgrading every role to one deep profile",
+        "roleFit": "utility-runner",
+        "runtimeFallback": {
+          "kind": "runtime-fallback",
+          "manualGateRequired": true,
+          "separateFromProactiveSelection": true,
+          "source": "docs/reference.md:57-62",
+          "status": "fallback_manual_gate",
+          "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
+        },
+        "selectedBy": "provider-override",
+        "selectedModelProfile": {
+          "model": "openai-codex",
+          "provider": "codex",
+          "reasoning": "low"
+        }
+      },
+      "model_profile": {
+        "model": "openai-codex",
+        "provider": "codex",
+        "reasoning": "low"
+      },
+      "nextTasks": [],
+      "ok": true,
+      "operation": "spawn",
+      "oracleReview": {
+        "fallback_models": [],
+        "gate": "xai/grok",
+        "mode": "local-smoke",
+        "model": "xai/grok-4.3",
+        "provider": "xai",
+        "realGrokJudgment": false,
+        "required": true,
+        "reviewKind": "static-local-schema",
+        "role": "oracle",
+        "status": "passed",
+        "strict": true,
+        "variant": "high"
+      },
+      "parentRunId": null,
+      "recordPath": "/private/var/folders/6r/g20fxk_s1ds24_h6lm971wt00000gn/T/tmp7pl3532q/runs/spawns/run-9cf956fbabf8.json",
+      "record_path": "/private/var/folders/6r/g20fxk_s1ds24_h6lm971wt00000gn/T/tmp7pl3532q/runs/spawns/run-9cf956fbabf8.json",
+      "runId": "run-9cf956fbabf8",
+      "run_id": "run-9cf956fbabf8",
+      "runtimeFallback": {
+        "kind": "runtime-fallback",
+        "manualGateRequired": true,
+        "separateFromProactiveSelection": true,
+        "source": "docs/reference.md:57-62",
+        "status": "fallback_manual_gate",
+        "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
+      },
+      "schemaVersion": 1,
+      "session_id": "run-9cf956fbabf8",
+      "status": "completed",
+      "task": "fixture 1",
+      "taskId": "task-08ad9d7e",
+      "task_id": "task-08ad9d7e",
+      "touchedFiles": [],
+      "touched_files": []
+    },
+    {
+      "agent": "sisyphus-junior",
+      "agentId": "sisyphus-junior",
+      "agent_id": "sisyphus-junior",
+      "blockers": [],
+      "broker": {
+        "api": "internal-non-agent",
+        "evidenceClass": "dependency-free-smoke",
+        "lease": {
+          "depth": 0,
+          "maxDepth": 2,
+          "recursionControlled": true
+        },
+        "modelProfile": {
+          "model": "openai-codex",
+          "provider": "codex",
+          "reasoning": "low"
+        },
+        "operation": "spawn",
+        "policyDecision": {
+          "allowed": true,
+          "policy": "omo-policy",
+          "reason": "OMO policy selected bounded fallback lane; native Grok sub-agent primitive remains manual-gated"
+        },
+        "selectedLane": "approved-provider:codex",
+        "version": 1
+      },
+      "category": "quick",
+      "children": [],
+      "debug": {
+        "runtimeFallback": {
+          "kind": "runtime-fallback",
+          "manualGateRequired": true,
+          "separateFromProactiveSelection": true,
+          "source": "docs/reference.md:57-62",
+          "status": "fallback_manual_gate",
+          "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
+        }
+      },
+      "evidence": [
+        {
+          "class": "dependency-free-smoke",
+          "providerOutput": "[not-executed:fallback]",
+          "summary": "dependency-free fallback spawn for sisyphus-junior"
+        }
+      ],
+      "evidenceArtifactPaths": [
+        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/evidence/spawn-envelope-2.json"
+      ],
+      "evidenceArtifacts": [
+        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/evidence/spawn-envelope-2.json"
+      ],
+      "evidenceClass": "dependency-free-smoke",
+      "execution": {
+        "actualChildExecution": false,
+        "adapterMode": "fallback",
+        "completionMeaning": "contract-envelope-completed",
+        "contractStatus": "completed",
+        "nativeGrokSpawnVerified": false
+      },
+      "manual_gate_required": false,
+      "mode": "fallback",
+      "modelProfile": {
+        "model": "openai-codex",
+        "provider": "codex",
+        "reasoning": "low"
+      },
+      "modelResolution": {
+        "fallbackChainSource": "agent-model-matching.md:141-149,202-243,311-325 adapted through docs/reference.md:49-59 and T6 provider metadata boundaries",
+        "proactiveFallbackChain": [
+          {
+            "model": "xai/grok-4.3",
+            "provider": "xai",
+            "reasoning": "low",
+            "roleFit": "Grok-first lightweight utility default"
+          },
+          {
+            "model": "github-copilot/gpt-5.5",
+            "provider": "copilot",
+            "reasoning": "low",
+            "roleFit": "approved optional utility lane"
+          },
+          {
+            "model": "zai-coding-plan/glm-5",
+            "provider": "zai",
+            "reasoning": "low",
+            "roleFit": "approved cheap utility fallback"
+          }
+        ],
+        "providerBoundary": {
+          "approvedProviders": [
+            "codex",
+            "copilot",
+            "grok",
+            "openai",
+            "xai",
+            "zai"
+          ],
+          "source": "docs/reference.md:49-53 and T6 metadata-only provider contract"
+        },
+        "reason": "utility runner role: favor bounded fast search/retrieval semantics instead of upgrading every role to one deep profile",
+        "roleFit": "utility-runner",
+        "runtimeFallback": {
+          "kind": "runtime-fallback",
+          "manualGateRequired": true,
+          "separateFromProactiveSelection": true,
+          "source": "docs/reference.md:57-62",
+          "status": "fallback_manual_gate",
+          "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
+        },
+        "selectedBy": "provider-override",
+        "selectedModelProfile": {
+          "model": "openai-codex",
+          "provider": "codex",
+          "reasoning": "low"
+        }
+      },
+      "model_profile": {
+        "model": "openai-codex",
+        "provider": "codex",
+        "reasoning": "low"
+      },
+      "nextTasks": [],
+      "ok": true,
+      "operation": "spawn",
+      "oracleReview": {
+        "fallback_models": [],
+        "gate": "xai/grok",
+        "mode": "local-smoke",
+        "model": "xai/grok-4.3",
+        "provider": "xai",
+        "realGrokJudgment": false,
+        "required": true,
+        "reviewKind": "static-local-schema",
+        "role": "oracle",
+        "status": "passed",
+        "strict": true,
+        "variant": "high"
+      },
+      "parentRunId": null,
+      "recordPath": "/private/var/folders/6r/g20fxk_s1ds24_h6lm971wt00000gn/T/tmp7pl3532q/runs/spawns/run-5d011ab99443.json",
+      "record_path": "/private/var/folders/6r/g20fxk_s1ds24_h6lm971wt00000gn/T/tmp7pl3532q/runs/spawns/run-5d011ab99443.json",
+      "runId": "run-5d011ab99443",
+      "run_id": "run-5d011ab99443",
+      "runtimeFallback": {
+        "kind": "runtime-fallback",
+        "manualGateRequired": true,
+        "separateFromProactiveSelection": true,
+        "source": "docs/reference.md:57-62",
+        "status": "fallback_manual_gate",
+        "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
+      },
+      "schemaVersion": 1,
+      "session_id": "run-5d011ab99443",
+      "status": "completed",
+      "task": "fixture 2",
+      "taskId": "task-f3406cd3",
+      "task_id": "task-f3406cd3",
+      "touchedFiles": [],
+      "touched_files": []
+    },
+    {
+      "agent": "sisyphus-junior",
+      "agentId": "sisyphus-junior",
+      "agent_id": "sisyphus-junior",
+      "blockers": [],
+      "broker": {
+        "api": "internal-non-agent",
+        "evidenceClass": "dependency-free-smoke",
+        "lease": {
+          "depth": 0,
+          "maxDepth": 2,
+          "recursionControlled": true
+        },
+        "modelProfile": {
+          "model": "openai-codex",
+          "provider": "codex",
+          "reasoning": "low"
+        },
+        "operation": "spawn",
+        "policyDecision": {
+          "allowed": true,
+          "policy": "omo-policy",
+          "reason": "OMO policy selected bounded fallback lane; native Grok sub-agent primitive remains manual-gated"
+        },
+        "selectedLane": "approved-provider:codex",
+        "version": 1
+      },
+      "category": "quick",
+      "children": [],
+      "debug": {
+        "runtimeFallback": {
+          "kind": "runtime-fallback",
+          "manualGateRequired": true,
+          "separateFromProactiveSelection": true,
+          "source": "docs/reference.md:57-62",
+          "status": "fallback_manual_gate",
+          "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
+        }
+      },
+      "evidence": [
+        {
+          "class": "dependency-free-smoke",
+          "providerOutput": "[not-executed:fallback]",
+          "summary": "dependency-free fallback spawn for sisyphus-junior"
+        }
+      ],
+      "evidenceArtifactPaths": [
+        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/evidence/spawn-envelope-3.json"
+      ],
+      "evidenceArtifacts": [
+        "/Users/ilseoblee/workspace/linalab/lfg/tests/fixtures/evidence/spawn-envelope-3.json"
+      ],
+      "evidenceClass": "dependency-free-smoke",
+      "execution": {
+        "actualChildExecution": false,
+        "adapterMode": "fallback",
+        "completionMeaning": "contract-envelope-completed",
+        "contractStatus": "completed",
+        "nativeGrokSpawnVerified": false
+      },
+      "manual_gate_required": false,
+      "mode": "fallback",
+      "modelProfile": {
+        "model": "openai-codex",
+        "provider": "codex",
+        "reasoning": "low"
+      },
+      "modelResolution": {
+        "fallbackChainSource": "agent-model-matching.md:141-149,202-243,311-325 adapted through docs/reference.md:49-59 and T6 provider metadata boundaries",
+        "proactiveFallbackChain": [
+          {
+            "model": "xai/grok-4.3",
+            "provider": "xai",
+            "reasoning": "low",
+            "roleFit": "Grok-first lightweight utility default"
+          },
+          {
+            "model": "github-copilot/gpt-5.5",
+            "provider": "copilot",
+            "reasoning": "low",
+            "roleFit": "approved optional utility lane"
+          },
+          {
+            "model": "zai-coding-plan/glm-5",
+            "provider": "zai",
+            "reasoning": "low",
+            "roleFit": "approved cheap utility fallback"
+          }
+        ],
+        "providerBoundary": {
+          "approvedProviders": [
+            "codex",
+            "copilot",
+            "grok",
+            "openai",
+            "xai",
+            "zai"
+          ],
+          "source": "docs/reference.md:49-53 and T6 metadata-only provider contract"
+        },
+        "reason": "utility runner role: favor bounded fast search/retrieval semantics instead of upgrading every role to one deep profile",
+        "roleFit": "utility-runner",
+        "runtimeFallback": {
+          "kind": "runtime-fallback",
+          "manualGateRequired": true,
+          "separateFromProactiveSelection": true,
+          "source": "docs/reference.md:57-62",
+          "status": "fallback_manual_gate",
+          "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
+        },
+        "selectedBy": "provider-override",
+        "selectedModelProfile": {
+          "model": "openai-codex",
+          "provider": "codex",
+          "reasoning": "low"
+        }
+      },
+      "model_profile": {
+        "model": "openai-codex",
+        "provider": "codex",
+        "reasoning": "low"
+      },
+      "nextTasks": [],
+      "ok": true,
+      "operation": "spawn",
+      "oracleReview": {
+        "fallback_models": [],
+        "gate": "xai/grok",
+        "mode": "local-smoke",
+        "model": "xai/grok-4.3",
+        "provider": "xai",
+        "realGrokJudgment": false,
+        "required": true,
+        "reviewKind": "static-local-schema",
+        "role": "oracle",
+        "status": "passed",
+        "strict": true,
+        "variant": "high"
+      },
+      "parentRunId": null,
+      "recordPath": "/private/var/folders/6r/g20fxk_s1ds24_h6lm971wt00000gn/T/tmp7pl3532q/runs/spawns/run-8ec4f7414916.json",
+      "record_path": "/private/var/folders/6r/g20fxk_s1ds24_h6lm971wt00000gn/T/tmp7pl3532q/runs/spawns/run-8ec4f7414916.json",
+      "runId": "run-8ec4f7414916",
+      "run_id": "run-8ec4f7414916",
+      "runtimeFallback": {
+        "kind": "runtime-fallback",
+        "manualGateRequired": true,
+        "separateFromProactiveSelection": true,
+        "source": "docs/reference.md:57-62",
+        "status": "fallback_manual_gate",
+        "trigger": "reactive recovery when native Grok sub-agent spawning is unavailable or execution fails"
+      },
+      "schemaVersion": 1,
+      "session_id": "run-8ec4f7414916",
+      "status": "completed",
+      "task": "fixture 3",
+      "taskId": "task-c2afdcb2",
+      "task_id": "task-c2afdcb2",
+      "touchedFiles": [],
+      "touched_files": []
     }
   ]
 }

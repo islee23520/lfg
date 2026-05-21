@@ -4,7 +4,7 @@ This document explains how the entire `lfg` system operates, from agent definiti
 
 ## 1. Core Goal
 
-`lfg` ports the **complete OMO (oh-my-openagent) agent hierarchy** into Grok Build as a real agent operating system.
+`lfg` ports the OMO (oh-my-openagent) agent hierarchy into Grok Build as a real agent operating system, with native Grok child-spawn and default closed-loop parity tracked as explicit release gates.
 
 - Sisyphus owns intent and Boulder
 - Prometheus plans
@@ -13,7 +13,7 @@ This document explains how the entire `lfg` system operates, from agent definiti
 - Sisyphus-Junior handles category-bounded tasks
 - builtin-agents resolves models, categories, and policies
 
-All agents run on Grok models (`xai/grok-4.3`). Grok-native sub-agent spawning is the target delegation path. Team Mode provides the durable multi-agent coordination layer.
+Most agents run on Grok models (`xai/grok-4.3`). Hephaestus is the intentional exception and uses its approved GPT-style deep-specialist profile. Current delegation has passing T28 manual evidence for Grok-discoverable child agents while dependency-free smoke paths continue to use deterministic fallback envelopes. Team Mode provides the durable multi-agent coordination layer.
 
 ## 2. Agent Registry (Source of Truth)
 
@@ -31,14 +31,14 @@ plugins/lfg/src/agents/
 
 Each JSON defines:
 - `id`, `name`, `family`, `role`
-- `modelProfile` (always `provider: "xai"`, `model: "xai/grok-4.3"`)
+- `modelProfile` (Grok-first for most agents; Hephaestus is the approved GPT-style exception)
 - `reasoningLevel`
 - `categories` the agent is allowed to handle
 - `tools` and `blockedTools`
 
-`load_omo_agent_registry()` in `plugins/lfg/bin/lfg.py` reads these files at runtime and builds the in-memory registry used by `lfg agents list`, `lfg agents inspect`, `spawn_agent()`, and MCP tools.
+`load_omo_agent_registry()` in `plugins/lfg/src/runtime/cli.py` reads these files at runtime and builds the in-memory registry used by `lfg agents list`, `lfg agents inspect`, `spawn_agent()`, and MCP tools.
 
-Legacy agents under `plugins/lfg/src/agents/legacy/` exist only for backward compatibility with old team specs. They are **not** part of the first-class OMO registry.
+Historical custom agent names are reference material only. They are **not** part of the first-class OMO registry and are not valid team-spec members.
 
 ## 3. Grok Spawn Adapter
 
@@ -47,7 +47,7 @@ Entry point: `lfg spawn <agent_id> --category <c> --task "..."`
 Flow inside `spawn_agent()`:
 1. Look up agent in `_OMO_REGISTRY_INDEX`
 2. Validate category (if provided)
-3. Call `resolve_omo_model_profile()` → forces `xai/grok-4.3` + appropriate reasoning level
+3. Call `resolve_omo_model_profile()` → resolves the approved model profile and appropriate reasoning level for the selected agent/category
 4. Return structured fallback envelope + persist record under `.lfg/runs/spawns/<uuid>.json`
 
 Real Grok-native `spawn_subagent` call is still behind a manual gate (see `docs/evidence/grok-subagent-spawning.md`). Until the gate is removed, the adapter provides deterministic fallback behavior for smoke tests and local development.
@@ -84,7 +84,7 @@ All durable runtime state lives under `.lfg/` (or `$GROK_PLUGIN_DATA`):
 
 This project treats exact evidence strings as product contracts.
 
-- `plugins/lfg/bin/self-test.sh` must emit dozens of `*=ok` lines.
+- `python3 plugins/lfg/bin/self-test.py` must emit dozens of `*=ok` lines.
 - `docs/SMOKE.md` defines every gate (local, Grok install, tmux lifecycle, MCP isolation, marketplace source, hook discovery, etc.).
 - `docs/TEST_RULES.md` classifies every test as:
   - Dependency-free smoke
@@ -105,16 +105,17 @@ No claim is accepted without a matching evidence string.
 | `RELEASE_CHECKLIST.md` | Pre-merge / pre-tag checklist | 30+ gates |
 | `reference.md` | Official Grok Build / xAI platform docs | Always consult before claiming "Grok-native" |
 | `GROK-BUILD-PROMPT-STAGES.md` | Visual prompt lifecycle map | Separates official xAI substrate from LFG/OMO orchestration |
+| `GROK-EXTENSIONS-SSOT.md` | Grok extension discovery and compatibility guide | Skills, plugins, hooks, marketplace, subagent, Claude Code, and AGENTS.md discovery rules |
 
 ## 8. Current Execution Flow (Team Mode ON)
 
 1. User invokes `lfg spawn ...` or `lfg team create ...`
-2. `lfg.py` loads the 6 OMO agents via `load_omo_agent_registry()`
+2. `src/runtime/cli.py` loads the 6 OMO agents via `load_omo_agent_registry()`
 3. `builtin-agents` resolves model + reasoning level for the requested category
 4. `spawn_agent()` or `team_create()` executes
 5. Team Mode coordinates mailbox/tasklist between spawned agents
 6. All results are written to `.lfg/`
-7. `lfg doctor`, `lfg status`, or `self-test.sh` verifies evidence strings
+7. `lfg doctor`, `lfg status`, or `self-test.py` verifies evidence strings
 
 ---
 

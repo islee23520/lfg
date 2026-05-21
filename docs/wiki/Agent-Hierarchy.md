@@ -1,8 +1,8 @@
 # Agent Hierarchy
 
-`lfg` uses exactly 6 first-class OMO agents as the canonical registry. All of them are defined as JSON files under `plugins/lfg/src/agents/` and are loaded at runtime by `load_omo_agent_registry()`.
+`lfg` uses the upstream OMO agent registry as its canonical runtime set. The first-class JSON definitions under `plugins/lfg/src/agents/` are loaded at runtime by `load_omo_agent_registry()`.
 
-## The 6 Canonical Agents
+## Primary Agents and Registry
 
 | Agent | Family | Role | Reasoning | Key Categories |
 |-------|--------|------|-----------|----------------|
@@ -12,6 +12,8 @@
 | **Hephaestus** | deep-worker | Autonomous deep worker. Receives goals (not recipes), researches, implements, and verifies difficult work with strong evidence discipline. Requires approved GPT-style deep-specialist profile. | medium | deep, ultrabrain, artistry |
 | **Atlas** | checklist | Todo-list orchestrator. Reads a plan, executes dependency waves, updates checkboxes, verifies every step, and continues until the checklist is complete. | high | unspecified-high |
 | **builtin-agents** | policy | Factory and policy layer. Resolves model profile, category, skill availability, overrides, blocked tools, and registration conditions. | low | policy, configuration |
+
+The runtime registry also includes the specialist OMO agents `oracle`, `librarian`, `explore`, `multimodal-looker`, `metis`, and `momus`.
 
 ## Model Resolution
 
@@ -23,19 +25,19 @@ Hephaestus is the intentional exception from upstream OMO model matching: it req
 
 ## Legacy Agents
 
-`plugins/lfg/src/agents/legacy/` still contains older definitions (`lina-orchestrator`, `gonow-worker`, `iz-architect`, `grok-consultant`). These are kept **only** for backward compatibility with existing team specs that have not yet migrated. They are **not** part of the canonical OMO registry.
+Older custom names (`lina`, `gonow`, `iz`, `grok`) are historical only. They are not bundled in the current plugin and are not valid team-spec members.
 
 ## How Agents Are Used
 
 - `lfg agents list` / `lfg --json agents list`
 - `lfg agents inspect <agent> --category <c>`
 - `lfg spawn <agent> --category <c> --task "..."` (via Grok Spawn Adapter)
-- MCP tools: `grok_build_omo_agent_catalog`, `grok_build_omo_doctor`
+- MCP tools: canonical short names `omo_agent_catalog`, `omo_doctor`
 
 ## Verification
 
 Every agent JSON is validated during:
-- `plugins/lfg/bin/self-test.sh`
+- `python3 plugins/lfg/bin/self-test.py`
 - `lfg doctor`
 - `lfg --json doctor state schema check`
 

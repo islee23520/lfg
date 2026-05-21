@@ -4,13 +4,13 @@ This plugin bundles a fail-open passive audit hook at:
 
 ```text
 plugins/lfg/hooks/hooks.json
-plugins/lfg/hooks/scripts/lfg-audit-hook.sh
+plugins/lfg/hooks/scripts/lfg-audit-hook.sh  (thin router → delegates to src/hooks/audit_hook.sh)
 ```
 
 Grok hook docs recommend command paths relative to the hook JSON file, so the plugin uses:
 
 ```text
-scripts/lfg-audit-hook.sh
+scripts/lfg-audit-hook.sh  (thin router → delegates to src/hooks/audit_hook.sh)
 ```
 
 ## Evidence gates
@@ -116,23 +116,23 @@ This proves Grok's hook engine fires for global hooks in the same headless/tool-
 Because Grok `0.1.211` fires global hooks but does not emit plugin hook audit records in the tested paths, `lfg` includes an optional bridge installer:
 
 ```sh
-plugins/lfg/scripts/install-lfg-global-hook-bridge.sh
+plugins/lfg/scripts/hook-bridge-install.py
 ```
 
 Verify it with:
 
 ```sh
-plugins/lfg/scripts/verify-lfg-global-hook-bridge.sh
+plugins/lfg/scripts/hook-bridge-verify.py
 ```
 
 Expected evidence:
 
 ```text
-lfg-global-hook-bridge=installed
+lfg-global-hook-bridge=installed-with-python-harness
 grok-global-hook-bridge=ok
 ```
 
-This installs a global `~/.grok/hooks/lfg-audit-bridge.json` that delegates to the installed plugin audit hook at `~/.grok/plugins/lfg/hooks/scripts/lfg-audit-hook.sh`. The verification runs a real Grok tool-use session and confirms `.lfg/events/audit.jsonl` is written.
+This installs a global `~/.grok/hooks/lfg-audit-bridge.json` that uses `lfg-audit-bridge.py` for audit events and routes critical continuation events directly through `lfg-goal-harness.py`. The verification runs a real Grok tool-use session and confirms `.lfg/events/audit.jsonl` is written.
 
 Runtime CLI support:
 
@@ -147,7 +147,7 @@ lfg doctor
 
 ## T18 continuation and recovery hooks
 
-`plugins/lfg/hooks/scripts/lfg-goal-harness.sh` remains a fail-open wrapper around `lfg-goal-harness.py`; wrapper failures exit 0 and stay silent. The Python harness may print prompt-injection text for hook events, but MCP never invokes this hook path and `plugins/lfg/bin/lfg-mcp.py` continues to reserve stdout for JSON-RPC frames only. Runtime diagnostics stay in returned JSON, stderr, or evidence files.
+`plugins/lfg/hooks/scripts/lfg-goal-harness.py` is the fail-open hook entrypoint for active-goal prompt injection. Before printing hook text, the Python harness reserves the shared `.lfg/dispatch-gate/` continuation gate and records `manual_gate_required` evidence. MCP never invokes this hook path and `plugins/lfg/bin/lfg-mcp.py` continues to reserve stdout for JSON-RPC frames only. Runtime diagnostics stay in returned JSON, stderr, or evidence files.
 
 The TODO continuation reminder ports the upstream OMO pattern from `orchestration.md` lines 279-294 using the literal marker:
 
@@ -155,7 +155,7 @@ The TODO continuation reminder ports the upstream OMO pattern from `orchestratio
 [SYSTEM REMINDER - TODO CONTINUATION]
 ```
 
-The reminder is bounded. It appears only when all of these are true: durable LFG state exists, at least one Boulder or active-run todo is incomplete, and new progress evidence exists in `recent_evidence` since the last reminder. The harness records `harness/todo-continuation.json` with the pending/evidence fingerprint, so the same incomplete state cannot create an infinite reminder loop without changed progress evidence. Completed todos and incomplete todos with no evidence produce no TODO-continuation reminder.
+The reminder is bounded. It appears only when all of these are true: durable LFG state exists, at least one Boulder or active-run todo is incomplete, and new progress evidence exists in `recent_evidence` since the last reminder. The harness records `harness/todo-continuation.json` with the pending/evidence fingerprint and reserves a matching dispatch-gate artifact, so the same incomplete state cannot create an infinite reminder loop without changed progress evidence. Completed todos and incomplete todos with no evidence produce no TODO-continuation reminder.
 
 The same hook/documentation contract represents the T18 recovery surfaces:
 
@@ -168,7 +168,7 @@ The same hook/documentation contract represents the T18 recovery surfaces:
 Dependency-free smoke evidence:
 
 ```sh
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 ```
 
 Expected T18 evidence strings:
@@ -177,5 +177,5 @@ Expected T18 evidence strings:
 mcp-stdio-isolation=ok
 mcp-stderr-isolated=ok
 todo-continuation=ok
+continuation-gate=ok
 ```
-

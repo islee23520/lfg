@@ -14,16 +14,16 @@ Repo-native integration tests may use repository binaries, subprocesses, the fil
 
 ### Environment/manual gates
 
-Environment/manual gates cover behavior that depends on tmux, the real Grok plugin host, installed `lfg` symlinks, provider availability, marketplace state, or remote GitHub Actions state. `plugins/lfg/bin/self-test.sh` includes the bounded local tmux lifecycle gate.
+Environment/manual gates cover behavior that depends on tmux, the real Grok plugin host, installed `lfg` symlinks, provider availability, marketplace state, or remote GitHub Actions state. `python3 plugins/lfg/bin/self-test.py` includes the bounded local tmux lifecycle gate.
 
 ## Rules
 
 | Rule ID | Rule | Enforcement hook |
 | --- | --- | --- |
 | TR-001 | Every new or changed test must be classified as dependency-free unit/smoke, repo-native integration, or environment/manual gate. | `tests/smoke/test_grok_build_runtime.py` enforces this document's required markers; reviewers enforce classification on changed tests. |
-| TR-002 | Dependency-free unit/smoke tests must use temp state and avoid external binaries, provider credentials, real Grok sessions, and real tmux sessions. | `tests/smoke/test_grok_build_runtime.py` and `plugins/lfg/bin/self-test.sh`. |
+| TR-002 | Dependency-free unit/smoke tests must use temp state and avoid external binaries, provider credentials, real Grok sessions, and real tmux sessions. | `tests/smoke/test_grok_build_runtime.py` and `python3 plugins/lfg/bin/self-test.py`. |
 | TR-003 | Repo-native integration tests may use local subprocesses, filesystem state, CLI binaries, and fake servers, but must be deterministic. | `python3 -m unittest tests.smoke.test_grok_build_runtime -v`. |
-| TR-004 | Environment/manual gates must distinguish missing environment from product failure. | `plugins/lfg/bin/self-test.sh`, `plugins/lfg/bin/grok-install-smoke.sh`, and manual Grok/tmux verification. |
+| TR-004 | Environment/manual gates must distinguish missing environment from product failure. | `python3 plugins/lfg/bin/self-test.py`, `python3 plugins/lfg/bin/grok-install-smoke.py`, and manual Grok/tmux verification. |
 | TR-005 | Exact JSON, tool-call, MCP, and CLI assertions are valid behavior-contract tests. Do not weaken them under the prompt-text rule. | Existing MCP/CLI assertions in `tests/smoke/test_grok_build_runtime.py`. |
 | TR-006 | Prompt tests should assert behavioral invariants, not incidental prose, except where identity, safety wording, or exact command output is itself the product contract. | Review of prompt-facing tests plus existing identity/safety smoke coverage. |
 | TR-007 | New tests must not add `load_grok_build_module()` or equivalent global module monkey-patching without scoped approval. Existing uses are grandfathered debt. | Reviewer check and this enforced test-rules contract. |
@@ -34,10 +34,10 @@ Environment/manual gates cover behavior that depends on tmux, the real Grok plug
 Run the narrowest gate that proves the changed surface, then widen before release:
 
 ```sh
-python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py tests/smoke/test_grok_build_runtime.py
+python3 -m py_compile plugins/lfg/bin/lfg.py plugins/lfg/bin/lfg-mcp.py plugins/lfg/bin/self-test.py plugins/lfg/bin/grok-install-smoke.py plugins/lfg/src/runtime/cli.py plugins/lfg/src/runtime/constants.py tests/smoke/test_grok_build_runtime.py
 python3 -m ruff check .
 python3 -m unittest tests.smoke.test_grok_build_runtime -v
-plugins/lfg/bin/self-test.sh
+python3 plugins/lfg/bin/self-test.py
 plugins/lfg/bin/lfg --json doctor
 ```
 

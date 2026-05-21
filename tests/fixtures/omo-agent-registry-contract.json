@@ -1,5 +1,5 @@
 {
-  "target_ids": [
+  "full_inventory_ids": [
     "sisyphus",
     "hephaestus",
     "prometheus",
@@ -10,7 +10,8 @@
     "multimodal-looker",
     "metis",
     "momus",
-    "sisyphus-junior"
+    "sisyphus-junior",
+    "builtin-agents"
   ],
   "primary_order": [
     "sisyphus",
@@ -18,7 +19,7 @@
     "prometheus",
     "atlas"
   ],
-  "full_inventory_ids": [
+  "target_ids": [
     "sisyphus",
     "hephaestus",
     "prometheus",

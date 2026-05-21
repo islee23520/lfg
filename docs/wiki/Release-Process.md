@@ -6,7 +6,7 @@ Use this page as the authoritative checklist before merging or tagging `islee235
 
 - [ ] Local smoke passes with `runtime-smoke-coverage=100%`
 - [ ] Aggregated local release-readiness passes with `release-readiness-local=ok`
-- [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=17`
+- [ ] Real Grok install smoke passes with `grok-install-smoke=ok skills=<discovered-count> key_skills_present`
 - [ ] Installed `lfg` symlink surface smoke passes
 - [ ] Team preflight + provider matrix smoke passes
 - [ ] Team tmux lifecycle smoke passes with `team-tmux-lifecycle=ok`
@@ -20,9 +20,9 @@ Use this page as the authoritative checklist before merging or tagging `islee235
 ## Commands
 
 ```sh
-plugins/lfg/bin/self-test.sh
-plugins/lfg/bin/self-test.sh
-plugins/lfg/bin/self-test.sh plus marketplace remote smoke p1 lfg-v0.3.0-p1
+python3 plugins/lfg/bin/self-test.py
+python3 plugins/lfg/bin/self-test.py
+python3 plugins/lfg/bin/self-test.py plus marketplace remote smoke p1 lfg-v0.3.0-p1
 ```
 
 See the full list in `docs/RELEASE_CHECKLIST.md`.

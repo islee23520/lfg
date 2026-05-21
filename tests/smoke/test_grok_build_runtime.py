@@ -76,6 +76,184 @@ class RuntimeSmoke(unittest.TestCase):
         }, indent=2) + "\n", encoding="utf-8")
         return str(path)
 
+    def test_lfg_core_agent_registry_layer(self) -> None:
+        """OMO registry/spawn/Atlas policy lives in dependency-free core modules used by runtime."""
+        core_path = PLUGIN / "src" / "core" / "agent_registry.py"
+        spec = importlib.util.spec_from_file_location("lfg_core_agent_registry_smoke", core_path)
+        assert spec and spec.loader
+        core = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(core)
+
+        spawn_core_path = PLUGIN / "src" / "core" / "spawn_policy.py"
+        spawn_spec = importlib.util.spec_from_file_location("lfg_core_spawn_policy_smoke", spawn_core_path)
+        assert spawn_spec and spawn_spec.loader
+        spawn_core = importlib.util.module_from_spec(spawn_spec)
+        spawn_spec.loader.exec_module(spawn_core)
+
+        atlas_core_path = PLUGIN / "src" / "core" / "atlas_boulder.py"
+        atlas_spec = importlib.util.spec_from_file_location("lfg_core_atlas_boulder_smoke", atlas_core_path)
+        assert atlas_spec and atlas_spec.loader
+        atlas_core = importlib.util.module_from_spec(atlas_spec)
+        atlas_spec.loader.exec_module(atlas_core)
+
+        constants_path = PLUGIN / "src" / "runtime" / "constants.py"
+        constants_spec = importlib.util.spec_from_file_location("lfg_runtime_constants_smoke", constants_path)
+        assert constants_spec and constants_spec.loader
+        constants = importlib.util.module_from_spec(constants_spec)
+        constants_spec.loader.exec_module(constants)
+
+        registry = core.load_agent_registry(
+            agents_dir=PLUGIN / "src" / "agents",
+            canonical_agent_ids=constants.CANONICAL_OMO_AGENT_IDS,
+            team_eligibility_registry=constants.OMO_TEAM_ELIGIBILITY_REGISTRY,
+            primary_agent_ids=constants.OMO_PRIMARY_AGENT_IDS,
+        )
+        cli_registry = self.run_lfg("agents", "list")
+
+        self.assertEqual([agent["id"] for agent in registry], [agent["id"] for agent in cli_registry["agents"]])
+        self.assertEqual(registry[0]["id"], "sisyphus")
+        self.assertTrue(registry[0]["primaryOrder"])
+        self.assertTrue(registry[0]["teamMemberEligible"])
+
+        runtime_src = (PLUGIN / "src" / "runtime" / "cli.py").read_text(encoding="utf-8")
+        core_src = "\n".join(path.read_text(encoding="utf-8") for path in (core_path, spawn_core_path, atlas_core_path))
+        self.assertNotIn("subprocess", core_src)
+        self.assertNotIn("urllib", core_src)
+        self.assertIn("_AGENT_CORE.load_agent_registry", runtime_src)
+        self.assertIn("_AGENT_CORE.resolve_model_profile", runtime_src)
+        self.assertIn("_SPAWN_CORE.canonical_spawn_envelope", runtime_src)
+        self.assertIn("_SPAWN_CORE.validate_spawn_envelope", runtime_src)
+        self.assertIn("_ATLAS_CORE.progress", runtime_src)
+        self.assertIn("_ATLAS_CORE.build_boulder", runtime_src)
+        self.assertIn("_DISPATCH_GATE.reserve_dispatch_gate", runtime_src)
+
+        broker = spawn_core.supervision_broker_decision(
+            operation="spawn",
+            lane="fallback-local",
+            model_profile={"provider": "xai"},
+            evidence_class="dependency-free-smoke",
+            reason="smoke",
+            max_depth=2,
+            broker_api="internal-non-agent",
+            broker_version=1,
+        )
+        envelope = spawn_core.canonical_spawn_envelope(
+            operation="spawn",
+            status="completed",
+            ok=True,
+            mode="fallback",
+            agent_id="sisyphus-junior",
+            category="quick",
+            task="bounded",
+            task_id="task-core",
+            run_id="run-core",
+            parent_run_id=None,
+            model_profile={"provider": "xai", "model": "xai/grok-4.3", "reasoning": "low"},
+            model_resolution={},
+            children=[],
+            blockers=[],
+            touched_files=[],
+            evidence=["core=ok"],
+            evidence_class="dependency-free-smoke",
+            broker_decision=broker,
+            debug={},
+            next_tasks=[],
+            manual_gate_required=False,
+            spawn_envelope_schema_version=1,
+            spawn_envelope_statuses={"completed", "blocked", "failed"},
+            spawn_envelope_modes={"native-grok", "fallback"},
+            spawn_envelope_evidence_classes={"dependency-free-smoke", "repo-native-integration", "real-grok-manual-gate"},
+            completion_statuses={"complete", "completed", "pass", "passed"},
+            grok_oracle_review={"required": True, "gate": "xai/grok"},
+            redacter=lambda value: value,
+            artifact_writer=None,
+            default_broker_decision=lambda _op, _profile, _evidence_class: broker,
+        )
+        errors = spawn_core.validate_spawn_envelope(
+            envelope,
+            spawn_envelope_schema_version=1,
+            spawn_envelope_statuses={"completed", "blocked", "failed"},
+            spawn_envelope_modes={"native-grok", "fallback"},
+            spawn_envelope_evidence_classes={"dependency-free-smoke", "repo-native-integration", "real-grok-manual-gate"},
+            broker_api="internal-non-agent",
+            validate_evidence_gate=lambda _record: [],
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(envelope["execution"]["completionMeaning"], "contract-envelope-completed")
+
+        plan = {
+            "id": "plan-core",
+            "steps": [
+                {"id": "1", "status": "completed"},
+                {"id": "2", "status": "pending", "depends_on": "1"},
+                {"id": "3", "status": "pending", "depends_on": ["2"]},
+            ],
+        }
+        progress = atlas_core.progress(plan, completion_statuses={"complete", "completed", "pass", "passed"})
+        self.assertEqual(progress["completed"], 1)
+        self.assertEqual(progress["nextTask"]["id"], "2")
+        self.assertEqual(progress["blocked"], [{"taskId": "3", "dependsOn": ["2"], "reason": "unresolved-dependency"}])
+
+    def test_continuation_dispatch_gate_manual_gate_artifact(self) -> None:
+        gate_path = PLUGIN / "src" / "runtime" / "dispatch_gate.py"
+        spec = importlib.util.spec_from_file_location("lfg_runtime_dispatch_gate_smoke", gate_path)
+        assert spec and spec.loader
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+
+        dispatch_root = pathlib.Path(self.tmp.name) / "dispatch-gate-fixture"
+        first = gate.reserve_dispatch_gate(
+            dispatch_root=dispatch_root,
+            session_id="session-1",
+            plan_id="plan-1",
+            boulder_version="2",
+            reason="loop_start",
+            target_agent="sisyphus",
+            prompt="continue",
+            state_snapshot={"todo": ["verify"]},
+            native_dispatch_supported=False,
+            now_value="2026-05-20T00:00:00Z",
+        )
+        self.assertEqual(first["dispatch"], "manual_gate_required")
+        self.assertFalse(first["duplicateSuppressed"])
+        self.assertTrue(pathlib.Path(first["artifactPath"]).exists())
+        artifact = json.loads(pathlib.Path(first["artifactPath"]).read_text(encoding="utf-8"))
+        self.assertEqual(artifact["stateSnapshot"], {"todo": ["verify"]})
+        self.assertEqual(artifact["evidence"], ["continuation-gate=ok"])
+
+        second = gate.reserve_dispatch_gate(
+            dispatch_root=dispatch_root,
+            session_id="session-1",
+            plan_id="plan-1",
+            boulder_version="2",
+            reason="loop_start",
+            target_agent="sisyphus",
+            prompt="continue again",
+            state_snapshot={"todo": ["verify again"]},
+            native_dispatch_supported=False,
+            now_value="2026-05-20T00:00:01Z",
+        )
+        self.assertEqual(second["decision"], "duplicate_suppressed")
+        self.assertTrue(second["duplicateSuppressed"])
+        self.assertEqual(second["artifactPath"], first["artifactPath"])
+        self.assertTrue(second["manualGateRequired"])
+        self.assertEqual(second["stateSnapshot"], {"todo": ["verify"]})
+
+        started = self.run_lfg("loop", "start", "dispatch gate smoke")
+        self.assertEqual(started["dispatchGate"]["dispatch"], "manual_gate_required")
+        self.assertIn("continuation-gate=ok", started["dispatchGate"]["evidence"])
+        self.assertTrue(pathlib.Path(started["dispatchGate"]["artifactPath"]).exists())
+        started_artifact = json.loads(pathlib.Path(started["dispatchGate"]["artifactPath"]).read_text(encoding="utf-8"))
+        self.assertEqual(started["ultraworkId"], started_artifact["stateSnapshot"]["ultraworkId"])
+        repeated = self.run_lfg("loop", "start", "dispatch gate smoke")
+        self.assertTrue(repeated["dispatchGate"]["duplicateSuppressed"])
+        self.assertEqual(repeated["dispatchGate"]["artifactPath"], started["dispatchGate"]["artifactPath"])
+        self.assertEqual(repeated["ultraworkId"], started["ultraworkId"])
+        self.assertEqual(repeated["ultraworkId"], repeated["dispatchGate"]["stateSnapshot"]["ultraworkId"])
+        state_check = self.run_lfg("doctor", "state", "schema", "check")
+        self.assertIn("dispatchGate", state_check["stateRoots"])
+        self.assertIn("continuation-gate=ok", state_check["evidence"])
+
 
     def test_omo_agent_registry_cli(self) -> None:
         registry = self.run_lfg("agents", "list")
@@ -86,6 +264,22 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(set(contract["target_ids"]).issubset(ids), ids)
         self.assertEqual(ids, contract["full_inventory_ids"])
         self.assertEqual(registry["count"], len(contract["full_inventory_ids"]))
+        keywords = self.run_lfg("grok-build", "keywords")
+        self.assertTrue(keywords["ok"], keywords)
+        self.assertEqual(keywords["trigger"], "@")
+        self.assertEqual(keywords["registrationKind"], "known-keyword")
+        self.assertEqual(keywords["ids"], [f"@{agent_id}" for agent_id in ids])
+        self.assertEqual([entry["agentId"] for entry in keywords["keywords"]], ids)
+        self.assertTrue(all(entry["keyword"].startswith("@") for entry in keywords["keywords"]))
+        keyword_ids = self.run_lfg("grok-build", "keywords", "--ids")
+        self.assertEqual(keyword_ids, {"ok": True, "ids": keywords["ids"], "count": len(ids)})
+        wrapper = self.run_lfg("grok-build", "start", "--dry-run")
+        self.assertEqual(wrapper["guide"]["knownKeywords"]["ids"], keywords["ids"])
+        self.assertIn("Known @agent keywords:", wrapper["command"])
+        self.assertIn("LFG_GROK_BUILD_KNOWN_KEYWORDS_FILE", wrapper["command"])
+        self.assertIn("LFG_GROK_BUILD_KNOWN_KEYWORDS=", wrapper["command"])
+        self.assertIn("grok-build-known-keywords.json", wrapper["command"])
+        self.assertIn("@sisyphus-junior", wrapper["command"])
         self.assertIn("deep", registry["categoryModelProfiles"])
         for profile in registry["categoryModelProfiles"].values():
             self.assertEqual(profile["provider"], "xai")
@@ -140,6 +334,10 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(route["blockedTools"])
         self.assertTrue(route["verificationGate"]["required"])
         self.assertFalse(route["delegation"]["allowed"])
+        slash_route = self.run_lfg("slash", "/route --category quick execute a bounded slash task")
+        self.assertTrue(slash_route["ok"], slash_route)
+        self.assertEqual(slash_route["routeKind"], "category")
+        self.assertEqual(slash_route["selectedAgent"]["id"], "sisyphus-junior")
 
         unsupported = self.run_lfg("route", "--category", "quick-rust", "--task", "migrate unsupported category")
         self.assertFalse(unsupported["ok"], unsupported)
@@ -199,7 +397,7 @@ class RuntimeSmoke(unittest.TestCase):
             ("explore", None, "utility-runner", "xai", "medium"),
             ("librarian", None, "utility-runner", "xai", "medium"),
         ]
-        approved = {"codex", "copilot", "grok", "litellm", "openai", "xai", "zai"}
+        approved = {"codex", "copilot", "grok", "openai", "xai", "zai"}
         for agent_id, category, role_fit, provider, reasoning in cases:
             args = ["agents", "inspect", agent_id]
             if category:
@@ -352,8 +550,24 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(activated["leadAgent"], "sisyphus")
         self.assertEqual(activated["strategy"], "existing-plan")
         self.assertEqual(activated["plan"]["id"], plan["id"])
+        self.assertEqual(activated["dispatchGate"]["dispatch"], "manual_gate_required")
+        self.assertIn("continuation-gate=ok", activated["dispatchGate"]["evidence"])
+        self.assertEqual(activated["defaultSpawnWave"]["operation"], "spawn_wave")
+        self.assertTrue(activated["defaultSpawnWave"]["ok"], activated)
+        self.assertTrue(activated["defaultSpawnWave"]["manual_gate_required"])
+        self.assertEqual([child["agentId"] for child in activated["defaultSpawnWave"]["children"]], ["atlas", "atlas", "atlas"])
+        self.assertEqual([task["agent_id"] for task in activated["defaultSpawnWavePlan"]], ["atlas", "atlas", "atlas"])
+        self.assertTrue(pathlib.Path(activated["defaultSpawnWave"]["recordPath"]).exists())
         self.assertFalse(activated["sisyphusDiscipline"]["bypassesEvidenceGates"])
         self.assertFalse(activated["sisyphusDiscipline"]["completionPolicy"]["proseOnlyCompletionAllowed"])
+        self.assertEqual(activated["sisyphusDiscipline"]["completionPolicy"]["ultraworkStopStates"], [
+            "accepted",
+            "blocked",
+            "budget_exhausted",
+            "failed",
+            "manual_review_required",
+        ])
+        self.assertTrue(activated["sisyphusDiscipline"]["completionPolicy"]["evidenceRequiredBeforeAdvancement"])
 
         rejected = subprocess.run(
             [str(LFG), "--json", "ultrawork", "update", "--id", activated["ulw_id"], "--task", "1", "--status", "complete", "--evidence", "success prose only"],
@@ -372,6 +586,23 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(shown["gate"], "needs_evidence")
         self.assertEqual(shown["tasks"][0]["status"], "needs_evidence")
         self.assertEqual(shown["blockers"][-1]["code"], "missing-evidence")
+
+        accepted_missing = subprocess.run(
+            [str(LFG), "--json", "ultrawork", "update", "--id", activated["ulw_id"], "--task", "1", "--status", "accepted", "--evidence", "accepted without artifact"],
+            cwd=str(REPO),
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=20,
+        )
+        self.assertEqual(accepted_missing.returncode, 2, accepted_missing.stdout + accepted_missing.stderr)
+        self.assertEqual(json.loads(accepted_missing.stdout)["error"], "missing-evidence")
+        proof = self.evidence_artifact("t17-ulw-accepted")
+        accepted = self.run_lfg("ultrawork", "update", "--id", activated["ulw_id"], "--task", "1", "--status", "accepted", "--evidence", "accepted with artifact", "--evidence-artifact", proof)
+        self.assertEqual(accepted["status"], "accepted")
+        self.assertEqual(accepted["gate"], "accepted")
+        self.assertEqual(accepted["tasks"][0]["oracleReview"]["gate"], "xai/grok")
 
     def test_t10_background_concurrency_honored_in_deterministic_fixtures(self) -> None:
         """Background concurrency config keyed by model/provider is honored."""
@@ -800,6 +1031,19 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(resumed["mailboxRecovery"]["reclaimed"], resumed)
         self.assertTrue(queued.exists())
         self.assertFalse(delivering.exists())
+
+    def test_plan_create_without_steps_enters_prometheus_interview_mode(self) -> None:
+        plan = self.run_lfg("plan", "create", "모호한 OMO parity request")
+        self.assertEqual(plan["status"], "awaiting_answers", plan)
+        self.assertEqual(plan["steps"], [])
+        self.assertIn("What is the core objective of this work?", plan["questions"])
+        self.assertIn("What are the scope boundaries (what is NOT included)?", plan["questions"])
+        self.assertTrue(pathlib.Path(plan["json_path"]).exists())
+        self.assertTrue(pathlib.Path(plan["markdown_path"]).exists())
+
+        markdown = pathlib.Path(plan["markdown_path"]).read_text(encoding="utf-8")
+        self.assertIn("Prometheus requires answers", markdown)
+        self.assertIn(f"lfg plan answer {plan['id']}", markdown)
 
     def test_t25_prometheus_atlas_worker_end_to_end_and_resume_smoke(self) -> None:
         plan = self.run_lfg("plan", "create", "T25 Prometheus Atlas worker fixture", "--interview")
@@ -1235,7 +1479,7 @@ class RuntimeSmoke(unittest.TestCase):
     def test_status_and_catalog(self) -> None:
         status = self.run_lfg("status")
         self.assertTrue(status["ok"])
-        self.assertEqual(status["version"], "0.3.0")
+        self.assertEqual(status["version"], "0.0.1")
         self.assertEqual(status["catalogSkills"], 21)
 
         catalog = self.run_lfg("catalog")
@@ -1321,9 +1565,32 @@ class RuntimeSmoke(unittest.TestCase):
         for removed in {"ai-slop-cleaner", "omx-setup", "ultrawork"}:
             self.assertNotIn(removed, skill_names)
             self.assertNotIn(removed, catalog_names)
+        for active_doc in [
+            REPO / "ROADMAP.md",
+            REPO / "docs" / "HOW-IT-WORKS.md",
+            REPO / "docs" / "agent-system" / "README.md",
+            REPO / "docs" / "agent-system" / "hyperplan-teams.md",
+            REPO / "docs" / "agent-system" / "categories.md",
+            REPO / "docs" / "agent-system" / "omo-parity-comparison.md",
+            REPO / "docs" / "wiki" / "Verification.md",
+            REPO / "docs" / "wiki" / "Release-Process.md",
+            REPO / "lfg.egg-info" / "PKG-INFO",
+        ]:
+            text = active_doc.read_text(encoding="utf-8")
+            self.assertNotIn("/omx-setup", text, str(active_doc))
+            self.assertNotIn("grok_build_omx_setup", text, str(active_doc))
+            self.assertNotIn("iz,gonow,grok", text, str(active_doc))
+            self.assertNotIn("skills=17", text, str(active_doc))
+            self.assertNotIn("self-test.sh", text, str(active_doc))
+            self.assertNotIn("grok-install-smoke.sh", text, str(active_doc))
+            self.assertNotIn("~/.grok/plugins/grok-build/omo/", text, str(active_doc))
+            self.assertNotIn("All agents run on Grok models (`xai/grok-4.3`)", text, str(active_doc))
+            self.assertNotIn('"agent": "iz"', text, str(active_doc))
+            self.assertNotIn('"agent": "grok"', text, str(active_doc))
+            self.assertNotIn('"agent": "gonow"', text, str(active_doc))
+            self.assertNotIn("plugins/lfg/src/agents/legacy/", text, str(active_doc))
         for rel in [
             "docs/features/ai-slop-cleaner-runtime.md",
-            "docs/features/omx-setup-runtime.md",
             "docs/features/ultrawork-runtime.md",
         ]:
             self.assertTrue((PLUGIN / rel).exists(), rel)
@@ -1354,49 +1621,54 @@ class RuntimeSmoke(unittest.TestCase):
             proc.wait(timeout=5)
         proc.stdout.close()
 
-        self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.3.0")
+        self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.0.1")
         tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
+        canonical_tool_names = {
+            tool["name"] for tool in json.loads((PLUGIN / "src" / "mcp" / "tools.json").read_text(encoding="utf-8"))
+        }
         expected = {
-            "grok_build_analyze",
-            "grok_build_ask",
-            "grok_build_autopilot",
-            "grok_build_autoresearch",
-            "grok_build_autoresearch_goal",
-            "grok_build_cancel",
-            "grok_build_catalog",
-            "grok_build_cleanup",
-            "grok_build_code_review",
-            "grok_build_deep_interview",
-            "grok_build_design",
-            "grok_build_doctor",
-            "grok_build_goal",
-            "grok_build_hook_bridge",
-            "grok_build_hud",
-            "grok_build_notifications",
-            "grok_build_omx_setup",
-            "grok_build_performance_goal",
-            "grok_build_pipeline",
-            "grok_build_plan",
-            "grok_build_ralph",
-            "grok_build_ralplan",
-            "grok_build_runtime",
-            "grok_build_skill",
-            "grok_build_slash",
-            "grok_build_team",
-            "grok_build_ultraqa",
-            "grok_build_ultrawork",
-            "grok_build_ultragoal",
-            "grok_build_visual_ralph",
-            "grok_build_wiki",
-            "grok_build_worker",
+            "analyze",
+            "ask",
+            "autopilot",
+            "autoresearch",
+            "autoresearch_goal",
+            "cancel",
+            "catalog",
+            "cleanup",
+            "code_review",
+            "deep_interview",
+            "design",
+            "doctor",
+            "goal",
+            "hook_bridge",
+            "hud",
+            "notifications",
+            "setup",
+            "performance_goal",
+            "pipeline",
+            "plan",
+            "ralph",
+            "ralplan",
+            "runtime",
+            "skill",
+            "slash",
+            "team",
+            "ultraqa",
+            "ultrawork",
+            "ultragoal",
+            "visual_ralph",
+            "wiki",
+            "worker",
         }
         self.assertEqual(expected - tool_names, set())
+        self.assertEqual(tool_names, canonical_tool_names)
+        self.assertFalse(any(name.startswith("grok_build_") for name in tool_names))
 
 
 
     def test_ci_and_install_smoke_contracts(self) -> None:
         workflow = (REPO / ".github/workflows/smoke.yml").read_text(encoding="utf-8")
-        self.assertIn("plugins/lfg/bin/self-test.sh", workflow)
+        self.assertIn("python3 plugins/lfg/bin/self-test.py", workflow)
         self.assertIn("actions/checkout@v5", workflow)
         self.assertIn("sudo apt-get install -y tmux", workflow)
         self.assertIn("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24", workflow)
@@ -1408,19 +1680,27 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue((REPO / "tests" / "smoke" / "test_grok_build_runtime.py").exists())
         self.assertTrue((REPO / "tests" / "AGENTS.md").exists())
 
-        install_smoke = PLUGIN / "bin" / "grok-install-smoke.sh"
+        install_smoke = PLUGIN / "bin" / "grok-install-smoke.py"
         self.assertTrue(os.access(install_smoke, os.X_OK))
         script = install_smoke.read_text(encoding="utf-8")
-        self.assertIn("rsync -a --delete", script)
-        self.assertIn("inspect --json", script)
-        self.assertIn("assert len(skills) == 21", script)
-        self.assertIn("grok-install-smoke=ok skills=21", script)
+        self.assertIn("shutil.copytree", script)
+        self.assertIn('"inspect", "--json"', script)
+        self.assertNotIn("assert len(skills) == 21", script)
+        self.assertIn('grok-install-smoke=ok skills={len(skills)} key_skills_present', script)
+        self.assertIn('grok-agent-discovery=ok agents={len(agents)} key_agents_present', script)
 
-        runtime = (PLUGIN / "bin" / "lfg.py").read_text(encoding="utf-8")
+        plugin_agent_dir = PLUGIN / "agents"
+        self.assertTrue(plugin_agent_dir.exists())
+        for required_agent in ["sisyphus", "sisyphus-junior", "prometheus", "atlas", "hephaestus", "oracle", "builtin-agents"]:
+            self.assertTrue((plugin_agent_dir / f"{required_agent}.md").exists(), required_agent)
+
+        gateway = (PLUGIN / "bin" / "lfg.py").read_text(encoding="utf-8")
+        self.assertIn('RUNTIME = ROOT / "src" / "runtime" / "cli.py"', gateway)
+        runtime = (PLUGIN / "src" / "runtime" / "cli.py").read_text(encoding="utf-8")
         self.assertIn("def attach_backend_from_tmux_pane", runtime)
         self.assertIn("split-window", runtime)
 
-        selftest = (PLUGIN / "bin" / "self-test.sh").read_text(encoding="utf-8")
+        selftest = (PLUGIN / "bin" / "self-test.py").read_text(encoding="utf-8")
         for marker in [
             "manifest-and-file-checks=ok",
             "marketplace-metadata=ok",
@@ -1429,12 +1709,14 @@ class RuntimeSmoke(unittest.TestCase):
             "mcp-stdio-isolation=ok",
             "mcp-stderr-isolated=ok",
             "todo-continuation=ok",
+            "hook-bridge-pytest=ok",
             "state-schema-versioning=ok",
             "state-schema-doctor=ok",
             "team-dry-run=ok",
             "team-tmux-lifecycle=ok",
             "runtime-smoke-coverage=100%",
-            "python3 -m unittest tests.smoke.test_grok_build_runtime -v",
+            '"python3", "-m", "pytest", "tests/smoke/test_hook_bridge_pytest.py", "-q"',
+            '"python3", "-m", "unittest", "tests.smoke.test_grok_build_runtime", "-v"',
         ]:
             self.assertIn(marker, selftest)
 
@@ -1451,7 +1733,7 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertIn("lfg-v0.4.0", release_tag_doc)
 
         hook_doc = (REPO / "docs" / "HOOK_EVIDENCE.md").read_text(encoding="utf-8")
-        self.assertIn("scripts/lfg-audit-hook.sh", hook_doc)
+        self.assertIn("src/hooks/audit_hook.sh", hook_doc)
         self.assertIn("lfg hook-bridge install", hook_doc)
         self.assertIn("grok_build_hook_bridge", hook_doc)
         self.assertIn("[SYSTEM REMINDER - TODO CONTINUATION]", hook_doc)
@@ -1460,11 +1742,12 @@ class RuntimeSmoke(unittest.TestCase):
 
         smoke_doc = (REPO / "docs" / "SMOKE.md").read_text(encoding="utf-8")
         for marker in [
-            "plugins/lfg/bin/self-test.sh",
-            "plugins/lfg/bin/grok-install-smoke.sh",
+            "plugins/lfg/bin/self-test.py",
+            "plugins/lfg/bin/grok-install-smoke.py",
             "runtime-smoke-coverage=100%",
             "lfg --json doctor",
             "mcp-stdio-isolation=ok",
+            "hook-bridge-pytest=ok",
             "todo-continuation=ok",
             "state-schema-doctor=ok",
             "team-dry-run=ok",
@@ -1521,6 +1804,7 @@ class RuntimeSmoke(unittest.TestCase):
             self.assertNotIn("Cargo.toml", text, str(doc))
             self.assertNotIn("Cargo.lock", text, str(doc))
             self.assertNotIn("cargo test", text, str(doc))
+            self.assertNotIn("skills=17", text, str(doc))
 
     def test_test_rules_doc_contract(self) -> None:
         rules = (REPO / "docs" / "TEST_RULES.md").read_text(encoding="utf-8")
@@ -1538,7 +1822,7 @@ class RuntimeSmoke(unittest.TestCase):
             "Repo-native integration tests",
             "Environment/manual gates",
             "tests/smoke/test_grok_build_runtime.py",
-            "plugins/lfg/bin/self-test.sh",
+            "plugins/lfg/bin/self-test.py",
             "Python-first plugin runtime",
             "lfg --json doctor",
         ]
@@ -1556,7 +1840,6 @@ class RuntimeSmoke(unittest.TestCase):
             self.assertEqual(plugin["source"]["url"], "https://github.com/islee23520/lfg.git")
             self.assertEqual(plugin["source"]["path"], "plugins/lfg")
             self.assertEqual(plugin["metadata"]["packageName"], "islee23520/lfg")
-            self.assertEqual(plugin["metadata"]["reference"], "https://github.com/code-yeongyu/oh-my-openagent")
 
 
     def test_lfg_default_execs_grok_cli(self) -> None:
@@ -1567,6 +1850,8 @@ class RuntimeSmoke(unittest.TestCase):
             """#!/usr/bin/env bash
 if [[ "${1:-}" == "update" && "${2:-}" == "--check" ]]; then exit 0; fi
 printf 'fake-grok-launched args=%s\n' "$*"
+printf 'known-file=%s\n' "${LFG_GROK_BUILD_KNOWN_KEYWORDS_FILE:-}"
+printf 'known-keywords=%s\n' "${LFG_GROK_BUILD_KNOWN_KEYWORDS:-}"
 """,
             encoding="utf-8",
         )
@@ -1576,12 +1861,20 @@ printf 'fake-grok-launched args=%s\n' "$*"
 
         proc = subprocess.run([str(LFG)], cwd=str(REPO), env=env, text=True, capture_output=True, check=True, timeout=20)
         self.assertIn("fake-grok-launched", proc.stdout)
+        self.assertIn("Known @agent keywords:", proc.stderr)
+        self.assertIn("@sisyphus-junior", proc.stdout)
+        keyword_file_line = next(line for line in proc.stdout.splitlines() if line.startswith("known-file="))
+        keyword_file = pathlib.Path(keyword_file_line.removeprefix("known-file="))
+        self.assertTrue(keyword_file.exists())
+        keyword_payload = json.loads(keyword_file.read_text(encoding="utf-8"))
+        self.assertEqual(keyword_payload["registrationKind"], "known-keyword")
+        self.assertIn("@sisyphus-junior", keyword_payload["ids"])
 
         runtime = subprocess.run([str(LFG), "--json", "status"], cwd=str(REPO), env=self.env, text=True, capture_output=True, check=True, timeout=20)
         launched = json.loads(runtime.stdout)
         self.assertTrue(launched["ok"])
         self.assertEqual(launched["launcher"], "lfg")
-        self.assertEqual(launched["version"], "0.3.0")
+        self.assertEqual(launched["version"], "0.0.1")
         self.assertNotIn("attachCommand", launched)
 
     def test_lfg_default_asks_before_grok_update_and_restart(self) -> None:
@@ -1756,13 +2049,49 @@ esac
         self.assertTrue(slash["team"]["ultragoal"].startswith("ultragoal-"))
 
     def test_named_agent_provider_override_is_respected(self) -> None:
-        team = self.run_lfg("team", "create", "iz,gonow,grok", "provider override", "--providers", "noop", "--dry-run")
+        team = self.run_lfg("team", "create", "sisyphus,atlas,sisyphus-junior", "provider override", "--providers", "noop", "--dry-run")
         self.assertEqual([m["provider"] for m in team["members"]], ["noop", "noop", "noop"])
         self.assertTrue(all("noop provider ready" in m["command"] for m in team["members"]))
 
+    def test_ultragoal_hyperplan_template_uses_canonical_omo_agents(self) -> None:
+        spawned = self.run_lfg("ultragoal", "spawn", "canonical hyperplan", "--template", "hyperplan", "--id", "hyperplan-omo", "--dry-run")
+        roles = [m["role"] for m in spawned["team"]["members"]]
+        self.assertEqual(roles, ["sisyphus", "atlas", "sisyphus-junior"])
+        self.assertNotIn("iz", roles)
+        self.assertNotIn("gonow", roles)
+        self.assertNotIn("grok", roles)
+
+    def test_team_create_hyperplan_uses_canonical_omo_agents(self) -> None:
+        team = self.run_lfg("team", "create", "hyperplan", "direct hyperplan", "--providers", "noop", "--dry-run")
+        roles = [m["role"] for m in team["members"]]
+        self.assertEqual(roles, ["sisyphus", "atlas", "sisyphus-junior"])
+        self.assertEqual([m["provider"] for m in team["members"]], ["noop", "noop", "noop"])
+
+    def test_mcp_omo_team_create_hyperplan_uses_canonical_omo_agents(self) -> None:
+        proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert proc.stdin and proc.stdout
+        messages = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "omo_team_create", "arguments": {"objective": "mcp hyperplan", "dryRun": True, "providers": "noop"}}},
+        ]
+        for msg in messages:
+            proc.stdin.write(json.dumps(msg) + "\n")
+        proc.stdin.flush()
+        replies = [json.loads(proc.stdout.readline()) for _ in messages]
+        proc.stdin.close(); proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(timeout=5)
+        proc.stdout.close()
+        payload = json.loads(replies[1]["result"]["content"][0]["text"])
+        team_payload = payload["data"] if "data" in payload else payload
+        roles = [m["role"] for m in team_payload["members"]]
+        self.assertEqual(roles, ["sisyphus", "atlas", "sisyphus-junior"])
+
     def test_rejects_unsafe_provider_and_team_name(self) -> None:
         bad_provider = subprocess.run(
-            [str(LFG), "--json", "team", "create", "1:iz", "bad provider", "--providers", "noop;touch /tmp/pwn", "--dry-run"],
+            [str(LFG), "--json", "team", "create", "1:sisyphus", "bad provider", "--providers", "noop;touch /tmp/pwn", "--dry-run"],
             cwd=str(REPO),
             env=self.env,
             text=True,
@@ -1773,7 +2102,7 @@ esac
         self.assertIn("unknown provider", bad_provider.stderr)
 
         bad_name = subprocess.run(
-            [str(LFG), "--json", "team", "create", "1:iz", "bad name", "--name", "bad'name", "--providers", "noop", "--dry-run"],
+            [str(LFG), "--json", "team", "create", "1:sisyphus", "bad name", "--name", "bad'name", "--providers", "noop", "--dry-run"],
             cwd=str(REPO),
             env=self.env,
             text=True,
@@ -1850,7 +2179,7 @@ esac
                 "jsonrpc": "2.0",
                 "id": 3,
                 "method": "tools/call",
-                "params": {"name": "grok_build_agents", "arguments": {"action": "list"}},
+                "params": {"name": "agents", "arguments": {"action": "list"}},
             },
             {
                 "jsonrpc": "2.0",
@@ -1874,9 +2203,9 @@ esac
 
         tools = replies[1]["result"]["tools"]
         tool_names = {tool["name"] for tool in tools}
-        self.assertIn("grok_build_agents", tool_names)
-        self.assertEqual(sum(1 for tool in tools if tool["name"] == "grok_build_agents"), 1)
-        agents_schema = next(tool["inputSchema"] for tool in tools if tool["name"] == "grok_build_agents")
+        self.assertIn("agents", tool_names)
+        self.assertEqual(sum(1 for tool in tools if tool["name"] == "agents"), 1)
+        agents_schema = next(tool["inputSchema"] for tool in tools if tool["name"] == "agents")
         for key in {"category", "provider", "model", "reasoning"}:
             self.assertIn(key, agents_schema["properties"])
         listing = json.loads(replies[2]["result"]["content"][0]["text"])
@@ -1949,7 +2278,7 @@ esac
                 "jsonrpc": "2.0",
                 "id": 3,
                 "method": "tools/call",
-                "params": {"name": "grok_build_omo_agent_catalog", "arguments": {"filter": "all"}},
+                "params": {"name": "omo_agent_catalog", "arguments": {"filter": "all"}},
             },
         ]
         for msg in messages:
@@ -1971,7 +2300,7 @@ esac
         self.assertEqual(stderr, "")
         self.assertTrue(all(json.loads(line)["jsonrpc"] == "2.0" for line in stdout_lines))
         tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
-        for name in {"grok_build_spawn", "grok_build_provider", "grok_build_boulder", "grok_build_hyperplan", "grok_build_atlas", "grok_build_omo_ulw"}:
+        for name in {"spawn", "route", "provider", "boulder", "hyperplan", "atlas", "omo_ulw"}:
             self.assertIn(name, tool_names)
             self.assertEqual(sum(1 for tool in replies[1]["result"]["tools"] if tool["name"] == name), 1)
         mcp_catalog = json.loads(replies[2]["result"]["content"][0]["text"])
@@ -2022,6 +2351,12 @@ esac
                 "method": "tools/call",
                 "params": {"name": "grok_build_models", "arguments": {"provider": "xai"}},
             },
+            {
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "tools/call",
+                "params": {"name": "route", "arguments": {"category": "quick", "task": "mcp route smoke"}},
+            },
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -2036,9 +2371,9 @@ esac
             proc.wait(timeout=5)
         proc.stdout.close()
 
-        self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.3.0")
+        self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.0.1")
         tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
-        for name in {"grok_build_catalog", "grok_build_runtime", "grok_build_team", "grok_build_slash", "grok_build_hook_bridge", "grok_build_models", "grok_build_auth", "grok_build_provider", "grok_build_spawn", "grok_build_boulder", "grok_build_hyperplan", "grok_build_atlas"}:
+        for name in {"catalog", "runtime", "team", "slash", "hook_bridge", "models", "auth", "provider", "spawn", "route", "boulder", "hyperplan", "atlas"}:
             self.assertIn(name, tool_names)
         payload = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(payload["returncode"], 0)
@@ -2053,6 +2388,10 @@ esac
         self.assertEqual(models_payload["returncode"], 0)
         self.assertEqual(models_payload["data"]["secretStorage"], "env-name-only")
         self.assertTrue(models_payload["data"]["providers"]["xai"]["configured"], models_payload)
+        route_payload = json.loads(replies[6]["result"]["content"][0]["text"])
+        self.assertEqual(route_payload["returncode"], 0)
+        self.assertEqual(route_payload["data"]["selectedAgent"]["id"], "sisyphus-junior")
+        self.assertEqual(route_payload["data"]["routeKind"], "category")
 
     def test_doctor_reports_required_checks(self) -> None:
         report = self.run_lfg("doctor")
@@ -2089,9 +2428,14 @@ esac
         self.assertIn("noop provider ready", module.provider_command("noop", "hello"))
         matrix = module.team_provider_matrix()
         providers = {row["provider"] for row in matrix}
-        expected = {"hermes", "claude", "codex", "gemini", "copilot", "zai", "opencode", "grok", "subagent", "noop", "litellm"}
+        expected = {"hermes", "claude", "codex", "gemini", "copilot", "zai", "opencode", "grok", "subagent", "noop"}
         self.assertEqual(expected, providers)
         self.assertTrue(next(row for row in matrix if row["provider"] == "noop")["available"])
+        for provider in ("grok", "subagent"):
+            row = next(item for item in matrix if item["provider"] == provider)
+            self.assertFalse(row["available"], row)
+            self.assertEqual(row["status"], "manual-gated")
+            self.assertTrue(row["manualGateRequired"])
         listed = self.run_lfg("team", "providers")
         self.assertTrue(listed["ok"])
         listed_providers = [row["provider"] for row in listed["providers"]]
@@ -2117,7 +2461,7 @@ esac
         self.assertTrue(pathlib.Path(installed["config"]).exists())
         self.assertTrue(os.access(installed["script"], os.X_OK))
         script = pathlib.Path(installed["script"]).read_text(encoding="utf-8")
-        self.assertIn("lfg-audit-hook.sh", script)
+        self.assertIn("audit_hook.sh", script)
         doctor = self.run_lfg("doctor")
         bridge = next(check for check in doctor["checks"] if check["name"] == "global_hook_bridge")
         self.assertIn("installed=True valid=True", bridge["evidence"])
@@ -2394,7 +2738,7 @@ esac
         self.assertIn('"status": "complete"', update_payload["stdout"])
 
     def test_ultragoal_create_status_checkpoint_show(self) -> None:
-        # exercises the new OMX-parity ultragoal surface
+        # exercises the new OMO-parity ultragoal surface
         ug = self.run_lfg("ultragoal", "create", "Smoke ultragoal parity", "--id", "smoke-ug", "--brief", "test brief", "--checklist", "a;b")
         self.assertEqual(ug["id"], "smoke-ug")
         self.assertTrue((pathlib.Path(self.tmp.name) / "ultragoal" / "smoke-ug" / "brief.md").exists())
@@ -2686,22 +3030,23 @@ esac
         self.assertIn('"gate": "pass"', critique_payload["stdout"])
 
 
-    def test_omx_setup_check_plan_show(self) -> None:
-        check = self.run_lfg("omx-setup", "check")
+    def test_setup_check_plan_show(self) -> None:
+        check = self.run_lfg("setup", "check")
         self.assertEqual(check["status"], "ok")
         self.assertTrue(check["checks"]["manifestExists"])
-        plan = self.run_lfg("omx-setup", "install-plan", "--marketplace", "islee23520/lfg")
+        plan = self.run_lfg("setup", "install-plan", "--marketplace", "islee23520/lfg")
         self.assertEqual(plan["status"], "planned")
-        shown = self.run_lfg("omx-setup", "show")
+        shown = self.run_lfg("setup", "show")
         self.assertEqual(shown["marketplace"], "islee23520/lfg")
 
-    def test_mcp_omx_setup_tool(self) -> None:
+    def test_mcp_setup_tool_rejects_legacy_omx_alias(self) -> None:
         proc = subprocess.Popen(["python3", str(MCP)], cwd=str(REPO), env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         assert proc.stdin and proc.stdout
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
-            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "install-plan", "marketplace": "islee23520/lfg"}}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "setup", "arguments": {"action": "install-plan", "marketplace": "islee23520/lfg"}}},
             {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "grok_build_omx_setup", "arguments": {"action": "show"}}},
+            {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "omx_setup", "arguments": {"action": "show"}}},
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -2714,11 +3059,12 @@ esac
             proc.kill(); proc.wait(timeout=5)
         proc.stdout.close()
         plan_payload = json.loads(replies[1]["result"]["content"][0]["text"])
-        show_payload = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(plan_payload["returncode"], 0)
-        self.assertEqual(show_payload["returncode"], 0)
+        self.assertIn("error", replies[2])
+        self.assertIn("error", replies[3])
         self.assertIn('"status": "planned"', plan_payload["stdout"])
-        self.assertIn('islee23520/lfg', show_payload["stdout"])
+        self.assertIn("grok_build_omx_setup", replies[2]["error"]["message"])
+        self.assertIn("omx_setup", replies[3]["error"]["message"])
 
     def test_skill_list_search_catalog(self) -> None:
         listed = self.run_lfg("skill", "list")
@@ -3340,58 +3686,29 @@ esac
 
 
 class IdentityAlignmentSmoke(unittest.TestCase):
-    """Verify lina/gonow/iz are canonical primary identities; Sisyphus/Hephaestus/Oracle are lineage-only."""
-
     AGENTS_DIR = PLUGIN / "src" / "agents"
     GROK_BUILD = PLUGIN / "bin" / "lfg.py"
-    HARNESS = PLUGIN / "hooks" / "scripts" / "lfg-goal-harness.py"
+    HARNESS = PLUGIN / "src" / "hooks" / "goal_harness.py"
+    HARNESS_ROUTER = PLUGIN / "hooks" / "scripts" / "lfg-goal-harness.py"
 
-    def _load_agent(self, filename: str) -> dict:
-        return json.loads((self.AGENTS_DIR / filename).read_text(encoding="utf-8"))
+    def test_legacy_agent_files_are_not_bundled(self) -> None:
+        legacy = self.AGENTS_DIR / "legacy"
+        self.assertFalse(legacy.exists(), "legacy agent mode should not be bundled under src/agents/legacy")
 
-    def test_lina_prompt_primary_identity(self) -> None:
-        agent = self._load_agent("legacy/lina-orchestrator.json")
-        base = agent["prompt_overrides"]["base"]
-        self.assertIn("You are Lina", base)
-        self.assertNotIn("but in your deepest identity you are Sisyphus", base)
+    def test_boulder_last_updated_by_is_sisyphus(self) -> None:
+        src = (PLUGIN / "src" / "runtime" / "cli.py").read_text(encoding="utf-8")
+        self.assertIn('"last_updated_by": "sisyphus"', src)
+        self.assertNotIn('"last_updated_by": "lina"', src)
+        self.assertNotIn('"last_updated_by": "boulder-state"', src)
 
-    def test_gonow_prompt_primary_identity(self) -> None:
-        agent = self._load_agent("legacy/gonow-worker.json")
-        base = agent["prompt_overrides"]["base"]
-        self.assertIn("You are GoNow", base)
-        self.assertNotIn("but in your deepest identity you are Hephaestus", base)
-
-    def test_iz_prompt_primary_identity(self) -> None:
-        agent = self._load_agent("legacy/iz-architect.json")
-        base = agent["prompt_overrides"]["base"]
-        deep = agent["prompt_overrides"]["deep"]
-        self.assertIn("You are IZ", base)
-        self.assertNotIn("but in your deepest identity you are the Oracle", base)
-        self.assertNotIn("You are the Oracle in full vision", deep)
-        self.assertIn("You are IZ in full vision", deep)
-
-    def test_lina_gonow_iz_retain_lineage_notes(self) -> None:
-        lina = self._load_agent("legacy/lina-orchestrator.json")
-        gonow = self._load_agent("legacy/gonow-worker.json")
-        iz = self._load_agent("legacy/iz-architect.json")
-        self.assertIn("Sisyphus", lina["prompt_overrides"]["base"])
-        self.assertIn("Hephaestus", gonow["prompt_overrides"]["base"])
-        self.assertIn("Oracle", iz["prompt_overrides"]["base"])
-
-    def test_boulder_last_updated_by_is_lina(self) -> None:
-        src = self.GROK_BUILD.read_text(encoding="utf-8")
-        self.assertIn('"last_updated_by": "lina"', src)
-        self.assertNotIn('"last_updated_by": "Sisyphus"', src)
-
-    def test_harness_injection_uses_lina(self) -> None:
+    def test_harness_injection_uses_sisyphus(self) -> None:
         src = self.HARNESS.read_text(encoding="utf-8")
-        self.assertIn("You are Lina", src)
-        self.assertNotIn("You are Sisyphus", src)
-        self.assertNotIn('"last_updated_by": "Sisyphus"', src)
-        self.assertNotIn('owner": "Hephaestus | Oracle | Sisyphus"', src)
-        self.assertNotIn("operating as Sisyphus", src)
-        self.assertIn('"last_updated_by": "lina"', src)
-        self.assertIn('owner": "gonow | iz | lina"', src)
+        self.assertIn("You are Sisyphus", src)
+        self.assertNotIn("You are Lina", src)
+        self.assertIn('"last_updated_by": "sisyphus"', src)
+        self.assertIn('owner": "atlas | hephaestus | sisyphus"', src)
+        self.assertNotIn('owner": "gonow | iz | lina"', src)
+        self.assertNotIn("operating as Lina", src)
 
     def test_harness_uses_local_boulder_helpers(self) -> None:
         src = self.HARNESS.read_text(encoding="utf-8")
@@ -3421,38 +3738,43 @@ class TeamSpecAndAgentLoadingSmoke(unittest.TestCase):
         self.mod = load_grok_build_module()
 
     def test_parse_team_spec_named_no_count(self) -> None:
-        result = self.mod.parse_team_spec("iz,gonow,grok")
-        self.assertEqual(result, [(1, "iz"), (1, "gonow"), (1, "grok")])
+        result = self.mod.parse_team_spec("sisyphus,atlas,sisyphus-junior")
+        self.assertEqual(result, [(1, "sisyphus"), (1, "atlas"), (1, "sisyphus-junior")])
 
     def test_parse_team_spec_named_with_count(self) -> None:
-        result = self.mod.parse_team_spec("1:iz,2:gonow,1:grok")
-        self.assertEqual(result, [(1, "iz"), (2, "gonow"), (1, "grok")])
+        result = self.mod.parse_team_spec("1:sisyphus,2:atlas,1:sisyphus-junior")
+        self.assertEqual(result, [(1, "sisyphus"), (2, "atlas"), (1, "sisyphus-junior")])
 
     def test_parse_team_spec_generic(self) -> None:
         result = self.mod.parse_team_spec("3:executor")
         self.assertEqual(result, [(3, "executor")])
 
-    def test_bundled_agent_lina_loads(self) -> None:
-        agent = self.mod.load_agent_definition("lina")
-        self.assertIsNotNone(agent)
-        self.assertEqual(agent["name"], "lina")
-        self.assertEqual(agent["role"], "orchestrator")
+    def test_parse_team_spec_rejects_legacy_named_agents(self) -> None:
+        for spec in ("iz,gonow,grok", "1:iz,2:gonow,1:grok", "lina"):
+            with self.assertRaises(SystemExit):
+                self.mod.parse_team_spec(spec)
 
-    def test_bundled_agent_gonow_loads(self) -> None:
-        agent = self.mod.load_agent_definition("gonow")
+    def test_bundled_agent_sisyphus_loads(self) -> None:
+        agent = self.mod.load_agent_definition("sisyphus")
         self.assertIsNotNone(agent)
-        self.assertEqual(agent["name"], "gonow")
-        self.assertEqual(agent["role"], "worker")
+        self.assertEqual(agent["name"], "sisyphus")
+        self.assertEqual(agent["family"], "orchestrator")
 
-    def test_bundled_agent_iz_loads(self) -> None:
-        agent = self.mod.load_agent_definition("iz")
+    def test_bundled_agent_hephaestus_loads(self) -> None:
+        agent = self.mod.load_agent_definition("hephaestus")
         self.assertIsNotNone(agent)
-        self.assertEqual(agent["name"], "iz")
-        self.assertEqual(agent["role"], "architect")
+        self.assertEqual(agent["name"], "hephaestus")
+        self.assertEqual(agent["family"], "deep-worker")
 
-    def test_bundled_agent_grok_loads(self) -> None:
-        agent = self.mod.load_agent_definition("grok")
-        self.assertIsNotNone(agent, "grok legacy agent definition should exist under src/agents/legacy/")
+    def test_bundled_agent_prometheus_loads(self) -> None:
+        agent = self.mod.load_agent_definition("prometheus")
+        self.assertIsNotNone(agent)
+        self.assertEqual(agent["name"], "prometheus")
+        self.assertEqual(agent["family"], "planner")
+
+    def test_legacy_named_agents_do_not_load_from_plugin_bundle(self) -> None:
+        for name in ("lina", "gonow", "iz", "grok"):
+            self.assertIsNone(self.mod.load_agent_definition(name))
 
 
 class HarnessRuntimeSmoke(unittest.TestCase):
@@ -3463,7 +3785,7 @@ class HarnessRuntimeSmoke(unittest.TestCase):
         self.original_env = os.environ.copy()
         os.environ["GROK_PLUGIN_DATA"] = self.tmp.name
         self.module_name = "lfg_goal_harness_test"
-        spec = importlib.util.spec_from_file_location(self.module_name, PLUGIN / "hooks" / "scripts" / "lfg-goal-harness.py")
+        spec = importlib.util.spec_from_file_location(self.module_name, PLUGIN / "src" / "hooks" / "goal_harness.py")
         assert spec and spec.loader
         self.harness = importlib.util.module_from_spec(spec)
         sys.modules[self.module_name] = self.harness
@@ -3478,7 +3800,7 @@ class HarnessRuntimeSmoke(unittest.TestCase):
     def test_boulder_read_write_without_runtime_import(self) -> None:
         self.harness.write_boulder("ug-test", {"version": 1, "ultragoal_id": "ug-test", "status_summary": "ok"})
         boulder = self.harness.read_boulder("ug-test")
-        self.assertEqual(boulder["last_updated_by"], "lina")
+        self.assertEqual(boulder["last_updated_by"], "sisyphus")
         self.assertEqual(boulder["status_summary"], "ok")
 
     def test_boulder_path_rejects_traversal(self) -> None:
@@ -3523,6 +3845,32 @@ class HarnessRuntimeSmoke(unittest.TestCase):
             "active_runs": [],
         }
         self.assertEqual(self.harness.todo_continuation_reminder(snapshot, "Stop"), "")
+
+    def test_atlas_dependency_wave_reminder_tracks_ready_and_blocked_tasks(self) -> None:
+        snapshot = {
+            "current_agent": "atlas",
+            "boulder": {"recent_evidence": [{"ts": "2026-05-20T00:00:00Z", "path": "atlas.txt"}]},
+            "active_runs": [
+                {
+                    "mode": "atlas",
+                    "tasks": [
+                        {"id": "T1", "title": "completed dependency", "status": "completed"},
+                        {"id": "T2", "title": "ready implementation", "status": "pending", "depends_on": ["T1"]},
+                        {"id": "T3", "title": "blocked verification", "status": "pending", "depends_on": ["T4"]},
+                    ],
+                }
+            ],
+        }
+        first = self.harness.atlas_dependency_wave_reminder(snapshot, "PostToolUse")
+        second = self.harness.atlas_dependency_wave_reminder(snapshot, "PostToolUse")
+
+        self.assertIn("[SYSTEM REMINDER - ATLAS DEPENDENCY WAVE]", first)
+        self.assertIn("ready T2: ready implementation", first)
+        self.assertIn("blocked T3: blocked verification", first)
+        self.assertEqual(second, "")
+
+        snapshot["current_agent"] = "sisyphus"
+        self.assertEqual(self.harness.atlas_dependency_wave_reminder(snapshot, "PostToolUse"), "")
 
 
 if __name__ == "__main__":
