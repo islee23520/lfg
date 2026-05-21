@@ -832,7 +832,8 @@ def ultragoal_spawn(args: argparse.Namespace) -> dict[str, Any]:
     """Create an ultragoal and immediately spawn a linked ulw-branded team swarm.
 
     This is the 'ultragoal spawn ulw' surface that makes LFG team mode feel like
-    Grok-native sub-agent swarm spawning tied to a durable goal ledger.
+    Grok-led sub-agent swarm orchestration tied to a durable goal ledger while
+    native child-spawn remains manual-gated.
     """
     ug = ultragoal_create(argparse.Namespace(
         objective=args.objective,
@@ -1128,8 +1129,44 @@ def ulw_sisyphus_discipline(strategy: str) -> dict[str, Any]:
     }
 
 
+def default_ulw_spawn_wave_tasks(record: dict[str, Any]) -> list[dict[str, Any]]:
+    """Build the deterministic default delegation wave for an Ultrawork run."""
+    objective = str(record.get("objective") or "continue Ultrawork objective")
+    strategy = str(record.get("strategy") or "autonomous-exploration")
+    tasks = record.get("tasks", []) if isinstance(record.get("tasks"), list) else []
+    if strategy == "existing-plan":
+        return [
+            {
+                "taskId": f"atlas-wave-{task.get('id') or index + 1}",
+                "agent_id": "atlas",
+                "category": "planning",
+                "task": str(task.get("task") or objective),
+            }
+            for index, task in enumerate(tasks)
+            if isinstance(task, dict)
+        ] or [{"taskId": "atlas-wave-1", "agent_id": "atlas", "category": "planning", "task": objective}]
+    return [
+        {"taskId": "prometheus-plan", "agent_id": "prometheus", "category": "planning", "task": f"Plan: {objective}"},
+        {"taskId": "hephaestus-deep-work", "agent_id": "hephaestus", "category": "deep", "task": f"Research and implement: {objective}"},
+        {"taskId": "sisyphus-junior-verify", "agent_id": "sisyphus-junior", "category": "quick", "task": f"Verify bounded evidence for: {objective}"},
+    ]
+
+
+def summarize_default_ulw_spawn_wave(wave: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "operation": wave.get("operation"),
+        "status": wave.get("status"),
+        "ok": bool(wave.get("ok")),
+        "waveId": wave.get("waveId") or wave.get("wave_id"),
+        "manual_gate_required": bool(wave.get("manual_gate_required")),
+        "children": wave.get("children", []),
+        "recordPath": wave.get("recordPath"),
+        "evidenceClass": wave.get("evidenceClass"),
+    }
+
+
 def detect_ulw_intent(text: str) -> dict[str, Any]:
-    """Hybrid detection for full OMO-style `ulw` keyword trigger (Candidate 3 winner)."""
+    """Hybrid detection for OMO-style `ulw` keyword trigger (Candidate 3 winner)."""
     if not text:
         return {"triggered": False}
 
@@ -1178,13 +1215,14 @@ def build_ulw_activation(goal: str, explicit: bool, cwd: str | None, uid: str, a
             "allowed": True,
             "lead": "sisyphus",
             "plannedDelegates": ["atlas"] if active_plan else ["prometheus", "hephaestus", "sisyphus-junior"],
+            "defaultSpawnWave": True,
             "evidenceRequiredBeforeCompletion": True,
         },
         "preamble_injected": False,
         "repo": detect_repo(pathlib.Path(cwd or os.getcwd()).resolve()),
     }
     preamble = (
-        "You are now in full OMO Ultrawork mode (LFG + Sisyphus lead). "
+        "You are now in OMO-style Ultrawork mode (LFG + Sisyphus lead). "
         "Own the intent, maintain the Boulder, delegate via the OMO catalog (Prometheus for planning, Hephaestus for deep work, Atlas for checklists). "
         f"Objective: {goal}. Never stop until every promise is verified with evidence. "
         "Do not mark prose-only completion as done; escalate missing evidence as a blocker. "
@@ -1202,16 +1240,21 @@ def build_ulw_activation(goal: str, explicit: bool, cwd: str | None, uid: str, a
         "strategy": strategy,
         "plan": active_plan,
         "tasks": record["tasks"],
+        "defaultSpawnWavePlan": default_ulw_spawn_wave_tasks(record),
         "sisyphusDiscipline": record["sisyphusDiscipline"],
     }
 
 
 def activate_ulw_mode(goal: str, explicit: bool = True, cwd: str | None = None, uid: str | None = None, active_plan: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Activate full OMO-style Ultrawork (hybrid design). Creates durable state + returns Sisyphus preamble ready data."""
+    """Activate OMO-style Ultrawork (hybrid design). Creates durable state + returns Sisyphus preamble ready data."""
     ensure_dirs()
     resolved_uid = uid or f"ultrawork-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
     resolved_plan = active_plan if active_plan is not None else current_active_plan_summary()
     record, activated = build_ulw_activation(goal, explicit, cwd, resolved_uid, resolved_plan)
+    write_json(ultrawork_path(resolved_uid), record)
+    wave = spawn_wave(default_ulw_spawn_wave_tasks(record), run_id=f"{resolved_uid}-default-wave", mode="parallel")
+    record["defaultSpawnWave"] = summarize_default_ulw_spawn_wave(wave)
+    activated["defaultSpawnWave"] = record["defaultSpawnWave"]
     write_json(ultrawork_path(resolved_uid), record)
     write_json(STATE_DIR / "current-ultrawork.json", {"id": resolved_uid, "path": str(ultrawork_path(resolved_uid)), "updatedAt": now()})
     return activated
@@ -1306,6 +1349,7 @@ def loop_start(args: argparse.Namespace) -> dict[str, Any]:
     dispatch_gate = reserve_loop_dispatch_gate(preview, identity)
     if dispatch_gate.get("duplicateSuppressed"):
         snapshot = dispatch_gate.get("stateSnapshot") or {}
+        existing = read_json(ultrawork_path(snapshot.get("ultraworkId") or preview["ulw_id"]), {}) or {}
         activated = {
             **preview,
             "ulw_id": snapshot.get("ultraworkId") or preview["ulw_id"],
@@ -1313,6 +1357,7 @@ def loop_start(args: argparse.Namespace) -> dict[str, Any]:
             "plan": snapshot.get("plan"),
             "tasks": snapshot.get("tasks", preview.get("tasks", [])),
             "strategy": snapshot.get("strategy") or preview.get("strategy"),
+            "defaultSpawnWave": existing.get("defaultSpawnWave"),
         }
     else:
         activated = activate_ulw_mode(objective, explicit=True, cwd=getattr(args, "cwd", None), uid=identity["ultraworkId"], active_plan=active_plan)
@@ -4836,7 +4881,7 @@ def spawn_agent(
     task: str | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
-    """Grok-native spawn adapter (lfg-native implementation)."""
+    """Grok spawn adapter with deterministic/manual-gated fallback behavior."""
     task_id = kwargs.get("task_id") or kwargs.get("taskId")
     run_id = kwargs.get("run_id") or kwargs.get("runId")
     depth = int(kwargs.get("broker_depth", kwargs.get("depth", 0)) or 0)
@@ -6948,6 +6993,26 @@ def slash(args: argparse.Namespace) -> dict[str, Any]:
             return {"error": "usage: /ulw your objective"}
         trigger = detect_ulw_intent(objective)
         return ulw_intent(argparse.Namespace(objective=[objective], cwd=args.cwd))
+    if name == "route":
+        category = None
+        subagent_type = None
+        task_parts: list[str] = []
+        i = 0
+        while i < len(rest):
+            token = rest[i]
+            if token == "--category" and i + 1 < len(rest):
+                category = rest[i + 1]
+                i += 2
+            elif token == "--subagent-type" and i + 1 < len(rest):
+                subagent_type = rest[i + 1]
+                i += 2
+            elif token == "--task" and i + 1 < len(rest):
+                task_parts.append(rest[i + 1])
+                i += 2
+            else:
+                task_parts.append(token)
+                i += 1
+        return route_task_request(category, subagent_type, " ".join(task_parts).strip() or None)
     if name == "hook-bridge":
         action = rest[0] if rest else "status"
         if action == "status":
@@ -7199,7 +7264,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p = argparse.ArgumentParser(
         prog=launcher,
-        description="LFG — Grok-native runtime helper (workflows, durable goals, team swarms)",
+        description="LFG — Grok Build runtime helper (workflows, durable goals, team swarms)",
     )
     if launcher not in ("lfg", "ulw"):
         # Direct python lfg.py invocation — be friendly
@@ -7318,7 +7383,7 @@ def main(argv: list[str] | None = None) -> int:
     cp.set_defaults(fn=cancel)
 
     # --- ULW / Ultrawork keyword trigger (Hybrid Candidate 3) ---
-    ulw = sub.add_parser("ulw", help="Activate full OMO-style Ultrawork mode (IntentGate + Sisyphus lead)")
+    ulw = sub.add_parser("ulw", help="Activate OMO-style Ultrawork mode (IntentGate + Sisyphus lead)")
     ulw.add_argument("objective", nargs="*", help="Goal for the ultrawork run")
     ulw.set_defaults(fn=ulw_intent)
 
