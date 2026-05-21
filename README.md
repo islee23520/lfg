@@ -1,12 +1,12 @@
 # lfg: OMO Agent Hierarchy Parity for Grok Build
 
-**OMO agent hierarchy parity for Grok Build — Full Real Port in Progress.**
+**OMO agent hierarchy parity for Grok Build — audit-backed port in progress.**
 
-`lfg` is a Python-first plugin runtime and Grok marketplace plugin that ports the **complete, authentic production oh-my-openagent (OMO)** agent hierarchy and orchestration engine into LFG / Grok Build.
+`lfg` is a Python-first plugin runtime and Grok marketplace plugin that ports the production oh-my-openagent (OMO) agent hierarchy and orchestration engine into LFG / Grok Build, with remaining native Grok child-spawn and default closed-loop parity tracked as explicit gates.
 
-**The goal is not a lightweight command demo.** The goal is a Grok-native agent operating system with real Sisyphus orchestration, Prometheus planning, Atlas checklist execution, Hephaestus deep work, Sisyphus-Junior category execution, Hyperplan adversarial teams, Boulder + Ralph "never stops" persistence, 5-tier defensive hooks, IntentGate `ulw` bootstrap, and full Team Mode — powered by multi-provider execution with Grok as the orchestrator/reviewer and Grok-native sub-agent spawning where available.
+**The goal is not a lightweight command demo.** The goal is a Grok-native agent operating system with Sisyphus orchestration, Prometheus planning, Atlas checklist execution, Hephaestus deep work, Sisyphus-Junior category execution, Hyperplan adversarial teams, Boulder + Ralph "never stops" persistence, 5-tier defensive hooks, IntentGate `ulw` bootstrap, and Team Mode — powered by multi-provider execution with Grok as the orchestrator/reviewer, Grok-discoverable OMO agent wrappers, passing T28 native child-spawn manual evidence, and deterministic fallback envelopes for dependency-free smoke paths.
 
-The canonical implementation is now lfg-native under `plugins/lfg/src/agents/`, `plugins/lfg/bin/`, skills, hooks, MCP, and `.lfg/` runtime state.
+The canonical implementation is now lfg-native under `plugins/lfg/src/agents/`, Grok-discoverable `plugins/lfg/agents/*.md`, `plugins/lfg/bin/`, skills, hooks, MCP, and `.lfg/` runtime state.
 
 First-class agents default to Grok model profiles for Grok Build execution except Hephaestus, which requires an approved GPT-style deep-specialist profile. Oracle review remains mandatory through the xAI/Grok gate. LFG may route execution through approved optional providers (`codex`, `copilot`, `zai`) when available; `zai` uses a smoke-safe Z.ai/Zhipu HTTP adapter with `ZAI_API_KEY` or `ZHIPU_API_KEY` only for explicit `--run` calls.
 
@@ -14,10 +14,10 @@ First-class agents default to Grok model profiles for Grok Build execution excep
 
 `lfg` provides an OMO-style runtime surface for Grok Build:
 
-- Agent hierarchy: the canonical 11 OMO agents plus builtin-agents policy layer, with eligibility contracts enforced in runtime
+- Agent hierarchy: first-class Sisyphus, Sisyphus-Junior, Prometheus, Hephaestus, Atlas, and builtin-agents policy surfaces, with additional support agents tracked in the active traceability matrix
 - Orchestration: task delegation, category routing, dependency waves, hostile critique, lead synthesis, hyperplan 3-round adversarial
 - Durable state: Boulder, continuation (Ralph-loop + TodoContinuationEnforcer), mailbox, shared tasklist, notepads, plans, team runtime
-- Team execution: tmux-backed local observability plus manual-gated Grok sub-agent fallback envelopes until real T28 evidence exists
+- Team execution: tmux-backed local observability plus deterministic Grok sub-agent fallback envelopes for dependency-free paths and recorded T28 manual evidence for real host child spawning
 - "Magic" entrypoints: `ulw` / `ultrawork` keyword + IntentGate + model-specific Grok preambles
 - Quality gates: evidence strings (`*=ok`), critic review, tests, manual verification, release gates
 - Integration surfaces: Grok skills, hooks (5-tier safeCreateHook), MCP tools, CLI wrappers, marketplace metadata
@@ -36,7 +36,7 @@ The intended install path is inside Grok:
 
 4. Install/add `lfg` from that marketplace.
 5. Enable the plugin.
-6. Verify it discovers agent definitions, skills, hooks, MCP server, and runtime helpers.
+6. Verify it discovers Grok plugin agents, skills, hooks, MCP server, and runtime helpers.
 
 Grok is fully compatible with Claude Code plugin surfaces. LFG keeps `.agents/plugins/marketplace.json` and `plugins/lfg/.claude-plugin/plugin.json` as compatibility references, with `.grok/` files maintained as Grok-facing aliases whose shared fields are smoke-tested for alignment.
 
@@ -48,7 +48,7 @@ Package:     islee23520/lfg
 Plugin id:   lfg
 Repository:  https://github.com/islee23520/lfg
 Marketplace source repo: https://github.com/islee23520/lfg.git
-Reference:   oh-my-openagent agent hierarchy and orchestration model (full real port)
+Reference:   oh-my-openagent agent hierarchy and orchestration model (audit target)
 ```
 
 Developer smoke commands live in [`docs/SMOKE.md`](docs/SMOKE.md). Marketplace installation remains the primary product path; local editable install is for development and preview only.
@@ -79,7 +79,7 @@ Todo-list orchestrator. Reads a plan, executes dependency waves, updates checkbo
 
 Factory and policy layer. Resolves model profile, category, skill availability, overrides, blocked tools, and registration conditions. Enforces the real `AGENT_ELIGIBILITY_REGISTRY`.
 
-### Full 11-Agent Catalog (Phase 2 Ported)
+### Active Agent Catalog
 
 The lfg-native registry starts with Sisyphus, Atlas, Sisyphus-Junior, Hephaestus, Prometheus, and builtin-agents. Older custom agent names are historical only and are not bundled as valid team-spec members.
 
@@ -99,16 +99,16 @@ Sisyphus receives request
 
 Agent entries default to Grok models for Grok Build execution except Hephaestus, whose OMO deep-specialist contract requires a GPT-style approved profile. Category routing may keep Grok reasoning profiles or use approved optional providers (`codex`, `copilot`, `zai`) for bounded execution or consultation lanes (`zai` is an HTTP/API adapter, not a required local CLI), but every completion still carries the mandatory xAI/Grok Oracle review envelope. OpenAI/GPT, Copilot, Gemini, and Z.ai consultation cannot replace that product gate.
 
-The next integration focus is replacing fallback/manual-gated spawn evidence with verified Grok-native sub-agent spawning after the T28 manual gate passes, while keeping `.lfg/` state, approved multi-provider routing, and Oracle review contracts stable.
+The next integration focus is promoting the recorded T28 native child-spawn evidence into more default runtime paths, while keeping `.lfg/` state, deterministic fallback envelopes, approved multi-provider routing, and Oracle review contracts stable.
 
-## Full Real OMO Port — Phase 2 Complete (Big Synthesis)
+## OMO Port Evidence — Phase 2 Synthesis
 
-**Official Ultragoal**: `omo-full-real-port-20260518` ("full real OMO as-is, ulw ulw with team mode on").
+**Historical ultragoal id**: `omo-full-real-port-20260518`. The id is preserved for traceability; current release status is governed by [`docs/evidence/omo-feature-traceability.md`](docs/evidence/omo-feature-traceability.md).
 
-After a massive 14+ parallel ULW explorer swarm mapped the entire production OMO engine, the Huge Orchestration Team (ULW) executed Phase 2: shipping **7 core modules** of portable, high-fidelity logic:
+After a massive 14+ parallel ULW explorer swarm mapped the production OMO engine, the Huge Orchestration Team (ULW) executed Phase 2: shipping **7 audited module areas** of portable, high-fidelity logic:
 
 1. **Eligibility Contracts** (`contracts/eligibility.json` + `team/eligibility.py`) — verbatim `AGENT_ELIGIBILITY_REGISTRY` + hyperplan roster (`eligibility-contract-shipped=ok`)
-2. **Agents Catalog** (`agents/`) — all 11 real agents with identities and prompt loading (`agent-catalog-impl=ok`)
+2. **Agents Catalog** (`agents/`) — first-class LFG OMO agents plus support-agent metadata with identities and prompt loading (`agent-catalog-impl=ok`)
 3. **Ultrawork IntentGate** (`ultrawork/`) — keyword detection + Grok-4-3 harness preambles + bootstrap (`ultrawork-intentgate-impl=ok`)
 4. **BackgroundManager + Tmux Viz** (`background/`) — parallel delegation engine + live visibility (`background-manager-impl=ok`)
 5. **5-Tier Hooks** (`hooks/`) — `safeCreateHook` + defensive validators (`hooks-5tier-impl=ok`)
@@ -119,7 +119,7 @@ After a massive 14+ parallel ULW explorer swarm mapped the entire production OMO
 
 All modules are dependency-light Python, directly portable into the active plugin install surface at `~/.grok/plugins/lfg/`, and exercised with live evidence strings.
 
-**"The boulder is moving. The real OMO engine is here."**
+**"The boulder is moving."** Native Grok child-spawn and default closed-loop parity remain explicit gates, not hidden completion claims.
 
 ## Runtime Commands
 
@@ -179,7 +179,7 @@ Target state layout:
 
 ## Team Mode
 
-Team Mode is the durable multi-agent execution surface. It combines OMO mailbox/tasklist semantics with local tmux observability, optional external coding providers, and canonical manual-gated Grok sub-agent fallback envelopes until real native evidence exists.
+Team Mode is the durable multi-agent execution surface. It combines OMO mailbox/tasklist semantics with local tmux observability, optional external coding providers, canonical fallback envelopes for dependency-free execution, and recorded T28 manual evidence for real Grok host child spawning.
 
 Target flow:
 
@@ -248,10 +248,12 @@ See [`docs/SMOKE.md`](docs/SMOKE.md), [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE
 .grok/plugins/marketplace.json           # Grok marketplace metadata
 .agents/plugins/marketplace.json         # Agents-compatible marketplace metadata
 plugins/lfg/
+  agents/*.md                           # Grok-discoverable OMO agent wrappers
   .grok-plugin/plugin.json               # Grok plugin manifest
   .claude-plugin/plugin.json             # compatibility manifest
   .mcp.json                              # MCP server config
   src/agents/harness.toml                # agent harness metadata (canonical)
+  src/agents/*.json                      # runtime policy/registry definitions (canonical)
   bin/lfg.py                             # gateway to src/runtime/cli.py
   bin/lfg                                # default runtime wrapper
   bin/ulw                                # ultrawork launcher wrapper
@@ -265,7 +267,7 @@ plugins/lfg/
 ## Roadmap
 
 See [`ROADMAP.md`](ROADMAP.md) for the M0-M13 OMO parity plan.
-See the **Full Real OMO Port ultragoal** (`.lfg/ultragoal/omo-full-real-port-20260518/`) and Phase 2 artifacts for the accelerated "as-is" track.
+See the **OMO port ultragoal** (`.lfg/ultragoal/omo-full-real-port-20260518/`) and Phase 2 artifacts for the accelerated "as-is" evidence track.
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the agent hierarchy, **current runtime implementation** ("How LFG actually works with OMO right now"), Grok spawn adapter status, and verification commands.
 See [`docs/AGENTS.md`](docs/AGENTS.md) for documentation and evidence rules.
 
