@@ -15,6 +15,7 @@ DISPATCH_GATE_DIR = GROK_PLUGIN_DATA / "dispatch-gate"
 INJECTION_FILE = HARNESS_DIR / "active_injection.txt"
 INJECTION_META = HARNESS_DIR / "last_turn.json"
 TODO_REMINDER_STATE = HARNESS_DIR / "todo-continuation.json"
+ATLAS_DEPENDENCY_WAVE_STATE = HARNESS_DIR / "atlas-dependency-wave.json"
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
 
@@ -52,6 +53,10 @@ def injection_meta() -> pathlib.Path:
 
 def todo_reminder_state() -> pathlib.Path:
     return harness_dir() / "todo-continuation.json"
+
+
+def atlas_dependency_wave_state() -> pathlib.Path:
+    return harness_dir() / "atlas-dependency-wave.json"
 
 
 def ralph_state_dir() -> pathlib.Path:

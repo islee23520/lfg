@@ -13,6 +13,7 @@ if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
 _ambiguity_gate = importlib.import_module("ambiguity_gate")
+_atlas_dependency_wave = importlib.import_module("atlas_dependency_wave")
 _compaction_protection = importlib.import_module("compaction_protection")
 _paths = importlib.import_module("paths")
 _task_helpers = importlib.import_module("task_helpers")
@@ -20,6 +21,7 @@ _todo_continuation = importlib.import_module("todo_continuation")
 _ralph_loop = importlib.import_module("ralph_loop")
 _stop_continuation_guard = importlib.import_module("stop_continuation_guard")
 compute_heuristic_ambiguity = _ambiguity_gate.compute_heuristic_ambiguity
+atlas_dependency_wave_reminder = _atlas_dependency_wave.atlas_dependency_wave_reminder
 build_compaction_protection_injection = _compaction_protection.build_compaction_protection_injection
 injection_file = _paths.injection_file
 injection_meta = _paths.injection_meta
@@ -57,11 +59,14 @@ def build_aggressive_injection(snapshot: Dict[str, Any], user_prompt: str, event
 
     compute_heuristic_ambiguity(user_prompt, snapshot)
     continuation = todo_continuation_reminder(snapshot, event)
+    atlas_wave = atlas_dependency_wave_reminder(snapshot, event)
     ralph_cont = ralph_continuation_reminder(snapshot, event)
     stop_guard = stop_continuation_guard(snapshot, event)
     continuation_block = ""
     if continuation:
         continuation_block += f"{continuation}\n\n"
+    if atlas_wave:
+        continuation_block += f"{atlas_wave}\n\n"
     if ralph_cont:
         continuation_block += f"{ralph_cont}\n\n"
     if stop_guard:

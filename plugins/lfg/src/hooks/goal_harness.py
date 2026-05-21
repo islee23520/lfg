@@ -15,6 +15,7 @@ if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
 _ambiguity_gate = importlib.import_module("ambiguity_gate")
+_atlas_dependency_wave = importlib.import_module("atlas_dependency_wave")
 _boulder_persistence = importlib.import_module("boulder_persistence")
 _compaction_protection = importlib.import_module("compaction_protection")
 _dispatch_gate = importlib.import_module("dispatch_gate")
@@ -28,6 +29,7 @@ _todo_continuation = importlib.import_module("todo_continuation")
 _ralph_loop = importlib.import_module("ralph_loop")
 _stop_continuation_guard = importlib.import_module("stop_continuation_guard")
 compute_heuristic_ambiguity = _ambiguity_gate.compute_heuristic_ambiguity
+atlas_dependency_wave_reminder = _atlas_dependency_wave.atlas_dependency_wave_reminder
 persist_boulder_from_payload = _boulder_persistence.persist_boulder_from_payload
 build_compaction_protection_injection = _compaction_protection.build_compaction_protection_injection
 reserve_continuation_dispatch = _dispatch_gate.reserve_continuation_dispatch
@@ -103,6 +105,7 @@ def main() -> int:
         "num_active_runs": len(snapshot.get("active_runs", [])),
         "boulder_auto_persisted_this_turn": bool(snapshot.get("boulder")),
         "todo_continuation_reminder": "[SYSTEM REMINDER - TODO CONTINUATION]" in injection,
+        "atlas_dependency_wave_reminder": "[SYSTEM REMINDER - ATLAS DEPENDENCY WAVE]" in injection,
         "ralph_continuation_reminder": "[SYSTEM REMINDER - RALPH LOOP CONTINUATION]" in injection,
         "stop_continuation_guard": "[SYSTEM REMINDER - STOP CONTINUATION GUARD]" in injection,
         "continuation_dispatch_gate": dispatch_gate,
@@ -116,6 +119,7 @@ def main() -> int:
             "evidence-recovery",
             "state-resumption",
             "agent-specific-behavior",
+            "atlas-dependency-wave",
         ],
     }
     write_injection_artifacts(injection, meta)
@@ -126,6 +130,7 @@ def main() -> int:
 __all__ = [
     "boulder_path",
     "build_aggressive_injection",
+    "atlas_dependency_wave_reminder",
     "build_compaction_protection_injection",
     "compute_heuristic_ambiguity",
     "evidence_identity",
