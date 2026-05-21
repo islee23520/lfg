@@ -32,9 +32,9 @@ from stop_continuation_guard import stop_continuation_guard
 
 
 _SOURCE_CONTRACT_STRINGS = (
-    "You are Lina",
-    '"last_updated_by": "lina"',
-    'owner": "gonow | iz | lina"',
+    "You are Sisyphus",
+    '"last_updated_by": "sisyphus"',
+    'owner": "atlas | hephaestus | sisyphus"',
 )
 
 

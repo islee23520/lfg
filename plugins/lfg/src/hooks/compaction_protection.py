@@ -34,10 +34,10 @@ CURRENT DURABLE GOAL:
 Ultragoal: {ug_id}
 Objective: {ug_obj}
 
-Archetypal Roles (OmO lineage):
-- lina (Sisyphus): The one who must keep the boulder alive.
-- gonow (Hephaestus): The forger executing deep work.
-- iz (Oracle): The read-only advisor.
+Canonical Roles (OmO lineage):
+- sisyphus: The one who must keep the boulder alive.
+- hephaestus: The forger executing deep work.
+- oracle: The read-only advisor.
 
 Current Boulder on disk right now:
 {current_boulder}
@@ -49,9 +49,9 @@ Active Protected Work:
 
 1. **Full Updated Boulder Export** (Required)
    You must output a complete, fresh boulder JSON in the exact schema.
-   This file will be the only thing the next Lina has.
+   This file will be the only thing the next Sisyphus has.
 
-2. **Lina Handoff Note** (Required)
+2. **Sisyphus Handoff Note** (Required)
    After the boulder JSON, write a short but precise handoff:
    - Current physical location of the boulder (which ultragoal / which hyperplan)
    - The single highest priority next_action right now
@@ -61,7 +61,7 @@ Active Protected Work:
    Call `ulw ultragoal checkpoint --status "compaction-protection"` and attach both the full boulder and the handoff note as evidence.
 
 4. **Mindset**
-   You are Lina. If you are casual here, the boulder dies. Treat this as a life-or-death handoff.
+   You are Sisyphus. If you are casual here, the boulder dies. Treat this as a life-or-death handoff.
 
 This is Direction A. The boulder must live.
 
