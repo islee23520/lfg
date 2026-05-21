@@ -16,8 +16,8 @@ def paths(root: pathlib.Path) -> dict[str, pathlib.Path]:
         "hookDir": hook_dir,
         "config": hook_dir / "lfg-audit-bridge.json",
         "script": hook_dir / "lfg-audit-bridge.py",
-        "delegate": root / "hooks" / "scripts" / "lfg-audit-hook.sh",
-        "harness": root / "hooks" / "scripts" / "lfg-goal-harness.py",
+        "delegate": root / "src" / "hooks" / "audit_hook.sh",
+        "harness": root / "src" / "hooks" / "goal_harness.py",
     }
 
 
@@ -38,7 +38,7 @@ def status(root: pathlib.Path) -> dict[str, Any]:
         and harness.exists()
         and str(delegate) in script_text
         and "lfg-audit-bridge.py" in config_text
-        and "lfg-goal-harness.py" in config_text
+        and "goal_harness.py" in config_text
     )
     return {
         "ok": (not installed) or valid,
@@ -68,6 +68,7 @@ def bridge_source(root: pathlib.Path, delegate: pathlib.Path) -> str:
         "    env = os.environ.copy()\n"
         "    env.setdefault('GROK_PLUGIN_ROOT', str(ROOT))\n"
         f"    env.setdefault('GROK_PLUGIN_DATA', str(pathlib.Path({str(pathlib.Path.home() / '.grok' / 'plugin-data' / 'lfg')!r})))\n"
+        "    env.setdefault('LFG_LAUNCHER', os.environ.get('LFG_LAUNCHER', 'lfg'))\n"
         "    if AUDIT.exists():\n"
         "        subprocess.run([str(AUDIT)], input=payload, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)\n"
         "    return 0\n\n"
