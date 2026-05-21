@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Router: delegates to src/hooks/audit_hook.sh (the real implementation).
 set +euo pipefail
 
 ROOT="${GROK_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}"
@@ -8,7 +7,7 @@ if [ -z "$ROOT" ]; then
   ROOT="$(CDPATH= cd -- "${SCRIPT_DIR}/../.." 2>/dev/null && pwd)"
 fi
 
-TARGET="$ROOT/src/hooks/audit_hook.sh"
+TARGET="$ROOT/hooks/scripts/lfg-audit-hook.ts"
 if [ -f "$TARGET" ]; then
   exec "$TARGET"
 fi
