@@ -57,6 +57,6 @@ def read_boulder(ugid: str) -> Dict[str, Any]:
 def write_boulder(ugid: str, boulder: Dict[str, Any]) -> None:
     path = boulder_path(ugid)
     path.parent.mkdir(parents=True, exist_ok=True)
-    boulder["last_updated_by"] = "lina"
+    boulder["last_updated_by"] = "sisyphus"
     boulder["last_updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     path.write_text(json.dumps(boulder, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

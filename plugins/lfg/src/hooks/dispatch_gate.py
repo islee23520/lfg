@@ -36,7 +36,7 @@ def reserve_continuation_dispatch(injection: str, snapshot: Dict[str, Any], even
             plan_id=str(ultragoal.get("id") or "no-active-ultragoal"),
             boulder_version=str(boulder.get("schema_version") or boulder.get("schemaVersion") or boulder.get("version") or 1),
             reason=f"hook:{event}:{evidence_hash}",
-            target_agent="lina",
+            target_agent="sisyphus",
             prompt=injection,
             state_snapshot={
                 "event": event,
