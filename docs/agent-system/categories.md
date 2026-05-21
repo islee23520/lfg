@@ -1,7 +1,7 @@
 # B. Category Mapping System (Reasoning Styles & Model Preferences)
 
 ## Goal
-Bring OmO's powerful category system into LFG so that different thinking styles can be explicitly requested and mapped to the best available backend (installed CLIs or native Grok sub-agents).
+Bring OmO's powerful category system into LFG so that different thinking styles can be explicitly requested and mapped to the best available backend (installed CLIs or manual-gated Grok sub-agent fallback envelopes).
 
 ## Current Mapping (M13 Lock)
 

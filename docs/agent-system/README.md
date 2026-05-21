@@ -3,9 +3,9 @@
 **Goal**: Bring OmO (oh-my-openagent) level named agent + category + rigorous team orchestration into LFG, while keeping clear identity:
 
 - **LFG** = Main orchestrator / conductor (leader)
-- **ULW** = Worker identity for all team members (external CLIs and native Grok sub-agents)
+- **ULW** = Worker identity for all team members (external CLIs and manual-gated Grok sub-agent fallback envelopes)
 
-**Current status (omo-parity branch)**: The canonical runtime registry now loads the 11 upstream OMO agents (`sisyphus`, `hephaestus`, `prometheus`, `atlas`, `oracle`, `librarian`, `explore`, `multimodal-looker`, `metis`, `momus`, `sisyphus-junior`) plus the `builtin-agents` policy layer from `plugins/lfg/src/agents/*.json`. They are loaded by `load_omo_agent_registry()` and exposed via `lfg agents list` / `lfg spawn`. See the "Current Runtime Implementation" section of [docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) for the as-built wiring.
+**Current status (omo-parity branch)**: The canonical runtime registry loads first-class LFG OMO agents plus support-agent metadata and the `builtin-agents` policy layer from `plugins/lfg/src/agents/*.json`. They are loaded by `load_omo_agent_registry()` and exposed via `lfg agents list` / `lfg spawn`; active/manual-gated/transition status is tracked in `docs/evidence/omo-feature-traceability.md`. See the "Current Runtime Implementation" section of [docs/ARCHITECTURE.md](/docs/ARCHITECTURE.md) for the as-built wiring.
 
 The older custom lineup below is preserved as historical context only. It is no longer valid in current team specs, default runtime paths, or active Hyperplan templates.
 
@@ -18,7 +18,7 @@ The older custom lineup below is preserved as historical context only. It is no 
 | **iz**     | Architect             | Historical architecture persona | deep | Removed from active team specs |
 | **grok**   | Consultant            | Historical consultation persona | artistry | Removed from active team specs |
 
-## Category Mapping (Grok-native OMO)
+## Category Mapping (Grok Build OMO)
 
 - First-class agents default to Grok models except Hephaestus, which requires an approved GPT-style deep-specialist profile; approved optional execution providers are `codex`, `copilot`, and `zai`.
 - `deep` / `ultrabrain` → high reasoning Grok profiles

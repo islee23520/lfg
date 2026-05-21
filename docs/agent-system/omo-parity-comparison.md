@@ -53,11 +53,11 @@ This document compares the agent philosophy and architecture of **oh-my-openagen
 
 ## 4. LFG Differentiators We Should Keep / Strengthen
 
-1. **ULW as universal worker identity** — even native Grok sub-agents feel like they belong to the LFG swarm.
+1. **ULW as universal worker identity** — even manual-gated Grok sub-agent fallback envelopes feel like they belong to the LFG swarm.
 2. **Pragmatic multi-CLI maximization** — not forcing users into one ecosystem.
 3. **Tight Ultragoal integration** — durable goal + ledger as the single source of truth (very strong in current LFG).
 4. **ULW worker identity** as a strong branding layer over canonical OMO execution.
-5. **Grok-native sub-agents** as a first-class backend (OmO is more CLI-centric).
+5. **Grok-discoverable OMO agent wrappers plus fallback envelopes**: T28 manual evidence proves native child-spawn collection for plugin agents, while deterministic fallback envelopes remain the dependency-free backend (OmO is more CLI-centric).
 
 ---
 
