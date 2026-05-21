@@ -314,6 +314,25 @@
     }
   },
   {
+    "name": "route",
+    "description": "Route a category or explicit subagent task through the OMO category policy used by the CLI.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "subagentType": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "provider",
     "description": "List, show, or add provider/model metadata without storing secret values.",
     "inputSchema": {
@@ -1480,7 +1499,7 @@
   },
   {
     "name": "slash",
-    "description": "Parse and execute an LFG-supported Grok slash command, currently /team. Defaults to dryRun=true.",
+    "description": "Parse and execute an LFG-supported Grok slash command such as /team, /route, /ulw, /loop, /plan, or /ultragoal. Defaults to dryRun=true.",
     "inputSchema": {
       "type": "object",
       "properties": {

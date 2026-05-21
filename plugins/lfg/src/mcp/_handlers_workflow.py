@@ -43,6 +43,17 @@ def handle_spawn(arguments):
     return text_result(run_lfg_json(cmd, timeout=30))
 
 
+def handle_route(arguments):
+    cmd = ["route"]
+    if arguments.get("category"):
+        cmd += ["--category", arguments["category"]]
+    if arguments.get("subagentType"):
+        cmd += ["--subagent-type", arguments["subagentType"]]
+    if arguments.get("task"):
+        cmd += ["--task", arguments["task"]]
+    return text_result(run_lfg_json(cmd, timeout=20))
+
+
 def handle_provider(arguments):
     action = arguments.get("action")
     cmd = ["provider"]
@@ -315,6 +326,7 @@ def handle_worker(arguments):
 HANDLERS = {
     "grok_build_agents": handle_agents,
     "grok_build_spawn": handle_spawn,
+    "grok_build_route": handle_route,
     "grok_build_provider": handle_provider,
     "grok_build_boulder": handle_boulder,
     "grok_build_atlas": handle_atlas,
