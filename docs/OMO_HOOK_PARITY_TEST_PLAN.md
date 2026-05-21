@@ -171,8 +171,8 @@ def hook_parity_smoke(tmp: pathlib.Path) -> None:
 - Continuation: `todo_continuation.py`, `ralph_loop.py`, `stop_continuation_guard.py` (evidence fingerprinting, bounded reminders).
 - State: `boulder_persistence.py`, `state_io.py`, `dispatch_gate.py`.
 
-**Identified Gaps vs OMO (add to QA checklist):**
-- Legacy "Lina" / "last_updated_by=lina" strings in `goal_harness.py`, `state_io.py`, tests — must align to canonical Sisyphus/Boulder owner.
+**Identified Gaps vs OMO (historical note; resolved items should stay green):**
+- Historical Lina/Boulder owner mismatch was resolved; current contract is canonical Sisyphus-owned Boulder state.
 - `payload.py:detect_current_agent()` uses limited heuristic list + env; sync with full registry from `src/agents/*.json`.
 - Atlas: only general todo continuation; missing dedicated dependency-wave stateful hook.
 - Model profile mismatch: `constants.py` "xhigh" for deep vs docs "high".
@@ -180,7 +180,7 @@ def hook_parity_smoke(tmp: pathlib.Path) -> None:
 - Enforcement split between prompt injection and core; push more hard-guards into runtime for parity.
 
 **Recommended QA Additions:**
-- Assert no "Lina" legacy in hook outputs / boulder JSON during per-agent tests.
+- Assert no "Lina" legacy or `last_updated_by = "boulder-state"` drift in hook outputs / boulder JSON during per-agent tests.
 - Verify full agent list (sisyphus, hephaestus, prometheus, atlas, sisyphus-junior, builtin-agents + others) in detect_current_agent.
 - Cross-check `docs/agent-system/omo-runtime-implementation-plan.md` slices 4/5/8/9/10.
 - Confirm evidence strings from exploration: `grok-hook-discovery=ok`, `hook-event-replay=ok`, `grok-headless-session=ok`.

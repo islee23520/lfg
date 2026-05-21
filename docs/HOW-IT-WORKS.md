@@ -13,7 +13,7 @@ This document explains how the entire `lfg` system operates, from agent definiti
 - Sisyphus-Junior handles category-bounded tasks
 - builtin-agents resolves models, categories, and policies
 
-All agents run on Grok models (`xai/grok-4.3`). Grok-native sub-agent spawning is the target delegation path. Team Mode provides the durable multi-agent coordination layer.
+Most agents run on Grok models (`xai/grok-4.3`). Hephaestus is the intentional exception and uses its approved GPT-style deep-specialist profile. Grok-native sub-agent spawning is the target delegation path. Team Mode provides the durable multi-agent coordination layer.
 
 ## 2. Agent Registry (Source of Truth)
 
@@ -31,14 +31,14 @@ plugins/lfg/src/agents/
 
 Each JSON defines:
 - `id`, `name`, `family`, `role`
-- `modelProfile` (always `provider: "xai"`, `model: "xai/grok-4.3"`)
+- `modelProfile` (Grok-first for most agents; Hephaestus is the approved GPT-style exception)
 - `reasoningLevel`
 - `categories` the agent is allowed to handle
 - `tools` and `blockedTools`
 
 `load_omo_agent_registry()` in `plugins/lfg/src/runtime/cli.py` reads these files at runtime and builds the in-memory registry used by `lfg agents list`, `lfg agents inspect`, `spawn_agent()`, and MCP tools.
 
-Legacy agents under `plugins/lfg/src/agents/legacy/` exist only for backward compatibility with old team specs. They are **not** part of the first-class OMO registry.
+Historical custom agent names are reference material only. They are **not** part of the first-class OMO registry and are not valid team-spec members.
 
 ## 3. Grok Spawn Adapter
 
@@ -47,7 +47,7 @@ Entry point: `lfg spawn <agent_id> --category <c> --task "..."`
 Flow inside `spawn_agent()`:
 1. Look up agent in `_OMO_REGISTRY_INDEX`
 2. Validate category (if provided)
-3. Call `resolve_omo_model_profile()` → forces `xai/grok-4.3` + appropriate reasoning level
+3. Call `resolve_omo_model_profile()` → resolves the approved model profile and appropriate reasoning level for the selected agent/category
 4. Return structured fallback envelope + persist record under `.lfg/runs/spawns/<uuid>.json`
 
 Real Grok-native `spawn_subagent` call is still behind a manual gate (see `docs/evidence/grok-subagent-spawning.md`). Until the gate is removed, the adapter provides deterministic fallback behavior for smoke tests and local development.

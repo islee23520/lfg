@@ -76,4 +76,4 @@ plugins/lfg/bin/lfg --json slash '/team providers'
 plugins/lfg/bin/lfg --json slash '/team preflight'
 ```
 
-The user-facing setup skill/MCP surface is OMO-native. Legacy `omx-setup` CLI and `grok_build_omx_setup` calls remain accepted only as compatibility aliases until the coordinated runtime alias removal gate.
+The user-facing setup skill/MCP surface is OMO-native. Use `setup`/`grok_build_setup` as the active surface; legacy `omx-setup` and `grok_build_omx_setup` are no longer accepted.
