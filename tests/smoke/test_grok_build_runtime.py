@@ -334,6 +334,10 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(route["blockedTools"])
         self.assertTrue(route["verificationGate"]["required"])
         self.assertFalse(route["delegation"]["allowed"])
+        slash_route = self.run_lfg("slash", "/route --category quick execute a bounded slash task")
+        self.assertTrue(slash_route["ok"], slash_route)
+        self.assertEqual(slash_route["routeKind"], "category")
+        self.assertEqual(slash_route["selectedAgent"]["id"], "sisyphus-junior")
 
         unsupported = self.run_lfg("route", "--category", "quick-rust", "--task", "migrate unsupported category")
         self.assertFalse(unsupported["ok"], unsupported)
@@ -548,6 +552,12 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertEqual(activated["plan"]["id"], plan["id"])
         self.assertEqual(activated["dispatchGate"]["dispatch"], "manual_gate_required")
         self.assertIn("continuation-gate=ok", activated["dispatchGate"]["evidence"])
+        self.assertEqual(activated["defaultSpawnWave"]["operation"], "spawn_wave")
+        self.assertTrue(activated["defaultSpawnWave"]["ok"], activated)
+        self.assertTrue(activated["defaultSpawnWave"]["manual_gate_required"])
+        self.assertEqual([child["agentId"] for child in activated["defaultSpawnWave"]["children"]], ["atlas", "atlas", "atlas"])
+        self.assertEqual([task["agent_id"] for task in activated["defaultSpawnWavePlan"]], ["atlas", "atlas", "atlas"])
+        self.assertTrue(pathlib.Path(activated["defaultSpawnWave"]["recordPath"]).exists())
         self.assertFalse(activated["sisyphusDiscipline"]["bypassesEvidenceGates"])
         self.assertFalse(activated["sisyphusDiscipline"]["completionPolicy"]["proseOnlyCompletionAllowed"])
         self.assertEqual(activated["sisyphusDiscipline"]["completionPolicy"]["ultraworkStopStates"], [
@@ -1021,6 +1031,19 @@ class RuntimeSmoke(unittest.TestCase):
         self.assertTrue(resumed["mailboxRecovery"]["reclaimed"], resumed)
         self.assertTrue(queued.exists())
         self.assertFalse(delivering.exists())
+
+    def test_plan_create_without_steps_enters_prometheus_interview_mode(self) -> None:
+        plan = self.run_lfg("plan", "create", "모호한 OMO parity request")
+        self.assertEqual(plan["status"], "awaiting_answers", plan)
+        self.assertEqual(plan["steps"], [])
+        self.assertIn("What is the core objective of this work?", plan["questions"])
+        self.assertIn("What are the scope boundaries (what is NOT included)?", plan["questions"])
+        self.assertTrue(pathlib.Path(plan["json_path"]).exists())
+        self.assertTrue(pathlib.Path(plan["markdown_path"]).exists())
+
+        markdown = pathlib.Path(plan["markdown_path"]).read_text(encoding="utf-8")
+        self.assertIn("Prometheus requires answers", markdown)
+        self.assertIn(f"lfg plan answer {plan['id']}", markdown)
 
     def test_t25_prometheus_atlas_worker_end_to_end_and_resume_smoke(self) -> None:
         plan = self.run_lfg("plan", "create", "T25 Prometheus Atlas worker fixture", "--interview")
@@ -1600,6 +1623,9 @@ class RuntimeSmoke(unittest.TestCase):
 
         self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.0.1")
         tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
+        canonical_tool_names = {
+            tool["name"] for tool in json.loads((PLUGIN / "src" / "mcp" / "tools.json").read_text(encoding="utf-8"))
+        }
         expected = {
             "analyze",
             "ask",
@@ -1635,6 +1661,7 @@ class RuntimeSmoke(unittest.TestCase):
             "worker",
         }
         self.assertEqual(expected - tool_names, set())
+        self.assertEqual(tool_names, canonical_tool_names)
         self.assertFalse(any(name.startswith("grok_build_") for name in tool_names))
 
 
@@ -1658,8 +1685,14 @@ class RuntimeSmoke(unittest.TestCase):
         script = install_smoke.read_text(encoding="utf-8")
         self.assertIn("shutil.copytree", script)
         self.assertIn('"inspect", "--json"', script)
-        self.assertIn("assert len(skills) == 21", script)
-        self.assertIn("grok-install-smoke=ok skills=21", script)
+        self.assertNotIn("assert len(skills) == 21", script)
+        self.assertIn('grok-install-smoke=ok skills={len(skills)} key_skills_present', script)
+        self.assertIn('grok-agent-discovery=ok agents={len(agents)} key_agents_present', script)
+
+        plugin_agent_dir = PLUGIN / "agents"
+        self.assertTrue(plugin_agent_dir.exists())
+        for required_agent in ["sisyphus", "sisyphus-junior", "prometheus", "atlas", "hephaestus", "oracle", "builtin-agents"]:
+            self.assertTrue((plugin_agent_dir / f"{required_agent}.md").exists(), required_agent)
 
         gateway = (PLUGIN / "bin" / "lfg.py").read_text(encoding="utf-8")
         self.assertIn('RUNTIME = ROOT / "src" / "runtime" / "cli.py"', gateway)
@@ -2267,7 +2300,7 @@ esac
         self.assertEqual(stderr, "")
         self.assertTrue(all(json.loads(line)["jsonrpc"] == "2.0" for line in stdout_lines))
         tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
-        for name in {"spawn", "provider", "boulder", "hyperplan", "atlas", "omo_ulw"}:
+        for name in {"spawn", "route", "provider", "boulder", "hyperplan", "atlas", "omo_ulw"}:
             self.assertIn(name, tool_names)
             self.assertEqual(sum(1 for tool in replies[1]["result"]["tools"] if tool["name"] == name), 1)
         mcp_catalog = json.loads(replies[2]["result"]["content"][0]["text"])
@@ -2318,6 +2351,12 @@ esac
                 "method": "tools/call",
                 "params": {"name": "grok_build_models", "arguments": {"provider": "xai"}},
             },
+            {
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "tools/call",
+                "params": {"name": "route", "arguments": {"category": "quick", "task": "mcp route smoke"}},
+            },
         ]
         for msg in messages:
             proc.stdin.write(json.dumps(msg) + "\n")
@@ -2334,7 +2373,7 @@ esac
 
         self.assertEqual(replies[0]["result"]["serverInfo"]["version"], "0.0.1")
         tool_names = {tool["name"] for tool in replies[1]["result"]["tools"]}
-        for name in {"catalog", "runtime", "team", "slash", "hook_bridge", "models", "auth", "provider", "spawn", "boulder", "hyperplan", "atlas"}:
+        for name in {"catalog", "runtime", "team", "slash", "hook_bridge", "models", "auth", "provider", "spawn", "route", "boulder", "hyperplan", "atlas"}:
             self.assertIn(name, tool_names)
         payload = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(payload["returncode"], 0)
@@ -2349,6 +2388,10 @@ esac
         self.assertEqual(models_payload["returncode"], 0)
         self.assertEqual(models_payload["data"]["secretStorage"], "env-name-only")
         self.assertTrue(models_payload["data"]["providers"]["xai"]["configured"], models_payload)
+        route_payload = json.loads(replies[6]["result"]["content"][0]["text"])
+        self.assertEqual(route_payload["returncode"], 0)
+        self.assertEqual(route_payload["data"]["selectedAgent"]["id"], "sisyphus-junior")
+        self.assertEqual(route_payload["data"]["routeKind"], "category")
 
     def test_doctor_reports_required_checks(self) -> None:
         report = self.run_lfg("doctor")
@@ -3802,6 +3845,32 @@ class HarnessRuntimeSmoke(unittest.TestCase):
             "active_runs": [],
         }
         self.assertEqual(self.harness.todo_continuation_reminder(snapshot, "Stop"), "")
+
+    def test_atlas_dependency_wave_reminder_tracks_ready_and_blocked_tasks(self) -> None:
+        snapshot = {
+            "current_agent": "atlas",
+            "boulder": {"recent_evidence": [{"ts": "2026-05-20T00:00:00Z", "path": "atlas.txt"}]},
+            "active_runs": [
+                {
+                    "mode": "atlas",
+                    "tasks": [
+                        {"id": "T1", "title": "completed dependency", "status": "completed"},
+                        {"id": "T2", "title": "ready implementation", "status": "pending", "depends_on": ["T1"]},
+                        {"id": "T3", "title": "blocked verification", "status": "pending", "depends_on": ["T4"]},
+                    ],
+                }
+            ],
+        }
+        first = self.harness.atlas_dependency_wave_reminder(snapshot, "PostToolUse")
+        second = self.harness.atlas_dependency_wave_reminder(snapshot, "PostToolUse")
+
+        self.assertIn("[SYSTEM REMINDER - ATLAS DEPENDENCY WAVE]", first)
+        self.assertIn("ready T2: ready implementation", first)
+        self.assertIn("blocked T3: blocked verification", first)
+        self.assertEqual(second, "")
+
+        snapshot["current_agent"] = "sisyphus"
+        self.assertEqual(self.harness.atlas_dependency_wave_reminder(snapshot, "PostToolUse"), "")
 
 
 if __name__ == "__main__":
