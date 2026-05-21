@@ -4,21 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lfg"
-version = "0.0.1"
-description = "Python-first LFG Grok plugin runtime for OMO agent hierarchy parity"
+version = "0.1.0"
+description = "TypeScript/Bun LFG Grok plugin runtime for OMO agent hierarchy parity"
 readme = "README.md"
-requires-python = ">=3.11"
 license = { text = "Proprietary" }
 authors = [{ name = "islee23520" }]
 classifiers = [
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: TypeScript",
 ]
 dependencies = []
-
-[project.optional-dependencies]
-dev = ["pytest>=8.0.0", "ruff>=0.14.0"]
 
 [tool.setuptools]
 include-package-data = true
@@ -26,23 +20,3 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["plugins*"]
-
-[tool.ruff]
-target-version = "py311"
-line-length = 160
-extend-exclude = [
-  ".lfg",
-  ".grok",
-  ".agents",
-]
-
-[tool.ruff.lint]
-select = ["E", "F"]
-
-[tool.ruff.lint.per-file-ignores]
-"plugins/lfg/bin/lfg.py" = ["E402", "E501", "E701", "F841"]
-"plugins/lfg/hooks/scripts/lfg-goal-harness.py" = ["E401", "F841"]
-"plugins/lfg/src/runtime/cli.py" = ["E402", "E501", "E701", "F841"]
-"plugins/lfg/src/mcp/server.py" = ["E501"]
-"plugins/lfg/src/mcp/tools.py" = ["E501"]
-"tests/smoke/test_grok_build_runtime.py" = ["E501", "E702", "F401"]
