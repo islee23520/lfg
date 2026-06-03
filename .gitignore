@@ -1,0 +1,11 @@
+.DS_Store
+*.log
+
+.lfg/
+node_modules/
+.bun/
+coverage/
+test-results/
+*.tsbuildinfo
+plugins/lfg/dist/
+plans/

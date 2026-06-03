@@ -1,0 +1,30 @@
+name: lfg smoke
+
+on:
+  push:
+    branches: [main, p1]
+  pull_request:
+    branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install TypeScript dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Bun tests
+        run: bun test plugins/lfg/bin
+
+      - name: Run plugin self-test
+        run: bun plugins/lfg/bin/self-test.ts
