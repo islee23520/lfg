@@ -4,6 +4,7 @@ import { configureGrokByok, DEFAULT_GROK_BYOK_MODEL_ID, type GrokByokConfigInput
 import { findExistingGrokSettings, restoreGrokSettings, snapshotGrokSettings, type ExistingGrokSetting, type GrokSettingsSnapshot } from "./lfg-install-state"
 import { LAZYCODEX_INSTALLER_COMMAND, runLazycodexInstaller } from "./lfg-installer"
 import type { JsonObject } from "./lfg-json"
+import { enableLazycodexPlugin } from "./lfg-plugins-enable"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
 type ProviderChoice = "cli-proxy" | "cri-proxy" | "custom"
@@ -16,8 +17,9 @@ export async function runInstallWizard(plan: JsonObject): Promise<JsonObject> {
     if (!confirmed) {
       output.write("\nSkipped install. Nothing was changed.\n")
       output.write("Run again with: lfg install\n")
+      const pluginEnable = await maybeEnableLazycodexPlugin(reader)
       const byok = await maybeConfigureGrokByok(reader)
-      return { ok: true, status: "skipped", executed: false, grokByok: byok }
+      return { ok: true, status: "skipped", executed: false, pluginEnable, grokByok: byok }
     }
 
     const existingSettings = await findExistingGrokSettings()
@@ -28,8 +30,9 @@ export async function runInstallWizard(plan: JsonObject): Promise<JsonObject> {
       const overwrite = await confirm(reader, "Overwrite existing Grok settings by running the installer? [y/N] ")
       if (!overwrite) {
         output.write("\nKept existing Grok settings. Installer was not run.\n")
+        const pluginEnable = await maybeEnableLazycodexPlugin(reader)
         const byok = await maybeConfigureGrokByok(reader)
-        return { ok: true, status: "skipped_existing_grok_settings", executed: false, existingGrokSettings: existingSettings, grokByok: byok }
+        return { ok: true, status: "skipped_existing_grok_settings", executed: false, existingGrokSettings: existingSettings, pluginEnable, grokByok: byok }
       }
       snapshot = await snapshotGrokSettings(existingSettings)
       output.write(`\nBacked up existing Grok settings to: ${snapshot.root}\n`)
@@ -47,8 +50,9 @@ export async function runInstallWizard(plan: JsonObject): Promise<JsonObject> {
       output.write("\nInstalled lazycodex adapter for Grok Build.\n")
       printStablePluginLink(result)
       output.write("Verify with: grok inspect --json\n")
+      const pluginEnable = await maybeEnableLazycodexPlugin(reader)
       const byok = await maybeConfigureGrokByok(reader)
-      return { ...result, existingGrokSettings: existingSettings, restoredGrokSettings: restoredSettings, grokByok: byok }
+      return { ...result, existingGrokSettings: existingSettings, restoredGrokSettings: restoredSettings, pluginEnable, grokByok: byok }
     }
 
     output.write("\nInstall failed. See installer output above.\n")
@@ -74,6 +78,18 @@ function printInstallHeader(plan: JsonObject): void {
 
 async function confirmInstall(reader: LineReader): Promise<boolean> {
   return confirm(reader, "Install now? [y/N] ")
+}
+
+async function maybeEnableLazycodexPlugin(reader: LineReader): Promise<JsonObject> {
+  output.write("\n")
+  const confirmed = await confirm(reader, "Enable lazycodex in [plugins].enabled? [y/N] ")
+  if (!confirmed) {
+    output.write("\nSkipped plugin enable. Nothing was changed.\n")
+    return { ok: true, status: "skipped", executed: false }
+  }
+  const result = await enableLazycodexPlugin()
+  output.write("Enabled lazycodex in ~/.grok/config.toml [plugins].enabled.\n")
+  return result
 }
 
 async function maybeConfigureGrokByok(reader: LineReader): Promise<JsonObject> {

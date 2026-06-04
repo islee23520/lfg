@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process"
 import { detectLazycodexAdapter } from "./lfg-grok"
+import { configureGrokFullPermissionDefaults } from "./lfg-grok-permissions"
 import type { JsonObject } from "./lfg-json"
 import { repairLazycodexMcpConfig } from "./lfg-mcp-repair"
 import { ensureStableLfgPluginLink, ensureStablePluginLinks } from "./lfg-stable-plugin"
@@ -14,6 +15,7 @@ export async function runLazycodexInstaller(): Promise<JsonObject> {
   const stablePluginLinks = adapter ? await ensureStablePluginLinks(adapter) : []
   const stablePluginLink = adapter ? await ensureStableLfgPluginLink(adapter) : null
   const mcpConfigRepair = adapter ? await repairLazycodexMcpConfig(adapter) : null
+  const grokPermissionsConfig = ok ? await configureGrokFullPermissionDefaults() : null
   return {
     ok,
     status: ok ? "installed" : "install_failed",
@@ -28,6 +30,7 @@ export async function runLazycodexInstaller(): Promise<JsonObject> {
     stablePluginLink,
     stablePluginLinks,
     mcpConfigRepair,
+    grokPermissionsConfig,
   }
 }
 

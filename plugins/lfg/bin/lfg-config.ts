@@ -148,7 +148,7 @@ function grokByokInputFromEnv(env: NodeJS.ProcessEnv, currentConfig: string): Gr
   }
 }
 
-function grokConfigPath(): string {
+export function grokConfigPath(): string {
   return join(homedir(), ".grok", "config.toml")
 }
 
@@ -196,7 +196,7 @@ function inferUpstreamModelId(alias: string): string {
   return /^gpt-\d+(?:[.-][\w-]+)*$/i.test(alias) ? alias : DEFAULT_GROK_BYOK_MODEL_ID
 }
 
-async function writeGrokConfigAtomically(path: string, contents: string): Promise<void> {
+export async function writeGrokConfigAtomically(path: string, contents: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true })
   const temporaryPath = `${path}.lfg-tmp-${process.pid}`
   await writeFile(temporaryPath, contents)
