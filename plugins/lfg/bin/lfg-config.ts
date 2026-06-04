@@ -1,14 +1,28 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
+import { findExistingEndpointBaseUrl, grokModelAlias, normalizeGrokBaseUrl, renderGrokByokConfig, type GrokByokBaseUrlSource, type GrokByokModelConfig } from "./lfg-config-toml"
+import { detectLazycodexAdapter } from "./lfg-grok"
 import type { JsonObject } from "./lfg-json"
+import { resolveRequiredModels } from "./lfg-lazycodex-models"
 
-export const DEFAULT_GROK_BYOK_MODEL_ID = "gpt-5.5"
+export const DEFAULT_GROK_BYOK_MODEL_ID = "gpt-5"
 const GROK_SECONDARY_MODEL_ALIAS = "grok-build"
-const REQUIRED_GROK_BYOK_ENV = ["LFG_GROK_BASE_URL", "LFG_GROK_API_KEY", "LFG_GROK_MODEL_ALIAS"] as const
+const GROK_BYOK_PROVIDER = "custom_openai_compatible"
+const REQUIRED_GROK_BYOK_ENV = ["LFG_GROK_API_KEY", "LFG_GROK_MODEL_ALIAS"] as const
+const REQUIRED_GROK_BYOK_BATCH_ENV = ["LFG_GROK_API_KEY", "LFG_GROK_MODELS"] as const
+
+export type GrokByokBatchInput = {
+  readonly baseUrl: string
+  readonly baseUrlSource: GrokByokBaseUrlSource
+  readonly apiKey: string
+  readonly upstreamModelId?: string
+  readonly models: readonly { readonly modelId: string; readonly displayName?: string }[]
+}
 
 export type GrokByokConfigInput = {
   readonly baseUrl: string
+  readonly baseUrlSource: GrokByokBaseUrlSource
   readonly apiKey: string
   readonly modelAlias: string
   readonly modelId: string
@@ -23,46 +37,56 @@ export function grokByokPlan(): JsonObject {
     purpose: "Configure a Grok OpenAI-compatible BYOK model for Grok Build lazycodex use.",
     mutatesGlobalConfig: true,
     executed: false,
-    providerMode: "interactive",
-    providerChoices: ["cli_proxy", "cri_proxy", "custom_openai_compatible", "skip"],
-    requiredSettings: ["baseUrl", "apiKey", "modelAlias"],
+    provider: GROK_BYOK_PROVIDER,
+    supportsBatch: true,
+    requiredModelsSource: "adapter model-catalog.json and components/*/agents/*.toml (or LFG_GROK_MODELS)",
+    requiredSettings: ["apiKey", "modelAlias"],
+    conditionalSettings: ["baseUrl is required only when ~/.grok/config.toml has no [endpoints].models_base_url."],
     defaultModelId: DEFAULT_GROK_BYOK_MODEL_ID,
     secondaryModelAlias: GROK_SECONDARY_MODEL_ALIAS,
     automationEnv: [...REQUIRED_GROK_BYOK_ENV],
+    batchAutomationEnv: [...REQUIRED_GROK_BYOK_BATCH_ENV],
+    optionalAutomationEnv: ["LFG_GROK_BASE_URL", "LFG_GROK_MODEL_ID", "LFG_GROK_DISPLAY_NAME"],
     target: grokConfigPath(),
     steps: [
-      { id: "choose_provider", status: "pending", text: "Ask whether to use the CLI proxy, CRI proxy, a custom OpenAI-compatible provider, or skip BYOK configuration." },
-      { id: "collect_provider_settings", status: "pending", text: "Collect base URL, API key, model alias, and upstream model id." },
-      { id: "write_grok_config", status: "pending", text: "Back up and update ~/.grok/config.toml with [endpoints] and [model.<alias>] entries." },
+      { id: "collect_provider_settings", status: "pending", text: "Collect API key, model alias, upstream model id, and base URL only when [endpoints].models_base_url is absent." },
+      { id: "write_grok_config", status: "pending", text: "Back up and update ~/.grok/config.toml while preserving existing [endpoints] when possible." },
     ],
   }
 }
 
 export async function configureGrokByokFromEnv(env: NodeJS.ProcessEnv = process.env): Promise<JsonObject> {
-  const input = grokByokInputFromEnv(env)
+  const path = grokConfigPath()
+  const previous = await readConfigOrEmpty(path)
+  const batch = await grokByokBatchInputFromEnv(env, previous)
+  if (batch !== null) return configureGrokByokModels(batch)
+  const input = grokByokInputFromEnv(env, previous)
   if (input === null) {
+    const existingEndpointBaseUrl = findExistingEndpointBaseUrl(previous)
     return {
       ok: false,
       status: "missing_config",
       executed: false,
-      error: `Set ${REQUIRED_GROK_BYOK_ENV.join(", ")} before running lfg --json config grok-byok --run.`,
+      error: `Set ${REQUIRED_GROK_BYOK_BATCH_ENV.join(", ")} or ${REQUIRED_GROK_BYOK_ENV.join(", ")} and either LFG_GROK_BASE_URL or [endpoints].models_base_url before running lfg --json config grok-byok --run.`,
       requiredEnv: [...REQUIRED_GROK_BYOK_ENV],
+      batchRequiredEnv: [...REQUIRED_GROK_BYOK_BATCH_ENV],
+      conditionalEnv: ["LFG_GROK_BASE_URL"],
+      existingEndpointDetected: existingEndpointBaseUrl !== null,
       optionalEnv: ["LFG_GROK_MODEL_ID", "LFG_GROK_DISPLAY_NAME"],
     }
   }
   return configureGrokByok(input)
 }
 
-export async function configureGrokByok(input: GrokByokConfigInput): Promise<JsonObject> {
+export async function configureGrokByokModels(input: GrokByokBatchInput): Promise<JsonObject> {
   const path = grokConfigPath()
   const previous = await readConfigOrEmpty(path)
   const backupPath = previous ? `${path}.lfg-backup-${timestamp()}` : null
   if (backupPath) await writeFile(backupPath, previous)
-  const next = renderConfig(previous, input)
-  await mkdir(dirname(path), { recursive: true })
-  const temporaryPath = `${path}.lfg-tmp-${process.pid}`
-  await writeFile(temporaryPath, next)
-  await rename(temporaryPath, path)
+  const modelConfigs = modelConfigsFromBatch(input)
+  await writeGrokConfigAtomically(path, renderGrokByokConfig(previous, input.baseUrl, input.baseUrlSource, modelConfigs, GROK_SECONDARY_MODEL_ALIAS))
+  const configuredModels = modelConfigs.map((model) => ({ alias: model.alias, modelId: model.modelId }))
+  const primaryAlias = configuredModels[0]?.alias ?? DEFAULT_GROK_BYOK_MODEL_ID
   return {
     ok: true,
     status: "configured",
@@ -70,25 +94,56 @@ export async function configureGrokByok(input: GrokByokConfigInput): Promise<Jso
     executed: true,
     target: path,
     backupPath,
+    provider: GROK_BYOK_PROVIDER,
+    supportsBatch: true,
+    configuredModels,
+    modelCount: configuredModels.length,
+    secondaryModelAlias: GROK_SECONDARY_MODEL_ALIAS,
+    baseUrl: input.baseUrl,
+    baseUrlSource: input.baseUrlSource,
+    apiKeyConfigured: input.apiKey.length > 0,
+    verificationCommands: ["grok models", `grok -m ${primaryAlias} -p 'Reply LFG_GROK_BUILD_OK'`, `grok -m ${GROK_SECONDARY_MODEL_ALIAS} -p 'Reply LFG_GROK_BUILD_OK'`, "grok inspect --json"],
+  }
+}
+
+export async function configureGrokByok(input: GrokByokConfigInput): Promise<JsonObject> {
+  const path = grokConfigPath()
+  const previous = await readConfigOrEmpty(path)
+  const backupPath = previous ? `${path}.lfg-backup-${timestamp()}` : null
+  if (backupPath) await writeFile(backupPath, previous)
+  const next = renderGrokByokConfig(previous, input.baseUrl, input.baseUrlSource, modelConfigsFromSingle(input), GROK_SECONDARY_MODEL_ALIAS)
+  await writeGrokConfigAtomically(path, next)
+  return {
+    ok: true,
+    status: "configured",
+    command: "config grok-byok",
+    executed: true,
+    target: path,
+    backupPath,
+    provider: GROK_BYOK_PROVIDER,
     modelAlias: input.modelAlias,
     secondaryModelAlias: GROK_SECONDARY_MODEL_ALIAS,
     modelId: input.modelId,
     baseUrl: input.baseUrl,
+    baseUrlSource: input.baseUrlSource,
     apiKeyConfigured: input.apiKey.length > 0,
     verificationCommands: ["grok models", `grok -m ${input.modelAlias} -p 'Reply LFG_GROK_BUILD_OK'`, `grok -m ${GROK_SECONDARY_MODEL_ALIAS} -p 'Reply LFG_GROK_BUILD_OK'`, "grok inspect --json"],
   }
 }
 
-function grokByokInputFromEnv(env: NodeJS.ProcessEnv): GrokByokConfigInput | null {
-  const baseUrl = env.LFG_GROK_BASE_URL?.trim()
+function grokByokInputFromEnv(env: NodeJS.ProcessEnv, currentConfig: string): GrokByokConfigInput | null {
+  const baseUrlFromEnv = env.LFG_GROK_BASE_URL?.trim()
+  const endpointBaseUrl = findExistingEndpointBaseUrl(currentConfig)
+  const baseUrl = normalizeGrokBaseUrl(baseUrlFromEnv || endpointBaseUrl)
   const apiKey = env.LFG_GROK_API_KEY?.trim()
   const modelAlias = env.LFG_GROK_MODEL_ALIAS?.trim()
   if (!baseUrl || !apiKey || !modelAlias) return null
   return {
     baseUrl,
+    baseUrlSource: baseUrlFromEnv ? "environment" : "existing_endpoints",
     apiKey,
-    modelAlias,
-    modelId: env.LFG_GROK_MODEL_ID?.trim() || DEFAULT_GROK_BYOK_MODEL_ID,
+    modelAlias: grokModelAlias(modelAlias),
+    modelId: env.LFG_GROK_MODEL_ID?.trim() || inferUpstreamModelId(modelAlias),
     displayName: env.LFG_GROK_DISPLAY_NAME?.trim() || modelAlias,
   }
 }
@@ -106,88 +161,46 @@ async function readConfigOrEmpty(path: string): Promise<string> {
   }
 }
 
-function renderConfig(previous: string, input: GrokByokConfigInput): string {
-  const withoutEndpoints = removeTomlSection(previous, "endpoints")
-  const withoutModel = removeTomlSection(withoutEndpoints, `model.${input.modelAlias}`)
-  const withoutSecondaryModel = input.modelAlias === GROK_SECONDARY_MODEL_ALIAS ? withoutModel : removeTomlSection(withoutModel, `model.${GROK_SECONDARY_MODEL_ALIAS}`)
-  const withUiSecondary = setTomlSectionKey(withoutSecondaryModel, "ui", "fork_secondary_model", tomlString(input.modelAlias))
-  const body = withUiSecondary.trimEnd()
-  const addition = [
-    "[endpoints]",
-    `models_base_url = ${tomlString(input.baseUrl)}`,
-    "",
-    ...renderModelSection(input.modelAlias, input.displayName, input),
-    ...(input.modelAlias === GROK_SECONDARY_MODEL_ALIAS ? [] : renderModelSection(GROK_SECONDARY_MODEL_ALIAS, GROK_SECONDARY_MODEL_ALIAS, input)),
-  ].join("\n")
-  return body ? `${body}\n\n${addition}` : addition
-}
-
-function renderModelSection(alias: string, displayName: string, input: GrokByokConfigInput): readonly string[] {
-  return [
-    `[model.${alias}]`,
-    `model = ${tomlString(input.modelId)}`,
-    `base_url = ${tomlString(input.baseUrl)}`,
-    `name = ${tomlString(displayName)}`,
-    `api_key = ${tomlString(input.apiKey)}`,
-    'api_backend = "responses"',
-    'auth_scheme = "bearer"',
-    "",
-  ]
-}
-
-function removeTomlSection(source: string, section: string): string {
-  const lines = source.split(/\r?\n/)
-  const output: string[] = []
-  let skipping = false
-  for (const line of lines) {
-    const header = line.match(/^\s*\[([^\]]+)\]\s*$/)
-    if (header) skipping = header[1] === section
-    if (!skipping) output.push(line)
+async function grokByokBatchInputFromEnv(env: NodeJS.ProcessEnv, currentConfig: string): Promise<GrokByokBatchInput | null> {
+  const models = await requiredModelsFromEnvOrAdapter(env)
+  if (models.length === 0) return null
+  const baseUrlFromEnv = env.LFG_GROK_BASE_URL?.trim()
+  const endpointBaseUrl = findExistingEndpointBaseUrl(currentConfig)
+  const baseUrl = normalizeGrokBaseUrl(baseUrlFromEnv || endpointBaseUrl)
+  const apiKey = env.LFG_GROK_API_KEY?.trim()
+  if (!baseUrl || !apiKey) return null
+  return {
+    baseUrl,
+    baseUrlSource: baseUrlFromEnv ? "environment" : "existing_endpoints",
+    apiKey,
+    upstreamModelId: env.LFG_GROK_MODEL_ID?.trim() || undefined,
+    models: models.map((modelId) => ({ modelId, displayName: modelId })),
   }
-  return output.join("\n")
 }
 
-function setTomlSectionKey(source: string, section: string, key: string, value: string): string {
-  const lines = source.split(/\r?\n/)
-  const output: string[] = []
-  let inSection = false
-  let foundSection = false
-  let wroteKey = false
-  for (const line of lines) {
-    const header = line.match(/^\s*\[([^\]]+)\]\s*$/)
-    if (header) {
-      if (inSection && !wroteKey) {
-        output.push(`${key} = ${value}`)
-        wroteKey = true
-      }
-      inSection = header[1] === section
-      foundSection = foundSection || inSection
-      output.push(line)
-      continue
-    }
-    if (inSection && tomlAssignmentKey(line) === key) {
-      if (!wroteKey) output.push(`${key} = ${value}`)
-      wroteKey = true
-      continue
-    }
-    output.push(line)
-  }
-  if (inSection && !wroteKey) output.push(`${key} = ${value}`)
-  if (!foundSection) {
-    const trimmed = output.join("\n").trimEnd()
-    const addition = [`[${section}]`, `${key} = ${value}`, ""].join("\n")
-    return trimmed ? `${trimmed}\n\n${addition}` : addition
-  }
-  return output.join("\n")
+async function requiredModelsFromEnvOrAdapter(env: NodeJS.ProcessEnv): Promise<readonly string[]> {
+  if (env.LFG_GROK_MODEL_ALIAS?.trim()) return []
+  const adapter = detectLazycodexAdapter()
+  return resolveRequiredModels(adapter.found ? adapter.root : null, env)
 }
 
-function tomlAssignmentKey(line: string): string | null {
-  const match = line.match(/^\s*([A-Za-z0-9_.-]+)\s*=/)
-  return match ? match[1] : null
+function modelConfigsFromBatch(input: GrokByokBatchInput): readonly GrokByokModelConfig[] {
+  return input.models.map((model) => ({ alias: grokModelAlias(model.modelId), modelId: input.upstreamModelId ?? model.modelId, displayName: model.displayName ?? model.modelId, apiKey: input.apiKey }))
 }
 
-function tomlString(value: string): string {
-  return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`
+function modelConfigsFromSingle(input: GrokByokConfigInput): readonly GrokByokModelConfig[] {
+  return [{ alias: input.modelAlias, modelId: input.modelId, displayName: input.displayName, apiKey: input.apiKey }]
+}
+
+function inferUpstreamModelId(alias: string): string {
+  return /^gpt-\d+(?:[.-][\w-]+)*$/i.test(alias) ? alias : DEFAULT_GROK_BYOK_MODEL_ID
+}
+
+async function writeGrokConfigAtomically(path: string, contents: string): Promise<void> {
+  await mkdir(dirname(path), { recursive: true })
+  const temporaryPath = `${path}.lfg-tmp-${process.pid}`
+  await writeFile(temporaryPath, contents)
+  await rename(temporaryPath, path)
 }
 
 function timestamp(): string {

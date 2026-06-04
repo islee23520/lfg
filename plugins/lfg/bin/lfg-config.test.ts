@@ -16,7 +16,8 @@ describe("lfg Grok BYOK config", () => {
       command: "config grok-byok",
       mutatesGlobalConfig: true,
       executed: false,
-      providerMode: "interactive",
+      provider: "custom_openai_compatible",
+      supportsBatch: true,
       target: join(home, ".grok", "config.toml"),
     })
     expect(JSON.stringify(result.json)).not.toContain("https://cliproxy.linalab.io/v1")
@@ -34,12 +35,70 @@ describe("lfg Grok BYOK config", () => {
       ok: false,
       status: "missing_config",
       executed: false,
-      requiredEnv: ["LFG_GROK_BASE_URL", "LFG_GROK_API_KEY", "LFG_GROK_MODEL_ALIAS"],
+      requiredEnv: ["LFG_GROK_API_KEY", "LFG_GROK_MODEL_ALIAS"],
+      conditionalEnv: ["LFG_GROK_BASE_URL"],
+      existingEndpointDetected: false,
     })
     expect(JSON.stringify(result.json)).not.toContain("secret-test-key")
   })
 
-  test("uses gpt-5.5 as the Grok BYOK upstream model when omitted", async () => {
+  test("uses existing Grok endpoints for BYOK automation when base URL is omitted", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+    const configPath = join(home, ".grok", "config.toml")
+    await mkdir(join(home, ".grok"), { recursive: true })
+    await writeFile(configPath, '[endpoints]\nmodels_base_url = "https://endpoint.test/v1"\n\n[ui]\ntheme = "auto"\n')
+
+    const result = await runLfg(["--json", "config", "grok-byok", "--run"], {
+      HOME: home,
+      LFG_GROK_API_KEY: "secret-test-key",
+      LFG_GROK_MODEL_ALIAS: "openai-codex",
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.json).toMatchObject({
+      ok: true,
+      status: "configured",
+      modelAlias: "openai-codex",
+      modelId: "gpt-5",
+      baseUrl: "https://endpoint.test/v1",
+      baseUrlSource: "existing_endpoints",
+      provider: "custom_openai_compatible",
+    })
+    expect(JSON.stringify(result.json)).not.toContain("secret-test-key")
+    const config = await readFile(configPath, "utf8")
+    expect(config).toContain('[endpoints]\nmodels_base_url = "https://endpoint.test/v1"')
+    expect(config).toContain("[model.openai-codex]")
+    expect(config).toContain('api_key = "secret-test-key"')
+    expect(config).not.toContain('\nbase_url = "https://endpoint.test/v1"')
+  })
+
+  test("normalizes endpoint URLs and TOML model aliases", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+    const configPath = join(home, ".grok", "config.toml")
+    const result = await runLfg(["--json", "config", "grok-byok", "--run"], {
+      HOME: home,
+      LFG_GROK_BASE_URL: "cliproxy.linalab.io/v1/responses",
+      LFG_GROK_API_KEY: "secret-test-key",
+      LFG_GROK_MODEL_ALIAS: "gpt-5.5",
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.json).toMatchObject({
+      ok: true,
+      status: "configured",
+      modelAlias: "gpt-5-5",
+      modelId: "gpt-5.5",
+      baseUrl: "https://cliproxy.linalab.io/v1",
+      baseUrlSource: "environment",
+    })
+    const config = await readFile(configPath, "utf8")
+    expect(config).toContain('models_base_url = "https://cliproxy.linalab.io/v1"')
+    expect(config).toContain("[model.gpt-5-5]")
+    expect(config).not.toContain("[model.gpt-5.5]")
+    expect(config).not.toContain("cliproxy.linalab.io/v1/responses")
+  })
+
+  test("uses gpt-5 as the Grok BYOK upstream model when omitted", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const configPath = join(home, ".grok", "config.toml")
     const result = await runLfg(["--json", "config", "grok-byok", "--run"], {
@@ -54,13 +113,51 @@ describe("lfg Grok BYOK config", () => {
       ok: true,
       status: "configured",
       modelAlias: "lfg-test",
-      modelId: "gpt-5.5",
+      modelId: "gpt-5",
       baseUrl: "https://example.test/v1",
     })
     expect(JSON.stringify(result.json)).not.toContain("secret-test-key")
     const config = await readFile(configPath, "utf8")
-    expect(config).toContain('model = "gpt-5.5"')
-    expect(config).toContain('base_url = "https://example.test/v1"')
+    expect(config).toContain('model = "gpt-5"')
+    expect(config).toContain('models_base_url = "https://example.test/v1"')
+    expect(config).not.toContain('\nbase_url = "https://example.test/v1"')
+  })
+
+  test("writes all lazycodex required models from LFG_GROK_MODELS", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+    const configPath = join(home, ".grok", "config.toml")
+    const result = await runLfg(["--json", "config", "grok-byok", "--run"], {
+      HOME: home,
+      LFG_GROK_BASE_URL: "https://example.test/v1",
+      LFG_GROK_API_KEY: "secret-test-key",
+      LFG_GROK_MODELS: "gpt-5.5,gpt-5.4,gpt-5.4-mini,gpt-5.2",
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.json).toMatchObject({
+      ok: true,
+      status: "configured",
+      supportsBatch: true,
+      modelCount: 3,
+      configuredModels: [
+        { alias: "gpt-5-5", modelId: "gpt-5.5" },
+        { alias: "gpt-5-4", modelId: "gpt-5.4" },
+        { alias: "gpt-5-4-mini", modelId: "gpt-5.4-mini" },
+      ],
+      secondaryModelAlias: "grok-build",
+      verificationCommands: expect.arrayContaining(["grok -m grok-build -p 'Reply LFG_GROK_BUILD_OK'"]),
+    })
+    expect(JSON.stringify(result.json)).not.toContain("secret-test-key")
+    const config = await readFile(configPath, "utf8")
+    expect(config).toContain("[model.gpt-5-5]")
+    expect(config).toContain("[model.gpt-5-4]")
+    expect(config).toContain("[model.gpt-5-4-mini]")
+    expect(config).toContain("[model.grok-build]")
+    expect(config).not.toContain("[model.gpt-5.5]")
+    expect(config).not.toContain("[model.gpt-5.4]")
+    expect(config).not.toContain("[model.gpt-5.4-mini]")
+    expect(config).not.toContain("[model.gpt-5.2]")
+    expect(config).not.toContain('model = "gpt-5.2"')
   })
 
   test("writes Grok BYOK config from explicit environment without leaking the key", async () => {
@@ -87,7 +184,8 @@ describe("lfg Grok BYOK config", () => {
     expect(JSON.stringify(result.json)).not.toContain("secret-test-key")
     const config = await readFile(configPath, "utf8")
     expect(config).toContain("[model.lfg-test]")
-    expect(config).toContain('base_url = "https://example.test/v1"')
+    expect(config).toContain('models_base_url = "https://example.test/v1"')
+    expect(config).not.toContain('\nbase_url = "https://example.test/v1"')
     expect(config).toContain('api_key = "secret-test-key"')
   })
 
