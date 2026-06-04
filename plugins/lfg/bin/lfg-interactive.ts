@@ -103,7 +103,7 @@ async function promptGrokByokInput(reader: LineReader): Promise<GrokByokConfigIn
   const modelAlias = await promptRequired(reader, "Grok model alias ")
   const modelId = withDefault(await question(reader, `Upstream model id [${DEFAULT_GROK_BYOK_MODEL_ID}] `), DEFAULT_GROK_BYOK_MODEL_ID)
   const displayName = withDefault(await question(reader, `Display name [${modelAlias}] `), modelAlias)
-  return { baseUrl, apiKey, modelAlias, modelId, displayName }
+  return { baseUrl, baseUrlSource: "environment", apiKey, modelAlias, modelId, displayName }
 }
 
 async function confirm(reader: LineReader, prompt: string): Promise<boolean> {
