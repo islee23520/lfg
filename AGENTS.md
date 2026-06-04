@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-`lfg` is a Bun/TypeScript adapter installer around:
+`lfg` is an npm/Node TypeScript adapter installer around:
 
 ```sh
 npx lazycodex-ai install
@@ -44,9 +44,11 @@ It is not a plugin. It does not own a Grok or lazycodex runtime. Its job is to i
 ## COMMANDS
 
 ```sh
-bun test plugins/lfg/bin
-bun plugins/lfg/bin/self-test.ts
-bun run typecheck
+npm test
+npm run self-test
+npm run typecheck
+npm run build
+npm exec --workspace lfg -- lfg --json
 plugins/lfg/bin/lfg --json lazycodex install
 plugins/lfg/bin/lfg --json install
 plugins/lfg/bin/lfg --json config grok-byok
@@ -56,6 +58,7 @@ plugins/lfg/bin/lfg --json lazycodex status
 ## CONVENTIONS
 
 - Keep output focused on `lazycodex-ai` and `npx lazycodex-ai install`.
+- Keep npm/npx as the project toolchain; do not add Bun scripts or runtime dependencies.
 - Do not describe this repository as a plugin or runtime.
 - Do not add unrelated runtime or workflow features.
 - Do not mutate `~/.grok` from status, doctor, or setup-plan commands.

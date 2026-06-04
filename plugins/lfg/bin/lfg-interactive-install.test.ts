@@ -1,9 +1,8 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-
-const LFG = new URL("lfg", import.meta.url).pathname
+import { runLfgText } from "./test-process"
 
 describe("lfg interactive install conflict handling", () => {
   test("keeps existing Grok settings when overwrite is refused", async () => {
@@ -56,14 +55,6 @@ describe("lfg interactive install conflict handling", () => {
     expect(await readFile(agentPath, "utf8")).toBe("existing agent\n")
   })
 })
-
-async function runLfgText(args: readonly string[], input: string, env: Readonly<Record<string, string>> = {}): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
-  const proc = Bun.spawn([LFG, ...args], { stdin: "pipe", stdout: "pipe", stderr: "pipe", env: { ...process.env, ...env } })
-  proc.stdin.write(input)
-  proc.stdin.end()
-  const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])
-  return { exitCode, stdout, stderr }
-}
 
 async function makeFakeNpx(script: string): Promise<string> {
   const bin = await mkdtemp(join(tmpdir(), "lfg-fake-npx."))

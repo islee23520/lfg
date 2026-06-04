@@ -1,21 +1,17 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { chmod, mkdtemp, readlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { MCP, runNodeScript } from "./test-process"
 
-const MCP = new URL("lfg-mcp.ts", import.meta.url).pathname
 const HASH_PLUGIN_ID = "0-1-0-ff47fdd7"
 
 describe("lfg MCP", () => {
   test("lists minimal tools and dispatches lazycodex install", async () => {
-    const proc = Bun.spawn(["bun", MCP], { stdin: "pipe", stdout: "pipe", stderr: "pipe" })
-    proc.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: "tools", method: "tools/list" })}\n`)
-    proc.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: "install", method: "tools/call", params: { name: "lazycodex", arguments: { action: "install" } } })}\n`)
-    proc.stdin.end()
-    const stdout = await new Response(proc.stdout).text()
-    const code = await proc.exited
-    expect(code).toBe(0)
-    const lines = stdout.trim().split("\n").map((line) => JSON.parse(line) as Record<string, unknown>)
+    const input = `${JSON.stringify({ jsonrpc: "2.0", id: "tools", method: "tools/list" })}\n${JSON.stringify({ jsonrpc: "2.0", id: "install", method: "tools/call", params: { name: "lazycodex", arguments: { action: "install" } } })}\n`
+    const result = await runNodeScript(MCP, [], input)
+    expect(result.exitCode).toBe(0)
+    const lines = result.stdout.trim().split("\n").map((line) => JSON.parse(line) as Record<string, unknown>)
     expect(toolNames(lines[0])).toEqual(["status", "doctor", "config", "lazycodex", "setup"])
     expect(configToolSchema(lines[0])).toMatchObject({
       properties: {
@@ -48,17 +44,13 @@ describe("lfg MCP", () => {
   test("runs lazycodex install with stable lfg plugin link through MCP", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const fakeBin = await makeFakeNpx()
-    const proc = Bun.spawn(["bun", MCP], { stdin: "pipe", stdout: "pipe", stderr: "pipe", env: { ...process.env, HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` } })
-    proc.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: "install-run", method: "tools/call", params: { name: "lazycodex", arguments: { action: "install", run: true } } })}\n`)
-    proc.stdin.end()
-
-    const stdout = await new Response(proc.stdout).text()
-    const code = await proc.exited
-    const lines = stdout.trim().split("\n").map((line) => JSON.parse(line) as Record<string, unknown>)
+    const input = `${JSON.stringify({ jsonrpc: "2.0", id: "install-run", method: "tools/call", params: { name: "lazycodex", arguments: { action: "install", run: true } } })}\n`
+    const result = await runNodeScript(MCP, [], input, { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const lines = result.stdout.trim().split("\n").map((line) => JSON.parse(line) as Record<string, unknown>)
     const install = toolTextData(lines[0])
     const target = join(home, ".grok", "installed-plugins", HASH_PLUGIN_ID)
 
-    expect(code).toBe(0)
+    expect(result.exitCode).toBe(0)
     expect(install).toMatchObject({
       data: {
         ok: true,

@@ -1,6 +1,9 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
+import { execFile } from "node:child_process"
+import { readFile } from "node:fs/promises"
 import { createInterface } from "node:readline"
-import { join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 
 type JsonPrimitive = null | boolean | number | string
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
@@ -10,7 +13,7 @@ type JsonRpcResponse = { readonly jsonrpc: "2.0"; readonly id: JsonRpcId; readon
 type JsonRpcRequest = { readonly id?: JsonRpcId; readonly method?: string; readonly params?: unknown }
 type McpTool = { readonly name: string; readonly description: string; readonly inputSchema: JsonRecord }
 
-const PLUGIN_ROOT = resolve(import.meta.dir, "..")
+const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const TOOLS: readonly McpTool[] = [
   { name: "status", description: "Show the local lfg lazycodex adapter installer status.", inputSchema: emptySchema() },
   { name: "doctor", description: "Check the minimal lfg lazycodex adapter installer.", inputSchema: emptySchema() },
@@ -75,9 +78,8 @@ async function callTool(params: JsonRecord): Promise<JsonRecord> {
 }
 
 async function runLfgJson(args: readonly string[]): Promise<JsonRecord> {
-  const cmd = [join(PLUGIN_ROOT, "bin", "lfg"), "--json", ...args]
-  const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe", env: process.env })
-  const [returncode, stdout, stderr] = await Promise.all([proc.exited, new Response(proc.stdout).text(), new Response(proc.stderr).text()])
+  const cmd = [process.execPath, join(PLUGIN_ROOT, "dist", "lfg.js"), "--json", ...args]
+  const { returncode, stdout, stderr } = await execFileResult(cmd[0] ?? process.execPath, cmd.slice(1))
   const stdoutText = stdout.trim()
   let data: JsonValue = null
   let parseError: string | null = null
@@ -94,10 +96,19 @@ async function runLfgJson(args: readonly string[]): Promise<JsonRecord> {
 
 async function pluginVersion(): Promise<string> {
   try {
-    const parsed: unknown = JSON.parse(await Bun.file(join(PLUGIN_ROOT, "package.json")).text())
+    const parsed: unknown = JSON.parse(await readFile(join(PLUGIN_ROOT, "package.json"), "utf8"))
     if (isRecord(parsed) && typeof parsed.version === "string") return parsed.version
   } catch {}
   return "0.0.0"
+}
+
+function execFileResult(file: string, args: readonly string[]): Promise<{ readonly returncode: number; readonly stdout: string; readonly stderr: string }> {
+  return new Promise((resolve) => {
+    execFile(file, [...args], { env: process.env }, (error, stdout, stderr) => {
+      const returncode = typeof error === "object" && error !== null && "code" in error && typeof error.code === "number" ? error.code : 0
+      resolve({ returncode, stdout, stderr })
+    })
+  })
 }
 
 function normalizeRequest(message: unknown): JsonRpcRequest | null {

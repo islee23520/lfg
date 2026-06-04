@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process"
 import { detectLazycodexAdapter } from "./lfg-grok"
 import type { JsonObject } from "./lfg-json"
 import { ensureStableLfgPluginLink } from "./lfg-stable-plugin"
@@ -6,8 +7,7 @@ export const LAZYCODEX_INSTALLER_ARGS = ["lazycodex-ai", "install"] as const
 export const LAZYCODEX_INSTALLER_COMMAND = "npx lazycodex-ai install"
 
 export async function runLazycodexInstaller(): Promise<JsonObject> {
-  const proc = Bun.spawn(["npx", ...LAZYCODEX_INSTALLER_ARGS], { stdout: "pipe", stderr: "pipe", env: process.env })
-  const [exitCode, stdout, stderr] = await Promise.all([proc.exited, new Response(proc.stdout).text(), new Response(proc.stderr).text()])
+  const { exitCode, stdout, stderr } = await execFileResult("npx", LAZYCODEX_INSTALLER_ARGS)
   const ok = exitCode === 0
   const stablePluginLink = ok ? await ensureStableLfgPluginLink(detectLazycodexAdapter({ preferStableInstalledPlugin: false, preferHashInstalledPlugin: true })) : null
   return {
@@ -23,4 +23,13 @@ export async function runLazycodexInstaller(): Promise<JsonObject> {
     stderr,
     stablePluginLink,
   }
+}
+
+function execFileResult(file: string, args: readonly string[]): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
+  return new Promise((resolve) => {
+    execFile(file, [...args], { env: process.env }, (error, stdout, stderr) => {
+      const exitCode = typeof error === "object" && error !== null && "code" in error && typeof error.code === "number" ? error.code : 0
+      resolve({ exitCode, stdout, stderr })
+    })
+  })
 }

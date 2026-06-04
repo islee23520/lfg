@@ -1,15 +1,15 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-
-const LFG = new URL("lfg", import.meta.url).pathname
+import { runLfg, runLfgText } from "./test-process"
 
 describe("lfg CLI", () => {
   test("package metadata does not identify lfg as a plugin", async () => {
     const parsed = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as Record<string, unknown>
-    expect(parsed.name).toBe("@lfg/lazycodex-adapter-installer")
+    expect(parsed.name).toBe("lfg")
     expect(parsed.description).toBe("Installs the lazycodex Codex adapter for grok-build.")
+    expect(parsed.bin).toMatchObject({ lfg: "./dist/lfg.js", "lfg-mcp": "./dist/lfg-mcp.js" })
     expect(JSON.stringify(parsed)).not.toContain("@lfg/plugin")
     expect(JSON.stringify(parsed)).not.toContain("plugin postinstall")
   })
@@ -205,20 +205,6 @@ describe("lfg CLI", () => {
     })
   })
 })
-
-async function runLfg(args: readonly string[], env: Readonly<Record<string, string>> = {}): Promise<{ readonly exitCode: number; readonly json: unknown }> {
-  const proc = Bun.spawn([LFG, ...args], { stdout: "pipe", stderr: "pipe", env: { ...process.env, ...env } })
-  const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited])
-  return { exitCode, json: JSON.parse(stdout) as unknown }
-}
-
-async function runLfgText(args: readonly string[], input: string, env: Readonly<Record<string, string>> = {}): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
-  const proc = Bun.spawn([LFG, ...args], { stdin: "pipe", stdout: "pipe", stderr: "pipe", env: { ...process.env, ...env } })
-  proc.stdin.write(input)
-  proc.stdin.end()
-  const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])
-  return { exitCode, stdout, stderr }
-}
 
 async function makeAdapterRoot(root = ""): Promise<string> {
   const adapterRoot = root || (await mkdtemp(join(tmpdir(), "lfg-lazycodex-adapter.")))

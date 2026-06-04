@@ -36,8 +36,10 @@ It helps `grok-build` use the `lazycodex` Codex adapter installed under `~/.grok
 ## COMMANDS
 
 ```sh
-bun test plugins/lfg/bin
-bun plugins/lfg/bin/self-test.ts
+npm test
+npm run self-test
+npm run build
+npm exec --workspace lfg -- lfg --json
 plugins/lfg/bin/lfg --json lazycodex install
 plugins/lfg/bin/lfg --json install
 plugins/lfg/bin/lfg --json config grok-byok

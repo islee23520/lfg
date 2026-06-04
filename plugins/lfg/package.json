@@ -1,30 +1,33 @@
 {
-  "name": "@lfg/lazycodex-adapter-installer",
+  "name": "lfg",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Installs the lazycodex Codex adapter for grok-build.",
   "bin": {
-    "lfg": "./bin/lfg",
-    "lfg-mcp": "./bin/lfg-mcp.ts"
+    "lfg": "./dist/lfg.js",
+    "lfg-mcp": "./dist/lfg-mcp.js"
   },
   "exports": {
-    "./cli": "./bin/lfg",
-    "./mcp": "./bin/lfg-mcp.ts",
+    ".": "./dist/lfg.js",
+    "./cli": "./dist/lfg.js",
+    "./mcp": "./dist/lfg-mcp.js",
     "./package.json": "./package.json"
   },
   "files": [
-    "bin",
+    "dist",
+    "AGENTS.md",
     "skills"
   ],
   "scripts": {
-    "build": "bun build ./bin/lfg.ts ./bin/lfg-mcp.ts --outdir ./dist --target bun --format esm --sourcemap=external",
+    "build": "node ../../scripts/build.mjs",
     "postinstall": "node -e \"console.log('LFG lazycodex adapter installer postinstall: no-op')\"",
-    "test": "bun test ./bin/",
+    "test": "npm run build && vitest run ./bin/",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
-    "bun-types": "1.3.14",
-    "typescript": "^6.0.3"
+    "@types/node": "^24.10.1",
+    "esbuild": "^0.27.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.0.14"
   }
 }
