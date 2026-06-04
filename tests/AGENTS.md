@@ -22,8 +22,8 @@ Current active tests live under `plugins/lfg/bin`.
 ## COMMANDS
 
 ```sh
-bun test plugins/lfg/bin
-bun plugins/lfg/bin/self-test.ts
+npm test
+npm run self-test
 ```
 
 ## ANTI-PATTERNS

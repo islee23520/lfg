@@ -1,9 +1,8 @@
-import { describe, expect, test } from "bun:test"
-import { mkdtemp, readFile } from "node:fs/promises"
+import { describe, expect, test } from "vitest"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-
-const LFG = new URL("lfg", import.meta.url).pathname
+import { runLfg } from "./test-process"
 
 describe("lfg Grok BYOK config", () => {
   test("plans Grok BYOK config without hardcoded CLI proxy URL", async () => {
@@ -91,10 +90,38 @@ describe("lfg Grok BYOK config", () => {
     expect(config).toContain('base_url = "https://example.test/v1"')
     expect(config).toContain('api_key = "secret-test-key"')
   })
-})
 
-async function runLfg(args: readonly string[], env: Readonly<Record<string, string>> = {}): Promise<{ readonly exitCode: number; readonly json: unknown }> {
-  const proc = Bun.spawn([LFG, ...args], { stdout: "pipe", stderr: "pipe", env: { ...process.env, ...env } })
-  const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited])
-  return { exitCode, json: JSON.parse(stdout) as unknown }
-}
+  test("routes Grok secondary BYOK calls through the configured alias", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+    const configPath = join(home, ".grok", "config.toml")
+    await mkdir(join(home, ".grok"))
+    await writeFile(
+      configPath,
+      [
+        "[ui]",
+        'theme = "auto"',
+        'fork_secondary_model = "grok-build"',
+        "",
+        "[models]",
+        'default = "gpt-5-5"',
+        "",
+      ].join("\n"),
+    )
+
+    const result = await runLfg(["--json", "config", "grok-byok", "--run"], {
+      HOME: home,
+      LFG_GROK_BASE_URL: "https://example.test/v1",
+      LFG_GROK_API_KEY: "secret-test-key",
+      LFG_GROK_MODEL_ALIAS: "gpt-5-5",
+      LFG_GROK_MODEL_ID: "gpt-5.5",
+    })
+
+    expect(result.exitCode).toBe(0)
+    const config = await readFile(configPath, "utf8")
+    expect(config).toContain("[model.gpt-5-5]")
+    expect(config).toContain("[model.grok-build]")
+    expect(config).toContain('fork_secondary_model = "gpt-5-5"')
+    expect(config).toContain('name = "grok-build"')
+    expect(config).not.toContain('fork_secondary_model = "grok-build"')
+  })
+})

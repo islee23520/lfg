@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { access, stat } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { commandPath, SUPPORTED_COMMANDS, unsupportedCommand } from "./lfg-command"
@@ -264,4 +264,4 @@ function utcNow(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z")
 }
 
-process.exit(await main(Bun.argv.slice(2)))
+process.exit(await main(process.argv.slice(2)))

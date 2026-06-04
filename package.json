@@ -1,5 +1,5 @@
 {
-  "name": "lfg",
+  "name": "lfg-workspace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,11 +7,15 @@
     "plugins/lfg"
   ],
   "scripts": {
-    "test": "bun test plugins/lfg/bin",
+    "test": "npm run build && vitest run plugins/lfg/bin",
+    "self-test": "npm run build && node plugins/lfg/dist/self-test.js",
     "typecheck": "tsc --noEmit",
-    "build": "bun run --filter './plugins/lfg' build"
+    "build": "node scripts/build.mjs"
   },
   "devDependencies": {
-    "bun-types": "1.3.14"
+    "@types/node": "^24.10.1",
+    "esbuild": "^0.27.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.0.14"
   }
 }

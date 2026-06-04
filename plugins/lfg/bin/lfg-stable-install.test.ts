@@ -1,9 +1,8 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { chmod, lstat, mkdir, mkdtemp, readlink, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-
-const LFG = new URL("lfg", import.meta.url).pathname
+import { runLfg, runLfgText } from "./test-process"
 const HASH_PLUGIN_ID = "0-1-0-ff47fdd7"
 
 describe("lfg stable Grok installed-plugin name", () => {
@@ -149,20 +148,6 @@ describe("lfg stable Grok installed-plugin name", () => {
     expect(result.stdout).toContain(join(home, ".grok", "installed-plugins", "lfg"))
   })
 })
-
-async function runLfg(args: readonly string[], env: Readonly<Record<string, string>> = {}): Promise<{ readonly exitCode: number; readonly json: unknown }> {
-  const proc = Bun.spawn([LFG, ...args], { stdout: "pipe", stderr: "pipe", env: { ...process.env, ...env } })
-  const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited])
-  return { exitCode, json: JSON.parse(stdout) as unknown }
-}
-
-async function runLfgText(args: readonly string[], input: string, env: Readonly<Record<string, string>> = {}): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
-  const proc = Bun.spawn([LFG, ...args], { stdin: "pipe", stdout: "pipe", stderr: "pipe", env: { ...process.env, ...env } })
-  proc.stdin.write(input)
-  proc.stdin.end()
-  const [stdout, stderr, exitCode] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])
-  return { exitCode, stdout, stderr }
-}
 
 async function makeAdapterRoot(root: string): Promise<string> {
   await mkdir(join(root, ".codex-plugin"), { recursive: true })

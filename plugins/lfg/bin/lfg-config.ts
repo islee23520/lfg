@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import type { JsonObject } from "./lfg-json"
 
 export const DEFAULT_GROK_BYOK_MODEL_ID = "gpt-5.5"
+const GROK_SECONDARY_MODEL_ALIAS = "grok-build"
 const REQUIRED_GROK_BYOK_ENV = ["LFG_GROK_BASE_URL", "LFG_GROK_API_KEY", "LFG_GROK_MODEL_ALIAS"] as const
 
 export type GrokByokConfigInput = {
@@ -26,6 +27,7 @@ export function grokByokPlan(): JsonObject {
     providerChoices: ["cli_proxy", "cri_proxy", "custom_openai_compatible", "skip"],
     requiredSettings: ["baseUrl", "apiKey", "modelAlias"],
     defaultModelId: DEFAULT_GROK_BYOK_MODEL_ID,
+    secondaryModelAlias: GROK_SECONDARY_MODEL_ALIAS,
     automationEnv: [...REQUIRED_GROK_BYOK_ENV],
     target: grokConfigPath(),
     steps: [
@@ -69,10 +71,11 @@ export async function configureGrokByok(input: GrokByokConfigInput): Promise<Jso
     target: path,
     backupPath,
     modelAlias: input.modelAlias,
+    secondaryModelAlias: GROK_SECONDARY_MODEL_ALIAS,
     modelId: input.modelId,
     baseUrl: input.baseUrl,
     apiKeyConfigured: input.apiKey.length > 0,
-    verificationCommands: ["grok models", `grok -m ${input.modelAlias} -p 'Reply LFG_GROK_BUILD_OK'`, "grok inspect --json"],
+    verificationCommands: ["grok models", `grok -m ${input.modelAlias} -p 'Reply LFG_GROK_BUILD_OK'`, `grok -m ${GROK_SECONDARY_MODEL_ALIAS} -p 'Reply LFG_GROK_BUILD_OK'`, "grok inspect --json"],
   }
 }
 
@@ -106,21 +109,30 @@ async function readConfigOrEmpty(path: string): Promise<string> {
 function renderConfig(previous: string, input: GrokByokConfigInput): string {
   const withoutEndpoints = removeTomlSection(previous, "endpoints")
   const withoutModel = removeTomlSection(withoutEndpoints, `model.${input.modelAlias}`)
-  const body = withoutModel.trimEnd()
+  const withoutSecondaryModel = input.modelAlias === GROK_SECONDARY_MODEL_ALIAS ? withoutModel : removeTomlSection(withoutModel, `model.${GROK_SECONDARY_MODEL_ALIAS}`)
+  const withUiSecondary = setTomlSectionKey(withoutSecondaryModel, "ui", "fork_secondary_model", tomlString(input.modelAlias))
+  const body = withUiSecondary.trimEnd()
   const addition = [
     "[endpoints]",
     `models_base_url = ${tomlString(input.baseUrl)}`,
     "",
-    `[model.${input.modelAlias}]`,
+    ...renderModelSection(input.modelAlias, input.displayName, input),
+    ...(input.modelAlias === GROK_SECONDARY_MODEL_ALIAS ? [] : renderModelSection(GROK_SECONDARY_MODEL_ALIAS, GROK_SECONDARY_MODEL_ALIAS, input)),
+  ].join("\n")
+  return body ? `${body}\n\n${addition}` : addition
+}
+
+function renderModelSection(alias: string, displayName: string, input: GrokByokConfigInput): readonly string[] {
+  return [
+    `[model.${alias}]`,
     `model = ${tomlString(input.modelId)}`,
     `base_url = ${tomlString(input.baseUrl)}`,
-    `name = ${tomlString(input.displayName)}`,
+    `name = ${tomlString(displayName)}`,
     `api_key = ${tomlString(input.apiKey)}`,
     'api_backend = "responses"',
     'auth_scheme = "bearer"',
     "",
-  ].join("\n")
-  return body ? `${body}\n\n${addition}` : addition
+  ]
 }
 
 function removeTomlSection(source: string, section: string): string {
@@ -133,6 +145,45 @@ function removeTomlSection(source: string, section: string): string {
     if (!skipping) output.push(line)
   }
   return output.join("\n")
+}
+
+function setTomlSectionKey(source: string, section: string, key: string, value: string): string {
+  const lines = source.split(/\r?\n/)
+  const output: string[] = []
+  let inSection = false
+  let foundSection = false
+  let wroteKey = false
+  for (const line of lines) {
+    const header = line.match(/^\s*\[([^\]]+)\]\s*$/)
+    if (header) {
+      if (inSection && !wroteKey) {
+        output.push(`${key} = ${value}`)
+        wroteKey = true
+      }
+      inSection = header[1] === section
+      foundSection = foundSection || inSection
+      output.push(line)
+      continue
+    }
+    if (inSection && tomlAssignmentKey(line) === key) {
+      if (!wroteKey) output.push(`${key} = ${value}`)
+      wroteKey = true
+      continue
+    }
+    output.push(line)
+  }
+  if (inSection && !wroteKey) output.push(`${key} = ${value}`)
+  if (!foundSection) {
+    const trimmed = output.join("\n").trimEnd()
+    const addition = [`[${section}]`, `${key} = ${value}`, ""].join("\n")
+    return trimmed ? `${trimmed}\n\n${addition}` : addition
+  }
+  return output.join("\n")
+}
+
+function tomlAssignmentKey(line: string): string | null {
+  const match = line.match(/^\s*([A-Za-z0-9_.-]+)\s*=/)
+  return match ? match[1] : null
 }
 
 function tomlString(value: string): string {
