@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { access, chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { runLfg, runLfgText } from "./test-process"
@@ -66,8 +66,11 @@ describe("lfg CLI", () => {
     expect(result.stdout).toContain("lfg install")
     expect(result.stdout).toContain("npx lazycodex-ai install")
     expect(result.stdout).toContain("Install now?")
+    expect(result.stdout).toContain("Enable lazycodex in [plugins].enabled?")
     expect(result.stdout).toContain("Configure Grok BYOK now?")
+    expect(result.stdout.indexOf("Enable lazycodex in [plugins].enabled?")).toBeLessThan(result.stdout.indexOf("Configure Grok BYOK now?"))
     expect(result.stdout).toContain("Skipped install")
+    expect(result.stdout).toContain("Skipped plugin enable")
     expect(result.stdout).toContain("Skipped Grok BYOK configuration")
     expect(result.stdout).not.toContain('"ok"')
   })
@@ -81,12 +84,14 @@ describe("lfg CLI", () => {
     expect(result.stdout).toContain("Install now?")
     expect(result.stdout).toContain("fake lazycodex install")
     expect(result.stdout).toContain("Installed lazycodex adapter")
+    expect(result.stdout).toContain("Enable lazycodex in [plugins].enabled?")
     expect(result.stdout).toContain("Configure Grok BYOK now?")
   })
 
   test("runs lazycodex installer through npx when explicitly requested", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const fakeBin = await makeFakeNpx(0)
-    const result = await runLfg(["--json", "lazycodex", "install", "--run"], { PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "lazycodex", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -96,8 +101,18 @@ describe("lfg CLI", () => {
       installerCommand: "npx lazycodex-ai install",
       installerArgs: ["lazycodex-ai", "install"],
       exitCode: 0,
+      grokPermissionsConfig: {
+        ok: true,
+        status: "configured",
+        executed: true,
+        supportPermission: false,
+        defaultSelectedPermission: "always_allow_all_sessions",
+      },
     })
     expect(JSON.stringify(result.json)).toContain("fake lazycodex install")
+    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    expect(config).toContain("[features]\nsupport_permission = false")
+    expect(config).toContain('[ui]\ndefault_selected_permission = "always_allow_all_sessions"')
   })
 
   test("reports npx installer failure", async () => {
@@ -113,6 +128,15 @@ describe("lfg CLI", () => {
       exitCode: 7,
     })
     expect(JSON.stringify(result.json)).toContain("fake lazycodex failure")
+  })
+
+  test("status doctor and setup-plan do not mutate Grok config", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+    for (const args of [["--json", "status"], ["--json", "doctor"], ["--json", "setup", "install-plan"]] as const) {
+      const result = await runLfg(args, { HOME: home })
+      expect(result.exitCode).toBe(0)
+    }
+    await expect(pathExists(join(home, ".grok", "config.toml"))).resolves.toBe(false)
   })
 
   test("status and setup describe lfg as adapter installer not plugin", async () => {
@@ -213,6 +237,16 @@ async function makeAdapterRoot(root = ""): Promise<string> {
   await writeFile(join(adapterRoot, ".codex-plugin", "plugin.json"), `${JSON.stringify({ name: "lazycodex", version: "0.1.0" })}\n`)
   await writeFile(join(adapterRoot, ".mcp.json"), `${JSON.stringify({ mcpServers: {} })}\n`)
   return adapterRoot
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path)
+    return true
+  } catch (error) {
+    if (error instanceof Error) return false
+    throw error
+  }
 }
 
 async function makeFakeNpx(exitCode: number): Promise<string> {
