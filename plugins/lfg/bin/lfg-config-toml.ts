@@ -29,6 +29,8 @@ export function renderGrokByokConfig(previous: string, baseUrl: string, baseUrlS
   for (const model of models) next = removeTomlSection(removeTomlSection(next, `model.${model.modelId}`), `model.${model.alias}`)
   if (secondaryAlias) next = removeTomlSection(next, `model.${secondaryAlias}`)
   if (shouldWriteEndpointBaseUrl(previous, baseUrl, baseUrlSource)) next = upsertTomlStringKeyInSection(next, "endpoints", "models_base_url", baseUrl)
+  const endpointApiKey = models[0]?.apiKey
+  if (endpointApiKey) next = upsertTomlStringKeyInSection(next, "endpoints", "api_key", endpointApiKey)
 
   const primaryAlias = models[0]?.alias
   if (primaryAlias && secondaryAlias) next = setTomlSectionKey(next, "ui", "fork_secondary_model", tomlString(primaryAlias))

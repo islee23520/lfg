@@ -9,6 +9,7 @@ import { resolveRequiredModels } from "./lfg-lazycodex-models"
 export const DEFAULT_GROK_BYOK_MODEL_ID = "gpt-5"
 const GROK_SECONDARY_MODEL_ALIAS = "grok-build"
 const GROK_BYOK_PROVIDER = "custom_openai_compatible"
+const GROK_MODEL_REFRESH_AUTH_CONFIG_KEY = "[endpoints].api_key"
 const REQUIRED_GROK_BYOK_ENV = ["LFG_GROK_API_KEY", "LFG_GROK_MODEL_ALIAS"] as const
 const REQUIRED_GROK_BYOK_BATCH_ENV = ["LFG_GROK_API_KEY", "LFG_GROK_MODELS"] as const
 
@@ -44,6 +45,7 @@ export function grokByokPlan(): JsonObject {
     conditionalSettings: ["baseUrl is required only when ~/.grok/config.toml has no [endpoints].models_base_url."],
     defaultModelId: DEFAULT_GROK_BYOK_MODEL_ID,
     secondaryModelAlias: GROK_SECONDARY_MODEL_ALIAS,
+    modelRefreshAuthConfigKey: GROK_MODEL_REFRESH_AUTH_CONFIG_KEY,
     automationEnv: [...REQUIRED_GROK_BYOK_ENV],
     batchAutomationEnv: [...REQUIRED_GROK_BYOK_BATCH_ENV],
     optionalAutomationEnv: ["LFG_GROK_BASE_URL", "LFG_GROK_MODEL_ID", "LFG_GROK_DISPLAY_NAME"],
@@ -102,7 +104,7 @@ export async function configureGrokByokModels(input: GrokByokBatchInput): Promis
     baseUrl: input.baseUrl,
     baseUrlSource: input.baseUrlSource,
     apiKeyConfigured: input.apiKey.length > 0,
-    verificationCommands: ["grok models", `grok -m ${primaryAlias} -p 'Reply LFG_GROK_BUILD_OK'`, `grok -m ${GROK_SECONDARY_MODEL_ALIAS} -p 'Reply LFG_GROK_BUILD_OK'`, "grok inspect --json"],
+    ...grokVerificationResult(primaryAlias),
   }
 }
 
@@ -127,7 +129,20 @@ export async function configureGrokByok(input: GrokByokConfigInput): Promise<Jso
     baseUrl: input.baseUrl,
     baseUrlSource: input.baseUrlSource,
     apiKeyConfigured: input.apiKey.length > 0,
-    verificationCommands: ["grok models", `grok -m ${input.modelAlias} -p 'Reply LFG_GROK_BUILD_OK'`, `grok -m ${GROK_SECONDARY_MODEL_ALIAS} -p 'Reply LFG_GROK_BUILD_OK'`, "grok inspect --json"],
+    ...grokVerificationResult(input.modelAlias),
+  }
+}
+
+function grokVerificationResult(primaryAlias: string): JsonObject {
+  return {
+    modelRefreshAuthConfigured: true,
+    modelRefreshAuthConfigKey: GROK_MODEL_REFRESH_AUTH_CONFIG_KEY,
+    verificationCommands: [
+      "grok models",
+      `grok -m ${primaryAlias} -p 'Reply LFG_GROK_BUILD_OK'`,
+      `grok -m ${GROK_SECONDARY_MODEL_ALIAS} -p 'Reply LFG_GROK_BUILD_OK'`,
+      "grok inspect --json",
+    ],
   }
 }
 

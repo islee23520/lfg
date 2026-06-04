@@ -72,6 +72,28 @@ describe("lfg Grok BYOK config", () => {
     expect(config).not.toContain('\nbase_url = "https://endpoint.test/v1"')
   })
 
+  test("persists endpoint model-refresh auth without leaking the key in JSON", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+    const configPath = join(home, ".grok", "config.toml")
+    const result = await runLfg(["--json", "config", "grok-byok", "--run"], {
+      HOME: home,
+      LFG_GROK_BASE_URL: "https://example.test/v1",
+      LFG_GROK_API_KEY: "secret-test-key",
+      LFG_GROK_MODEL_ALIAS: "gpt-5-5",
+      LFG_GROK_MODEL_ID: "gpt-5.5",
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.json).toMatchObject({
+      modelRefreshAuthConfigured: true,
+      modelRefreshAuthConfigKey: "[endpoints].api_key",
+      verificationCommands: expect.arrayContaining(["grok models"]),
+    })
+    expect(JSON.stringify(result.json)).not.toContain("secret-test-key")
+    const config = await readFile(configPath, "utf8")
+    expect(config).toContain('[endpoints]\nmodels_base_url = "https://example.test/v1"\napi_key = "secret-test-key"')
+  })
+
   test("normalizes endpoint URLs and TOML model aliases", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const configPath = join(home, ".grok", "config.toml")
@@ -150,6 +172,7 @@ describe("lfg Grok BYOK config", () => {
     expect(JSON.stringify(result.json)).not.toContain("secret-test-key")
     const config = await readFile(configPath, "utf8")
     expect(config).toContain("[model.gpt-5-5]")
+    expect(config).toContain('api_key = "secret-test-key"')
     expect(config).toContain("[model.gpt-5-4]")
     expect(config).toContain("[model.gpt-5-4-mini]")
     expect(config).toContain("[model.grok-build]")
