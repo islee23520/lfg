@@ -55,6 +55,10 @@ describe("lfg MCP", () => {
       data: {
         ok: true,
         status: "installed",
+        stablePluginLinks: expect.arrayContaining([
+          expect.objectContaining({ status: "linked", name: "lfg", targetPath: target }),
+          expect.objectContaining({ status: "linked", name: "lazycodex", targetPath: target }),
+        ]),
         stablePluginLink: {
           status: "linked",
           name: "lfg",
@@ -63,6 +67,7 @@ describe("lfg MCP", () => {
       },
     })
     expect(await readlink(join(home, ".grok", "installed-plugins", "lfg"))).toBe(target)
+    expect(await readlink(join(home, ".grok", "installed-plugins", "lazycodex"))).toBe(target)
   })
 })
 
@@ -116,9 +121,11 @@ async function makeFakeNpx(): Promise<string> {
       "#!/usr/bin/env bash",
       "set -euo pipefail",
       targetScript,
-      'mkdir -p "$target/.codex-plugin" "$target/skills"',
+      'mkdir -p "$target/.codex-plugin" "$target/skills" "$target/components/ast-grep-mcp/dist" "$target/components/lsp-tools-mcp/dist"',
       `printf '%s\\n' '{"name":"lazycodex","version":"0.1.0"}' > "$target/.codex-plugin/plugin.json"`,
       `printf '%s\\n' '{"mcpServers":{}}' > "$target/.mcp.json"`,
+      'printf "%s\\n" "#!/usr/bin/env node" > "$target/components/ast-grep-mcp/dist/cli.js"',
+      'printf "%s\\n" "#!/usr/bin/env node" > "$target/components/lsp-tools-mcp/dist/cli.js"',
       'echo fake lazycodex install: "$@"',
     ].join("\n"),
   )

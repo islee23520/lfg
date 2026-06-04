@@ -175,6 +175,16 @@ function withDefault(value: string | null, fallback: string): string {
 }
 
 function printStablePluginLink(result: JsonObject): void {
+  const links = result.stablePluginLinks
+  if (Array.isArray(links)) {
+    for (const link of links) {
+      if (isRecord(link) && link.status === "linked" && typeof link.name === "string" && typeof link.linkPath === "string") {
+        output.write(`Registered Grok installed-plugin name: ${link.name} -> ${link.linkPath}\n`)
+      }
+    }
+    return
+  }
+
   const link = result.stablePluginLink
   if (!isRecord(link)) return
   if (link.status === "linked" && typeof link.linkPath === "string") {
