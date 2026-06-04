@@ -1,7 +1,8 @@
 import { execFile } from "node:child_process"
 import { detectLazycodexAdapter } from "./lfg-grok"
 import type { JsonObject } from "./lfg-json"
-import { ensureStableLfgPluginLink } from "./lfg-stable-plugin"
+import { repairLazycodexMcpConfig } from "./lfg-mcp-repair"
+import { ensureStableLfgPluginLink, ensureStablePluginLinks } from "./lfg-stable-plugin"
 
 export const LAZYCODEX_INSTALLER_ARGS = ["lazycodex-ai", "install"] as const
 export const LAZYCODEX_INSTALLER_COMMAND = "npx lazycodex-ai install"
@@ -9,7 +10,10 @@ export const LAZYCODEX_INSTALLER_COMMAND = "npx lazycodex-ai install"
 export async function runLazycodexInstaller(): Promise<JsonObject> {
   const { exitCode, stdout, stderr } = await execFileResult("npx", LAZYCODEX_INSTALLER_ARGS)
   const ok = exitCode === 0
-  const stablePluginLink = ok ? await ensureStableLfgPluginLink(detectLazycodexAdapter({ preferStableInstalledPlugin: false, preferHashInstalledPlugin: true })) : null
+  const adapter = ok ? detectLazycodexAdapter({ preferStableInstalledPlugin: false, preferHashInstalledPlugin: true }) : null
+  const stablePluginLinks = adapter ? await ensureStablePluginLinks(adapter) : []
+  const stablePluginLink = adapter ? await ensureStableLfgPluginLink(adapter) : null
+  const mcpConfigRepair = adapter ? await repairLazycodexMcpConfig(adapter) : null
   return {
     ok,
     status: ok ? "installed" : "install_failed",
@@ -22,6 +26,8 @@ export async function runLazycodexInstaller(): Promise<JsonObject> {
     stdout,
     stderr,
     stablePluginLink,
+    stablePluginLinks,
+    mcpConfigRepair,
   }
 }
 
