@@ -1,11 +1,15 @@
 import { spawn } from "node:child_process"
+import { access } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const here = dirname(fileURLToPath(import.meta.url))
+const root = join(here, "..", "..", "..")
 
 export const LFG = join(here, "..", "dist", "lfg.js")
 export const MCP = join(here, "..", "dist", "lfg-mcp.js")
+
+let buildPromise: Promise<void> | null = null
 
 export type ProcessResult = {
   readonly exitCode: number
@@ -14,6 +18,7 @@ export type ProcessResult = {
 }
 
 export async function runNodeScript(script: string, args: readonly string[], input: string | null, env: Readonly<Record<string, string>> = {}): Promise<ProcessResult> {
+  await ensureBuilt(script)
   const child = spawn(process.execPath, [script, ...args], {
     env: { ...process.env, ...env },
     stdio: ["pipe", "pipe", "pipe"],
@@ -21,6 +26,48 @@ export async function runNodeScript(script: string, args: readonly string[], inp
   child.stdin.end(input ?? undefined)
   const [stdout, stderr, exitCode] = await Promise.all([streamText(child.stdout), streamText(child.stderr), exitCodeOf(child)])
   return { exitCode, stdout, stderr }
+}
+
+async function ensureBuilt(script: string): Promise<void> {
+  if (!script.startsWith(join(here, "..", "dist"))) {
+    return
+  }
+
+  try {
+    await access(script)
+    return
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error
+    }
+  }
+
+  buildPromise ??= runBuild()
+  await buildPromise
+}
+
+async function runBuild(): Promise<void> {
+  const result = await runProcess(process.execPath, [join(root, "scripts", "build.mjs")], null)
+  if (result.exitCode !== 0) {
+    throw new BuildError(result)
+  }
+}
+
+async function runProcess(command: string, args: readonly string[], input: string | null): Promise<ProcessResult> {
+  const child = spawn(command, args, {
+    cwd: root,
+    env: process.env,
+    stdio: ["pipe", "pipe", "pipe"],
+  })
+  child.stdin.end(input ?? undefined)
+  const [stdout, stderr, exitCode] = await Promise.all([streamText(child.stdout), streamText(child.stderr), exitCodeOf(child)])
+  return { exitCode, stdout, stderr }
+}
+
+class BuildError extends Error {
+  constructor(readonly result: ProcessResult) {
+    super(`lfg test build failed with exit code ${result.exitCode}`)
+  }
 }
 
 export async function runLfg(args: readonly string[], env: Readonly<Record<string, string>> = {}): Promise<{ readonly exitCode: number; readonly json: unknown }> {
