@@ -12,7 +12,7 @@ describe("lfg interactive install conflict handling", () => {
     await writeFile(agentPath, "existing agent\n")
     const fakeBin = await makeFakeNpx('echo fake lazycodex install: "$@"')
 
-    const result = await runLfgText(["install"], "y\nn\nn\n", { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfgText(["setup"], "y\nn\nn\n", { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain("Existing Grok lazycodex/agent settings were found")
@@ -29,7 +29,7 @@ describe("lfg interactive install conflict handling", () => {
     await writeFile(agentPath, "custom agent\n")
     const fakeBin = await makeFakeNpx('echo fake lazycodex install: "$@"')
 
-    const result = await runLfgText(["install"], "y\nn\nn\n", { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfgText(["setup"], "y\nn\nn\n", { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain("Existing Grok lazycodex/agent settings were found")
@@ -46,7 +46,7 @@ describe("lfg interactive install conflict handling", () => {
     await writeFile(agentPath, "existing agent\n")
     const fakeBin = await makeFakeNpx(['echo fake lazycodex install: "$@"', 'rm -rf "$HOME/.grok/agents"', 'mkdir -p "$HOME/.grok/agents"', 'printf "%s\\n" "new agent" > "$HOME/.grok/agents/lazycodex.md"'].join("\n"))
 
-    const result = await runLfgText(["install"], "y\ny\ny\nn\n", { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfgText(["setup"], "y\ny\ny\nn\n", { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain("fake lazycodex install")

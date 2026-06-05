@@ -7,7 +7,6 @@ const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, "..", "..", "..")
 
 export const LFG = join(here, "..", "dist", "lfg.js")
-export const MCP = join(here, "..", "dist", "lfg-mcp.js")
 
 let buildPromise: Promise<void> | null = null
 
@@ -17,9 +16,10 @@ export type ProcessResult = {
   readonly stderr: string
 }
 
-export async function runNodeScript(script: string, args: readonly string[], input: string | null, env: Readonly<Record<string, string>> = {}): Promise<ProcessResult> {
+export async function runNodeScript(script: string, args: readonly string[], input: string | null, env: Readonly<Record<string, string>> = {}, cwd = process.cwd()): Promise<ProcessResult> {
   await ensureBuilt(script)
   const child = spawn(process.execPath, [script, ...args], {
+    cwd,
     env: { ...process.env, ...env },
     stdio: ["pipe", "pipe", "pipe"],
   })
@@ -77,6 +77,11 @@ export async function runLfg(args: readonly string[], env: Readonly<Record<strin
 
 export async function runLfgText(args: readonly string[], input: string, env: Readonly<Record<string, string>> = {}): Promise<ProcessResult> {
   return runNodeScript(LFG, args, input, env)
+}
+
+export async function runLfgFromCwd(args: readonly string[], cwd: string, env: Readonly<Record<string, string>> = {}): Promise<{ readonly exitCode: number; readonly json: unknown }> {
+  const result = await runNodeScript(LFG, args, null, env, cwd)
+  return { exitCode: result.exitCode, json: JSON.parse(result.stdout) as unknown }
 }
 
 function streamText(stream: NodeJS.ReadableStream): Promise<string> {

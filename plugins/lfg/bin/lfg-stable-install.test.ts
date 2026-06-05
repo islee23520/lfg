@@ -13,7 +13,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const lfgLink = join(home, ".grok", "installed-plugins", "lfg")
     const lazycodexLink = join(home, ".grok", "installed-plugins", "lazycodex")
 
-    const result = await runLfg(["--json", "lazycodex", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -34,7 +34,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const target = join(home, ".grok", "installed-plugins", HASH_PLUGIN_ID)
     const link = join(home, ".grok", "installed-plugins", "lfg")
 
-    const result = await runLfg(["--json", "lazycodex", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -58,7 +58,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const fakeBin = await makeFakeNpx({ createAdapter: true })
     const newTarget = join(home, ".grok", "installed-plugins", HASH_PLUGIN_ID)
 
-    const result = await runLfg(["--json", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({ stablePluginLink: { status: "linked", targetPath: newTarget } })
@@ -69,7 +69,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const fakeBin = await makeFakeNpx({ createAdapter: false })
 
-    const result = await runLfg(["--json", "lazycodex", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -89,7 +89,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const link = join(home, ".grok", "installed-plugins", "lfg")
     await symlink(target, link)
 
-    const result = await runLfg(["--json", "lazycodex", "status"], { HOME: home })
+    const result = await runLfg(["--json", "dry-setup"], { HOME: home })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -107,7 +107,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const link = join(home, ".grok", "installed-plugins", "lazycodex")
     await symlink(target, link)
 
-    const result = await runLfg(["--json", "lazycodex", "status"], { HOME: home })
+    const result = await runLfg(["--json", "dry-setup"], { HOME: home })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -124,7 +124,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const link = await makeAdapterRoot(join(home, ".grok", "installed-plugins", "lfg"))
     const fakeBin = await makeFakeNpx({ createAdapter: true })
 
-    const result = await runLfg(["--json", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -144,7 +144,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const link = await makeAdapterRoot(join(home, ".grok", "installed-plugins", "lazycodex"))
     const fakeBin = await makeFakeNpx({ createAdapter: true })
 
-    const result = await runLfg(["--json", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -167,7 +167,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const link = join(home, ".grok", "installed-plugins", "lfg")
     await symlink(join(home, ".grok", "installed-plugins", "missing-target"), link)
 
-    const result = await runLfg(["--json", "lazycodex", "status"], { HOME: home })
+    const result = await runLfg(["--json", "dry-setup"], { HOME: home })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({ adapter: { found: true, root: hashTarget } })
@@ -180,7 +180,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const stableTarget = await makeAdapterRoot(join(home, ".grok", "installed-plugins", HASH_PLUGIN_ID))
     await symlink(stableTarget, join(home, ".grok", "installed-plugins", "lfg"))
 
-    const result = await runLfg(["--json", "lazycodex", "status"], { HOME: home, LAZYCODEX_ADAPTER_ROOT: explicit })
+    const result = await runLfg(["--json", "dry-setup"], { HOME: home, LAZYCODEX_ADAPTER_ROOT: explicit })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({ adapter: { found: true, root: explicit } })
@@ -192,7 +192,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const fakeBin = await makeFakeNpx({ createAdapter: true })
     const hashTarget = join(home, ".grok", "installed-plugins", HASH_PLUGIN_ID)
 
-    const result = await runLfg(["--json", "lazycodex", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({ stablePluginLink: { status: "linked", targetPath: hashTarget } })
@@ -204,7 +204,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const fakeBin = await makeFakeNpx({ createAdapter: true, staleMcpConfig: true, createMcpComponents: true })
     const adapterRoot = join(home, ".grok", "installed-plugins", HASH_PLUGIN_ID)
 
-    const result = await runLfg(["--json", "lazycodex", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -235,7 +235,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const fakeBin = await makeFakeNpx({ createAdapter: true, staleMcpConfig: true, createMcpComponents: false })
 
-    const result = await runLfg(["--json", "lazycodex", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -252,7 +252,7 @@ describe("lfg stable Grok installed-plugin name", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const fakeBin = await makeFakeNpx({ createAdapter: true })
 
-    const result = await runLfgText(["install"], "y\nn\n", { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfgText(["setup"], "y\nn\n", { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain("Registered Grok installed-plugin name: lfg")

@@ -1,0 +1,11 @@
+*
+
+!package.json
+!AGENTS.md
+!skills/
+!skills/**
+!dist/
+!dist/lfg.js
+!dist/lfg.js.map
+!dist/self-test.js
+!dist/self-test.js.map

@@ -1,128 +1,95 @@
-import { describe, expect, test } from "vitest"
 import { access, chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { execFile } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { runLfg, runLfgText } from "./test-process"
+import { describe, expect, test } from "vitest"
+import { runLfg, runLfgFromCwd, runLfgText } from "./test-process"
 
 describe("lfg CLI", () => {
-  test("package metadata does not identify lfg as a plugin", async () => {
+  test("package metadata exposes a single npx and bunx runnable lfg bin", async () => {
     const parsed = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as Record<string, unknown>
     expect(parsed.name).toBe("lfg")
-    expect(parsed.description).toBe("Installs the lazycodex Codex adapter for grok-build.")
-    expect(parsed.bin).toMatchObject({ lfg: "./dist/lfg.js", "lfg-mcp": "./dist/lfg-mcp.js" })
+    expect(parsed.description).toContain("npx")
+    expect(parsed.description).toContain("bunx")
+    expect(parsed.bin).toEqual({ lfg: "./dist/lfg.js" })
+    expect(parsed).not.toHaveProperty("exports")
     expect(JSON.stringify(parsed)).not.toContain("@lfg/plugin")
-    expect(JSON.stringify(parsed)).not.toContain("plugin postinstall")
+    expect(JSON.stringify(parsed)).not.toContain("runtime")
   })
 
-  test("reports lazycodex adapter install command and target", async () => {
+  test("packed package excludes MCP output and exposes only the lfg bin", async () => {
+    const files = await packDryRunFilePaths()
+
+    expect(files).toContain("dist/lfg.js")
+    expect(files).toContain("dist/self-test.js")
+    expect(files).toContain("dist/lfg.js.map")
+    expect(files).toContain("dist/self-test.js.map")
+    expect(files).not.toContain("dist/lfg-mcp.js")
+    expect(files).not.toContain("dist/lfg-mcp.js.map")
+  })
+
+  test("dry-setup returns non-mutating setup plan for package executors", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-    const result = await runLfg(["--json", "install"], { HOME: home })
+    const result = await runLfg(["--json", "dry-setup"], { HOME: home })
+
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
       ok: true,
       status: "planned",
-      role: "lazycodex_adapter_installer",
-      adapterPackage: "lazycodex-ai",
-      installerCommand: "npx lazycodex-ai install",
+      command: "setup",
+      dryRun: true,
       executed: false,
-      grokBuildUse: true,
+      installerCommand: "npx lazycodex-ai install",
+      packageExecutors: ["npx lfg", "bunx lfg"],
       lfgIsPlugin: false,
-      grokSurfaces: {
-        customModelConfig: expect.stringContaining(join(".grok", "config.toml")),
-        globalAgentRoot: expect.stringContaining(join(".grok", "agents")),
-        projectAgentRoot: expect.stringContaining(join(".grok", "agents")),
-        acpCommand: "grok agent stdio",
-        globalPluginRoot: expect.stringContaining(join(".grok", "plugins")),
-        projectPluginRoot: expect.stringContaining(join(".grok", "plugins")),
-        userMcpConfig: expect.stringContaining(join(".grok", "config.toml")),
-        projectMcpConfig: expect.stringContaining(join(".grok", "config.toml")),
-        projectRootMcpConfig: expect.stringContaining(".mcp.json"),
-      },
-      verificationCommands: expect.arrayContaining(["grok models", "grok inspect --json", "grok plugin list --json"]),
     })
-    expect(JSON.stringify(result.json)).not.toContain("installed-plugins/0-1-0-ff47fdd7")
-    expect(JSON.stringify(result.json)).not.toContain("Grok plugin")
-    expect(JSON.stringify(result.json)).not.toContain("grok_plugin")
+    expect(JSON.stringify(result.json)).not.toContain("config grok-byok")
+    await expect(pathExists(join(home, ".grok", "config.toml"))).resolves.toBe(false)
   })
 
-  test("keeps lazycodex install as a compatibility alias", async () => {
+  test("setup plan is non-mutating until run is explicit", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-    const result = await runLfg(["--json", "lazycodex", "install"], { HOME: home })
+    const result = await runLfg(["--json", "setup"], { HOME: home })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
       ok: true,
       status: "planned",
-      installerCommand: "npx lazycodex-ai install",
+      command: "setup",
+      dryRun: false,
       executed: false,
+      installerCommand: "npx lazycodex-ai install",
     })
+    expect(JSON.stringify(result.json)).not.toContain("config grok-byok")
+    await expect(pathExists(join(home, ".grok", "config.toml"))).resolves.toBe(false)
   })
 
-  test("shows an interactive install wizard by default", async () => {
-    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-    const result = await runLfgText(["install"], "n\nn\n", { HOME: home })
-
-    expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain("lfg install")
-    expect(result.stdout).toContain("npx lazycodex-ai install")
-    expect(result.stdout).toContain("Install now?")
-    expect(result.stdout).toContain("Enable lazycodex in [plugins].enabled?")
-    expect(result.stdout).toContain("Configure Grok BYOK now?")
-    expect(result.stdout.indexOf("Enable lazycodex in [plugins].enabled?")).toBeLessThan(result.stdout.indexOf("Configure Grok BYOK now?"))
-    expect(result.stdout).toContain("Skipped install")
-    expect(result.stdout).toContain("Skipped plugin enable")
-    expect(result.stdout).toContain("Skipped Grok BYOK configuration")
-    expect(result.stdout).not.toContain('"ok"')
-  })
-
-  test("interactive install wizard runs npx when confirmed", async () => {
+  test("setup run is the only explicit installer execution surface", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const fakeBin = await makeFakeNpx(0)
-    const result = await runLfgText(["install"], "y\nn\n", { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
-
-    expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain("Install now?")
-    expect(result.stdout).toContain("fake lazycodex install")
-    expect(result.stdout).toContain("Installed lazycodex adapter")
-    expect(result.stdout).toContain("Enable lazycodex in [plugins].enabled?")
-    expect(result.stdout).toContain("Configure Grok BYOK now?")
-  })
-
-  test("runs lazycodex installer through npx when explicitly requested", async () => {
-    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-    const fakeBin = await makeFakeNpx(0)
-    const result = await runLfg(["--json", "lazycodex", "install", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
       ok: true,
       status: "installed",
+      command: "setup",
       executed: true,
       installerCommand: "npx lazycodex-ai install",
       installerArgs: ["lazycodex-ai", "install"],
-      exitCode: 0,
-      grokPermissionsConfig: {
-        ok: true,
-        status: "configured",
-        executed: true,
-        supportPermission: false,
-        defaultSelectedPermission: "always_allow_all_sessions",
-      },
     })
     expect(JSON.stringify(result.json)).toContain("fake lazycodex install")
-    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
-    expect(config).toContain("[features]\nsupport_permission = false")
-    expect(config).toContain('[ui]\ndefault_selected_permission = "always_allow_all_sessions"')
   })
 
-  test("reports npx installer failure", async () => {
+  test("setup run reports installer failure", async () => {
     const fakeBin = await makeFakeNpx(7)
-    const result = await runLfg(["--json", "lazycodex", "install", "--run"], { PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
 
     expect(result.exitCode).toBe(1)
     expect(result.json).toMatchObject({
       ok: false,
       status: "install_failed",
+      command: "setup",
       executed: true,
       installerCommand: "npx lazycodex-ai install",
       exitCode: 7,
@@ -130,114 +97,69 @@ describe("lfg CLI", () => {
     expect(JSON.stringify(result.json)).toContain("fake lazycodex failure")
   })
 
-  test("status doctor and setup-plan do not mutate Grok config", async () => {
+  test("interactive setup skips without unrelated configuration prompts", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-    for (const args of [["--json", "status"], ["--json", "doctor"], ["--json", "setup", "install-plan"]] as const) {
-      const result = await runLfg(args, { HOME: home })
-      expect(result.exitCode).toBe(0)
-    }
+    const result = await runLfgText(["setup"], "n\ny\ny\n", { HOME: home })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain("lfg setup")
+    expect(result.stdout).toContain("npx lazycodex-ai install")
+    expect(result.stdout).toContain("Install now?")
+    expect(result.stdout).toContain("Skipped install")
+    expect(result.stdout).not.toContain("Enable lazycodex in [plugins].enabled?")
+    expect(result.stdout).not.toContain("Configure Grok BYOK now?")
+    expect(result.stdout).not.toContain('"ok"')
     await expect(pathExists(join(home, ".grok", "config.toml"))).resolves.toBe(false)
   })
 
-  test("status and setup describe lfg as adapter installer not plugin", async () => {
-    const status = await runLfg(["--json", "status"])
-    expect(status.exitCode).toBe(0)
-    expect(status.json).toMatchObject({ ok: true, purpose: "Install lazycodex Codex adapter for grok-build", lfgIsPlugin: false })
-    expect(JSON.stringify(status.json)).not.toContain("Grok plugin")
-    expect(JSON.stringify(status.json)).not.toContain("grok_plugin")
+  test("doctor remains non-mutating and requires npx only", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+    const result = await runLfg(["--json", "doctor"], { HOME: home })
 
-    const setup = await runLfg(["--json", "setup", "install-plan"])
-    expect(setup.exitCode).toBe(0)
-    expect(setup.json).toMatchObject({ lazycodex: { adapterPackage: "lazycodex-ai", installerCommand: "npx lazycodex-ai install", lfgIsPlugin: false } })
-    expect(JSON.stringify(setup.json)).not.toContain("Grok plugin")
-    expect(JSON.stringify(setup.json)).not.toContain("grok_plugin")
-  })
-
-  test("doctor requires npx but does not present bun as installer prerequisite", async () => {
-    const result = await runLfg(["--json", "doctor"])
     expect(result.exitCode).toBe(0)
     expect(JSON.stringify(result.json)).toContain("exe:npx")
     expect(JSON.stringify(result.json)).not.toContain("exe:bun")
+    await expect(pathExists(join(home, ".grok", "config.toml"))).resolves.toBe(false)
   })
 
-  test("unsupported ulw command explains lfg scope", async () => {
-    const result = await runLfg(["--json", "ulw"])
-    expect(result.exitCode).toBe(1)
-    expect(result.json).toMatchObject({
-      ok: false,
-      status: "error",
-      code: "unsupported_command",
-      command: "ulw",
-      role: "lazycodex_adapter_installer",
-      installerCommand: "npx lazycodex-ai install",
-      lfgIsPlugin: false,
-    })
-    expect(JSON.stringify(result.json)).toContain("does not run ulw")
-  })
-
-  test("unknown command lists supported command names", async () => {
-    const result = await runLfg(["--json", "wat"])
-    expect(result.exitCode).toBe(1)
-    expect(result.json).toMatchObject({
-      ok: false,
-      code: "unsupported_command",
-      command: "wat",
-      supportedCommands: ["install", "status", "doctor", "config grok-byok", "lazycodex install", "lazycodex status", "setup install-plan", "setup show"],
-    })
-  })
-
-  test("uses configured lazycodex adapter root", async () => {
-    const adapterRoot = await makeAdapterRoot()
-    const result = await runLfg(["--json", "lazycodex", "status"], { LAZYCODEX_ADAPTER_ROOT: adapterRoot })
-
-    expect(result.exitCode).toBe(0)
-    expect(result.json).toMatchObject({
-      grokSurfaces: {
-        customModelConfig: expect.stringContaining(join(".grok", "config.toml")),
-        globalAgentRoot: expect.stringContaining(join(".grok", "agents")),
-        projectAgentRoot: expect.stringContaining(join(".grok", "agents")),
-        acpCommand: "grok agent stdio",
-        globalPluginRoot: expect.stringContaining(join(".grok", "plugins")),
-        projectPluginRoot: expect.stringContaining(join(".grok", "plugins")),
-        userMcpConfig: expect.stringContaining(join(".grok", "config.toml")),
-        projectMcpConfig: expect.stringContaining(join(".grok", "config.toml")),
-        projectRootMcpConfig: expect.stringContaining(".mcp.json"),
-      },
-      verificationCommands: expect.arrayContaining(["grok models", "grok inspect --json", "grok plugin list --json"]),
-      adapter: {
-        found: true,
-        root: adapterRoot,
-        manifest: join(adapterRoot, ".codex-plugin", "plugin.json"),
-        mcpConfig: join(adapterRoot, ".mcp.json"),
-        skillsDir: join(adapterRoot, "skills"),
-      },
-    })
-  })
-
-  test("detects grok installed lazycodex adapter when primary plugin path is absent", async () => {
+  test("doctor resolves helper root when launched from package root", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-    const adapterRoot = await makeAdapterRoot(join(home, ".grok", "installed-plugins", "0-1-0-ff47fdd7"))
-    const result = await runLfg(["--json", "lazycodex", "status"], { HOME: home })
+    const cwd = new URL("..", import.meta.url).pathname
+    const result = await runLfgFromCwd(["--json", "doctor"], cwd, { HOME: home })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
-      adapter: {
-        found: true,
-        root: adapterRoot,
-        manifest: join(adapterRoot, ".codex-plugin", "plugin.json"),
-      },
+      ok: true,
+      helperRoot: expect.stringMatching(/plugins\/lfg\/?$/),
     })
+  })
+
+  test("unsupported commands advertise only the narrowed plugin-installer surface", async () => {
+    for (const legacy of [["--json", "install"], ["--json", "status"], ["--json", "config", "grok-byok"], ["--json", "lazycodex", "install"], ["--json", "setup", "install-plan"], ["--json", "setup", "show"], ["--json", "doctor", "state", "schema", "check"]] as const) {
+      const result = await runLfg(legacy)
+      expect(result.exitCode).toBe(1)
+      expect(result.json).toMatchObject({
+        ok: false,
+        status: "error",
+        code: "unsupported_command",
+        supportedCommands: ["setup", "doctor", "dry-setup"],
+      })
+    }
+  })
+
+  test("help advertises only setup doctor and dry-setup", async () => {
+    const result = await runLfgText(["help"], "", {})
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain("lfg setup")
+    expect(result.stdout).toContain("lfg dry-setup")
+    expect(result.stdout).toContain("lfg doctor")
+    expect(result.stdout).toContain("npx lfg")
+    expect(result.stdout).toContain("bunx lfg")
+    expect(result.stdout).not.toContain("config grok-byok")
+    expect(result.stdout).not.toContain("lazycodex status")
   })
 })
-
-async function makeAdapterRoot(root = ""): Promise<string> {
-  const adapterRoot = root || (await mkdtemp(join(tmpdir(), "lfg-lazycodex-adapter.")))
-  await mkdir(join(adapterRoot, ".codex-plugin"), { recursive: true })
-  await mkdir(join(adapterRoot, "skills"), { recursive: true })
-  await writeFile(join(adapterRoot, ".codex-plugin", "plugin.json"), `${JSON.stringify({ name: "lazycodex", version: "0.1.0" })}\n`)
-  await writeFile(join(adapterRoot, ".mcp.json"), `${JSON.stringify({ mcpServers: {} })}\n`)
-  return adapterRoot
-}
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -249,10 +171,36 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+async function packDryRunFilePaths(): Promise<readonly string[]> {
+  const result = await execFileResult("npm", ["pack", "--workspace", "lfg", "--dry-run", "--json"])
+  expect(result.exitCode).toBe(0)
+  const parsed = JSON.parse(result.stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
+  return parsed.flatMap((pack) => pack.files?.map((file) => file.path).filter((path): path is string => typeof path === "string") ?? [])
+}
+
 async function makeFakeNpx(exitCode: number): Promise<string> {
   const bin = await mkdtemp(join(tmpdir(), "lfg-fake-npx."))
-  const body = exitCode === 0 ? "echo fake lazycodex install: $*" : "echo fake lazycodex failure: $* >&2"
+  const body = exitCode === 0 ? await fakeInstallerScript() : "echo fake lazycodex failure: $* >&2"
   await writeFile(join(bin, "npx"), `#!/usr/bin/env bash\n${body}\nexit ${exitCode}\n`)
   await chmod(join(bin, "npx"), 0o755)
   return bin
+}
+
+function execFileResult(file: string, args: readonly string[]): Promise<{ readonly exitCode: number; readonly stdout: string }> {
+  return new Promise((resolve) => {
+    execFile(file, [...args], (error, stdout) => {
+      const exitCode = typeof error === "object" && error !== null && "code" in error && typeof error.code === "number" ? error.code : 0
+      resolve({ exitCode, stdout })
+    })
+  })
+}
+
+async function fakeInstallerScript(): Promise<string> {
+  const adapterRoot = join("$HOME", ".grok", "installed-plugins", "0-1-0-ff47fdd7")
+  return [
+    `mkdir -p "${adapterRoot}/.codex-plugin" "${adapterRoot}/skills"`,
+    `printf '%s\\n' '{"name":"lazycodex","version":"0.1.0"}' > "${adapterRoot}/.codex-plugin/plugin.json"`,
+    `printf '%s\\n' '{"mcpServers":{}}' > "${adapterRoot}/.mcp.json"`,
+    "echo fake lazycodex install: $*",
+  ].join("\n")
 }

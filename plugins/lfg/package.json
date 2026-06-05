@@ -2,21 +2,24 @@
   "name": "lfg",
   "version": "0.1.0",
   "type": "module",
-  "description": "Installs the lazycodex Codex adapter for grok-build.",
+  "description": "Run the lazycodex setup helper with npx lfg or bunx lfg.",
   "bin": {
-    "lfg": "./dist/lfg.js",
-    "lfg-mcp": "./dist/lfg-mcp.js"
-  },
-  "exports": {
-    ".": "./dist/lfg.js",
-    "./cli": "./dist/lfg.js",
-    "./mcp": "./dist/lfg-mcp.js",
-    "./package.json": "./package.json"
+    "lfg": "./dist/lfg.js"
   },
   "files": [
-    "dist",
+    "dist/lfg.js",
+    "dist/lfg.js.map",
+    "dist/self-test.js",
+    "dist/self-test.js.map",
     "AGENTS.md",
     "skills"
+  ],
+  "keywords": [
+    "lazycodex",
+    "grok-build",
+    "npx",
+    "bunx",
+    "setup"
   ],
   "scripts": {
     "build": "node ../../scripts/build.mjs",

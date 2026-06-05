@@ -4,7 +4,6 @@ import { build } from "esbuild"
 
 const outputs = [
   ["plugins/lfg/bin/lfg.ts", "plugins/lfg/dist/lfg.js"],
-  ["plugins/lfg/bin/lfg-mcp.ts", "plugins/lfg/dist/lfg-mcp.js"],
   ["plugins/lfg/bin/self-test.ts", "plugins/lfg/dist/self-test.js"],
 ]
 
@@ -16,6 +15,7 @@ await Promise.all(
       bundle: true,
       platform: "node",
       format: "esm",
+      sourcemap: true,
       target: "node20",
     }),
   ),

@@ -21,10 +21,6 @@ fi
 export GROK_PLUGIN_DATA="${GROK_PLUGIN_DATA:-$PWD/.lfg}"
 export LFG_LAUNCHER="lfg"
 
-if [[ $# -eq 0 ]]; then
-  set -- status
-fi
-
 DIST="$SCRIPT_DIR/../dist/lfg.js"
 if [[ -f "$DIST" ]]; then
   exec node "$DIST" "$@"

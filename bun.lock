@@ -16,7 +16,6 @@
       "version": "0.1.0",
       "bin": {
         "lfg": "./dist/lfg.js",
-        "lfg-mcp": "./dist/lfg-mcp.js",
       },
       "devDependencies": {
         "@types/node": "^24.10.1",
