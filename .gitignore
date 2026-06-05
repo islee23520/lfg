@@ -8,4 +8,4 @@ test-results/
 *.tsbuildinfo
 plugins/lfg/dist/
 plans/
-lfg-*.tgz
+*lfg*.tgz

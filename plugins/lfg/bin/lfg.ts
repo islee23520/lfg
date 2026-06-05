@@ -131,7 +131,7 @@ async function setupPlan(options: { readonly dryRun: boolean }): Promise<JsonObj
     dryRun: options.dryRun,
     updatedAt: utcNow(),
     purpose: "Install lazycodex Codex adapter for grok-build",
-    packageExecutors: ["npx lfg", "bunx lfg"],
+    packageExecutors: ["npx @islee23520/lfg", "bunx @islee23520/lfg"],
     steps: installSteps.map((step, index) => ({ id: index + 1, key: isRecord(step) ? step.id : undefined, status: isRecord(step) ? step.status : undefined, text: isRecord(step) ? step.text : undefined })),
     lazycodex: { adapterPackage: install.adapterPackage, mutatesGlobalConfig: false, installerCommand: install.installerCommand, lfgIsPlugin: false, adapterRoot: install.adapterRoot, grokSurfaces: install.grokSurfaces },
   }
@@ -192,7 +192,7 @@ function isFailure(value: unknown): boolean {
 }
 
 function help(): string {
-  return ["lfg - setup lazycodex for Grok Build", "", "Commands:", "  lfg setup", "  lfg dry-setup", "  lfg doctor", "", "Package execution:", "  npx lfg --json dry-setup", "  bunx lfg --json dry-setup", "", "Automation:", "  lfg --json setup", "  lfg --json setup --run", "  lfg --json dry-setup", "  lfg --json doctor"].join("\n")
+  return ["lfg - setup lazycodex for Grok Build", "", "Commands:", "  lfg setup", "  lfg dry-setup", "  lfg doctor", "", "Package execution:", "  npx @islee23520/lfg --json dry-setup", "  bunx @islee23520/lfg --json dry-setup", "", "Automation:", "  lfg --json setup", "  lfg --json setup --run", "  lfg --json dry-setup", "  lfg --json doctor"].join("\n")
 }
 
 async function readPluginVersion(env: LfgEnv): Promise<string | null> {

@@ -1,8 +1,12 @@
 {
-  "name": "lfg",
+  "name": "@islee23520/lfg",
   "version": "0.1.0",
   "type": "module",
-  "description": "Run the lazycodex setup helper with npx lfg or bunx lfg.",
+  "description": "Run the lazycodex setup helper with npx @islee23520/lfg or bunx @islee23520/lfg.",
+  "author": {
+    "name": "islee23520",
+    "email": "lysk9884@gmail.com"
+  },
   "bin": {
     "lfg": "dist/lfg.js"
   },

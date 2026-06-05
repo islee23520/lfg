@@ -1,7 +1,11 @@
 {
-  "name": "lfg",
+  "name": "@islee23520/lfg",
   "version": "0.1.0",
   "private": true,
+  "author": {
+    "name": "islee23520",
+    "email": "lysk9884@gmail.com"
+  },
   "type": "module",
   "workspaces": [
     "plugins/lfg"

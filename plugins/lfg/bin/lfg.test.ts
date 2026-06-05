@@ -8,7 +8,7 @@ import { runLfg, runLfgFromCwd, runLfgText } from "./test-process"
 describe("lfg CLI", () => {
   test("package metadata exposes a single npx and bunx runnable lfg bin", async () => {
     const parsed = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as Record<string, unknown>
-    expect(parsed.name).toBe("lfg")
+    expect(parsed.name).toBe("@islee23520/lfg")
     expect(parsed.description).toContain("npx")
     expect(parsed.description).toContain("bunx")
     expect(parsed.bin).toEqual({ lfg: "dist/lfg.js" })
@@ -42,7 +42,7 @@ describe("lfg CLI", () => {
       dryRun: true,
       executed: false,
       installerCommand: "npx lazycodex-ai install",
-      packageExecutors: ["npx lfg", "bunx lfg"],
+      packageExecutors: ["npx @islee23520/lfg", "bunx @islee23520/lfg"],
       lfgIsPlugin: false,
     })
     expect(JSON.stringify(result.json)).not.toContain("config grok-byok")
@@ -179,8 +179,8 @@ describe("lfg CLI", () => {
     expect(result.stdout).toContain("lfg setup")
     expect(result.stdout).toContain("lfg dry-setup")
     expect(result.stdout).toContain("lfg doctor")
-    expect(result.stdout).toContain("npx lfg")
-    expect(result.stdout).toContain("bunx lfg")
+    expect(result.stdout).toContain("npx @islee23520/lfg")
+    expect(result.stdout).toContain("bunx @islee23520/lfg")
     expect(result.stdout).not.toContain("config grok-byok")
     expect(result.stdout).not.toContain("lazycodex status")
   })
@@ -197,7 +197,7 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 async function packDryRunFilePaths(): Promise<readonly string[]> {
-  const result = await execFileResult("npm", ["pack", "--workspace", "lfg", "--dry-run", "--json"])
+  const result = await execFileResult("npm", ["pack", "--workspace", "@islee23520/lfg", "--dry-run", "--json"])
   expect(result.exitCode).toBe(0)
   const parsed = JSON.parse(result.stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
   return parsed.flatMap((pack) => pack.files?.map((file) => file.path).filter((path): path is string => typeof path === "string") ?? [])
