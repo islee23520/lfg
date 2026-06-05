@@ -1,10 +1,9 @@
 name: lfg smoke
 
 on:
-  push:
-    branches: [main, p1]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
