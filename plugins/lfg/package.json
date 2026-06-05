@@ -1,6 +1,9 @@
 {
   "name": "@islee23520/lfg",
   "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "description": "Run the lazycodex setup helper with npx @islee23520/lfg or bunx @islee23520/lfg.",
   "author": {

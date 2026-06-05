@@ -17,6 +17,17 @@ describe("lfg CLI", () => {
     expect(JSON.stringify(parsed)).not.toContain("runtime")
   })
 
+  test("README explains the lfg project purpose and ULW workflow in English", async () => {
+    const readme = await readFile(new URL("../README.md", import.meta.url), "utf8")
+
+    expect(readme).toContain("What lfg does")
+    expect(readme).toContain("UltraWork Loop")
+    expect(readme).toContain("machine-first lazycodex install")
+    expect(readme).toContain("symbolic links")
+    expect(readme).toContain("not a Grok runtime")
+    expect(readme).toContain("@islee23520/lfg")
+  })
+
   test("packed package excludes MCP output and exposes only the lfg bin", async () => {
     const files = await packDryRunFilePaths()
 
