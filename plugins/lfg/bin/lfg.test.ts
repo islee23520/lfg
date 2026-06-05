@@ -1,4 +1,4 @@
-import { access, chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { access, chmod, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { execFile } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -6,15 +6,16 @@ import { describe, expect, test } from "vitest"
 import { runLfg, runLfgFromCwd, runLfgText } from "./test-process"
 
 describe("lfg CLI", () => {
-  test("package metadata exposes a single npx and bunx runnable lfg bin", async () => {
+  test("package metadata exposes a single npx runnable lfg bin", async () => {
     const parsed = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as Record<string, unknown>
     expect(parsed.name).toBe("@islee23520/lfg")
-    expect(parsed.description).toContain("npx")
-    expect(parsed.description).toContain("bunx")
+    expect(parsed.version).toBe("0.1.1")
+    expect(parsed.description).toBe("Run the lazycodex setup helper with npx @islee23520/lfg setup.")
     expect(parsed.bin).toEqual({ lfg: "dist/lfg.js" })
     expect(parsed).not.toHaveProperty("exports")
     expect(JSON.stringify(parsed)).not.toContain("@lfg/plugin")
     expect(JSON.stringify(parsed)).not.toContain("runtime")
+    expect(JSON.stringify(parsed)).not.toContain("bunx")
   })
 
   test("README explains the lfg project purpose and ULW workflow in English", async () => {
@@ -25,7 +26,8 @@ describe("lfg CLI", () => {
     expect(readme).toContain("machine-first lazycodex install")
     expect(readme).toContain("symbolic links")
     expect(readme).toContain("not a Grok runtime")
-    expect(readme).toContain("@islee23520/lfg")
+    expect(readme).toContain("npx @islee23520/lfg setup")
+    expect(readme).not.toContain("bunx")
   })
 
   test("packed package excludes MCP output and exposes only the lfg bin", async () => {
@@ -53,7 +55,7 @@ describe("lfg CLI", () => {
       dryRun: true,
       executed: false,
       installerCommand: "npx lazycodex-ai install",
-      packageExecutors: ["npx @islee23520/lfg", "bunx @islee23520/lfg"],
+      packageExecutors: ["npx @islee23520/lfg"],
       lfgIsPlugin: false,
     })
     expect(JSON.stringify(result.json)).not.toContain("config grok-byok")
@@ -190,8 +192,8 @@ describe("lfg CLI", () => {
     expect(result.stdout).toContain("lfg setup")
     expect(result.stdout).toContain("lfg dry-setup")
     expect(result.stdout).toContain("lfg doctor")
-    expect(result.stdout).toContain("npx @islee23520/lfg")
-    expect(result.stdout).toContain("bunx @islee23520/lfg")
+    expect(result.stdout).toContain("npx @islee23520/lfg setup")
+    expect(result.stdout).not.toContain("bunx")
     expect(result.stdout).not.toContain("config grok-byok")
     expect(result.stdout).not.toContain("lazycodex status")
   })

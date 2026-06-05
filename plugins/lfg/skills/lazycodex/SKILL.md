@@ -14,12 +14,12 @@ npx lazycodex-ai install
 The local helper commands are:
 
 ```sh
-lfg setup
-lfg dry-setup
-lfg doctor
+npx @islee23520/lfg setup
+npx @islee23520/lfg dry-setup
+npx @islee23520/lfg doctor
 ```
 
-Use `lfg setup` for the interactive shell installer. It confirms before executing:
+Use `npx @islee23520/lfg setup` for the interactive shell installer. It confirms before executing:
 
 ```sh
 npx lazycodex-ai install
@@ -30,10 +30,10 @@ Before running the installer, `lfg setup` checks for existing Grok lazycodex/age
 For automation, use:
 
 ```sh
-lfg --json dry-setup
-lfg --json setup
-lfg --json setup --run
-lfg --json doctor
+npx @islee23520/lfg --json dry-setup
+npx @islee23520/lfg --json setup
+npx @islee23520/lfg --json setup --run
+npx @islee23520/lfg --json doctor
 ```
 
 Do not print API keys in summaries or JSON output.

@@ -1,11 +1,11 @@
 {
   "name": "@islee23520/lfg",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
-  "description": "Run the lazycodex setup helper with npx @islee23520/lfg or bunx @islee23520/lfg.",
+  "description": "Run the lazycodex setup helper with npx @islee23520/lfg setup.",
   "author": {
     "name": "islee23520",
     "email": "lysk9884@gmail.com"
@@ -26,7 +26,6 @@
     "lazycodex",
     "grok-build",
     "npx",
-    "bunx",
     "setup"
   ],
   "scripts": {

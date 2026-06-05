@@ -2,7 +2,7 @@
 import { existsSync } from "node:fs"
 import { access, stat } from "node:fs/promises"
 import { join, resolve } from "node:path"
-import { commandPath, SUPPORTED_COMMANDS, unsupportedCommand } from "./lfg-command"
+import { commandPath, unsupportedCommand } from "./lfg-command"
 import { detectLazycodexAdapter, grokSurfaces, grokVerificationCommands } from "./lfg-grok"
 import { runInstallWizard } from "./lfg-interactive"
 import { LAZYCODEX_INSTALLER_COMMAND, runLazycodexInstaller } from "./lfg-installer"
@@ -51,24 +51,6 @@ async function setupCommand(args: ParsedArgs): Promise<unknown> {
   }
   const plan = await setupPlan({ dryRun: false })
   return args.json ? plan : runInstallWizard(plan)
-}
-
-async function status(): Promise<JsonObject> {
-  const env = resolveLfgEnv()
-  return {
-    ok: true,
-    product: "lfg",
-    purpose: "Install lazycodex Codex adapter for grok-build",
-    role: "lazycodex_adapter_installer",
-    lfgIsPlugin: false,
-    version: await readPluginVersion(env),
-    launcher: env.launcher,
-    helperRoot: env.root,
-    helperData: env.data,
-    repo: await detectRepo(),
-    setup: await setupPlan({ dryRun: false }),
-    drySetup: await setupPlan({ dryRun: true }),
-  }
 }
 
 async function doctor(): Promise<JsonObject> {
@@ -131,7 +113,7 @@ async function setupPlan(options: { readonly dryRun: boolean }): Promise<JsonObj
     dryRun: options.dryRun,
     updatedAt: utcNow(),
     purpose: "Install lazycodex Codex adapter for grok-build",
-    packageExecutors: ["npx @islee23520/lfg", "bunx @islee23520/lfg"],
+    packageExecutors: ["npx @islee23520/lfg"],
     steps: installSteps.map((step, index) => ({ id: index + 1, key: isRecord(step) ? step.id : undefined, status: isRecord(step) ? step.status : undefined, text: isRecord(step) ? step.text : undefined })),
     lazycodex: { adapterPackage: install.adapterPackage, mutatesGlobalConfig: false, installerCommand: install.installerCommand, lfgIsPlugin: false, adapterRoot: install.adapterRoot, grokSurfaces: install.grokSurfaces },
   }
@@ -192,17 +174,7 @@ function isFailure(value: unknown): boolean {
 }
 
 function help(): string {
-  return ["lfg - setup lazycodex for Grok Build", "", "Commands:", "  lfg setup", "  lfg dry-setup", "  lfg doctor", "", "Package execution:", "  npx @islee23520/lfg --json dry-setup", "  bunx @islee23520/lfg --json dry-setup", "", "Automation:", "  lfg --json setup", "  lfg --json setup --run", "  lfg --json dry-setup", "  lfg --json doctor"].join("\n")
-}
-
-async function readPluginVersion(env: LfgEnv): Promise<string | null> {
-  const manifest = await readJsonObject(join(env.root, "package.json"))
-  return typeof manifest.version === "string" ? manifest.version : null
-}
-
-async function detectRepo(): Promise<JsonObject> {
-  const root = process.cwd()
-  return { root, isGit: await directoryExists(join(root, ".git")) }
+  return ["lfg - setup lazycodex for Grok Build", "", "Commands:", "  lfg setup", "  lfg dry-setup", "  lfg doctor", "", "Package execution:", "  npx @islee23520/lfg setup", "  npx @islee23520/lfg dry-setup", "  npx @islee23520/lfg doctor", "", "Automation:", "  lfg --json setup", "  lfg --json setup --run", "  lfg --json dry-setup", "  lfg --json doctor"].join("\n")
 }
 
 async function pathExists(path: string): Promise<boolean> {
