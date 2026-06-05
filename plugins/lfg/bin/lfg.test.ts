@@ -6,6 +6,16 @@ import { describe, expect, test } from "vitest"
 import { runLfg, runLfgFromCwd, runLfgText } from "./test-process"
 
 describe("lfg CLI", () => {
+  test("package metadata stays publishable to npm public registry", async () => {
+    const root = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8")) as Record<string, unknown>
+    const workspace = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as Record<string, unknown>
+
+    expect(root).not.toHaveProperty("private")
+    expect(workspace).not.toHaveProperty("private")
+    expect(root.publishConfig).toEqual({ access: "public" })
+    expect(workspace.publishConfig).toEqual({ access: "public" })
+  })
+
   test("package metadata exposes a single npx runnable lfg bin", async () => {
     const parsed = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as Record<string, unknown>
     expect(parsed.name).toBe("@islee23520/lfg")
