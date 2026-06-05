@@ -11,7 +11,7 @@ export const LAZYCODEX_INSTALLER_COMMAND = "npx lazycodex-ai install"
 export async function runLazycodexInstaller(): Promise<JsonObject> {
   const { exitCode, stdout, stderr } = await execFileResult("npx", LAZYCODEX_INSTALLER_ARGS)
   const ok = exitCode === 0
-  const adapter = ok ? detectLazycodexAdapter({ preferStableInstalledPlugin: false, preferHashInstalledPlugin: true }) : null
+  const adapter = ok ? detectLazycodexAdapter({ preferHashInstalledPlugin: true, preferMachineInstall: true }) : null
   const stablePluginLinks = adapter ? await ensureStablePluginLinks(adapter) : []
   const stablePluginLink = adapter ? await ensureStableLfgPluginLink(adapter) : null
   const mcpConfigRepair = adapter ? await repairLazycodexMcpConfig(adapter) : null

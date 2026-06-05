@@ -12,7 +12,7 @@ export type LazycodexAdapter = {
   readonly skillsDir: string
 }
 
-export function detectLazycodexAdapter(options: { readonly preferStableInstalledPlugin?: boolean; readonly preferHashInstalledPlugin?: boolean } = {}): LazycodexAdapter {
+export function detectLazycodexAdapter(options: { readonly preferStableInstalledPlugin?: boolean; readonly preferHashInstalledPlugin?: boolean; readonly preferMachineInstall?: boolean } = {}): LazycodexAdapter {
   const root = lazycodexAdapterRoot(options)
   const manifest = join(root, ".codex-plugin", "plugin.json")
   const mcpConfig = join(root, ".mcp.json")
@@ -45,17 +45,29 @@ export function grokVerificationCommands(): readonly string[] {
   return ["grok models", "grok -m <model>", "/model <model>", "grok agent stdio", "grok inspect --json", "grok plugin list --json", "grok plugin details <name>"]
 }
 
-function lazycodexAdapterRoot(options: { readonly preferStableInstalledPlugin?: boolean; readonly preferHashInstalledPlugin?: boolean }): string {
+function lazycodexAdapterRoot(options: { readonly preferStableInstalledPlugin?: boolean; readonly preferHashInstalledPlugin?: boolean; readonly preferMachineInstall?: boolean }): string {
   const configured = process.env.LAZYCODEX_ADAPTER_ROOT
   if (configured) return resolve(configured)
 
-  for (const name of ["lazycodex", "lfg"] satisfies readonly StablePluginName[]) {
-    const stableInstalledPlugin = stableInstalledPluginPath(name)
-    if (options.preferStableInstalledPlugin !== false && existsSync(join(stableInstalledPlugin, ".codex-plugin", "plugin.json"))) return resolve(stableInstalledPlugin)
+  if (options.preferMachineInstall === true) {
+    const machinePlugin = machineLazycodexAdapterRoot()
+    if (machinePlugin) return machinePlugin
+  }
+
+  if (options.preferStableInstalledPlugin !== false) {
+    const stableLazycodex = stableInstalledPluginPath("lazycodex")
+    if (existsSync(join(stableLazycodex, ".codex-plugin", "plugin.json"))) return resolve(stableLazycodex)
+    if (options.preferHashInstalledPlugin !== true) {
+      const stableLfg = stableInstalledPluginPath("lfg")
+      if (existsSync(join(stableLfg, ".codex-plugin", "plugin.json"))) return resolve(stableLfg)
+    }
   }
 
   const installedPlugin = join(homedir(), ".grok", "installed-plugins", "0-1-0-ff47fdd7")
   if (options.preferHashInstalledPlugin === true && existsSync(join(installedPlugin, ".codex-plugin", "plugin.json"))) return resolve(installedPlugin)
+
+  const stableLfg = stableInstalledPluginPath("lfg")
+  if (options.preferStableInstalledPlugin !== false && existsSync(join(stableLfg, ".codex-plugin", "plugin.json"))) return resolve(stableLfg)
 
   const primary = join(homedir(), ".grok", "plugins", "lazycodex")
   if (existsSync(join(primary, ".codex-plugin", "plugin.json"))) return resolve(primary)
@@ -63,4 +75,19 @@ function lazycodexAdapterRoot(options: { readonly preferStableInstalledPlugin?: 
   if (existsSync(join(installedPlugin, ".codex-plugin", "plugin.json"))) return resolve(installedPlugin)
 
   return resolve(primary)
+}
+
+function machineLazycodexAdapterRoot(): string | null {
+  for (const codexHome of codexHomeCandidates()) {
+    const root = join(codexHome, "plugins", "cache", "sisyphuslabs", "omo", "0.1.0")
+    if (existsSync(join(root, ".codex-plugin", "plugin.json"))) return resolve(root)
+  }
+  return null
+}
+
+function codexHomeCandidates(): readonly string[] {
+  const configured = process.env.CODEX_HOME
+  const fallback = join(homedir(), ".codex")
+  if (configured && resolve(configured) !== resolve(fallback)) return [resolve(configured), fallback]
+  return [fallback]
 }

@@ -4,9 +4,10 @@
   "type": "module",
   "description": "Run the lazycodex setup helper with npx lfg or bunx lfg.",
   "bin": {
-    "lfg": "./dist/lfg.js"
+    "lfg": "dist/lfg.js"
   },
   "files": [
+    "README.md",
     "dist/lfg.js",
     "dist/lfg.js.map",
     "dist/self-test.js",

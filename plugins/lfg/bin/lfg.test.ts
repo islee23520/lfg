@@ -11,7 +11,7 @@ describe("lfg CLI", () => {
     expect(parsed.name).toBe("lfg")
     expect(parsed.description).toContain("npx")
     expect(parsed.description).toContain("bunx")
-    expect(parsed.bin).toEqual({ lfg: "./dist/lfg.js" })
+    expect(parsed.bin).toEqual({ lfg: "dist/lfg.js" })
     expect(parsed).not.toHaveProperty("exports")
     expect(JSON.stringify(parsed)).not.toContain("@lfg/plugin")
     expect(JSON.stringify(parsed)).not.toContain("runtime")
@@ -20,10 +20,12 @@ describe("lfg CLI", () => {
   test("packed package excludes MCP output and exposes only the lfg bin", async () => {
     const files = await packDryRunFilePaths()
 
+    expect(files).toContain("README.md")
     expect(files).toContain("dist/lfg.js")
     expect(files).toContain("dist/self-test.js")
     expect(files).toContain("dist/lfg.js.map")
     expect(files).toContain("dist/self-test.js.map")
+    expect(files).not.toContain(".npmignore")
     expect(files).not.toContain("dist/lfg-mcp.js")
     expect(files).not.toContain("dist/lfg-mcp.js.map")
   })
@@ -79,6 +81,29 @@ describe("lfg CLI", () => {
       installerArgs: ["lazycodex-ai", "install"],
     })
     expect(JSON.stringify(result.json)).toContain("fake lazycodex install")
+  })
+
+  test("setup run resolves stable lazycodex adapter in post-install metadata", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+    const fakeBin = await makeFakeStableNpx()
+    const adapterRoot = join(home, ".grok", "installed-plugins", "lazycodex")
+
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.json).toMatchObject({
+      ok: true,
+      status: "installed",
+      stablePluginLink: {
+        status: "linked",
+        name: "lfg",
+        targetPath: adapterRoot,
+      },
+      mcpConfigRepair: {
+        path: join(adapterRoot, ".mcp.json"),
+      },
+    })
+    expect(JSON.stringify(result.json)).not.toContain("missing_adapter")
   })
 
   test("setup run reports installer failure", async () => {
@@ -182,6 +207,25 @@ async function makeFakeNpx(exitCode: number): Promise<string> {
   const bin = await mkdtemp(join(tmpdir(), "lfg-fake-npx."))
   const body = exitCode === 0 ? await fakeInstallerScript() : "echo fake lazycodex failure: $* >&2"
   await writeFile(join(bin, "npx"), `#!/usr/bin/env bash\n${body}\nexit ${exitCode}\n`)
+  await chmod(join(bin, "npx"), 0o755)
+  return bin
+}
+
+async function makeFakeStableNpx(): Promise<string> {
+  const bin = await mkdtemp(join(tmpdir(), "lfg-fake-npx."))
+  const adapterRoot = join("$HOME", ".grok", "installed-plugins", "lazycodex")
+  await writeFile(
+    join(bin, "npx"),
+    [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      `mkdir -p "${adapterRoot}/.codex-plugin" "${adapterRoot}/skills"`,
+      `printf '%s\\n' '{"name":"lazycodex","version":"0.1.0"}' > "${adapterRoot}/.codex-plugin/plugin.json"`,
+      `printf '%s\\n' '{"mcpServers":{}}' > "${adapterRoot}/.mcp.json"`,
+      'echo fake stable lazycodex install: "$@"',
+      "",
+    ].join("\n"),
+  )
   await chmod(join(bin, "npx"), 0o755)
   return bin
 }
