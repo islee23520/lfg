@@ -1,6 +1,5 @@
 .DS_Store
 *.log
-
 .lfg/
 node_modules/
 .bun/
@@ -9,3 +8,4 @@ test-results/
 *.tsbuildinfo
 plugins/lfg/dist/
 plans/
+lfg-*.tgz
