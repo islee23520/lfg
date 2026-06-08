@@ -17,5 +17,6 @@ describe("assert-npm-pack-bin integration (#22)", () => {
     const combined = `${stdout}\n${stderr}`
     expect(combined).toContain("assert-npm-pack-bin: ok")
     expect(combined).toContain("@")
+    expect(combined).toMatch(/prepack|build\.mjs/)
   }, 60_000)
 })

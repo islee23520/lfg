@@ -15,6 +15,14 @@ describe("npm publish gates (#22)", () => {
     expect(pkg.scripts).not.toHaveProperty("postinstall")
   })
 
+  test("verify chains assert-pack before test (#22)", async () => {
+    const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
+      scripts?: Record<string, string>
+    }
+    const verify = pkg.scripts?.verify ?? ""
+    expect(verify).toBe("npm run assert-pack && npm test && npm run typecheck && npm run self-test")
+  })
+
   test("scoped package name matches evaluatePublishGap default", async () => {
     const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as { name: string }
     expect(pkg.name).toBe("@islee23520/lfg")
