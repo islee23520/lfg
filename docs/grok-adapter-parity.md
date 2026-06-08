@@ -5,7 +5,7 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | omo-codex capability | Codex reference | Grok owner (lfg) | Status |
 |----------------------|-----------------|------------------|--------|
 | Plugin cache install | `~/.codex/plugins/cache/sisyphuslabs/omo/` | `plugins/lfg/grok-install/` | Implemented (`plugin-cache-install.acceptance.test.ts` #27; `setup-doctor-parity.test.ts` postInstallVerify #21) |
-| `config.toml` merge | `install/config.mjs` | `grok-install` + `lfg-grok-config.ts` | Implemented (`config-single-writer.acceptance.test.ts` #29; `lfg-installer.contract.test.ts`; `lfg-grok-config.endpoints` #24; `LFG_OWNED_GROK_CONFIG_SECTIONS`) |
+| `config.toml` merge | `install/config.mjs` | `grok-install` + `lfg-grok-config.ts` | Implemented (`config-single-writer.acceptance.test.ts` #29; `lfg-installer.contract.test.ts`; `lfg-grok-config.endpoints` #24; `grok-config-endpoints-doc.test.ts`; `docs/grok-config-endpoints.md`; `LFG_OWNED_GROK_CONFIG_SECTIONS`) |
 | Agent TOML + preserve reasoning | `install/agents.mjs` | `grok-install/apply-agent-tomls.ts` | Implemented (`agent-tomls.acceptance.test.ts` #30; `apply-agent-tomls.test.ts`; `no-linalab-branding.test.ts`) |
 | Hook trust | `install/hook-trust.mjs` | `grok-install/hook-trust.ts` | Implemented (`hook-trust.acceptance.test.ts` #28; `post-install-verify.test.ts`; doctor `hooksRegistered`) |
 | Install version stamp | `lazycodex-install.json` | `lfg-install.json` (Grok plugin root) | Implemented (`plugin-cache-install.acceptance.test.ts` #27; `npm-publish-root-contract.test.ts` #22; `publish-gap-evidence-shape.test.ts`) |

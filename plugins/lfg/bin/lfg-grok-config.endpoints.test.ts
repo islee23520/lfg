@@ -25,4 +25,16 @@ describe("grok config endpoints (#24)", () => {
     expect(config).toContain('api_key = "sk-test"')
     expect(config).toContain("[model.")
   })
+
+  test("strips endpoints.api_key without echoing secret in endpoints block (#24)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-endpoints-strip-"))
+    const path = join(home, ".grok", "config.toml")
+    await mkdir(join(home, ".grok"), { recursive: true })
+    await writeFile(path, '[endpoints]\nmodels_base_url = "http://127.0.0.1:11434/v1"\napi_key = "04d40610eb7cf693"\n', "utf8")
+    await writeGrokModelConfig(discovery, { home, apiKey: "sk-redacted-test" })
+    const config = await readFile(path, "utf8")
+    const endpointsOnly = config.split(/\n\[/).find((c) => c.startsWith("[endpoints]") || c.startsWith("endpoints]")) ?? ""
+    expect(endpointsOnly).not.toContain("api_key")
+    expect(endpointsOnly).toContain("models_base_url")
+  })
 })
