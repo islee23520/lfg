@@ -23,4 +23,15 @@ describe("runGrokInstall", () => {
     expect(first).toContain("[endpoints]")
     expect(first).toContain('default = "gpt-4.1-mini"')
   })
+
+  test("null discovery skips config merge but still installs plugin (#29)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-null-disc-"))
+    const env = { HOME: home }
+    const run = await runGrokInstall(null, env)
+    expect(run.ok).toBe(true)
+    expect(run.configUpdate).toBeNull()
+    expect(run.agentTomls).toBeNull()
+    const stamp = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json"), "utf8")
+    expect(stamp).toContain("@islee23520/lfg")
+  })
 })

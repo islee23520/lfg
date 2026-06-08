@@ -9,7 +9,7 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | Agent TOML + preserve reasoning | `install/agents.mjs` | `grok-install/apply-agent-tomls.ts` | partial (merge existing TOML; preserve custom keys; doctor/verify alignment test #21) |
 | Hook trust | `install/hook-trust.mjs` | `grok-install/hook-trust.ts` | partial (validate hooks.json in postInstallVerify + doctor installSurface; invalid hooks test #28) |
 | Install version stamp | `lazycodex-install.json` | `lfg-install.json` (Grok plugin root) | partial (`platform: grok` + package version; `install.stamp.test.ts`) |
-| `doctor` | `src/cli/doctor/checks/codex.ts` | `lfg doctor` | partial (checks[] + failedRequired; optional `publishGap` via `LFG_DOCTOR_REGISTRY_VERSION`; pack smoke) |
+| `doctor` | `src/cli/doctor/checks/codex.ts` | `lfg doctor` | partial (checks[] + failedRequired; fails when install missing; optional `publishGap`; pack smoke) |
 | `cleanup` / `update` | passthrough CLI | `docs/grok-cleanup-update.md` | N/A (documented; re-run setup/doctor) |
 | ulw-loop / start-work skills | plugin components | Grok plugin tree | partial (brownfield) |
 | Project-local `.grok` repair | `project-local-cleanup.mjs` | `grok-install/project-local.ts` | partial (`lfg --json project-local` inspect; repair N/A per docs) |
