@@ -8,7 +8,7 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | `config.toml` merge | `install/config.mjs` | `grok-install` + `lfg-grok-config.ts` | partial (single writer `runGrokInstall`; `LFG_OWNED_GROK_CONFIG_SECTIONS`; installer contract test #29) |
 | Agent TOML + preserve reasoning | `install/agents.mjs` | `grok-install/apply-agent-tomls.ts` | partial (merge existing TOML; preserve custom keys) |
 | Hook trust | `install/hook-trust.mjs` | `grok-install/hook-trust.ts` | partial (validate hooks.json in postInstallVerify; invalid hooks fail verify test #28) |
-| Install version stamp | `lazycodex-install.json` | `lfg-install.json` (Grok plugin root) | partial (stamp uses npm package version via `package-version.ts`) |
+| Install version stamp | `lazycodex-install.json` | `lfg-install.json` (Grok plugin root) | partial (`platform: grok` + package version; `install.stamp.test.ts`) |
 | `doctor` | `src/cli/doctor/checks/codex.ts` | `lfg doctor` | partial (checks[] + failedRequired; cli + installSurface + pack smoke; → Implemented when registry 0.1.4+) |
 | `cleanup` / `update` | passthrough CLI | `docs/grok-cleanup-update.md` | N/A (documented; re-run setup/doctor) |
 | ulw-loop / start-work skills | plugin components | Grok plugin tree | partial (brownfield) |
@@ -16,7 +16,7 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | Model catalog | `model-catalog.json` | `lfg-models.ts` + `LAZYCODEX_*` | partial (`lfg-models.catalog.test.ts` env contract) |
 | Autonomous permissions | `permissions.mjs` | N/A or Grok permissions | N/A |
 | Telemetry | plugin telemetry | vendored in tree | partial |
-| Extension hooks (LFP port) | legacy LFP | `grok-install/extension-hooks.ts` | partial (merge on install: visual-guidance + agent-reminder) |
+| Extension hooks (LFP port) | legacy LFP | `grok-install/extension-hooks.ts` | partial (merge on install; idempotent second merge test) |
 | Extension agent overrides (LFP port) | legacy LFP | `extensions/agent-overrides` | partial (merge + ~/.grok/agents/*.toml) |
 
 **Normative port map:** `docs/lfp-capability-port.md`  

@@ -18,4 +18,15 @@ describe("extension-hooks", () => {
     expect(names).toContain("lfg-agent-reminder")
     expect(result.hookNames).toEqual(names)
   })
+
+  test("second merge is stable (idempotent)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-ext-hooks-idem-"))
+    const source = join(import.meta.dirname, "fixture-minimal")
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
+    await mergePortedHooksIntoPlugin(pluginRoot)
+    const first = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    await mergePortedHooksIntoPlugin(pluginRoot)
+    const second = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    expect(second).toBe(first)
+  })
 })

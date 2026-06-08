@@ -3,6 +3,7 @@
 Publish **from repository root** — not `plugins/lfg` alone.
 
 ```sh
+npm run assert-publish-auth   # exit 0 when logged in; exit 2 + JSON when not (#22)
 npm login
 npm run verify
 npm publish --access public
