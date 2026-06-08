@@ -24,5 +24,8 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
     expect(text).toContain("config-single-writer.acceptance.test.ts")
     expect(text).toContain("agent-tomls.acceptance.test.ts")
     expect(text).toContain("publish-owner-checklist")
+    expect(text).toContain("post-install-ported-hooks.test.ts")
+    expect(text).toContain("#32")
+    expect(text).toContain("registry-bin-publish-gap")
   })
 })
