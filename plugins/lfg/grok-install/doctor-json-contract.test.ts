@@ -32,6 +32,13 @@ describe("doctor JSON contract (#31)", () => {
     const checks = json.checks as readonly { name: string; ok: boolean }[]
     expect(checks.map((c) => c.name)).toEqual(["cli", "grok_install_surface"])
     expect(checks.every((c) => c.ok)).toBe(true)
+    expect(String(json.pluginRoot)).toMatch(/installed-plugins[\\/]lazycodex$/)
+    expect(typeof json.configExists).toBe("boolean")
+    expect(json.pluginDirName).toBe("lazycodex")
+    const surface = json.installSurface as { pluginRoot?: string; hookNames?: readonly string[] }
+    expect(surface.pluginRoot).toBe(json.pluginRoot)
+    expect(Array.isArray(surface.hookNames)).toBe(true)
+    expect((surface.hookNames ?? []).length).toBeGreaterThan(0)
   })
 
   test("publishGap when registryVersion supplied (#22/#31)", async () => {
