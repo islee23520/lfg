@@ -23,6 +23,7 @@ describe("record-publish-gap integration (#22)", () => {
     const payload = JSON.parse(line!) as {
       hasBin: boolean
       publishReady: boolean
+      blockedReason: string | null
       evidencePath: string
       bin: { lfg?: string } | null
       registryVersion?: string
@@ -31,6 +32,7 @@ describe("record-publish-gap integration (#22)", () => {
     }
     expect(payload.hasBin).toBe(true)
     expect(payload.publishReady).toBe(true)
+    expect(payload.blockedReason).toBeNull()
     expect(payload.bin?.lfg).toBe("plugins/lfg/lfg")
     expect(payload.evidencePath).toContain("ulw-loop/evidence/publish-gap-")
     expect(payload.registryBin?.legacyWrongTarget).toBe(true)

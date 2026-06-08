@@ -15,6 +15,14 @@ describe("package-version", () => {
     expect(version).toMatch(/^\d+\.\d+\.\d+/)
   })
 
+  test("readPublishRootVersionFromBundle matches readLfg when publish bin ok (#22)", async () => {
+    const moduleUrl = new URL("../dist/lfg.js", import.meta.url).href
+    const fromBundle = await readLfgPackageVersionFromBundle(moduleUrl)
+    const fromRoot = await readPublishRootVersionFromBundle(moduleUrl)
+    expect(fromRoot).toBe(fromBundle)
+    expect(fromRoot).not.toBeNull()
+  })
+
   test("matches root package.json for npm pack layout (#22)", async () => {
     const moduleUrl = new URL("../dist/lfg.js", import.meta.url).href
     const fromBundle = await readLfgPackageVersionFromBundle(moduleUrl)

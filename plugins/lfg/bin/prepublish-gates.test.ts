@@ -37,5 +37,6 @@ describe("npm publish gates (#22)", () => {
     expect(pkg.files).toContain("plugins/lfg/lfg")
     expect(pkg.files).toContain("plugins/lfg/dist")
     expect(pkg.files).not.toContain("plugins/lfg/package.json")
+    expect(pkg.files).toHaveLength(5)
   })
 })
