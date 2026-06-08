@@ -25,6 +25,7 @@ describe("npm pack contract (#22)", () => {
     expect(paths).toContain("plugins/lfg/dist/npm-publish-auth.js")
     expect(paths).toContain("plugins/lfg/dist/npm-registry-version.js")
     expect(paths).toContain("plugins/lfg/dist/publish-readiness.js")
+    expect(paths).toContain("plugins/lfg/dist/grok-install/fixture-minimal/hooks/hooks.json")
   })
 
   test("dry-run pack filename uses scoped package name and semver (#22)", async () => {
