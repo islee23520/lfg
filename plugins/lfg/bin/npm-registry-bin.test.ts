@@ -16,6 +16,13 @@ describe("npm-registry-bin (#22)", () => {
     expect(parseNpmRegistryBinLfg("undefined")).toBeNull()
   })
 
+  test("0.1.1 missing bin is not legacy wrong target (#22)", () => {
+    const contract = registryBinPublishContract(null)
+    expect(contract.legacyWrongTarget).toBe(false)
+    expect(contract.matchesPublishContract).toBe(false)
+    expect(contract.binLfg).toBeNull()
+  })
+
   test("registry 0.1.3 bin is legacy wrong target", () => {
     const bin = "plugins/lfg/dist/lfg.js"
     expect(isLegacyRegistryBinLfg(bin)).toBe(true)

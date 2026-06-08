@@ -1,6 +1,6 @@
 # Publish `@islee23520/lfg` (closes #22)
 
-Publish **from repository root** — not `plugins/lfg` alone.
+Publish **from repository root** — not `plugins/lfg` alone. A broken publish shipped hundreds of workspace files (`fileCount` ~505 on early registry builds); root `files` allowlist keeps the tarball small (`npm-pack-contract.test.ts`).
 
 Root `package.json` must expose `"bin": { "lfg": "plugins/lfg/lfg" }` (shell shim → `dist/lfg.js`). `npm run assert-pack` and `npm run pre-publish-check` reject other `bin.lfg` targets (e.g. `dist/lfg.js` only).
 
