@@ -4,10 +4,11 @@ Publish **from repository root** — not `plugins/lfg` alone.
 
 ```sh
 npm login
-npm test
-npm run assert-pack
+npm run verify
 npm publish --access public
 ```
+
+`npm run verify` = assert-pack + test + typecheck + self-test.
 
 Verify from a clean directory:
 

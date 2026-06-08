@@ -27,6 +27,7 @@ describe("lfg CLI", () => {
       prepublishOnly: "npm test",
       prepack: "npm run build",
       "assert-pack": "node scripts/assert-npm-pack-bin.mjs",
+      verify: "npm run assert-pack && npm test && npm run typecheck && npm run self-test",
     })
     expect(String(root.description)).toContain("grok-install")
     expect(root.scripts).not.toHaveProperty("postinstall")

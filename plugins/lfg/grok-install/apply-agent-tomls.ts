@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { LazycodexAgentConfig } from "../bin/lfg-models"
 import { mergeAgentTomlOverrides } from "./agent-overrides"
@@ -19,7 +19,8 @@ export async function applyLazycodexAgentTomls(home: string, agentConfig: Lazyco
   for (const name of AGENT_NAMES) {
     const setting = agentConfig[name]
     const path = join(agentsDir, `${name}.toml`)
-    const body = mergeAgentTomlOverrides("", {
+    const current = await readAgentTomlIfExists(path)
+    const body = mergeAgentTomlOverrides(current, {
       model: setting.model,
       reasoningLevel: setting.reasoningLevel,
     })
@@ -27,4 +28,12 @@ export async function applyLazycodexAgentTomls(home: string, agentConfig: Lazyco
     written.push(path)
   }
   return { ok: true, agentsDir, written }
+}
+
+async function readAgentTomlIfExists(path: string): Promise<string> {
+  try {
+    return await readFile(path, "utf8")
+  } catch {
+    return ""
+  }
 }
