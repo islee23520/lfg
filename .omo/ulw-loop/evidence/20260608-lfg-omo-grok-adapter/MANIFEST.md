@@ -8,7 +8,8 @@
 
 | Artifact | Role |
 |----------|------|
-| `../loop-019ea7dad1d5-run119-verify.txt` | Latest full `npm run verify` (209 tests) |
+| `../loop-019ea7dad1d5-run126-verify.txt` | Latest full `npm run verify` (214 tests) |
+| `../loop-019ea7dad1d5-run120-verify.txt` | Plan evidence + plugin cache (#27/#35) |
 | `../loop-019ea7dad1d5-run118-verify.txt` | Publish-gap + ADR evidence |
 | `../loop-019ea7dad1d5-run117-verify.txt` | npm-publish-root-contract |
 
@@ -20,5 +21,7 @@
 | Doctor pack layout (#25) | `plugins/lfg/bin/doctor-pack-layout.acceptance.test.ts` |
 | Setup/doctor JSON (#21) | `plugins/lfg/bin/setup-doctor-parity.test.ts` |
 | npm bin (#22) | `publish-owner-checklist.test.ts`, `npm-publish-root-contract.test.ts` |
+| User-facing + parity (#33) | `user-facing-copy.test.ts`, `grok-adapter-parity-doc.test.ts` |
+| Extension hooks (#32) | `post-install-ported-hooks.test.ts` |
 
 Do not commit API keys or `api_key` values in this tree.

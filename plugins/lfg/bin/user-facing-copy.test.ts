@@ -26,4 +26,19 @@ describe("user-facing copy (#33)", () => {
     expect(plan).toContain("runGrokInstall")
     expect(plan).toContain("lfgIsPlugin: false")
   })
+
+  test("nested plugins/lfg package.json description matches omo adapter (no LFP default)", async () => {
+    const pkg = JSON.parse(await readFile(join(ROOT, "plugins/lfg/package.json"), "utf8")) as { description?: string }
+    expect(pkg.description).toContain("Grok Build adapter")
+    expect(pkg.description).not.toContain("npx @islee23520/lfp setup")
+  })
+
+  test("grok-adapter-parity.md syncs core rows to Implemented (not pending)", async () => {
+    const parity = await readFile(join(ROOT, "docs/grok-adapter-parity.md"), "utf8")
+    expect(parity).toContain("grok-adapter-ownership.md")
+    expect(parity).toMatch(/\| Plugin cache install \|.*\| Implemented/)
+    expect(parity).toMatch(/\| `doctor` \|.*\| Implemented/)
+    expect(parity).not.toMatch(/\| Plugin cache install \|.*\| pending/)
+    expect(parity).not.toMatch(/\| `doctor` \|.*\| pending/)
+  })
 })
