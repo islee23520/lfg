@@ -298,6 +298,10 @@ describe("lfg CLI", () => {
     expect(init.exitCode).toBe(0)
     const install = await execFileResult("npm", ["install", tarball], installDir)
     expect(install.exitCode).toBe(0)
+    const installedPkg = JSON.parse(
+      await readFile(join(installDir, "node_modules", "@islee23520", "lfg", "package.json"), "utf8"),
+    ) as { bin?: { lfg?: string } }
+    expect(installedPkg.bin?.lfg).toBe("plugins/lfg/lfg")
     const home = await mkdtemp(join(tmpdir(), "lfg-npm-pack-home-"))
     const fixture = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
     const pluginRoot = join(home, ".grok", "installed-plugins", "lazycodex")

@@ -25,6 +25,9 @@ describe("pre-publish-check integration (#22)", () => {
       expect(payload.gap.hasBin).toBe(true)
       expect(payload.gap.publishReady).toBe(true)
       expect(payload.auth.ok).toBe(false)
+      const gap = payload.gap as { packageName?: string; localVersion?: string }
+      expect(gap.packageName).toBe("@islee23520/lfg")
+      expect(gap.localVersion).toMatch(/^\d+\.\d+\.\d+$/)
     }
   }, 30_000)
 
