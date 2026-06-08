@@ -5,6 +5,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
+import { withNpmPackLock } from "./npm-pack-mutex"
 import { runLfg, runLfgText } from "./test-process"
 
 describe("lfg CLI", () => {
@@ -290,7 +291,7 @@ describe("lfg CLI", () => {
 
   test("npm pack tarball exposes lfg bin and doctor passes from npm install layout", async () => {
     const packDir = await mkdtemp(join(tmpdir(), "lfg-pack-out-"))
-    const pack = await execFileResult("npm", ["pack", "--pack-destination", packDir, "--json"])
+    const pack = await withNpmPackLock(() => execFileResult("npm", ["pack", "--pack-destination", packDir, "--json"]))
     expect(pack.exitCode).toBe(0)
     const packs = JSON.parse(pack.stdout) as readonly { readonly filename?: string }[]
     const tarball = join(packDir, packs[0]?.filename ?? "")
@@ -385,7 +386,7 @@ async function withModelServer(modelIds: readonly string[], run: (baseUrl: strin
 }
 
 async function packDryRunFilePaths(): Promise<readonly string[]> {
-  const result = await execFileResult("npm", ["pack", "--dry-run", "--json"])
+  const result = await withNpmPackLock(() => execFileResult("npm", ["pack", "--dry-run", "--json"]))
   expect(result.exitCode).toBe(0)
   const parsed = JSON.parse(result.stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
   return parsed.flatMap((pack) => pack.files?.map((file) => file.path).filter((path): path is string => typeof path === "string") ?? [])

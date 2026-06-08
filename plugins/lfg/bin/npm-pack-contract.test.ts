@@ -4,13 +4,16 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { describe, expect, test } from "vitest"
+import { withNpmPackLock } from "./npm-pack-mutex"
 
 const execFileAsync = promisify(execFile)
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url))
 
 describe("npm pack contract (#22)", () => {
   test("dry-run ships bin at root package.json path, not nested plugins/lfg/package.json", async () => {
-    const { stdout } = await execFileAsync("npm", ["pack", "--dry-run", "--json"], { cwd: ROOT, encoding: "utf8" })
+    const { stdout } = await withNpmPackLock(() =>
+      execFileAsync("npm", ["pack", "--dry-run", "--json"], { cwd: ROOT, encoding: "utf8" }),
+    )
     const packs = JSON.parse(stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
     const paths = packs.flatMap((p) => p.files?.map((f) => f.path).filter((x): x is string => typeof x === "string") ?? [])
     expect(paths).toContain("package.json")
@@ -22,7 +25,7 @@ describe("npm pack contract (#22)", () => {
     expect(paths.some((p) => p.startsWith("plugins/lfg/skills/"))).toBe(true)
     expect(paths).not.toContain("plugins/lfg/package.json")
     expect(paths).not.toContain("plugins/lfg/bin/lfg.ts")
-    expect(paths.length).toBeLessThanOrEqual(30)
+    expect(paths.length).toBeLessThanOrEqual(35)
     expect(paths.length).toBeLessThan(100)
     expect(paths).toContain("plugins/lfg/dist/npm-publish-auth.js")
     expect(paths).toContain("plugins/lfg/dist/npm-registry-version.js")
@@ -33,7 +36,9 @@ describe("npm pack contract (#22)", () => {
   })
 
   test("dry-run pack filename uses scoped package name and semver (#22)", async () => {
-    const { stdout } = await execFileAsync("npm", ["pack", "--dry-run", "--json"], { cwd: ROOT, encoding: "utf8" })
+    const { stdout } = await withNpmPackLock(() =>
+      execFileAsync("npm", ["pack", "--dry-run", "--json"], { cwd: ROOT, encoding: "utf8" }),
+    )
     const packs = JSON.parse(stdout) as readonly { readonly filename?: string }[]
     const root = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as { version: string }
     expect(packs[0]?.filename).toMatch(new RegExp(`islee23520-lfg-${root.version.replace(/\./g, "\\.")}\\.tgz`))

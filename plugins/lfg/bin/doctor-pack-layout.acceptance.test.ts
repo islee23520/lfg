@@ -5,6 +5,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { promisify } from "util"
 import { describe, expect, test } from "vitest"
+import { withNpmPackLock } from "./npm-pack-mutex"
 import { resolveLfgCliLayout } from "./lfg-package-layout"
 
 const execFileAsync = promisify(execFile)
@@ -31,7 +32,9 @@ describe("doctor pack layout acceptance (#25)", () => {
 
   test("npx lfg --json doctor from local pack install has cli.ok true with fixture HOME", async () => {
     const packDir = await mkdtemp(join(tmpdir(), "lfg-doc25-pack-"))
-    const pack = await execFileAsync("npm", ["pack", "--pack-destination", packDir, "--json"], { cwd: ROOT, encoding: "utf8" })
+    const pack = await withNpmPackLock(() =>
+      execFileAsync("npm", ["pack", "--pack-destination", packDir, "--json"], { cwd: ROOT, encoding: "utf8" }),
+    )
     const packs = JSON.parse(pack.stdout) as readonly { filename?: string }[]
     const tarball = join(packDir, packs[0]?.filename ?? "")
     const installDir = await mkdtemp(join(tmpdir(), "lfg-doc25-install-"))

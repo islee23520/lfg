@@ -88,8 +88,8 @@ describe("lfg Grok config persistence", () => {
         PATH: `${fakeBin}:${process.env.PATH ?? ""}`,
       })
 
+      expect(result.exitCode, JSON.stringify(result.json)).toBe(0)
       const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
-      expect(result.exitCode).toBe(0)
       expect(config).toContain('[model."GPT-5.2"]')
       expect(config).toContain('[model."gpt-5.2"]')
       expect(config).toContain('[model."Claude Sonnet 4.6"]')

@@ -12,9 +12,8 @@ describe("lfg Grok model config", () => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
       const fakeBin = await makeFakeNpx(0)
       const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+      expect(result.exitCode, JSON.stringify(result.json)).toBe(0)
       const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
-
-      expect(result.exitCode).toBe(0)
       expect(result.json).toMatchObject({ ok: true, status: "installed", configUpdated: true })
       expect(config).toContain("[endpoints]")
       expect(config).toContain(`models_base_url = "${baseUrl}/v1"`)
