@@ -20,6 +20,14 @@
     "plugins/lfg/dist",
     "plugins/lfg/skills"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/islee23520/lfg.git"
+  },
+  "homepage": "https://github.com/islee23520/lfg#readme",
+  "bugs": {
+    "url": "https://github.com/islee23520/lfg/issues"
+  },
   "keywords": [
     "lazycodex",
     "grok-build",
@@ -38,7 +46,8 @@
     "build": "node scripts/build.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "npm test",
-    "assert-pack": "node scripts/assert-npm-pack-bin.mjs"
+    "assert-pack": "node scripts/assert-npm-pack-bin.mjs",
+    "record-publish-gap": "node scripts/record-publish-gap.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

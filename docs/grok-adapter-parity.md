@@ -9,7 +9,7 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | Agent TOML + preserve reasoning | `install/agents.mjs` | `grok-install/apply-agent-tomls.ts` | partial (merge existing TOML; preserve custom keys) |
 | Hook trust | `install/hook-trust.mjs` | `grok-install/hook-trust.ts` | partial (validate hooks.json in postInstallVerify) |
 | Install version stamp | `lazycodex-install.json` | `lfg-install.json` (Grok plugin root) | partial (stamp uses npm package version via `package-version.ts`) |
-| `doctor` | `src/cli/doctor/checks/codex.ts` | `lfg doctor` | partial (cli + installSurface + pack smoke; → Implemented when registry 0.1.4+) |
+| `doctor` | `src/cli/doctor/checks/codex.ts` | `lfg doctor` | partial (checks[] + failedRequired; cli + installSurface + pack smoke; → Implemented when registry 0.1.4+) |
 | `cleanup` / `update` | passthrough CLI | `docs/grok-cleanup-update.md` | N/A (documented; re-run setup/doctor) |
 | ulw-loop / start-work skills | plugin components | Grok plugin tree | partial (brownfield) |
 | Project-local `.grok` repair | `project-local-cleanup.mjs` | `grok-install/project-local.ts` | partial (inspect only; repair documented N/A) |

@@ -105,6 +105,11 @@ esac`
       lfgIsPlugin: false,
       cli: { ok: true, required: true },
       installSurface: { status: "verified", hooksRegistered: true },
+      failedRequired: [],
+      checks: expect.arrayContaining([
+        expect.objectContaining({ name: "cli", ok: true }),
+        expect.objectContaining({ name: "grok_install_surface", ok: true }),
+      ]),
     })
     const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json"), "utf8")
     expect(stampRaw).toContain("@islee23520/lfg")
