@@ -22,5 +22,6 @@ describe("lfg-installer setup JSON shape (#21)", () => {
       grokInstallerCommand: "@islee23520/lfg internal grok-install",
     }
     expect(findDeprecatedSetupJsonKeys(sample)).toEqual([])
+    expect(sample.grokInstallerCommand).toContain("internal grok-install")
   })
 })
