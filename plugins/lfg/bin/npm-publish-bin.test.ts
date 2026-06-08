@@ -29,6 +29,10 @@ describe("npm-publish-bin (#22)", () => {
     }
   })
 
+  test("false when bin.lfg is registry 0.1.3 legacy plugins/lfg/dist/lfg.js (#22)", () => {
+    expect(isPublishedLfgBinTarget("plugins/lfg/dist/lfg.js")).toBe(false)
+  })
+
   test("false when bin.lfg points at nested dist only (#22)", async () => {
     const dir = await mkdtemp(join(tmpdir(), "lfg-wrongbin-"))
     try {

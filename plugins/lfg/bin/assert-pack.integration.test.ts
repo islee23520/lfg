@@ -19,5 +19,6 @@ describe("assert-npm-pack-bin integration (#22)", () => {
     expect(combined).toMatch(/assert-npm-pack-bin: ok @\d+\.\d+\.\d+/)
     expect(combined).toContain("@")
     expect(combined).toMatch(/prepack|build\.mjs/)
+    expect(combined).toMatch(/islee23520-lfg-/)
   }, 60_000)
 })
