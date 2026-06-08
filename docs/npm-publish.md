@@ -35,6 +35,8 @@ npx @islee23520/lfg --json doctor
 
 Expected: `bin` resolves to `plugins/lfg/lfg` → `dist/lfg.js`; doctor `cli.ok: true` when `~/.grok` has stamp after `setup --run`.
 
+`@0.1.1` on npm has **no** `bin` — `npx @islee23520/lfg` fails with *could not determine executable* (`registry-install-smoke.integration.test.ts`).
+
 Registry `0.1.3` uses legacy `bin.lfg: plugins/lfg/dist/lfg.js`; `npx @islee23520/lfg` runs but republish `0.1.4+` with `plugins/lfg/lfg` is required for full doctor `cli` / `publishGap` parity (`registry-install-smoke.integration.test.ts`).
 
 `lfg --json doctor` with `LFG_DOCTOR_REGISTRY_VERSION` includes `publishGap`; broken npm layouts (missing or wrong `bin.lfg`) set `cli.ok: false` and `publishGap.publishReady: false`.
