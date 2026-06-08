@@ -8,5 +8,6 @@ describe("plugins/lfg/lfg bin shim (#22)", () => {
     const shim = await readFile(join(fileURLToPath(new URL("..", import.meta.url)), "lfg"), "utf8")
     expect(shim).toContain("dist/lfg.js")
     expect(shim).toContain("exec node")
+    expect(shim).toContain("@islee23520/lfg/plugins/lfg/dist/lfg.js")
   })
 })
