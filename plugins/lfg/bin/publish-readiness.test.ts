@@ -24,6 +24,17 @@ describe("publish-readiness", () => {
     expect(gap.blockedReason).toContain("bin.lfg")
   })
 
+  test("blocked when registry unavailable (#22)", () => {
+    const gap = evaluatePublishGap({
+      packageName: "@islee23520/lfg",
+      localVersion: "0.1.4",
+      registryVersion: "unavailable",
+      hasBin: true,
+    })
+    expect(gap.publishReady).toBe(false)
+    expect(gap.blockedReason).toContain("unavailable")
+  })
+
   test("blocked when versions match", () => {
     const gap = evaluatePublishGap({
       packageName: "@islee23520/lfg",

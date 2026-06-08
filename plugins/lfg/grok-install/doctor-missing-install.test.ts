@@ -12,5 +12,7 @@ describe("runGrokDoctor missing install", () => {
     expect(json.ok).toBe(false)
     expect(json.status).toBe("fail")
     expect(json.failedRequired).toContain("grok_install_surface")
+    expect(json.cli).toMatchObject({ ok: true, required: true })
+    expect(json.lfgIsPlugin).toBe(false)
   })
 })
