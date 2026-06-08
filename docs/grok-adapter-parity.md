@@ -16,7 +16,7 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | Model catalog | `model-catalog.json` | `lfg-models.ts` + `LAZYCODEX_*` | partial (env contract + `lfg-models.mapping.test.ts` role mapping) |
 | Autonomous permissions | `permissions.mjs` | N/A or Grok permissions | N/A |
 | Telemetry | plugin telemetry | vendored in tree | partial |
-| Extension hooks (LFP port) | legacy LFP | `grok-install/extension-hooks.ts` | partial (`post-install-ported-hooks.test.ts` #32; `extension-hooks` idempotent merge) |
+| Extension hooks (LFP port) | legacy LFP | `grok-install/extension-hooks.ts` | Implemented (`post-install-ported-hooks.test.ts` #32; `extension-hooks.test.ts`; `extension-hooks.catalog.test.ts`; `hook-trust`) |
 | Extension agent overrides (LFP port) | legacy LFP | `grok-install/agent-overrides.ts` | Implemented (`agent-overrides.test.ts` #30; `apply-agent-tomls.ts` merge) |
 
 **Normative port map:** `docs/lfp-capability-port.md`  
