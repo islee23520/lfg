@@ -30,5 +30,7 @@ describe(".omo/plan-evidence/lfg-omo-grok-adapter.json (#35)", () => {
     expect(String((bundle as { openForPublish?: string }).openForPublish)).toMatch(/0\.1\.4|npm publish/)
     expect((bundle as { parityDoD?: string }).parityDoD).toContain("grok-adapter-parity-dod")
     expect((bundle as { status?: string }).status).toBe("completed")
+    expect((bundle as { roadmapOpenIssues?: number }).roadmapOpenIssues).toBe(0)
+    expect(String((bundle as { registryGap?: string }).registryGap)).toContain("0.1.3")
   })
 })

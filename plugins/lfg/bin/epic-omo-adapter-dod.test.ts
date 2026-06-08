@@ -27,4 +27,13 @@ describe("epic #26 adapter DoD", () => {
     expect(src).not.toContain("writeGrokModelConfig")
     expect(src).not.toContain("@islee23520/lfp")
   })
+
+  test("publish contract doc ready for owner npm publish (#22 follow-up)", async () => {
+    const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as { version?: string; bin?: { lfg?: string } }
+    expect(pkg.version).toMatch(/^\d+\.\d+\.\d+$/)
+    expect(pkg.bin?.lfg).toBe("plugins/lfg/lfg")
+    const pub = await readFile(join(ROOT, "docs/npm-publish.md"), "utf8")
+    expect(pub).toContain("plugins/lfg/lfg")
+    expect(pub).toContain("closes #22")
+  })
 })
