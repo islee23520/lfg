@@ -19,7 +19,7 @@ describe("pre-publish-check integration (#22)", () => {
       const payload = JSON.parse(String(err.stdout)) as {
         ready: boolean
         gap: { publishReady: boolean; hasBin: boolean }
-        auth: { ok: boolean }
+        auth: { ok: boolean; blockedReason?: string | null }
         registryBin?: { legacyWrongTarget?: boolean; matchesPublishContract?: boolean; binLfg?: string | null }
       }
       expect(payload.ready).toBe(false)
@@ -41,6 +41,7 @@ describe("pre-publish-check integration (#22)", () => {
       expect(payload.registryBin?.legacyWrongTarget).toBe(true)
       expect(payload.registryBin?.matchesPublishContract).toBe(false)
       expect(payload.registryBin?.binLfg).toBe("plugins/lfg/dist/lfg.js")
+      expect(payload.auth.blockedReason).toContain("npm login")
     }
   }, 30_000)
 

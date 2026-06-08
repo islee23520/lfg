@@ -25,5 +25,6 @@ describe("npm run verify script chain (#22)", () => {
     }
     expect(pkg.scripts?.["assert-pack"]).toBe("node scripts/assert-npm-pack-bin.mjs")
     expect(pkg.scripts?.prepack).toContain("build")
+    expect(pkg.scripts?.prepublishOnly).toBe("npm test")
   })
 })
