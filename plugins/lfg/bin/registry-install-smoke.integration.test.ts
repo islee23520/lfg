@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { access, mkdtemp, readFile, rm } from "node:fs/promises"
 import { execFile } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -54,6 +54,10 @@ describe("registry @islee23520/lfg install smoke (#22)", () => {
       expect(installed.version).toBe("0.1.3")
       expect(installed.bin?.lfg).toBe("plugins/lfg/dist/lfg.js")
       expect(isLegacyRegistryBinLfg(installed.bin?.lfg)).toBe(true)
+      const shimPath = join(installDir, "node_modules", "@islee23520", "lfg", "plugins", "lfg", "lfg")
+      await expect(access(shimPath)).rejects.toThrow()
+      const distEntry = join(installDir, "node_modules", "@islee23520", "lfg", "plugins", "lfg", "dist", "lfg.js")
+      await expect(access(distEntry)).resolves.toBeUndefined()
 
       const localRoot = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
         version: string

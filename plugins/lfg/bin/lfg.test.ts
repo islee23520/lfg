@@ -302,6 +302,8 @@ describe("lfg CLI", () => {
       await readFile(join(installDir, "node_modules", "@islee23520", "lfg", "package.json"), "utf8"),
     ) as { bin?: { lfg?: string } }
     expect(installedPkg.bin?.lfg).toBe("plugins/lfg/lfg")
+    const shimOnDisk = join(installDir, "node_modules", "@islee23520", "lfg", "plugins", "lfg", "lfg")
+    await readFile(shimOnDisk, "utf8")
     const home = await mkdtemp(join(tmpdir(), "lfg-npm-pack-home-"))
     const fixture = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
     const pluginRoot = join(home, ".grok", "installed-plugins", "lazycodex")
