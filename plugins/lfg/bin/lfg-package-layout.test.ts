@@ -1,3 +1,7 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import { describe, expect, test } from "vitest"
 import { resolveLfgCliLayout } from "./lfg-package-layout"
 
@@ -17,5 +21,24 @@ describe("lfg-package-layout", () => {
     expect(layout.ok).toBe(true)
     expect(layout.layout).toBe("workspace-dev")
     expect(layout.distEntry).toContain("dist/lfg.js")
+  })
+
+  test("npm install layout: root package.json with bin, no nested plugins/lfg/package.json (#22)", async () => {
+    const installRoot = await mkdtemp(join(tmpdir(), "lfg-npm-layout-"))
+    try {
+      const distPath = join(installRoot, "plugins/lfg/dist/lfg.js")
+      await mkdir(join(installRoot, "plugins/lfg/dist"), { recursive: true })
+      await writeFile(
+        join(installRoot, "package.json"),
+        `${JSON.stringify({ name: "@islee23520/lfg", bin: { lfg: "plugins/lfg/lfg" } })}\n`,
+      )
+      await writeFile(distPath, "export {}\n")
+      const layout = await resolveLfgCliLayout(pathToFileURL(distPath).href)
+      expect(layout.ok).toBe(true)
+      expect(layout.layout).toBe("published-workspace")
+      expect(layout.packageRoot).toBe(installRoot)
+    } finally {
+      await rm(installRoot, { recursive: true, force: true })
+    }
   })
 })

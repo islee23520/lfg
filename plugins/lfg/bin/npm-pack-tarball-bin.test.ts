@@ -25,6 +25,7 @@ describe("npm pack tarball package.json (#22)", () => {
       const pkg = JSON.parse(pkgJson) as { name?: string; bin?: { lfg?: string }; files?: readonly string[] }
       expect(pkg.name).toBe("@islee23520/lfg")
       expect(pkg.bin?.lfg).toBe("plugins/lfg/lfg")
+      expect(Object.keys(pkg.bin ?? {})).toContain("lfg")
       expect(pkg.files).toContain("plugins/lfg/lfg")
       expect(pkgJson).not.toContain('"lfg": "dist/lfg.js"')
       const desc = (pkg as { description?: string }).description ?? ""
