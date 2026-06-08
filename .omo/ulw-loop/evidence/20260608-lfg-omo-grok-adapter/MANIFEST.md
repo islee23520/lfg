@@ -8,7 +8,8 @@
 
 | Artifact | Role |
 |----------|------|
-| `../loop-019ea7dad1d5-run126-verify.txt` | Latest full `npm run verify` (214 tests) |
+| `../loop-019ea7dad1d5-run128-verify.txt` | Latest full `npm run verify` (216 tests) |
+| `../loop-019ea7dad1d5-run127-verify.txt` | cleanup N/A #34 + CI Node #12 |
 | `../loop-019ea7dad1d5-run120-verify.txt` | Plan evidence + plugin cache (#27/#35) |
 | `../loop-019ea7dad1d5-run118-verify.txt` | Publish-gap + ADR evidence |
 | `../loop-019ea7dad1d5-run117-verify.txt` | npm-publish-root-contract |

@@ -11,11 +11,11 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | Install version stamp | `lazycodex-install.json` | `lfg-install.json` (Grok plugin root) | Implemented (`plugin-cache-install.acceptance.test.ts` #27; `npm-publish-root-contract.test.ts` #22; `publish-gap-evidence-shape.test.ts`) |
 | `doctor` | `src/cli/doctor/checks/codex.ts` | `lfg doctor` | Implemented (`doctor-pack-layout.acceptance.test.ts` #25; `doctor-json-contract.test.ts` #31; `setup-doctor-parity.test.ts` #21; `publish-owner-checklist.test.ts`; `registry-bin-publish-gap.test.ts`; `publishGap` #22) |
 | `cleanup` / `update` | passthrough CLI | `docs/grok-cleanup-update.md` | N/A (`grok-cleanup-update-doc.test.ts` #34; re-run `setup --run` / `doctor`) |
-| ulw-loop / start-work skills | plugin components | Grok plugin tree | partial (brownfield) |
+| ulw-loop / start-work skills | plugin components | Grok plugin tree | N/A (brownfield vendored; not owned by `grok-install` adapter) |
 | Project-local `.grok` repair | `project-local-cleanup.mjs` | `grok-install/project-local.ts` | N/A (`lfg project-local` inspect; automated repair deferred — `repair` field in JSON; `lfg-project-local.test.ts` #28) |
-| Model catalog | `model-catalog.json` | `lfg-models.ts` + `LAZYCODEX_*` | partial (env contract + `lfg-models.mapping.test.ts` role mapping) |
+| Model catalog | `model-catalog.json` | `lfg-models.ts` + `LAZYCODEX_*` | Implemented (`lfg-models.mapping.test.ts`; `lfg-models.urls.test.ts`; setup discovery env) |
 | Autonomous permissions | `permissions.mjs` | N/A or Grok permissions | N/A |
-| Telemetry | plugin telemetry | vendored in tree | partial |
+| Telemetry | plugin telemetry | vendored in tree | N/A (upstream plugin telemetry; lfg does not emit) |
 | Extension hooks (LFP port) | legacy LFP | `grok-install/extension-hooks.ts` | Implemented (`post-install-ported-hooks.test.ts` #32; `extension-hooks.test.ts`; `extension-hooks.catalog.test.ts`; `hook-trust`) |
 | Extension agent overrides (LFP port) | legacy LFP | `grok-install/agent-overrides.ts` | Implemented (`agent-overrides.test.ts` #30; `apply-agent-tomls.ts` merge) |
 

@@ -28,5 +28,7 @@ describe(".omo/plan-evidence/lfg-omo-grok-adapter.json (#35)", () => {
     expect(git?.mainHead).toMatch(/^[0-9a-f]{7,40}$/)
     expect(String((bundle as { openForPublish?: string }).openForPublish)).toContain("#22")
     expect(String((bundle as { openForPublish?: string }).openForPublish)).toMatch(/0\.1\.4|npm publish/)
+    expect((bundle as { parityDoD?: string }).parityDoD).toContain("grok-adapter-parity-dod")
+    expect((bundle as { status?: string }).status).toBe("completed")
   })
 })
