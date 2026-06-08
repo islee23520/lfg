@@ -5,7 +5,7 @@
   "status": "completed",
   "verifiedAt": "2026-06-08",
   "git": {
-    "mainHead": "7ebe925",
+    "mainHead": "55d10b5",
     "version": "0.1.4"
   },
   "commands": {
@@ -44,6 +44,7 @@
     "epic-dod-gate"
   ],
   "evidence": [
+    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run136-verify.txt",
     ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run135-verify.txt",
     ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run134-verify.txt",
     ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run133-verify.txt",
