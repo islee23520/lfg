@@ -53,6 +53,14 @@ describe("doctor cli layout (#22)", () => {
       expect(cli.ok).toBe(false)
       expect(cli.layout).not.toBe("published-workspace")
       expect(doctor.failedRequired).toContain("cli")
+      expect(doctor.publishGap).toMatchObject({
+        localVersion: "0.1.4",
+        registryVersion: "0.1.3",
+        publishReady: false,
+      })
+      expect(String((doctor.publishGap as { blockedReason?: string })?.blockedReason)).toContain(
+        "plugins/lfg/lfg",
+      )
     } finally {
       await rm(home, { recursive: true, force: true })
       await rm(installRoot, { recursive: true, force: true })

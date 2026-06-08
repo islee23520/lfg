@@ -22,6 +22,13 @@ export async function readLfgPackageVersionFromBundle(moduleUrl: string): Promis
   return null
 }
 
+/** Publish-root semver even when bin.lfg is wrong (doctor publishGap #22). */
+export async function readPublishRootVersionFromBundle(moduleUrl: string): Promise<string | null> {
+  const distDir = dirname(fileURLToPath(moduleUrl))
+  const publishRootPkg = join(distDir, "..", "..", "..", "package.json")
+  return readVersionField(publishRootPkg, false)
+}
+
 async function readVersionField(packageJsonPath: string, requireBinLfg: boolean): Promise<string | null> {
   try {
     const parsed = JSON.parse(await readFile(packageJsonPath, "utf8")) as unknown

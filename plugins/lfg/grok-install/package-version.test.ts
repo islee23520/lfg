@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
-import { readLfgPackageVersionFromBundle } from "./package-version"
+import { readLfgPackageVersionFromBundle, readPublishRootVersionFromBundle } from "./package-version"
 
 const ROOT = join(fileURLToPath(new URL("../..", import.meta.url)), "..")
 
@@ -55,6 +55,23 @@ describe("package-version", () => {
       await writeFile(distPath, "export {}\n")
       const version = await readLfgPackageVersionFromBundle(pathToFileURL(distPath).href)
       expect(version).toBe("0.1.4")
+    } finally {
+      await rm(installRoot, { recursive: true, force: true })
+    }
+  })
+
+  test("readPublishRootVersionFromBundle reads semver when bin.lfg is wrong (#22)", async () => {
+    const installRoot = await mkdtemp(join(tmpdir(), "lfg-pkg-wrongbin-ver-"))
+    try {
+      await mkdir(join(installRoot, "plugins/lfg/dist"), { recursive: true })
+      await writeFile(
+        join(installRoot, "package.json"),
+        `${JSON.stringify({ name: "@islee23520/lfg", version: "0.1.4", bin: { lfg: "dist/lfg.js" } })}\n`,
+      )
+      const distPath = join(installRoot, "plugins/lfg/dist/lfg.js")
+      await writeFile(distPath, "export {}\n")
+      expect(await readPublishRootVersionFromBundle(pathToFileURL(distPath).href)).toBe("0.1.4")
+      expect(await readLfgPackageVersionFromBundle(pathToFileURL(distPath).href)).toBeNull()
     } finally {
       await rm(installRoot, { recursive: true, force: true })
     }

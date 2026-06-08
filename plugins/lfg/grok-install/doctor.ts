@@ -5,7 +5,7 @@ import { resolveLfgCliLayout } from "../bin/lfg-package-layout"
 import { readGrokInstallStamp } from "./install"
 import { buildDoctorChecks, doctorChecksJson } from "./doctor-checks"
 import { doctorPublishGapJson } from "./doctor-publish-gap"
-import { readLfgPackageVersionFromBundle } from "./package-version"
+import { readLfgPackageVersionFromBundle, readPublishRootVersionFromBundle } from "./package-version"
 import { verifyGrokInstallSurface } from "./post-install-verify"
 
 export type GrokDoctorOptions = {
@@ -29,8 +29,11 @@ export async function runGrokDoctor(options: GrokDoctorOptions): Promise<JsonObj
   const pluginOk = installSurface.ok === true
   const checks = buildDoctorChecks(cli, pluginOk)
   const checkReport = doctorChecksJson(checks)
-  const localVersion = await readLfgPackageVersionFromBundle(moduleUrl)
   const registryVersion = options.registryVersion ?? null
+  let localVersion = await readLfgPackageVersionFromBundle(moduleUrl)
+  if (localVersion === null && registryVersion !== null) {
+    localVersion = await readPublishRootVersionFromBundle(moduleUrl)
+  }
   const publishGap = doctorPublishGapJson(localVersion, registryVersion, cli.ok)
   const ok = pluginOk && cli.ok
   return {
