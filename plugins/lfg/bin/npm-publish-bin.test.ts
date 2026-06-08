@@ -17,6 +17,18 @@ describe("npm-publish-bin (#22)", () => {
     }
   })
 
+  test("false when bin.lfg is workspace dev shim path lfg (#22)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "lfg-devbin-"))
+    try {
+      const path = join(dir, "package.json")
+      await writeFile(path, `${JSON.stringify({ bin: { lfg: "lfg" } })}\n`)
+      expect(await packageJsonHasBinLfg(path)).toBe(false)
+      expect(isPublishedLfgBinTarget("lfg")).toBe(false)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   test("false when bin.lfg points at nested dist only (#22)", async () => {
     const dir = await mkdtemp(join(tmpdir(), "lfg-wrongbin-"))
     try {
