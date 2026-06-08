@@ -3,6 +3,7 @@ import { join } from "node:path"
 import type { JsonObject } from "../bin/lfg-json"
 import { resolveLfgCliLayout } from "../bin/lfg-package-layout"
 import { readGrokInstallStamp } from "./install"
+import { verifyGrokInstallSurface } from "./post-install-verify"
 
 export type GrokDoctorOptions = {
   readonly home: string
@@ -19,7 +20,8 @@ export async function runGrokDoctor(options: GrokDoctorOptions): Promise<JsonObj
   const stamp = pluginExists ? await readGrokInstallStamp(pluginRoot) : null
   const moduleUrl = options.moduleUrl ?? import.meta.url
   const cli = await resolveLfgCliLayout(moduleUrl)
-  const pluginOk = pluginExists && stamp !== null
+  const installSurface = await verifyGrokInstallSurface({ home: options.home, pluginDirName })
+  const pluginOk = installSurface.ok === true
   const ok = pluginOk && cli.ok
   return {
     ok,
@@ -33,6 +35,7 @@ export async function runGrokDoctor(options: GrokDoctorOptions): Promise<JsonObj
     configPath,
     configExists,
     distribution: stamp === null ? null : { packageName: stamp.packageName, version: stamp.version },
+    installSurface,
     cli: {
       ok: cli.ok,
       required: true,

@@ -86,9 +86,7 @@ esac`
 
   test("doctor command returns JSON when plugin installed", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-cli-doc-"))
-    const source = await mkdtemp(join(tmpdir(), "lfg-grok-src3-"))
-    await mkdir(join(home, ".grok"), { recursive: true })
-    await writeFile(join(source, "package.json"), "{}\n")
+    const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
     await installGrokPluginFromSource({ home, sourceRoot: source })
     const result = await runLfg(["--json", "doctor"], { HOME: home })
     expect(result.exitCode).toBe(0)
@@ -98,6 +96,7 @@ esac`
       command: "doctor",
       lfgIsPlugin: false,
       cli: { ok: true, required: true },
+      installSurface: { status: "verified", hooksRegistered: true },
     })
     const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json"), "utf8")
     expect(stampRaw).toContain("@islee23520/lfg")

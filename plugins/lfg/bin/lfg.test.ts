@@ -25,6 +25,7 @@ describe("lfg CLI", () => {
       typecheck: "tsc --noEmit",
       build: "node scripts/build.mjs",
       prepublishOnly: "npm test",
+      prepack: "npm run build",
     })
     expect(String(root.description)).toContain("grok-install")
     expect(root.scripts).not.toHaveProperty("postinstall")

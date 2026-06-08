@@ -35,6 +35,7 @@
     "self-test": "npm run build && node plugins/lfg/dist/self-test.js",
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
+    "prepack": "npm run build",
     "prepublishOnly": "npm test"
   },
   "devDependencies": {
