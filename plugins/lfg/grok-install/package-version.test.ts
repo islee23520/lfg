@@ -59,4 +59,25 @@ describe("package-version", () => {
       await rm(installRoot, { recursive: true, force: true })
     }
   })
+
+  test("skips publish root package.json without bin.lfg (#22)", async () => {
+    const installRoot = await mkdtemp(join(tmpdir(), "lfg-pkg-nobin-"))
+    try {
+      await mkdir(join(installRoot, "plugins/lfg/dist"), { recursive: true })
+      await writeFile(
+        join(installRoot, "package.json"),
+        `${JSON.stringify({ name: "@islee23520/lfg", version: "0.0.0" })}\n`,
+      )
+      await writeFile(
+        join(installRoot, "plugins/lfg/package.json"),
+        `${JSON.stringify({ name: "@islee23520/lfg", version: "0.1.2", bin: { lfg: "lfg" } })}\n`,
+      )
+      const distPath = join(installRoot, "plugins/lfg/dist/lfg.js")
+      await writeFile(distPath, "export {}\n")
+      const version = await readLfgPackageVersionFromBundle(pathToFileURL(distPath).href)
+      expect(version).toBe("0.1.2")
+    } finally {
+      await rm(installRoot, { recursive: true, force: true })
+    }
+  })
 })

@@ -10,8 +10,10 @@ export async function readLfgPackageVersionFromBundle(moduleUrl: string): Promis
     join(distDir, "..", "..", "package.json"),
     join(distDir, "..", "package.json"),
   ]
-  for (const path of candidates) {
-    const version = await readVersionField(path)
+  for (let i = 0; i < candidates.length; i++) {
+    const path = candidates[i]!
+    const requirePublishBin = i === 0
+    const version = await readVersionField(path, requirePublishBin)
     if (version !== null) {
       return version
     }
@@ -19,14 +21,28 @@ export async function readLfgPackageVersionFromBundle(moduleUrl: string): Promis
   return null
 }
 
-async function readVersionField(packageJsonPath: string): Promise<string | null> {
+async function readVersionField(packageJsonPath: string, requireBinLfg: boolean): Promise<string | null> {
   try {
     const parsed = JSON.parse(await readFile(packageJsonPath, "utf8")) as unknown
     if (typeof parsed !== "object" || parsed === null) {
       return null
     }
-    const version = (parsed as Record<string, unknown>).version
-    return typeof version === "string" && version.length > 0 ? version : null
+    const record = parsed as Record<string, unknown>
+    const version = record.version
+    if (typeof version !== "string" || version.length === 0) {
+      return null
+    }
+    if (requireBinLfg) {
+      const bin = record.bin
+      if (typeof bin !== "object" || bin === null) {
+        return null
+      }
+      const lfg = (bin as Record<string, unknown>).lfg
+      if (typeof lfg !== "string" || lfg.length === 0) {
+        return null
+      }
+    }
+    return version
   } catch {
     return null
   }
