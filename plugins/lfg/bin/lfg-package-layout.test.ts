@@ -41,4 +41,19 @@ describe("lfg-package-layout", () => {
       await rm(installRoot, { recursive: true, force: true })
     }
   })
+
+  test("publish root without bin.lfg is not published-workspace (#22)", async () => {
+    const installRoot = await mkdtemp(join(tmpdir(), "lfg-nobin-layout-"))
+    try {
+      await mkdir(join(installRoot, "plugins/lfg/dist"), { recursive: true })
+      await writeFile(join(installRoot, "package.json"), `${JSON.stringify({ name: "@islee23520/lfg", version: "0.1.1" })}\n`)
+      const distPath = join(installRoot, "plugins/lfg/dist/lfg.js")
+      await writeFile(distPath, "export {}\n")
+      const layout = await resolveLfgCliLayout(pathToFileURL(distPath).href)
+      expect(layout.layout).not.toBe("published-workspace")
+      expect(layout.ok).toBe(false)
+    } finally {
+      await rm(installRoot, { recursive: true, force: true })
+    }
+  })
 })

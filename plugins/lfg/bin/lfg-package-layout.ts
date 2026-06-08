@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises"
+import { access, readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -32,13 +32,20 @@ export async function resolveLfgCliLayout(moduleUrl: string): Promise<LfgCliLayo
   const nestedPkgJson = join(pluginsLfgRoot, "package.json")
 
   if (await pathExists(publishedPkgJson)) {
-    const pkgOk = await pathExists(distEntry)
-    return {
-      ok: pkgOk,
-      distEntry,
-      packageRoot: workspaceRoot,
-      layout: "published-workspace",
+    const hasPublishBin = await packageJsonHasBinLfg(publishedPkgJson)
+    const distOk = await pathExists(distEntry)
+    if (hasPublishBin && distOk) {
+      return {
+        ok: true,
+        distEntry,
+        packageRoot: workspaceRoot,
+        layout: "published-workspace",
+      }
     }
+    if (!hasPublishBin) {
+      return { ok: false, distEntry, packageRoot: workspaceRoot, layout: "unknown" }
+    }
+    return { ok: false, distEntry, packageRoot: workspaceRoot, layout: "published-workspace" }
   }
 
   if (await pathExists(nestedPkgJson)) {
@@ -57,6 +64,23 @@ async function pathExists(path: string): Promise<boolean> {
   try {
     await access(path)
     return true
+  } catch {
+    return false
+  }
+}
+
+async function packageJsonHasBinLfg(packageJsonPath: string): Promise<boolean> {
+  try {
+    const parsed = JSON.parse(await readFile(packageJsonPath, "utf8")) as unknown
+    if (typeof parsed !== "object" || parsed === null) {
+      return false
+    }
+    const lfg = (parsed as Record<string, unknown>).bin
+    if (typeof lfg !== "object" || lfg === null) {
+      return false
+    }
+    const binPath = (lfg as Record<string, unknown>).lfg
+    return typeof binPath === "string" && binPath.length > 0
   } catch {
     return false
   }
