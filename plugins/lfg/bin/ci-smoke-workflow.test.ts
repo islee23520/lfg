@@ -13,5 +13,6 @@ describe(".github/workflows/smoke.yml (#12 / epic #26)", () => {
     expect(yaml).toContain("assert-pack")
     expect(yaml).toContain("npm ci")
     expect(yaml).not.toContain("bun ")
+    expect(yaml).not.toContain("oven-sh/setup-bun")
   })
 })

@@ -44,5 +44,7 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
     expect(text).toContain("doctor-pack-layout.acceptance.test.ts")
     expect(text).toContain("#25")
     expect(text).toMatch(/\| `doctor` \|.*\| Implemented/)
+    expect(text).toMatch(/\| `cleanup` \/ `update` \|.*\| N\/A/)
+    expect(text).toContain("#34")
   })
 })
