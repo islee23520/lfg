@@ -19,11 +19,20 @@ describe("npm pack tarball package.json (#22)", () => {
       })
       const packs = JSON.parse(stdout) as readonly { readonly filename?: string }[]
       const tarball = join(outDir, packs[0]?.filename ?? "")
+      const { stdout: tarList } = await execFileAsync("tar", ["-tzf", tarball], { encoding: "utf8" })
+      const entries = tarList.split("\n").filter(Boolean)
+      expect(entries).not.toContain("package/plugins/lfg/package.json")
       const { stdout: pkgJson } = await execFileAsync("tar", ["-xOf", tarball, "package/package.json"], {
         encoding: "utf8",
       })
-      const pkg = JSON.parse(pkgJson) as { name?: string; bin?: { lfg?: string }; files?: readonly string[] }
+      const pkg = JSON.parse(pkgJson) as {
+        name?: string
+        bin?: { lfg?: string }
+        files?: readonly string[]
+        publishConfig?: { access?: string }
+      }
       expect(pkg.name).toBe("@islee23520/lfg")
+      expect(pkg.publishConfig?.access).toBe("public")
       expect(pkg.bin?.lfg).toBe("plugins/lfg/lfg")
       expect(Object.keys(pkg.bin ?? {})).toContain("lfg")
       expect(pkg.files).toContain("plugins/lfg/lfg")

@@ -22,5 +22,6 @@ describe("publish checklist #22", () => {
     expect(pkg.bin?.lfg).toBe("plugins/lfg/lfg")
     expect(pkg.scripts?.verify).toContain("assert-pack")
     expect(pkg.scripts?.["pre-publish-check"]).toBeDefined()
+    expect(pkg.scripts?.["assert-publish-auth"]).toContain("assert-npm-publish-auth.mjs")
   })
 })
