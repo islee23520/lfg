@@ -28,8 +28,13 @@ if (missing.length > 0) {
 const rootPkg = JSON.parse(
   execFileSync("node", ["-e", "console.log(JSON.stringify(require('./package.json')))"], { encoding: "utf8" }),
 )
-if (!rootPkg.bin?.lfg) {
+const binLfg = rootPkg.bin?.lfg
+if (!binLfg) {
   console.error("assert-npm-pack-bin: root package.json missing bin.lfg")
+  process.exit(1)
+}
+if (binLfg !== "plugins/lfg/lfg") {
+  console.error(`assert-npm-pack-bin: bin.lfg must be plugins/lfg/lfg (got ${JSON.stringify(binLfg)})`)
   process.exit(1)
 }
 console.log(`assert-npm-pack-bin: ok @${rootPkg.version} (${pack.filename})`)
