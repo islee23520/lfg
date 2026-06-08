@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
+import { isPublishedLfgBinTarget } from "./npm-publish-bin"
 import { evaluatePublishGap } from "./publish-readiness"
 
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url))
@@ -14,12 +15,12 @@ describe("npm publish workflow (#22)", () => {
       bin?: { lfg?: string }
     }
     expect(pkg.name).toBe("@islee23520/lfg")
-    expect(pkg.bin?.lfg).toBe("plugins/lfg/lfg")
+    expect(isPublishedLfgBinTarget(pkg.bin?.lfg)).toBe(true)
     const gap = evaluatePublishGap({
       packageName: pkg.name,
       localVersion: pkg.version,
       registryVersion: "0.1.3",
-      hasBin: Boolean(pkg.bin?.lfg),
+      hasBin: isPublishedLfgBinTarget(pkg.bin?.lfg),
     })
     expect(gap.publishReady).toBe(true)
     expect(gap.localVersion).toBe(pkg.version)
