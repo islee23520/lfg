@@ -18,4 +18,12 @@ describe("npm run verify script chain (#22)", () => {
     expect(verify.indexOf("assert-pack")).toBeLessThan(verify.indexOf("npm test"))
     expect(verify.indexOf("npm test")).toBeLessThan(verify.indexOf("self-test"))
   })
+
+  test("assert-pack script invokes assert-npm-pack-bin.mjs (#22)", async () => {
+    const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
+      scripts?: Record<string, string>
+    }
+    expect(pkg.scripts?.["assert-pack"]).toBe("node scripts/assert-npm-pack-bin.mjs")
+    expect(pkg.scripts?.prepack).toContain("build")
+  })
 })

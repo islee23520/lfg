@@ -13,6 +13,7 @@ describe("docs/npm-publish.md (#22)", () => {
     expect(doc).toContain("repository root")
     expect(doc).toContain("plugins/lfg/lfg")
     expect(doc).toContain("assert-pack")
+    expect(doc).toContain("prepack")
     expect(doc).toContain("dist/lfg.js")
     expect(doc).toContain("closes #22")
     expect(doc).toContain("LFG_DOCTOR_REGISTRY_VERSION")
