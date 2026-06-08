@@ -34,4 +34,22 @@ describe("runGrokInstall", () => {
     const stamp = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json"), "utf8")
     expect(stamp).toContain("@islee23520/lfg")
   })
+
+  test("lfg-install.json stamp stable across two runGrokInstall calls (#27)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-idem-stamp-"))
+    const discovery: ModelDiscovery = {
+      baseUrl: "http://127.0.0.1:11434/v1",
+      modelsUrl: "http://127.0.0.1:11434/v1/models",
+      modelIds: ["gpt-4.1-mini"],
+      mapping: { default: "gpt-4.1-mini", fast: "gpt-4.1-mini", reasoning: "gpt-4.1-mini", coding: "gpt-4.1-mini" },
+    }
+    const env = { HOME: home, OPENAI_API_KEY: "sk-test-key" }
+    await runGrokInstall(discovery, env)
+    const stampPath = join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json")
+    const first = await readFile(stampPath, "utf8")
+    await runGrokInstall(discovery, env)
+    const second = await readFile(stampPath, "utf8")
+    expect(second).toBe(first)
+    expect(first).toContain('"platform": "grok"')
+  })
 })
