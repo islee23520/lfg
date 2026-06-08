@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest"
 import { runInternalGrokInstall } from "./run-internal"
 import { verifyGrokInstallSurface } from "./post-install-verify"
 
-describe("post-install ported hooks (#26 extension)", () => {
+describe("post-install ported hooks (#32)", () => {
   test("internal install registers both lfg hook names", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-post-hooks-"))
     await runInternalGrokInstall({ HOME: home })

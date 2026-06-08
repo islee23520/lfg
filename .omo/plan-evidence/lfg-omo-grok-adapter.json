@@ -5,11 +5,11 @@
   "status": "in_progress",
   "verifiedAt": "2026-06-08",
   "git": {
-    "mainHead": "8bc4662",
+    "mainHead": "1580280",
     "version": "0.1.4"
   },
   "commands": {
-    "npmTest": "99+ passed",
+    "npmTest": "102 passed",
     "npmSelfTest": "5/5 ok",
     "npmTypecheck": "exit 0",
     "npmVerify": "assert-pack + tests"
@@ -28,6 +28,7 @@
     "internal-grok-install-chain"
   ],
   "evidence": [
+    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run33-verify.txt",
     ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run31-verify.txt",
     ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run29-verify.txt",
     ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run3-verify.txt"

@@ -23,6 +23,8 @@ exit 0
     expect(result.exitCode).toBe(0)
     const json = result.json as Record<string, unknown>
     expect(findDeprecatedSetupJsonKeys(json)).toEqual([])
+    expect(json).not.toHaveProperty("stablePluginLink")
+    expect(json).not.toHaveProperty("mcpConfigRepair")
     const verify = json.postInstallVerify as { ok?: boolean; status?: string }
     expect(setupPostInstallConsistent(true, verify)).toBe(true)
     expect(verify).toMatchObject({ ok: true, status: "verified" })
