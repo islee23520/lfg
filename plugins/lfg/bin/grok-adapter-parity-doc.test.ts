@@ -19,5 +19,7 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
     expect(text).toContain("#27")
     expect(text).toContain("doctor-json-contract.test.ts")
     expect(text).toContain("#31")
+    expect(text).toContain("hook-trust.acceptance.test.ts")
+    expect(text).toContain("#28")
   })
 })
