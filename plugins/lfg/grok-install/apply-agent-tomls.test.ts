@@ -26,4 +26,10 @@ describe("apply-agent-tomls", () => {
     expect(after).toContain('model = "gpt-4.1-mini"')
     expect(after.match(/model =/g)?.length).toBe(1)
   })
+
+  test("writes explorer reasoning coding agent files under ~/.grok/agents", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-agents-three-"))
+    const result = await applyLazycodexAgentTomls(home, defaultLazycodexAgentConfig(discovery))
+    expect(result.written.map((p) => p.split("/").pop())).toEqual(["explorer.toml", "reasoning.toml", "coding.toml"])
+  })
 })
