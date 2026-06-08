@@ -24,6 +24,7 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
     expect(text).toContain("hook-trust.acceptance.test.ts")
     expect(text).toContain("#28")
     expect(text).toContain("config-single-writer.acceptance.test.ts")
+    expect(text).toMatch(/\| `config\.toml` merge \|.*\| Implemented/)
     expect(text).toContain("agent-tomls.acceptance.test.ts")
     expect(text).toContain("publish-owner-checklist")
     expect(text).toContain("post-install-ported-hooks.test.ts")
