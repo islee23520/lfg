@@ -17,6 +17,8 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
     expect(text).toContain("publish-owner-checklist")
     expect(text).toContain("plugin-cache-install.acceptance.test.ts")
     expect(text).toContain("#27")
+    expect(text).toMatch(/\| Plugin cache install \|.*\| Implemented/)
+    expect(text).toMatch(/\| Install version stamp \|.*\| Implemented/)
     expect(text).toContain("doctor-json-contract.test.ts")
     expect(text).toContain("#31")
     expect(text).toContain("hook-trust.acceptance.test.ts")

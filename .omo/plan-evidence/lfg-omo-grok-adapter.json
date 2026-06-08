@@ -5,15 +5,16 @@
   "status": "in_progress",
   "verifiedAt": "2026-06-08",
   "git": {
-    "mainHead": "1cfe763",
+    "mainHead": "f54fd59",
     "version": "0.1.4"
   },
   "commands": {
-    "npmTest": "201 passed",
+    "npmTest": "209 passed",
     "npmSelfTest": "5/5 ok",
     "npmTypecheck": "exit 0",
     "npmVerify": "assert-pack + test + typecheck + self-test"
   },
+  "evidenceManifest": ".omo/ulw-loop/evidence/20260608-lfg-omo-grok-adapter/MANIFEST.md",
   "tasksCompleted": [
     "postInstallVerify",
     "apply-agent-tomls",
@@ -26,12 +27,16 @@
     "pre-publish-check-integration",
     "docs-parity-partial",
     "setup-json-contract",
-    "internal-grok-install-chain"
+    "internal-grok-install-chain",
+    "plugin-cache-install-acceptance",
+    "doctor-pack-layout-acceptance",
+    "publish-readiness-stack"
   ],
   "evidence": [
-    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run115-verify.txt",
-    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run114-verify.txt",
-    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run113-verify.txt"
+    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run119-verify.txt",
+    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run118-verify.txt",
+    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run117-verify.txt",
+    ".omo/ulw-loop/evidence/20260608-lfg-omo-grok-adapter/MANIFEST.md"
   ],
-  "openForPublish": "npm login + npm publish from repo root (@islee23520/lfg@0.1.4) closes #22"
+  "openForPublish": "#22 closed on GitHub; owner npm login + npm publish @islee23520/lfg@0.1.4 from repo root if registry still 0.1.3 (docs/npm-publish.md)"
 }

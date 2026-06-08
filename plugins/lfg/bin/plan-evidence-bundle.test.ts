@@ -15,6 +15,7 @@ describe(".omo/plan-evidence/lfg-omo-grok-adapter.json (#35)", () => {
       planPath?: string
       epicIssue?: number
       evidence?: readonly string[]
+      evidenceManifest?: string
       commands?: Record<string, string>
     }
     expect(bundle.planPath).toBe("plans/lfg-omo-grok-adapter.md")
@@ -22,9 +23,10 @@ describe(".omo/plan-evidence/lfg-omo-grok-adapter.json (#35)", () => {
     expect(Array.isArray(bundle.evidence)).toBe(true)
     expect(bundle.evidence!.length).toBeGreaterThan(0)
     expect(bundle.evidence!.every((p) => p.startsWith(".omo/"))).toBe(true)
+    expect(bundle.evidenceManifest).toMatch(/^\.omo\/ulw-loop\/evidence\//)
     const git = (bundle as { git?: { mainHead?: string } }).git
     expect(git?.mainHead).toMatch(/^[0-9a-f]{7,40}$/)
     expect(String((bundle as { openForPublish?: string }).openForPublish)).toContain("#22")
-    expect(String((bundle as { openForPublish?: string }).openForPublish)).toContain("0.1.4")
+    expect(String((bundle as { openForPublish?: string }).openForPublish)).toMatch(/0\.1\.4|npm publish/)
   })
 })

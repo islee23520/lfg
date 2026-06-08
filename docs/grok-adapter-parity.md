@@ -4,11 +4,11 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 
 | omo-codex capability | Codex reference | Grok owner (lfg) | Status |
 |----------------------|-----------------|------------------|--------|
-| Plugin cache install | `~/.codex/plugins/cache/sisyphuslabs/omo/` | `plugins/lfg/grok-install/` | partial (`plugin-cache-install.acceptance.test.ts` #27; `setup-doctor-parity.test.ts` #21) |
+| Plugin cache install | `~/.codex/plugins/cache/sisyphuslabs/omo/` | `plugins/lfg/grok-install/` | Implemented (`plugin-cache-install.acceptance.test.ts` #27; `setup-doctor-parity.test.ts` #21) |
 | `config.toml` merge | `install/config.mjs` | `grok-install` + `lfg-grok-config.ts` | partial (`config-single-writer.acceptance.test.ts` #29; `lfg-grok-config.endpoints` #24) |
 | Agent TOML + preserve reasoning | `install/agents.mjs` | `grok-install/apply-agent-tomls.ts` | partial (`agent-tomls.acceptance.test.ts` #30; `apply-agent-tomls` preserve custom keys) |
 | Hook trust | `install/hook-trust.mjs` | `grok-install/hook-trust.ts` | partial (`hook-trust.acceptance.test.ts` #28; postInstallVerify hooksRegistered) |
-| Install version stamp | `lazycodex-install.json` | `lfg-install.json` (Grok plugin root) | partial (`plugin-cache-install.acceptance.test.ts` #27; `npm-publish-root-contract.test.ts` #22; `publish-gap-evidence-shape.test.ts`) |
+| Install version stamp | `lazycodex-install.json` | `lfg-install.json` (Grok plugin root) | Implemented (`plugin-cache-install.acceptance.test.ts` #27; `npm-publish-root-contract.test.ts` #22; `publish-gap-evidence-shape.test.ts`) |
 | `doctor` | `src/cli/doctor/checks/codex.ts` | `lfg doctor` | partial (`doctor-pack-layout.acceptance.test.ts` #25; `doctor-json-contract.test.ts` #31; `registry-bin-publish-gap.test.ts`; `publish-owner-checklist.test.ts`; `publishGap` #22) |
 | `cleanup` / `update` | passthrough CLI | `docs/grok-cleanup-update.md` | N/A (`grok-cleanup-update-doc.test.ts`; re-run setup/doctor) |
 | ulw-loop / start-work skills | plugin components | Grok plugin tree | partial (brownfield) |
