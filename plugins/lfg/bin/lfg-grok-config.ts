@@ -16,6 +16,15 @@ export type GrokConfigOptions = {
   readonly agentConfig?: LazycodexAgentConfig
 }
 
+/** Sections lfg merges in ~/.grok/config.toml (single writer: runGrokInstall → writeGrokModelConfig). */
+export const LFG_OWNED_GROK_CONFIG_SECTIONS = [
+  "endpoints.models_base_url",
+  "models.default",
+  "model.*",
+  "lazycodex.models",
+  "lazycodex.agents",
+] as const
+
 export async function writeGrokModelConfig(discovery: ModelDiscovery, options: GrokConfigOptions = {}): Promise<GrokConfigUpdate> {
   const home = options.home ?? homedir()
   const path = join(home, ".grok", "config.toml")

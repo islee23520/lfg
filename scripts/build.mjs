@@ -5,6 +5,7 @@ import { build } from "esbuild"
 const outputs = [
   ["plugins/lfg/bin/lfg.ts", "plugins/lfg/dist/lfg.js"],
   ["plugins/lfg/bin/self-test.ts", "plugins/lfg/dist/self-test.js"],
+  ["plugins/lfg/bin/publish-readiness.ts", "plugins/lfg/dist/publish-readiness.js"],
 ]
 
 await Promise.all(

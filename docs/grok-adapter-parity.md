@@ -4,8 +4,8 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 
 | omo-codex capability | Codex reference | Grok owner (lfg) | Status |
 |----------------------|-----------------|------------------|--------|
-| Plugin cache install | `~/.codex/plugins/cache/sisyphuslabs/omo/` | `plugins/lfg/grok-install/` | partial (internal install + postInstallVerify) |
-| `config.toml` merge | `install/config.mjs` | `grok-install` + `lfg-grok-config.ts` | partial (idempotent re-run test in `run-grok-install.test.ts`) |
+| Plugin cache install | `~/.codex/plugins/cache/sisyphuslabs/omo/` | `plugins/lfg/grok-install/` | partial (internal install + postInstallVerify; idempotent `runInternalGrokInstall` test #27) |
+| `config.toml` merge | `install/config.mjs` | `grok-install` + `lfg-grok-config.ts` | partial (single writer `runGrokInstall`; `LFG_OWNED_GROK_CONFIG_SECTIONS`; installer contract test #29) |
 | Agent TOML + preserve reasoning | `install/agents.mjs` | `grok-install/apply-agent-tomls.ts` | partial (merge existing TOML; preserve custom keys) |
 | Hook trust | `install/hook-trust.mjs` | `grok-install/hook-trust.ts` | partial (validate hooks.json in postInstallVerify) |
 | Install version stamp | `lazycodex-install.json` | `lfg-install.json` (Grok plugin root) | partial (stamp uses npm package version via `package-version.ts`) |

@@ -29,6 +29,17 @@ describe("grok-install", () => {
     expect(stamp).toEqual({ packageName: "@islee23520/lfg", version: "1.2.3" })
   })
 
+  test("runInternalGrokInstall twice is stable (#27)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-idem-internal-"))
+    await runInternalGrokInstall({ HOME: home })
+    const stampPath = join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json")
+    const first = await readFile(stampPath, "utf8")
+    await runInternalGrokInstall({ HOME: home })
+    const second = await readFile(stampPath, "utf8")
+    expect(second).toBe(first)
+    expect(first).toContain("@islee23520/lfg")
+  })
+
   test("mergeAgentTomlOverrides replaces model keys without duplicate", () => {
     const input = 'model = "old"\nmodel_reasoning_effort = "low"\n'
     const out = mergeAgentTomlOverrides(input, { model: "new-model", reasoningLevel: "high" })
