@@ -17,6 +17,6 @@ export function unsupportedCommand(positional: readonly string[]): JsonObject {
     grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     lfgIsPlugin: false,
-    supportedCommands: ["setup", "doctor"],
+    supportedCommands: ["setup", "doctor", "project-local"],
   }
 }
