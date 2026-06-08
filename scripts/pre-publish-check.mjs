@@ -2,6 +2,7 @@
 import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { evaluateNpmPublishAuth } from "../plugins/lfg/dist/npm-publish-auth.js"
+import { isPublishedLfgBinTarget } from "../plugins/lfg/dist/npm-publish-bin.js"
 import { evaluatePublishGap } from "../plugins/lfg/dist/publish-readiness.js"
 import { parseNpmRegistryVersion } from "../plugins/lfg/dist/npm-registry-version.js"
 
@@ -24,7 +25,7 @@ const gap = evaluatePublishGap({
   packageName: local.name,
   localVersion: local.version,
   registryVersion: registry,
-  hasBin: Boolean(local.bin?.lfg),
+  hasBin: isPublishedLfgBinTarget(local.bin?.lfg),
 })
 const auth = evaluateNpmPublishAuth(npmUser)
 const ready = gap.publishReady && auth.ok

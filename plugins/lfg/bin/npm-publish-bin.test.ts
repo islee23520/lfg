@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
-import { packageJsonHasBinLfg } from "./npm-publish-bin"
+import { isPublishedLfgBinTarget, packageJsonHasBinLfg, PUBLISHED_LFG_BIN_TARGET } from "./npm-publish-bin"
 
 describe("npm-publish-bin (#22)", () => {
   test("true when bin.lfg is non-empty string", async () => {
@@ -12,6 +12,18 @@ describe("npm-publish-bin (#22)", () => {
       const path = join(dir, "package.json")
       await writeFile(path, `${JSON.stringify({ bin: { lfg: "plugins/lfg/lfg" } })}\n`)
       expect(await packageJsonHasBinLfg(path)).toBe(true)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("false when bin.lfg points at nested dist only (#22)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "lfg-wrongbin-"))
+    try {
+      const path = join(dir, "package.json")
+      await writeFile(path, `${JSON.stringify({ bin: { lfg: "dist/lfg.js" } })}\n`)
+      expect(await packageJsonHasBinLfg(path)).toBe(false)
+      expect(isPublishedLfgBinTarget("dist/lfg.js")).toBe(false)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -44,6 +56,6 @@ describe("npm-publish-bin (#22)", () => {
     const root = join(fileURLToPath(new URL("../../..", import.meta.url)), "package.json")
     expect(await packageJsonHasBinLfg(root)).toBe(true)
     const pkg = JSON.parse(await readFile(root, "utf8")) as { bin?: { lfg?: string } }
-    expect(pkg.bin?.lfg).toBe("plugins/lfg/lfg")
+    expect(pkg.bin?.lfg).toBe(PUBLISHED_LFG_BIN_TARGET)
   })
 })

@@ -19,7 +19,7 @@ export function evaluatePublishGap(input: {
   const publishReady = versionAhead && input.hasBin
   let blockedReason: string | null = null
   if (!input.hasBin) {
-    blockedReason = "root package.json missing bin.lfg"
+    blockedReason = "root package.json bin.lfg must be plugins/lfg/lfg"
   } else if (registryUnavailable) {
     blockedReason = "registry version unavailable"
   } else if (!versionAhead) {

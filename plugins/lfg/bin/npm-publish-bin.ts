@@ -1,5 +1,12 @@
 import { readFile } from "node:fs/promises"
 
+export const PUBLISHED_LFG_BIN_TARGET = "plugins/lfg/lfg"
+
+/** npm pack root layout: bin.lfg must point at the shell shim under plugins/lfg (#22). */
+export function isPublishedLfgBinTarget(binLfg: string | undefined | null): boolean {
+  return binLfg === PUBLISHED_LFG_BIN_TARGET
+}
+
 /** Whether package.json exposes npm bin.lfg (publish-root layout #22). */
 export async function packageJsonHasBinLfg(packageJsonPath: string): Promise<boolean> {
   try {
@@ -12,7 +19,7 @@ export async function packageJsonHasBinLfg(packageJsonPath: string): Promise<boo
       return false
     }
     const lfg = (bin as Record<string, unknown>).lfg
-    return typeof lfg === "string" && lfg.length > 0
+    return typeof lfg === "string" && isPublishedLfgBinTarget(lfg)
   } catch {
     return false
   }

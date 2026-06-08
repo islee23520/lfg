@@ -11,7 +11,7 @@ describe("scripts/pre-publish-check.mjs (#22)", () => {
     expect(script).toContain("evaluatePublishGap")
     expect(script).toContain("evaluateNpmPublishAuth")
     expect(script).toContain("parseNpmRegistryVersion")
-    expect(script).toContain("bin?.lfg")
+    expect(script).toContain("isPublishedLfgBinTarget")
     expect(script).toMatch(/process\.exit\(ready \? 0 : 2\)/)
     expect(script).toContain("ready")
     expect(script).toContain("gap.publishReady && auth.ok")

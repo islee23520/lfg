@@ -21,7 +21,7 @@ describe("publish-readiness", () => {
       hasBin: false,
     })
     expect(gap.publishReady).toBe(false)
-    expect(gap.blockedReason).toContain("bin.lfg")
+    expect(gap.blockedReason).toContain("plugins/lfg/lfg")
   })
 
   test("blocked when registry unavailable (#22)", () => {
