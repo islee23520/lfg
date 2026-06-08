@@ -9,6 +9,7 @@ describe("project-local", () => {
     const root = await mkdtemp(join(tmpdir(), "lfg-proj-"))
     const json = await inspectProjectLocalGrok({ projectRoot: root })
     expect(json.status).toBe("absent")
+    expect(String(json.repair)).toContain("N/A")
   })
 
   test("present when config exists", async () => {
