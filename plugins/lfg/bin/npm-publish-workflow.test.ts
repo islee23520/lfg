@@ -29,7 +29,7 @@ describe("npm publish workflow (#22)", () => {
     const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>
     }
-    expect(pkg.scripts?.["pre-publish-check"]).toContain("pre-publish-check.mjs")
     expect(pkg.scripts?.verify).toContain("assert-pack")
+    expect(pkg.scripts?.["pre-publish-check"]).toContain("pre-publish-check.mjs")
   })
 })

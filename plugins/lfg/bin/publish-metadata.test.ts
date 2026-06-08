@@ -18,4 +18,12 @@ describe("npm publish metadata (#22)", () => {
     expect(String(pkg.repository?.url)).toContain("islee23520/lfg")
     expect(String(pkg.bugs?.url)).toContain("issues")
   })
+
+  test("root scripts wire publish-gap evidence recorder (#22)", async () => {
+    const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
+      scripts?: Record<string, string>
+    }
+    expect(pkg.scripts?.["record-publish-gap"]).toContain("record-publish-gap.mjs")
+    expect(pkg.scripts?.["assert-pack"]).toContain("assert-npm-pack-bin.mjs")
+  })
 })
