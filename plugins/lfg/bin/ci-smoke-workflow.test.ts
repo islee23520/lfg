@@ -10,6 +10,7 @@ describe(".github/workflows/smoke.yml (#12 / epic #26)", () => {
     const yaml = await readFile(join(ROOT, ".github/workflows/smoke.yml"), "utf8")
     expect(yaml).toContain('node-version: "22"')
     expect(yaml).toContain("npm run verify")
+    expect(yaml).toContain("assert-pack")
     expect(yaml).toContain("npm ci")
     expect(yaml).not.toContain("bun ")
   })

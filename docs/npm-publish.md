@@ -10,7 +10,7 @@ npm run pre-publish-check     # gap + auth + registryBin JSON; exit 0 only when 
 npm run assert-publish-auth   # exit 0 when logged in; exit 2 + JSON when not (#22)
 npm login
 npm run verify
-npm publish --access public
+npm publish --access public   # must ship 0.1.4+ with `plugins/lfg/lfg` (registry latest before publish is 0.1.3 legacy bin)
 ```
 
 `npm run verify` = assert-pack + test + typecheck + self-test.

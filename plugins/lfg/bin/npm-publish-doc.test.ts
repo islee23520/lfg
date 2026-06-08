@@ -21,5 +21,6 @@ describe("docs/npm-publish.md (#22)", () => {
     expect(doc).toContain("cli.ok")
     expect(doc).toContain("registryBin")
     expect(doc).toContain("registry-install-smoke")
+    expect(doc).toContain("0.1.3 legacy")
   })
 })
