@@ -1,0 +1,24 @@
+import { execFile } from "node:child_process"
+import { join } from "node:path"
+import { fileURLToPath } from "node:url"
+import { promisify } from "node:util"
+import { describe, expect, test } from "vitest"
+
+const execFileAsync = promisify(execFile)
+const ROOT = fileURLToPath(new URL("../../..", import.meta.url))
+
+describe("assert-npm-publish-auth integration (#22)", () => {
+  test("exits 2 with npm login blockedReason when not authenticated", async () => {
+    const script = join(ROOT, "scripts/assert-npm-publish-auth.mjs")
+    try {
+      await execFileAsync("node", [script], { cwd: ROOT, encoding: "utf8" })
+      expect.fail("expected exit 2")
+    } catch (error: unknown) {
+      const err = error as { code?: number; stdout?: string }
+      expect(err.code).toBe(2)
+      const auth = JSON.parse(String(err.stdout)) as { ok: boolean; blockedReason: string | null }
+      expect(auth.ok).toBe(false)
+      expect(String(auth.blockedReason)).toContain("npm login")
+    }
+  }, 15_000)
+})

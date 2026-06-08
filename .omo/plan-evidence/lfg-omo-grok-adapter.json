@@ -5,11 +5,11 @@
   "status": "in_progress",
   "verifiedAt": "2026-06-08",
   "git": {
-    "mainHead": "1580280",
+    "mainHead": "c9468f7",
     "version": "0.1.4"
   },
   "commands": {
-    "npmTest": "102 passed",
+    "npmTest": "124 passed",
     "npmSelfTest": "5/5 ok",
     "npmTypecheck": "exit 0",
     "npmVerify": "assert-pack + tests"
@@ -23,15 +23,15 @@
     "npm-pack-contract",
     "prepublishOnly",
     "ci-node-smoke",
+    "pre-publish-check-integration",
     "docs-parity-partial",
     "setup-json-contract",
     "internal-grok-install-chain"
   ],
   "evidence": [
-    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run33-verify.txt",
-    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run31-verify.txt",
-    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run29-verify.txt",
-    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run3-verify.txt"
+    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run45-verify.txt",
+    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run44-verify.txt",
+    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run33-verify.txt"
   ],
   "openForPublish": "npm login + npm publish from repo root (@islee23520/lfg@0.1.4) closes #22"
 }
