@@ -58,6 +58,10 @@ describe("registry @islee23520/lfg install smoke (#22)", () => {
       await expect(access(shimPath)).rejects.toThrow()
       const distEntry = join(installDir, "node_modules", "@islee23520", "lfg", "plugins", "lfg", "dist", "lfg.js")
       await expect(access(distEntry)).resolves.toBeUndefined()
+      const nestedPkg = join(installDir, "node_modules", "@islee23520", "lfg", "plugins", "lfg", "package.json")
+      await expect(access(nestedPkg)).resolves.toBeUndefined()
+      const nested = JSON.parse(await readFile(nestedPkg, "utf8")) as { bin?: { lfg?: string } }
+      expect(nested.bin?.lfg).toBe("dist/lfg.js")
 
       const localRoot = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
         version: string
