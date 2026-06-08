@@ -20,4 +20,4 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | Extension agent overrides (LFP port) | legacy LFP | `grok-install/agent-overrides.ts` | partial (`mergeAgentTomlOverrides` + `apply-agent-tomls`; dedicated tests) |
 
 **Normative port map:** `docs/lfp-capability-port.md`  
-**Ownership:** `docs/grok-adapter-ownership.md`
+**Ownership:** `docs/grok-adapter-ownership.md` (ADR; tested in `grok-adapter-ownership-doc.test.ts`)
