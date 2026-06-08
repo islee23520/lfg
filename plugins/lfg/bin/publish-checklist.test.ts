@@ -15,6 +15,7 @@ describe("publish checklist #22", () => {
     expect(doc).toContain("npx @islee23520/lfg --json doctor")
     expect(doc).toContain("record-publish-gap")
     expect(doc).toContain("assert-publish-auth")
+    expect(doc).toContain("npm login")
   })
 
   test("root package.json exposes bin.lfg and publish scripts", async () => {

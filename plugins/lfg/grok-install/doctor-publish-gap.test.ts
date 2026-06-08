@@ -11,6 +11,10 @@ describe("doctor-publish-gap", () => {
     expect(doctorPublishGapJson("0.1.4", null, true)).toBeNull()
   })
 
+  test("null when local version not resolved (#22)", () => {
+    expect(doctorPublishGapJson(null, "0.1.3", true)).toBeNull()
+  })
+
   test("not publishReady when cli bin layout invalid (#22)", () => {
     const json = doctorPublishGapJson("0.1.4", "0.1.3", false)
     expect(json).toMatchObject({ publishReady: false })
