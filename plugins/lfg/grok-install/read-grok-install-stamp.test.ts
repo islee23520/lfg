@@ -15,4 +15,14 @@ describe("readGrokInstallStamp", () => {
     await writeFile(join(root, "lfg-install.json"), '{"packageName":1}\n', "utf8")
     expect(await readGrokInstallStamp(root)).toBeNull()
   })
+
+  test("reads packageName and version when platform grok present (#27)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "lfg-stamp-ok-"))
+    await writeFile(
+      join(root, "lfg-install.json"),
+      `${JSON.stringify({ packageName: "@islee23520/lfg", version: "0.1.4", platform: "grok" }, null, 2)}\n`,
+      "utf8",
+    )
+    expect(await readGrokInstallStamp(root)).toEqual({ packageName: "@islee23520/lfg", version: "0.1.4" })
+  })
 })
