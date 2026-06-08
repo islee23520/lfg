@@ -125,4 +125,18 @@ esac`
     const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json"), "utf8")
     expect(stampRaw).toContain("@islee23520/lfg")
   })
+
+  test("doctor includes publishGap when LFG_DOCTOR_REGISTRY_VERSION set (#22)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-doc-gap-"))
+    const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
+    await installGrokPluginFromSource({ home, sourceRoot: source })
+    const result = await runLfg(["--json", "doctor"], {
+      HOME: home,
+      LFG_DOCTOR_REGISTRY_VERSION: "0.1.3",
+    })
+    expect(result.exitCode).toBe(0)
+    expect(result.json).toMatchObject({
+      publishGap: { registryVersion: "0.1.3", publishReady: true, blockedReason: null },
+    })
+  })
 })

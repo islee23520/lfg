@@ -9,7 +9,13 @@ if (!pack?.files?.length) {
   process.exit(1)
 }
 const paths = pack.files.map((f) => f.path)
-const required = ["package.json", "plugins/lfg/lfg", "plugins/lfg/dist/lfg.js"]
+const required = [
+  "package.json",
+  "plugins/lfg/lfg",
+  "plugins/lfg/dist/lfg.js",
+  "plugins/lfg/dist/publish-readiness.js",
+  "plugins/lfg/dist/npm-publish-auth.js",
+]
 const missing = required.filter((p) => !paths.includes(p))
 if (missing.length > 0) {
   console.error("assert-npm-pack-bin: missing paths:", missing.join(", "))

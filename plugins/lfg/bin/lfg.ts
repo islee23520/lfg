@@ -34,7 +34,12 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     return help()
   }
   if (command === "doctor" && !subcommand) {
-    return runGrokDoctor({ home: process.env.HOME ?? homedir(), moduleUrl: import.meta.url })
+    const registryVersion = process.env.LFG_DOCTOR_REGISTRY_VERSION ?? null
+    return runGrokDoctor({
+      home: process.env.HOME ?? homedir(),
+      moduleUrl: import.meta.url,
+      registryVersion: registryVersion && registryVersion.length > 0 ? registryVersion : null,
+    })
   }
   if (command === "project-local" && !subcommand) {
     const projectRoot = process.env.LFG_PROJECT_ROOT ?? process.cwd()
