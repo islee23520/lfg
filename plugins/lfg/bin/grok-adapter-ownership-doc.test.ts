@@ -19,6 +19,8 @@ describe("docs/grok-adapter-ownership.md", () => {
     const text = await readFile(join(ROOT, "docs/grok-adapter-ownership.md"), "utf8")
     expect(text).toContain("@islee23520/lfg")
     expect(text).toContain("npx @islee23520/lfg setup")
+    expect(text).toContain("docs/npm-publish.md")
+    expect(text).toContain("closes #22")
   })
 
   test("npm publish doc closes #22 from repository root (#22)", async () => {

@@ -9,7 +9,7 @@
 
 ## Decision
 
-**`@islee23520/lfg` is the single npm surface** for this **omo Grok adapter** (+ built-in extensions):
+**`@islee23520/lfg` is the single npm surface** for this **omo Grok adapter** (+ built-in extensions). Registry publish contract: [`docs/npm-publish.md`](npm-publish.md) (closes #22).
 
 1. **omo-style Grok adapter** — install/verify semantics comparable to `omo-codex` on `~/.grok` (plugin tree, config merge, agents, hooks, doctor).
 2. **LFP-equivalent extensions** — capabilities from legacy `@islee23520/lfp` (hooks, agent overrides, optional extra agents) are **re-implemented for Grok** inside lfg — **not** a copy-paste vendor of the LFP package. See `docs/lfp-capability-port.md`.
