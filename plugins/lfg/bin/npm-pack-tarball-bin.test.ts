@@ -43,8 +43,20 @@ describe("npm pack tarball package.json (#22)", () => {
       const desc = (pkg as { description?: string }).description ?? ""
       expect(desc).toContain("grok-install")
       expect(desc).not.toContain("@islee23520/lfp setup")
+      expect(pkg.bin).toBeDefined()
+      expect((pkg as { workspaces?: unknown }).workspaces).toEqual(["plugins/lfg"])
     } finally {
       await rm(outDir, { recursive: true, force: true })
     }
+  }, 60_000)
+
+  test("packed tarball stays allowlisted small layout (#22 not workspace dump)", async () => {
+    const { stdout } = await execFileAsync("npm", ["pack", "--dry-run", "--json"], { cwd: ROOT, encoding: "utf8" })
+    const packs = JSON.parse(stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
+    const paths = packs.flatMap((p) => p.files?.map((f) => f.path).filter((x): x is string => typeof x === "string") ?? [])
+    expect(paths.length).toBeGreaterThan(5)
+    expect(paths.length).toBeLessThanOrEqual(30)
+    expect(paths).not.toContain("plugins/lfg/package.json")
+    expect(paths).not.toContain("plugins/lfg/bin/lfg.ts")
   }, 60_000)
 })

@@ -28,5 +28,6 @@ describe("publish checklist #22", () => {
     expect(pkg.scripts?.["record-publish-gap"]).toMatch(/^npm run build &&/)
     expect(pkg.scripts?.["assert-publish-auth"]).toMatch(/^npm run build &&/)
     expect(pkg.scripts?.["assert-publish-auth"]).toContain("assert-npm-publish-auth.mjs")
+    expect(pkg.scripts?.verify).toBe("npm run assert-pack && npm test && npm run typecheck && npm run self-test")
   })
 })
