@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url"
 export async function readLfgPackageVersionFromBundle(moduleUrl: string): Promise<string | null> {
   const distDir = dirname(fileURLToPath(moduleUrl))
   const candidates = [
+    join(distDir, "..", "..", "..", "package.json"),
     join(distDir, "..", "..", "package.json"),
     join(distDir, "..", "package.json"),
   ]

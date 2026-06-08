@@ -12,5 +12,6 @@ describe("scripts/build.mjs (#22)", () => {
     expect(script).toContain("npm-publish-auth.ts")
     expect(script).toContain("npm-registry-version.ts")
     expect(script).toContain("fixture-minimal")
+    expect(script).toContain("force: true")
   })
 })

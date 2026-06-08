@@ -16,5 +16,6 @@ describe("npm run verify script chain (#22)", () => {
     expect(verify).toContain("typecheck")
     expect(verify).toContain("self-test")
     expect(verify.indexOf("assert-pack")).toBeLessThan(verify.indexOf("npm test"))
+    expect(verify.indexOf("npm test")).toBeLessThan(verify.indexOf("self-test"))
   })
 })
