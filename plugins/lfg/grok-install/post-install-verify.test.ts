@@ -28,4 +28,17 @@ describe("post-install-verify", () => {
     expect(json.ok).toBe(false)
     expect(json.status).toBe("missing_adapter")
   })
+
+  test("missing_adapter when hooks.json invalid (#28 hook trust)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-verify-bad-hooks-"))
+    const source = await mkdtemp(join(tmpdir(), "lfg-verify-bad-src-"))
+    await mkdir(join(source, "hooks"), { recursive: true })
+    await writeFile(join(source, "hooks", "hooks.json"), '{"notHooks":[]}\n', "utf8")
+    await installGrokPluginFromSource({ home, sourceRoot: source, version: "1.0.0" })
+    const json = await verifyGrokInstallSurface({ home })
+    expect(json.ok).toBe(false)
+    expect(json.status).toBe("missing_adapter")
+    expect(json.hooksRegistered).toBe(false)
+    expect(String(json.hookTrustError)).toContain("hooks")
+  })
 })

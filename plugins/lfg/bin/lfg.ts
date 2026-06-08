@@ -4,6 +4,7 @@ import { runInstallWizard } from "./lfg-interactive"
 import { LAZYCODEX_INSTALLER_COMMAND, runLazycodexInstaller } from "./lfg-installer"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-install/run-grok-install"
 import { runGrokDoctor } from "../grok-install/doctor"
+import { inspectProjectLocalGrok } from "../grok-install/project-local"
 import { homedir } from "node:os"
 import { fetchModelDiscovery, modelDiscoveryPlan, type ModelDiscovery } from "./lfg-models"
 import { isRecord, type JsonObject } from "./lfg-json"
@@ -34,6 +35,11 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   }
   if (command === "doctor" && !subcommand) {
     return runGrokDoctor({ home: process.env.HOME ?? homedir(), moduleUrl: import.meta.url })
+  }
+  if (command === "project-local" && !subcommand) {
+    const projectRoot = process.env.LFG_PROJECT_ROOT ?? process.cwd()
+    const inspected = await inspectProjectLocalGrok({ projectRoot })
+    return { command: "project-local", lfgIsPlugin: false, ...inspected }
   }
   if (command !== "setup" || subcommand) {
     return unsupportedCommand(args.positional)
@@ -126,6 +132,7 @@ function help(): string {
     "  lfg --json setup --base-url http://127.0.0.1:11434",
     "  lfg --json setup --run",
     "  lfg --json doctor",
+    "  lfg --json project-local",
     "",
     "Setup runs:",
     `  ${LAZYCODEX_INSTALLER_COMMAND}`,
