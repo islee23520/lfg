@@ -10,4 +10,14 @@ describe("doctor-checks", () => {
     const json = doctorChecksJson(checks)
     expect(json.failedRequired).toEqual(["cli", "grok_install_surface"])
   })
+
+  test("failedRequired empty when cli and install surface ok (#31)", () => {
+    const checks = buildDoctorChecks(
+      { ok: true, distEntry: "/pkg/dist/lfg.js", packageRoot: "/pkg", layout: "published-workspace" },
+      true,
+    )
+    const json = doctorChecksJson(checks)
+    expect(json.failedRequired).toEqual([])
+    expect(json.checks).toHaveLength(2)
+  })
 })
