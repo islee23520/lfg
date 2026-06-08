@@ -13,5 +13,7 @@ describe("scripts/assert-npm-pack-bin.mjs (#22)", () => {
     expect(script).toContain("bin.lfg")
     expect(script).not.toContain("plugins/lfg/package.json")
     expect(script).toContain("plugins/lfg/dist/self-test.js")
+    expect(script).toContain("publish-readiness.js")
+    expect(script).toContain("npm-registry-version.js")
   })
 })
