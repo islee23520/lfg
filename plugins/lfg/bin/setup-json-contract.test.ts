@@ -25,6 +25,8 @@ exit 0
     expect(findDeprecatedSetupJsonKeys(json)).toEqual([])
     expect(json).not.toHaveProperty("stablePluginLink")
     expect(json).not.toHaveProperty("mcpConfigRepair")
+    expect(json).toMatchObject({ companionPackage: "lfg-grok-install" })
+    expect(JSON.stringify(json)).not.toContain("@islee23520/lfp")
     const verify = json.postInstallVerify as { ok?: boolean; status?: string }
     expect(setupPostInstallConsistent(true, verify)).toBe(true)
     expect(verify).toMatchObject({ ok: true, status: "verified" })
