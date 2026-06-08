@@ -316,6 +316,16 @@ describe("lfg CLI", () => {
     const json = JSON.parse(doctor.stdout) as { ok?: boolean; cli?: { ok?: boolean } }
     expect(json.ok).toBe(true)
     expect(json.cli?.ok).toBe(true)
+    const scopedDoctor = await execFileResultEnv(
+      "npx",
+      ["@islee23520/lfg", "--json", "doctor"],
+      installDir,
+      { HOME: home },
+    )
+    expect(scopedDoctor.exitCode).toBe(0)
+    const scopedJson = JSON.parse(scopedDoctor.stdout) as { ok?: boolean; cli?: { ok?: boolean } }
+    expect(scopedJson.ok).toBe(true)
+    expect(scopedJson.cli?.ok).toBe(true)
     const doctorGap = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, {
       HOME: home,
       LFG_DOCTOR_REGISTRY_VERSION: "0.1.3",

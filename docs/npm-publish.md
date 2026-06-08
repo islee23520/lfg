@@ -28,7 +28,7 @@ Verify from a clean directory:
 ```sh
 mkdir /tmp/lfg-smoke && cd /tmp/lfg-smoke && npm init -y
 npm install @islee23520/lfg@latest
-npx lfg --json doctor
+npx @islee23520/lfg --json doctor
 ```
 
 Expected: `bin` resolves to `plugins/lfg/lfg` → `dist/lfg.js`; doctor `cli.ok: true` when `~/.grok` has stamp after `setup --run`.

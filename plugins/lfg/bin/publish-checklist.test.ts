@@ -12,6 +12,7 @@ describe("publish checklist #22", () => {
     expect(doc).toContain("pre-publish-check")
     expect(doc).toContain("npm publish --access public")
     expect(doc).toContain("lfg-smoke")
+    expect(doc).toContain("npx @islee23520/lfg --json doctor")
     expect(doc).toContain("record-publish-gap")
     expect(doc).toContain("assert-publish-auth")
   })
