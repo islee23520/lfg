@@ -1,0 +1,54 @@
+import { access, mkdtemp, readFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+import { describe, expect, test } from "vitest"
+import { installGrokPluginFromSource } from "./install"
+import { runGrokInstall } from "./run-grok-install"
+import { verifyGrokInstallSurface } from "./post-install-verify"
+
+const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), "fixture-minimal")
+
+/** Epic #27 / plan task 3 — fixture-only, no network. */
+describe("plugin cache install acceptance (#27)", () => {
+  test("syncs fixture to ~/.grok/installed-plugins/lazycodex", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-accept-install-"))
+    await installGrokPluginFromSource({ home, sourceRoot: FIXTURE, version: "3.3.3" })
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lazycodex")
+    await access(join(pluginRoot, "hooks", "hooks.json"))
+    const verify = await verifyGrokInstallSurface({ home })
+    expect(verify).toMatchObject({ ok: true, status: "verified", pluginDirName: "lazycodex" })
+  })
+
+  test("writes lfg-install.json stamp at Grok plugin root", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-accept-stamp-"))
+    await installGrokPluginFromSource({ home, sourceRoot: FIXTURE, version: "4.4.4" })
+    const raw = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json"), "utf8")
+    expect(JSON.parse(raw)).toEqual({
+      packageName: "@islee23520/lfg",
+      version: "4.4.4",
+      platform: "grok",
+    })
+  })
+
+  test("second runGrokInstall is idempotent for stamp and verify", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-accept-idem-"))
+    const discovery = {
+      baseUrl: "http://127.0.0.1:11434/v1",
+      modelsUrl: "http://127.0.0.1:11434/v1/models",
+      modelIds: ["gpt-4.1-mini"],
+      mapping: { default: "gpt-4.1-mini", fast: "gpt-4.1-mini", reasoning: "gpt-4.1-mini", coding: "gpt-4.1-mini" },
+    }
+    const env = { HOME: home, OPENAI_API_KEY: "sk-test" }
+    await runGrokInstall(discovery, env)
+    const stampPath = join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json")
+    const firstStamp = await readFile(stampPath, "utf8")
+    const firstVerify = await verifyGrokInstallSurface({ home })
+    await runGrokInstall(discovery, env)
+    const secondStamp = await readFile(stampPath, "utf8")
+    const secondVerify = await verifyGrokInstallSurface({ home })
+    expect(secondStamp).toBe(firstStamp)
+    expect(secondVerify).toEqual(firstVerify)
+    expect(firstVerify.ok).toBe(true)
+  })
+})
