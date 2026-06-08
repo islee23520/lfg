@@ -114,7 +114,7 @@ esac`
       status: "pass",
       command: "doctor",
       lfgIsPlugin: false,
-      cli: { ok: true, required: true },
+      cli: { ok: true, required: true, layout: "published-workspace" },
       installSurface: { status: "verified", hooksRegistered: true },
       failedRequired: [],
       checks: expect.arrayContaining([
