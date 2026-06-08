@@ -77,6 +77,23 @@ describe("package-version", () => {
     }
   })
 
+  test("readPublishRootVersionFromBundle reads semver when bin.lfg missing (#22)", async () => {
+    const installRoot = await mkdtemp(join(tmpdir(), "lfg-pkg-nobin-ver-"))
+    try {
+      await mkdir(join(installRoot, "plugins/lfg/dist"), { recursive: true })
+      await writeFile(
+        join(installRoot, "package.json"),
+        `${JSON.stringify({ name: "@islee23520/lfg", version: "0.1.3", workspaces: ["plugins/lfg"] })}\n`,
+      )
+      const distPath = join(installRoot, "plugins/lfg/dist/lfg.js")
+      await writeFile(distPath, "export {}\n")
+      expect(await readPublishRootVersionFromBundle(pathToFileURL(distPath).href)).toBe("0.1.3")
+      expect(await readLfgPackageVersionFromBundle(pathToFileURL(distPath).href)).toBeNull()
+    } finally {
+      await rm(installRoot, { recursive: true, force: true })
+    }
+  })
+
   test("skips publish root package.json without bin.lfg (#22)", async () => {
     const installRoot = await mkdtemp(join(tmpdir(), "lfg-pkg-nobin-"))
     try {
