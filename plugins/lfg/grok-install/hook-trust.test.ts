@@ -12,4 +12,10 @@ describe("hook-trust", () => {
   test("rejects missing hooks array", () => {
     expect(validateGrokHooksJson({}).ok).toBe(false)
   })
+
+  test("rejects empty hook name (#28)", () => {
+    const result = validateGrokHooksJson({ hooks: [{ name: "" }] })
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain("name")
+  })
 })

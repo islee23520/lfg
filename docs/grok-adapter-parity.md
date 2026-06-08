@@ -7,7 +7,7 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | Plugin cache install | `~/.codex/plugins/cache/sisyphuslabs/omo/` | `plugins/lfg/grok-install/` | partial (internal install; setup JSON `postInstallVerify` only #21; idempotent `runGrokInstall` #27) |
 | `config.toml` merge | `install/config.mjs` | `grok-install` + `lfg-grok-config.ts` | partial (single writer `runGrokInstall`; no `endpoints.api_key` #24; `lfg-grok-config.endpoints.test.ts`) |
 | Agent TOML + preserve reasoning | `install/agents.mjs` | `grok-install/apply-agent-tomls.ts` | partial (`runGrokInstall` writes explorer/reasoning/coding; merge + preserve; #30) |
-| Hook trust | `install/hook-trust.mjs` | `grok-install/hook-trust.ts` | partial (validate hooks.json in postInstallVerify + doctor installSurface; invalid hooks test #28) |
+| Hook trust | `install/hook-trust.mjs` | `grok-install/hook-trust.ts` | partial (`validateGrokHooksJson`; empty name rejected; postInstallVerify #28) |
 | Install version stamp | `lazycodex-install.json` | `lfg-install.json` (Grok plugin root) | partial (`readGrokInstallStamp`; `platform: grok`; `npm-publish-workflow` + install.stamp #22/#27) |
 | `doctor` | `src/cli/doctor/checks/codex.ts` | `lfg doctor` | partial (`doctor-checks` cli + install surface; `publishGap` + `record-publish-gap` #22; pack smoke #25) |
 | `cleanup` / `update` | passthrough CLI | `docs/grok-cleanup-update.md` | N/A (`grok-cleanup-update-doc.test.ts`; re-run setup/doctor) |
