@@ -9,4 +9,8 @@ describe("npm-registry-version", () => {
   test("rejects garbage", () => {
     expect(parseNpmRegistryVersion("")).toBeNull()
   })
+
+  test("parses first line when extra whitespace (#22)", () => {
+    expect(parseNpmRegistryVersion("  0.1.4  \n")).toBe("0.1.4")
+  })
 })
