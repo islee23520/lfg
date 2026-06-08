@@ -85,11 +85,11 @@ esac`
 
   test("installed fixture hooks.json registers lfg-visual-guidance", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-hooks-home-"))
-    const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
-    await installGrokPluginFromSource({ home, sourceRoot: source })
+    await runInternalGrokInstall({ HOME: home })
     const raw = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "hooks", "hooks.json"), "utf8")
     const parsed = JSON.parse(raw) as { hooks: readonly { name: string }[] }
     expect(parsed.hooks.some((hook) => hook.name === "lfg-visual-guidance")).toBe(true)
+    expect(parsed.hooks.some((hook) => hook.name === "lfg-agent-reminder")).toBe(true)
   })
 
   test("doctor command returns JSON when plugin installed", async () => {

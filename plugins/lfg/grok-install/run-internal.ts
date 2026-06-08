@@ -3,6 +3,7 @@ import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { JsonObject } from "../bin/lfg-json"
+import { mergePortedHooksIntoPlugin } from "./extension-hooks"
 import { installGrokPluginFromSource } from "./install"
 import { readLfgPackageVersionFromBundle } from "./package-version"
 
@@ -14,6 +15,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     (await readLfgPackageVersionFromBundle(import.meta.url)) ??
     "0.0.0-dev"
   const result = await installGrokPluginFromSource({ home, sourceRoot, version })
+  const hooks = await mergePortedHooksIntoPlugin(result.pluginRoot)
   return {
     ok: true,
     status: "installed",
@@ -23,7 +25,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     installStampPath: result.installStampPath,
     version: result.version,
     exitCode: 0,
-    stdout: `internal grok install -> ${result.pluginRoot}`,
+    stdout: `internal grok install -> ${result.pluginRoot} hooks=${hooks.hookNames.join(",")}`,
     stderr: "",
   }
 }

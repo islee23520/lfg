@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Assert npm pack bin layout
+        run: npm run assert-pack
+
       - name: Test
         run: npm test
 
