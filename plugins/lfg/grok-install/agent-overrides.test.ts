@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest"
 import { mergeAgentTomlOverrides } from "./agent-overrides"
 
-describe("agent-overrides (#26 extension port)", () => {
+describe("agent-overrides (#30 extension port)", () => {
   test("preserves comments and custom keys", () => {
     const input = '# note\nmodel = "old"\ncustom = true\n'
     const out = mergeAgentTomlOverrides(input, { model: "new" })
