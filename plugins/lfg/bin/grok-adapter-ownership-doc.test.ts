@@ -27,4 +27,11 @@ describe("docs/grok-adapter-ownership.md", () => {
     expect(text).toContain("closes #22")
     expect(text).toContain("plugins/lfg/lfg")
   })
+
+  test("parity doc documents setup postInstallVerify not legacy missing_adapter (#21)", async () => {
+    const text = await readFile(join(ROOT, "docs/grok-adapter-parity.md"), "utf8")
+    expect(text).toContain("postInstallVerify")
+    expect(text).toContain("#21")
+    expect(text).not.toContain("stablePluginLink")
+  })
 })
