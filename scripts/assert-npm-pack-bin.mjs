@@ -15,6 +15,7 @@ const required = [
   "plugins/lfg/dist/lfg.js",
   "plugins/lfg/dist/publish-readiness.js",
   "plugins/lfg/dist/npm-publish-auth.js",
+  "plugins/lfg/dist/npm-registry-version.js",
 ]
 const missing = required.filter((p) => !paths.includes(p))
 if (missing.length > 0) {

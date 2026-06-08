@@ -12,6 +12,12 @@ npm publish --access public
 
 `npm run verify` = assert-pack + test + typecheck + self-test.
 
+After publish, set `LFG_DOCTOR_REGISTRY_VERSION` to the registry version when checking publish gap locally:
+
+```sh
+LFG_DOCTOR_REGISTRY_VERSION=$(npm view @islee23520/lfg version) npx lfg --json doctor
+```
+
 Verify from a clean directory:
 
 ```sh
