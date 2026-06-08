@@ -21,4 +21,18 @@ describe("assert-npm-publish-auth integration (#22)", () => {
       expect(String(auth.blockedReason)).toContain("npm login")
     }
   }, 15_000)
+
+  test("npm run assert-publish-auth wires build then exits 2 when not logged in (#22)", async () => {
+    try {
+      await execFileAsync("npm", ["run", "assert-publish-auth"], { cwd: ROOT, encoding: "utf8" })
+      expect.fail("expected exit 2")
+    } catch (error: unknown) {
+      const err = error as { code?: number; stdout?: string; stderr?: string }
+      expect(err.code).toBe(2)
+      const combined = `${err.stdout ?? ""}\n${err.stderr ?? ""}`
+      expect(combined).toContain("build.mjs")
+      expect(combined).toContain('"ok":false')
+      expect(combined).toContain("npm login")
+    }
+  }, 60_000)
 })

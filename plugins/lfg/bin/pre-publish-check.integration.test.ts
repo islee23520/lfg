@@ -27,4 +27,18 @@ describe("pre-publish-check integration (#22)", () => {
       expect(payload.auth.ok).toBe(false)
     }
   }, 30_000)
+
+  test("npm run pre-publish-check wires build then exits 2 when not logged in (#22)", async () => {
+    try {
+      await execFileAsync("npm", ["run", "pre-publish-check"], { cwd: ROOT, encoding: "utf8" })
+      expect.fail("expected exit 2")
+    } catch (error: unknown) {
+      const err = error as { code?: number; stdout?: string; stderr?: string }
+      expect(err.code).toBe(2)
+      const combined = `${err.stdout ?? ""}\n${err.stderr ?? ""}`
+      expect(combined).toContain("build.mjs")
+      expect(combined).toContain('"hasBin": true')
+      expect(combined).toContain('"publishReady": true')
+    }
+  }, 60_000)
 })

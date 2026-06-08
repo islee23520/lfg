@@ -35,6 +35,30 @@ describe("doctor cli layout (#22)", () => {
     }
   })
 
+  test("cli fails when publish root bin.lfg is not plugins/lfg/lfg shim (#22)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-doc-wrongbin-home-"))
+    const installRoot = await mkdtemp(join(tmpdir(), "lfg-doc-wrongbin-pkg-"))
+    const here = dirname(fileURLToPath(import.meta.url))
+    try {
+      await installGrokPluginFromSource({ home, sourceRoot: join(here, "fixture-minimal") })
+      await mkdir(join(installRoot, "plugins/lfg/dist"), { recursive: true })
+      await writeFile(
+        join(installRoot, "package.json"),
+        `${JSON.stringify({ name: "@islee23520/lfg", version: "0.1.4", bin: { lfg: "dist/lfg.js" } })}\n`,
+      )
+      const distPath = join(installRoot, "plugins/lfg/dist/lfg.js")
+      await cp(join(here, "..", "dist", "lfg.js"), distPath)
+      const doctor = await runGrokDoctor({ home, moduleUrl: pathToFileURL(distPath).href, registryVersion: "0.1.3" })
+      const cli = doctor.cli as { ok?: boolean; layout?: string }
+      expect(cli.ok).toBe(false)
+      expect(cli.layout).not.toBe("published-workspace")
+      expect(doctor.failedRequired).toContain("cli")
+    } finally {
+      await rm(home, { recursive: true, force: true })
+      await rm(installRoot, { recursive: true, force: true })
+    }
+  })
+
   test("cli fails when publish root package.json lacks bin.lfg (#22)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-doc-nobin-home-"))
     const installRoot = await mkdtemp(join(tmpdir(), "lfg-doc-nobin-pkg-"))
