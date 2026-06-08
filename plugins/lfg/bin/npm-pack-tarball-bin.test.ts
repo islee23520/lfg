@@ -27,6 +27,9 @@ describe("npm pack tarball package.json (#22)", () => {
       expect(pkg.bin?.lfg).toBe("plugins/lfg/lfg")
       expect(pkg.files).toContain("plugins/lfg/lfg")
       expect(pkgJson).not.toContain('"lfg": "dist/lfg.js"')
+      const desc = (pkg as { description?: string }).description ?? ""
+      expect(desc).toContain("grok-install")
+      expect(desc).not.toContain("@islee23520/lfp setup")
     } finally {
       await rm(outDir, { recursive: true, force: true })
     }
