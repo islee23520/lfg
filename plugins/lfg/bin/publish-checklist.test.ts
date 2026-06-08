@@ -12,6 +12,7 @@ describe("publish checklist #22", () => {
     expect(doc).toContain("pre-publish-check")
     expect(doc).toContain("npm publish --access public")
     expect(doc).toContain("lfg-smoke")
+    expect(doc).toContain("record-publish-gap")
   })
 
   test("root package.json exposes bin.lfg and publish scripts", async () => {

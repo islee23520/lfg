@@ -5,6 +5,7 @@ Publish **from repository root** — not `plugins/lfg` alone.
 Root `package.json` must expose `"bin": { "lfg": "plugins/lfg/lfg" }` (shell shim → `dist/lfg.js`). `npm run assert-pack` and `npm run pre-publish-check` reject other `bin.lfg` targets (e.g. `dist/lfg.js` only).
 
 ```sh
+npm run record-publish-gap    # writes .omo/ulw-loop/evidence/publish-gap-*.json (#22)
 npm run pre-publish-check     # gap + auth JSON; exit 0 only when both ready (#22)
 npm run assert-publish-auth   # exit 0 when logged in; exit 2 + JSON when not (#22)
 npm login

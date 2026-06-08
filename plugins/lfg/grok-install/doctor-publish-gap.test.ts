@@ -14,6 +14,11 @@ describe("doctor-publish-gap", () => {
   test("not publishReady when cli bin layout invalid (#22)", () => {
     const json = doctorPublishGapJson("0.1.4", "0.1.3", false)
     expect(json).toMatchObject({ publishReady: false })
-    expect(String(json?.blockedReason)).toContain("bin")
+    expect(String(json?.blockedReason)).toContain("plugins/lfg/lfg")
+  })
+
+  test("includes hasBin gate via evaluatePublishGap localVersion (#22)", () => {
+    const json = doctorPublishGapJson("0.1.4", "0.1.3", true)
+    expect(json).toMatchObject({ localVersion: "0.1.4", registryVersion: "0.1.3" })
   })
 })
