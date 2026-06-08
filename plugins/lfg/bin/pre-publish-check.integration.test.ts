@@ -29,6 +29,13 @@ describe("pre-publish-check integration (#22)", () => {
       const gap = payload.gap as { packageName?: string; localVersion?: string; registryVersion?: string }
       expect(gap.packageName).toBe("@islee23520/lfg")
       expect(gap.localVersion).toMatch(/^\d+\.\d+\.\d+$/)
+      const rootPkg = JSON.parse(
+        await (await import("node:fs/promises")).readFile(
+          join(ROOT, "package.json"),
+          "utf8",
+        ),
+      ) as { version: string }
+      expect(gap.localVersion).toBe(rootPkg.version)
       expect(gap.registryVersion).toMatch(/^\d+\.\d+\.\d+$|unavailable/)
       expect(payload.registryBin?.legacyWrongTarget).toBe(true)
       expect(payload.registryBin?.matchesPublishContract).toBe(false)

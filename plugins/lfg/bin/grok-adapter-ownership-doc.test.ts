@@ -12,5 +12,13 @@ describe("docs/grok-adapter-ownership.md", () => {
     expect(text).toContain("npx @islee23520/lfg setup")
     expect(text).toContain("copy-paste vendor")
     expect(text.toLowerCase()).not.toContain("linalab product")
+    expect(text).toContain("plugins/lfg/bin/")
+  })
+
+  test("npm publish doc closes #22 from repository root (#22)", async () => {
+    const text = await readFile(join(ROOT, "docs/npm-publish.md"), "utf8")
+    expect(text).toContain("repository root")
+    expect(text).toContain("closes #22")
+    expect(text).toContain("plugins/lfg/lfg")
   })
 })
