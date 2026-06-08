@@ -19,6 +19,14 @@ describe("npm pack contract (#22)", () => {
     expect(paths).not.toContain("plugins/lfg/package.json")
     expect(paths).not.toContain("plugins/lfg/bin/lfg.ts")
     expect(paths.length).toBeLessThanOrEqual(25)
+    expect(paths).toContain("plugins/lfg/dist/npm-publish-auth.js")
+  })
+
+  test("dry-run pack filename uses scoped package name and semver (#22)", async () => {
+    const { stdout } = await execFileAsync("npm", ["pack", "--dry-run", "--json"], { cwd: ROOT, encoding: "utf8" })
+    const packs = JSON.parse(stdout) as readonly { readonly filename?: string }[]
+    const root = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as { version: string }
+    expect(packs[0]?.filename).toMatch(new RegExp(`islee23520-lfg-${root.version.replace(/\./g, "\\.")}\\.tgz`))
   })
 
   test("root package.json bin.lfg points at shim under plugins/lfg", async () => {
