@@ -37,5 +37,6 @@ exit 0
     expect(findDeprecatedSetupJsonKeys({ mcpConfigRepair: {}, stablePluginLinks: [] })).toEqual(
       expect.arrayContaining(["mcpConfigRepair", "stablePluginLinks"]),
     )
+    expect(findDeprecatedSetupJsonKeys({ adapter: { found: true } })).toContain("adapter")
   })
 })
