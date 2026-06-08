@@ -16,14 +16,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
 
-      - name: Install TypeScript dependencies
-        run: bun install --frozen-lockfile
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Run Bun tests
-        run: bun test plugins/lfg/bin
+      - name: Test
+        run: npm test
 
-      - name: Run plugin self-test
-        run: bun plugins/lfg/bin/self-test.ts
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Self-test
+        run: npm run self-test

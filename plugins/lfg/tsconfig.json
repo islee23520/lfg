@@ -4,7 +4,8 @@
     "rootDir": "."
   },
   "include": [
-    "bin/**/*.ts"
+    "bin/**/*.ts",
+    "test-utils/**/*.ts"
   ],
   "exclude": [
     "dist"

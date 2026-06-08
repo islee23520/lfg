@@ -1,17 +1,19 @@
 #!/usr/bin/env node
-import { existsSync } from "node:fs"
-import { access, stat } from "node:fs/promises"
-import { join, resolve } from "node:path"
-import { commandPath, unsupportedCommand } from "./lfg-command"
-import { detectLazycodexAdapter, grokSurfaces, grokVerificationCommands } from "./lfg-grok"
+import { unsupportedCommand } from "./lfg-command"
 import { runInstallWizard } from "./lfg-interactive"
 import { LAZYCODEX_INSTALLER_COMMAND, runLazycodexInstaller } from "./lfg-installer"
-import { isRecord, readJsonObject, type JsonObject } from "./lfg-json"
+import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-install/run-grok-install"
+import { runGrokDoctor } from "../grok-install/doctor"
+import { homedir } from "node:os"
+import { fetchModelDiscovery, modelDiscoveryPlan, type ModelDiscovery } from "./lfg-models"
+import { isRecord, type JsonObject } from "./lfg-json"
 
-type LfgEnv = { readonly root: string; readonly data: string; readonly stateDir: string; readonly launcher: string }
-type ParsedArgs = { readonly json: boolean; readonly run: boolean; readonly positional: readonly string[] }
-
-const STATE_SCHEMA_VERSION = 2
+type ParsedArgs = {
+  readonly json: boolean
+  readonly run: boolean
+  readonly baseUrl: string | null
+  readonly positional: readonly string[]
+}
 
 async function main(argv: readonly string[]): Promise<number> {
   const parsed = parseArgs(argv)
@@ -25,143 +27,79 @@ async function main(argv: readonly string[]): Promise<number> {
   }
 }
 
-function isInteractiveInstall(args: ParsedArgs): boolean {
-  if (args.json || args.run) return false
-  const [command] = args.positional
-  return command === "setup"
-}
-
-async function dispatch(args: ParsedArgs): Promise<unknown> {
+async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   const [command, subcommand] = args.positional
-  if (!command) return help()
-  if (command === "setup" && !subcommand) return setupCommand(args)
-  if (command === "dry-setup" && !subcommand) return drySetup()
-  if (command === "doctor") {
-    if (subcommand) return unsupportedCommand(args.positional)
-    return doctor()
+  if (!command || command === "help" || command === "--help" || command === "-h") {
+    return help()
   }
-  if (command === "help" || command === "--help" || command === "-h") return help()
-  return unsupportedCommand(args.positional)
-}
-
-async function setupCommand(args: ParsedArgs): Promise<unknown> {
+  if (command === "doctor" && !subcommand) {
+    return runGrokDoctor({ home: process.env.HOME ?? homedir(), moduleUrl: import.meta.url })
+  }
+  if (command !== "setup" || subcommand) {
+    return unsupportedCommand(args.positional)
+  }
+  const discovery = args.baseUrl === null ? null : await fetchModelDiscovery(args.baseUrl)
   if (args.run) {
-    const result = await runLazycodexInstaller()
-    return isRecord(result) ? { ...result, command: "setup" } : result
+    return runLazycodexInstaller(discovery)
   }
-  const plan = await setupPlan({ dryRun: false })
+  const plan = setupPlan(discovery)
   return args.json ? plan : runInstallWizard(plan)
 }
 
-async function doctor(): Promise<JsonObject> {
-  const env = resolveLfgEnv()
-  const schema = await inspectStateSchema(env)
-  const checks: JsonObject[] = []
-  const add = (name: string, ok: boolean, evidence: string, required = true): void => {
-    checks.push({ name, ok, required, evidence })
-  }
-
-  const adapter = detectLazycodexAdapter()
-  add("adapter_manifest", adapter.found, adapter.manifest, false)
-  add("adapter_mcp_config", await pathExists(adapter.mcpConfig), adapter.mcpConfig, false)
-  add("adapter_skills", await directoryExists(adapter.skillsDir), adapter.skillsDir, false)
-  for (const [exe, required] of [["npx", true], ["grok", false]] as const) {
-    const found = commandPath(exe)
-    add(`exe:${exe}`, Boolean(found), found ?? "not found", required)
-  }
-  add("helper_data", await directoryExists(env.data) || await directoryExists(resolve(env.data, "..")), env.data)
-  add("state_schema", schema.version === STATE_SCHEMA_VERSION, `virtual schema version=${schema.version}; no local write`)
-  add("cli", await pathExists(join(env.root, "bin", "lfg.ts")), join(env.root, "bin", "lfg.ts"))
-
-  const failedRequired = checks.filter((check) => check.required === true && check.ok !== true)
-  const warnings = checks.filter((check) => check.required !== true && check.ok !== true)
-  return { ok: failedRequired.length === 0, status: failedRequired.length === 0 ? "pass" : "fail", helperRoot: env.root, helperData: env.data, lfgIsPlugin: false, adapter, installer: await setupPlan({ dryRun: true }), checks, failedRequired, warnings }
+function isInteractiveInstall(args: ParsedArgs): boolean {
+  return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1
 }
 
-function lazycodexInstallPlan(): JsonObject {
-  const adapter = detectLazycodexAdapter()
+function setupPlan(discovery: ModelDiscovery | null): JsonObject {
   return {
     ok: true,
     status: "planned",
     command: "setup",
     role: "lazycodex_adapter_installer",
     adapterPackage: "lazycodex-ai",
+    companionPackage: "lfg-grok-install",
     installerCommand: LAZYCODEX_INSTALLER_COMMAND,
+    grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+    lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+    packageExecutors: ["npx @islee23520/lfg"],
     executed: false,
-    mutatesGlobalConfig: false,
-    grokBuildUse: true,
+    dryRun: false,
     lfgIsPlugin: false,
-    adapterRoot: adapter.root,
-    adapterManifest: adapter.manifest,
-    grokSurfaces: grokSurfaces(),
-    verificationCommands: grokVerificationCommands(),
-    adapter,
+    purpose: "Install lazycodex-ai and internal Grok adapter extensions through the npm package surface.",
+    modelDiscovery: discovery ?? modelDiscoveryPlan(),
     steps: [
-      { id: "run_npm_installer", status: "pending", text: `Run ${LAZYCODEX_INSTALLER_COMMAND}.` },
-      { id: "use_lazycodex_adapter", status: "pending", text: "Use lazycodex through Grok custom model, agent/persona, ACP, plugin, or MCP config surfaces when running grok-build." },
-      { id: "verify_lazycodex_adapter", status: "pending", text: "Confirm Grok can see lazycodex with grok models, grok inspect --json, and plugin commands where applicable." },
+      { id: 1, status: discovery === null ? "pending" : "done", text: "Fetch the OpenAI-compatible /v1/models list." },
+      { id: 2, status: discovery === null ? "pending" : "done", text: "Map available model ids to default, fast, reasoning, and coding roles." },
+      { id: 3, status: "pending", text: `Run ${LAZYCODEX_INSTALLER_COMMAND}.` },
+      { id: 4, status: "pending", text: `Run ${INTERNAL_GROK_INSTALL_COMMAND}.` },
     ],
   }
 }
 
-async function setupPlan(options: { readonly dryRun: boolean }): Promise<JsonObject> {
-  const install = lazycodexInstallPlan()
-  const installSteps = Array.isArray(install.steps) ? install.steps : []
-  return {
-    ...install,
-    command: "setup",
-    dryRun: options.dryRun,
-    updatedAt: utcNow(),
-    purpose: "Install lazycodex Codex adapter for grok-build",
-    packageExecutors: ["npx @islee23520/lfg"],
-    steps: installSteps.map((step, index) => ({ id: index + 1, key: isRecord(step) ? step.id : undefined, status: isRecord(step) ? step.status : undefined, text: isRecord(step) ? step.text : undefined })),
-    lazycodex: { adapterPackage: install.adapterPackage, mutatesGlobalConfig: false, installerCommand: install.installerCommand, lfgIsPlugin: false, adapterRoot: install.adapterRoot, grokSurfaces: install.grokSurfaces },
-  }
-}
-
-async function drySetup(): Promise<JsonObject> {
-  return setupPlan({ dryRun: true })
-}
-
-async function inspectStateSchema(env: LfgEnv): Promise<JsonObject> {
-  const path = stateSchemaPath(env)
-  const current = await readJsonObject(path)
-  const previous = typeof current.version === "number" ? current.version : null
-  const now = utcNow()
-  const schema = {
-    name: "lfg-state",
-    version: STATE_SCHEMA_VERSION,
-    createdAt: typeof current.createdAt === "string" ? current.createdAt : now,
-    updatedAt: now,
-    stateDir: env.stateDir,
-    runsDir: join(env.data, "runs"),
-    migrations: previous === STATE_SCHEMA_VERSION ? [] : [{ id: `state-schema-v${previous ?? 0}-to-${STATE_SCHEMA_VERSION}`, ts: now, from: previous, to: STATE_SCHEMA_VERSION, status: "pending" }],
-    migrationStatus: previous === STATE_SCHEMA_VERSION ? "current" : "not_written",
-    roots: ["state"],
-  }
-  return schema
-}
-
-function resolveLfgEnv(): LfgEnv {
-  const cwd = process.cwd()
-  const root = resolve(process.env.GROK_PLUGIN_ROOT ?? defaultHelperRoot(cwd))
-  const data = resolve(process.env.GROK_PLUGIN_DATA ?? join(cwd, ".lfg"))
-  return { root, data, stateDir: join(data, "state"), launcher: process.env.LFG_LAUNCHER ?? "lfg" }
-}
-
-function defaultHelperRoot(cwd: string): string {
-  if (existsSync(join(cwd, "bin", "lfg.ts")) && existsSync(join(cwd, "package.json"))) return cwd
-  const workspacePackage = resolve(cwd, "plugins", "lfg")
-  if (existsSync(join(workspacePackage, "bin", "lfg.ts"))) return workspacePackage
-  return workspacePackage
-}
-
 function parseArgs(argv: readonly string[]): ParsedArgs {
-  const positional = argv.filter((arg) => arg !== "--json" && arg !== "--run")
-  return { json: argv.includes("--json"), run: argv.includes("--run"), positional }
+  const positional: string[] = []
+  let baseUrl: string | null = null
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index]
+    if (arg === "--json" || arg === "--run") {
+      continue
+    }
+    if (arg === "--base-url" || arg === "--openai-base-url") {
+      const value = argv[index + 1]
+      if (typeof value === "string") {
+        baseUrl = value
+        index += 1
+        continue
+      }
+    }
+    if (typeof arg === "string") {
+      positional.push(arg)
+    }
+  }
+  return { json: argv.includes("--json"), run: argv.includes("--run"), baseUrl, positional }
 }
 
-function emit(value: unknown, json: boolean): void {
+function emit(value: JsonObject | string, json: boolean): void {
   if (json || typeof value !== "string") {
     process.stdout.write(`${JSON.stringify(value, null, 2)}\n`)
     return
@@ -169,37 +107,30 @@ function emit(value: unknown, json: boolean): void {
   process.stdout.write(`${value}\n`)
 }
 
-function isFailure(value: unknown): boolean {
+function isFailure(value: JsonObject | string): boolean {
   return isRecord(value) && value.ok === false
 }
 
 function help(): string {
-  return ["lfg - setup lazycodex for Grok Build", "", "Commands:", "  lfg setup", "  lfg dry-setup", "  lfg doctor", "", "Package execution:", "  npx @islee23520/lfg setup", "  npx @islee23520/lfg dry-setup", "  npx @islee23520/lfg doctor", "", "Automation:", "  lfg --json setup", "  lfg --json setup --run", "  lfg --json dry-setup", "  lfg --json doctor"].join("\n")
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path)
-    return true
-  } catch {
-    return false
-  }
-}
-
-async function directoryExists(path: string): Promise<boolean> {
-  try {
-    return (await stat(path)).isDirectory()
-  } catch {
-    return false
-  }
-}
-
-function stateSchemaPath(env: LfgEnv): string {
-  return join(env.stateDir, "schema.json")
-}
-
-function utcNow(): string {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, "Z")
+  return [
+    "lfg - setup lazycodex-ai and Grok adapter extensions for Grok Build",
+    "",
+    "Commands:",
+    "  lfg setup",
+    "",
+    "Package execution:",
+    "  npx @islee23520/lfg setup",
+    "",
+    "Automation:",
+    "  lfg --json setup",
+    "  lfg --json setup --base-url http://127.0.0.1:11434",
+    "  lfg --json setup --run",
+    "  lfg --json doctor",
+    "",
+    "Setup runs:",
+    `  ${LAZYCODEX_INSTALLER_COMMAND}`,
+    `  ${INTERNAL_GROK_INSTALL_COMMAND}`,
+  ].join("\n")
 }
 
 process.exit(await main(process.argv.slice(2)))

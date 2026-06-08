@@ -33,15 +33,6 @@ async function ensureBuilt(script: string): Promise<void> {
     return
   }
 
-  try {
-    await access(script)
-    return
-  } catch (error) {
-    if (!(error instanceof Error)) {
-      throw error
-    }
-  }
-
   buildPromise ??= runBuild()
   await buildPromise
 }
