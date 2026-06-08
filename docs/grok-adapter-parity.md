@@ -13,7 +13,7 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | `cleanup` / `update` | passthrough CLI | `docs/grok-cleanup-update.md` | N/A (documented; re-run setup/doctor) |
 | ulw-loop / start-work skills | plugin components | Grok plugin tree | partial (brownfield) |
 | Project-local `.grok` repair | `project-local-cleanup.mjs` | `grok-install/project-local.ts` | partial (`lfg --json project-local` inspect; repair N/A per docs) |
-| Model catalog | `model-catalog.json` | `lfg-models.ts` + `LAZYCODEX_*` | partial (`lfg-models.catalog.test.ts` env contract) |
+| Model catalog | `model-catalog.json` | `lfg-models.ts` + `LAZYCODEX_*` | partial (env contract + `lfg-models.mapping.test.ts` role mapping) |
 | Autonomous permissions | `permissions.mjs` | N/A or Grok permissions | N/A |
 | Telemetry | plugin telemetry | vendored in tree | partial |
 | Extension hooks (LFP port) | legacy LFP | `grok-install/extension-hooks.ts` | partial (merge on install; idempotent second merge test) |
