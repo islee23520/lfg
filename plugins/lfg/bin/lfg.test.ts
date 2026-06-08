@@ -312,6 +312,22 @@ describe("lfg CLI", () => {
     const json = JSON.parse(doctor.stdout) as { ok?: boolean; cli?: { ok?: boolean } }
     expect(json.ok).toBe(true)
     expect(json.cli?.ok).toBe(true)
+    const doctorGap = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, {
+      HOME: home,
+      LFG_DOCTOR_REGISTRY_VERSION: "0.1.3",
+    })
+    expect(doctorGap.exitCode).toBe(0)
+    const gapJson = JSON.parse(doctorGap.stdout) as {
+      cli?: { ok?: boolean; layout?: string }
+      publishGap?: { publishReady?: boolean; registryVersion?: string }
+    }
+    expect(gapJson.cli?.ok).toBe(true)
+    expect(gapJson.cli?.layout).toBe("published-workspace")
+    expect(gapJson.publishGap).toMatchObject({
+      registryVersion: "0.1.3",
+      publishReady: true,
+      blockedReason: null,
+    })
     await rm(installDir, { recursive: true, force: true })
     await rm(packDir, { recursive: true, force: true })
   }, 120_000)
