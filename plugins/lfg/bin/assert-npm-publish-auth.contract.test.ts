@@ -11,5 +11,6 @@ describe("scripts/assert-npm-publish-auth.mjs (#22)", () => {
     expect(script).toContain("npm-publish-auth.js")
     expect(script).toContain("evaluateNpmPublishAuth")
     expect(script).toContain("whoami")
+    expect(script).toMatch(/process\.exit\(auth\.ok \? 0 : 2\)/)
   })
 })

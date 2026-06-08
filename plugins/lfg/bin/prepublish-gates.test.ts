@@ -19,4 +19,15 @@ describe("npm publish gates (#22)", () => {
     const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as { name: string }
     expect(pkg.name).toBe("@islee23520/lfg")
   })
+
+  test("root files allowlist publishes bin shim and dist not nested workspace package.json (#22)", async () => {
+    const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
+      readonly bin?: { readonly lfg?: string }
+      readonly files?: readonly string[]
+    }
+    expect(pkg.bin?.lfg).toBe("plugins/lfg/lfg")
+    expect(pkg.files).toContain("plugins/lfg/lfg")
+    expect(pkg.files).toContain("plugins/lfg/dist")
+    expect(pkg.files).not.toContain("plugins/lfg/package.json")
+  })
 })
