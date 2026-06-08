@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { packageJsonHasBinLfg } from "../bin/npm-publish-bin"
 
 /** Read `@islee23520/lfg` version from published workspace root (npm pack layout). */
 export async function readLfgPackageVersionFromBundle(moduleUrl: string): Promise<string | null> {
@@ -32,15 +33,8 @@ async function readVersionField(packageJsonPath: string, requireBinLfg: boolean)
     if (typeof version !== "string" || version.length === 0) {
       return null
     }
-    if (requireBinLfg) {
-      const bin = record.bin
-      if (typeof bin !== "object" || bin === null) {
-        return null
-      }
-      const lfg = (bin as Record<string, unknown>).lfg
-      if (typeof lfg !== "string" || lfg.length === 0) {
-        return null
-      }
+    if (requireBinLfg && !(await packageJsonHasBinLfg(packageJsonPath))) {
+      return null
     }
     return version
   } catch {

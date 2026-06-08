@@ -1,6 +1,7 @@
-import { access, readFile } from "node:fs/promises"
+import { access } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { packageJsonHasBinLfg } from "./npm-publish-bin"
 
 export type LfgCliLayout = {
   readonly ok: boolean
@@ -69,19 +70,3 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function packageJsonHasBinLfg(packageJsonPath: string): Promise<boolean> {
-  try {
-    const parsed = JSON.parse(await readFile(packageJsonPath, "utf8")) as unknown
-    if (typeof parsed !== "object" || parsed === null) {
-      return false
-    }
-    const lfg = (parsed as Record<string, unknown>).bin
-    if (typeof lfg !== "object" || lfg === null) {
-      return false
-    }
-    const binPath = (lfg as Record<string, unknown>).lfg
-    return typeof binPath === "string" && binPath.length > 0
-  } catch {
-    return false
-  }
-}
