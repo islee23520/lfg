@@ -5,6 +5,7 @@ Publish **from repository root** — not `plugins/lfg` alone.
 ```sh
 npm login
 npm test
+npm run assert-pack
 npm publish --access public
 ```
 

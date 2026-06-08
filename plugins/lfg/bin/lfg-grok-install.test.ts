@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
 import { applyLazycodexAgentTomls } from "../grok-install/apply-agent-tomls"
+import { runInternalGrokInstall } from "../grok-install/run-internal"
 import { mergeAgentTomlOverrides } from "../grok-install/agent-overrides"
 import { defaultLazycodexAgentConfig } from "./lfg-models"
 import { installGrokPluginFromSource, readGrokInstallStamp } from "../grok-install/install"
@@ -11,6 +12,13 @@ import { runGrokDoctor } from "../grok-install/doctor"
 import { runLfg } from "./test-process"
 
 describe("grok-install", () => {
+  test("internal install stamp uses published package version", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-stamp-ver-"))
+    await runInternalGrokInstall({ HOME: home })
+    const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json"), "utf8")
+    expect(stampRaw).toContain("0.1.4")
+  })
+
   test("install is idempotent for install stamp version", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-home-"))
     const source = await mkdtemp(join(tmpdir(), "lfg-grok-src-"))

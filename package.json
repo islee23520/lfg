@@ -36,7 +36,8 @@
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
     "prepack": "npm run build",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm test",
+    "assert-pack": "node scripts/assert-npm-pack-bin.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

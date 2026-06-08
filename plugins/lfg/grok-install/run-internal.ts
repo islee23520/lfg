@@ -4,11 +4,15 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { JsonObject } from "../bin/lfg-json"
 import { installGrokPluginFromSource } from "./install"
+import { readLfgPackageVersionFromBundle } from "./package-version"
 
 export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.env): Promise<JsonObject> {
   const home = env.HOME ?? homedir()
   const sourceRoot = env.LFG_GROK_INSTALL_SOURCE_ROOT ?? defaultFixtureSourceRoot()
-  const version = env.LFG_PACKAGE_VERSION ?? "0.0.0-dev"
+  const version =
+    env.LFG_PACKAGE_VERSION ??
+    (await readLfgPackageVersionFromBundle(import.meta.url)) ??
+    "0.0.0-dev"
   const result = await installGrokPluginFromSource({ home, sourceRoot, version })
   return {
     ok: true,
