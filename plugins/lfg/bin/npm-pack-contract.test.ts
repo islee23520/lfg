@@ -16,6 +16,7 @@ describe("npm pack contract (#22)", () => {
     expect(paths).toContain("package.json")
     expect(paths).toContain("plugins/lfg/lfg")
     expect(paths).toContain("plugins/lfg/dist/lfg.js")
+    expect(paths).toContain("plugins/lfg/dist/self-test.js")
     expect(paths).toContain("plugins/lfg/README.md")
     expect(paths).toContain("plugins/lfg/AGENTS.md")
     expect(paths.some((p) => p.startsWith("plugins/lfg/skills/"))).toBe(true)
