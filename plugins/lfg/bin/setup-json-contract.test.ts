@@ -32,5 +32,8 @@ exit 0
 
   test("findDeprecatedSetupJsonKeys detects legacy fields", () => {
     expect(findDeprecatedSetupJsonKeys({ stablePluginLink: { status: "missing_adapter" } })).toContain("stablePluginLink")
+    expect(findDeprecatedSetupJsonKeys({ mcpConfigRepair: {}, stablePluginLinks: [] })).toEqual(
+      expect.arrayContaining(["mcpConfigRepair", "stablePluginLinks"]),
+    )
   })
 })
