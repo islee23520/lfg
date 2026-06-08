@@ -23,6 +23,7 @@ describe("npm publish metadata (#22)", () => {
     const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>
     }
+    expect(pkg.scripts?.["record-publish-gap"]).toMatch(/^npm run build &&/)
     expect(pkg.scripts?.["record-publish-gap"]).toContain("record-publish-gap.mjs")
     expect(pkg.scripts?.["assert-pack"]).toContain("assert-npm-pack-bin.mjs")
   })
