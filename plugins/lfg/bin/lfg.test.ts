@@ -41,7 +41,7 @@ describe("lfg CLI", () => {
     const parsed = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as Record<string, unknown>
 
     expect(parsed.name).toBe("@islee23520/lfg")
-    expect(parsed.version).toBe("0.1.3")
+    expect(parsed.version).toBe("0.1.4")
     expect(parsed.description).toContain("Grok Build adapter")
     expect(parsed.description).not.toContain("@islee23520/lfp setup")
     expect(parsed.bin).toEqual({ lfg: "lfg" })
