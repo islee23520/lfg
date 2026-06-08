@@ -20,5 +20,6 @@ describe("docs/npm-publish.md (#22)", () => {
     expect(doc).toContain("publishGap")
     expect(doc).toContain("cli.ok")
     expect(doc).toContain("registryBin")
+    expect(doc).toContain("registry-install-smoke")
   })
 })
