@@ -1,11 +1,17 @@
 import { describe, expect, test } from "vitest"
 import {
   isLegacyRegistryBinLfg,
+  LEGACY_REGISTRY_BIN_LFG_TARGETS,
   parseNpmRegistryBinLfg,
   registryBinPublishContract,
 } from "./npm-registry-bin"
 
 describe("npm-registry-bin (#22)", () => {
+  test("LEGACY_REGISTRY_BIN_LFG_TARGETS covers 0.1.1 and 0.1.3 bin paths", () => {
+    expect(LEGACY_REGISTRY_BIN_LFG_TARGETS).toContain("dist/lfg.js")
+    expect(LEGACY_REGISTRY_BIN_LFG_TARGETS).toContain("plugins/lfg/dist/lfg.js")
+  })
+
   test("parseNpmRegistryBinLfg reads npm view bin.lfg line", () => {
     expect(parseNpmRegistryBinLfg("plugins/lfg/dist/lfg.js\n")).toBe("plugins/lfg/dist/lfg.js")
     expect(parseNpmRegistryBinLfg("plugins/lfg/lfg")).toBe("plugins/lfg/lfg")

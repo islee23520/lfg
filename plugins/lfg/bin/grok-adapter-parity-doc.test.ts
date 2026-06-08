@@ -14,5 +14,6 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
     expect(text).toContain("lfg doctor")
     expect(text).toContain("publishGap")
     expect(text).toContain("#22")
+    expect(text).toContain("npm-publish-workflow")
   })
 })

@@ -55,6 +55,8 @@ describe("pre-publish-check integration (#22)", () => {
       expect(combined).toContain("build.mjs")
       expect(combined).toContain('"hasBin": true')
       expect(combined).toContain('"publishReady": true')
+      expect(combined).toContain('"legacyWrongTarget": true')
+      expect(combined).toContain("plugins/lfg/dist/lfg.js")
     }
   }, 60_000)
 })
