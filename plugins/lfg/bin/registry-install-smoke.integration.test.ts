@@ -41,6 +41,16 @@ describe("registry @islee23520/lfg install smoke (#22)", () => {
       const doctor = JSON.parse(stdout) as { ok?: boolean; lfgIsPlugin?: boolean }
       expect(doctor.ok).toBe(true)
       expect(doctor.lfgIsPlugin).toBe(false)
+
+      const { stdout: setupOut } = await execFileAsync("npx", ["@islee23520/lfg", "--json", "setup"], {
+        cwd: installDir,
+        encoding: "utf8",
+        maxBuffer: 2_000_000,
+      })
+      const setup = JSON.parse(setupOut) as { ok?: boolean; command?: string; executed?: boolean }
+      expect(setup.ok).toBe(true)
+      expect(setup.command).toBe("setup")
+      expect(setup.executed).toBe(false)
     } finally {
       await rm(installDir, { recursive: true, force: true })
     }

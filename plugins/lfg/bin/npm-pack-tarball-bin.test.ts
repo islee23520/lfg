@@ -21,6 +21,9 @@ describe("npm pack tarball package.json (#22)", () => {
       const tarball = join(outDir, packs[0]?.filename ?? "")
       const { stdout: tarList } = await execFileAsync("tar", ["-tzf", tarball], { encoding: "utf8" })
       const entries = tarList.split("\n").filter(Boolean)
+      expect(entries).toContain("package/plugins/lfg/lfg")
+      const { stdout: tarVerbose } = await execFileAsync("tar", ["-tzvf", tarball], { encoding: "utf8" })
+      expect(tarVerbose).toMatch(/-rwxr-xr-x.*package\/plugins\/lfg\/lfg/)
       expect(entries).not.toContain("package/plugins/lfg/package.json")
       const { stdout: pkgJson } = await execFileAsync("tar", ["-xOf", tarball, "package/package.json"], {
         encoding: "utf8",

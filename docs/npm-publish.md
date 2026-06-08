@@ -15,6 +15,8 @@ npm publish --access public
 
 `npm run verify` = assert-pack + test + typecheck + self-test.
 
+`npm run record-publish-gap` and `npm run pre-publish-check` include `registryBin` (live npm `bin.lfg` vs publish contract).
+
 `npm run assert-pack` runs `npm pack --dry-run` (triggers `prepack` → `npm run build`) then checks root `bin.lfg` and required dist paths.
 
 After publish, set `LFG_DOCTOR_REGISTRY_VERSION` to the registry version when checking publish gap locally:
