@@ -4,7 +4,7 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 
 | omo-codex capability | Codex reference | Grok owner (lfg) | Status |
 |----------------------|-----------------|------------------|--------|
-| Plugin cache install | `~/.codex/plugins/cache/sisyphuslabs/omo/` | `plugins/lfg/grok-install/` | partial (internal install + postInstallVerify; idempotent `runInternalGrokInstall` test #27) |
+| Plugin cache install | `~/.codex/plugins/cache/sisyphuslabs/omo/` | `plugins/lfg/grok-install/` | partial (internal install + `postInstallVerify` canonical on setup JSON #21; idempotent internal install #27) |
 | `config.toml` merge | `install/config.mjs` | `grok-install` + `lfg-grok-config.ts` | partial (single writer `runGrokInstall`; `LFG_OWNED_GROK_CONFIG_SECTIONS`; installer contract test #29) |
 | Agent TOML + preserve reasoning | `install/agents.mjs` | `grok-install/apply-agent-tomls.ts` | partial (merge existing TOML; preserve custom keys) |
 | Hook trust | `install/hook-trust.mjs` | `grok-install/hook-trust.ts` | partial (validate hooks.json in postInstallVerify; invalid hooks fail verify test #28) |

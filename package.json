@@ -48,7 +48,8 @@
     "prepublishOnly": "npm test",
     "assert-pack": "node scripts/assert-npm-pack-bin.mjs",
     "record-publish-gap": "node scripts/record-publish-gap.mjs",
-    "assert-publish-auth": "node scripts/assert-npm-publish-auth.mjs"
+    "assert-publish-auth": "node scripts/assert-npm-publish-auth.mjs",
+    "pre-publish-check": "node scripts/pre-publish-check.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
