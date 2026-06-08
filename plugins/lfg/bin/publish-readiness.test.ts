@@ -57,6 +57,18 @@ describe("publish-readiness", () => {
     expect(gap.blockedReason).toContain("unavailable")
   })
 
+  test("gap includes packageName and hasBin in output (#22)", () => {
+    const gap = evaluatePublishGap({
+      packageName: "@islee23520/lfg",
+      localVersion: "0.1.4",
+      registryVersion: "0.1.3",
+      hasBin: true,
+    })
+    expect(gap.packageName).toBe("@islee23520/lfg")
+    expect(gap.hasBin).toBe(true)
+    expect(gap.registryVersion).toBe("0.1.3")
+  })
+
   test("blocked when versions match", () => {
     const gap = evaluatePublishGap({
       packageName: "@islee23520/lfg",

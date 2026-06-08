@@ -23,6 +23,7 @@ describe("pre-publish-check integration (#22)", () => {
         registryBin?: { legacyWrongTarget?: boolean; matchesPublishContract?: boolean; binLfg?: string | null }
       }
       expect(payload.ready).toBe(false)
+      expect(payload.ready).toBe(payload.gap.publishReady && payload.auth.ok)
       expect(payload.gap.hasBin).toBe(true)
       expect(payload.gap.publishReady).toBe(true)
       expect(payload.auth.ok).toBe(false)
