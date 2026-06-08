@@ -3,12 +3,14 @@ import { execFileSync } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
 import { readFileSync } from "node:fs"
 import { evaluatePublishGap } from "../plugins/lfg/dist/publish-readiness.js"
+import { parseNpmRegistryVersion } from "../plugins/lfg/dist/npm-registry-version.js"
 
 const root = new URL("..", import.meta.url).pathname
 const local = JSON.parse(readFileSync(`${root}/package.json`, "utf8"))
-let registry = "unknown"
+let registry = "unavailable"
 try {
-  registry = execFileSync("npm", ["view", local.name, "version"], { encoding: "utf8" }).trim()
+  const raw = execFileSync("npm", ["view", local.name, "version"], { encoding: "utf8" })
+  registry = parseNpmRegistryVersion(raw) ?? "unavailable"
 } catch {
   registry = "unavailable"
 }
