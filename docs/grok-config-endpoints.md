@@ -20,6 +20,10 @@ Legacy BYOK flows wrote `api_key` under `[endpoints]`; Grok only recognizes keys
 
 Prefer **`OPENAI_API_KEY`** in the environment for headless use; do not rely on storing secrets in `config.toml` when avoidable.
 
+## Related
+
+Host OIDC / `auth.json` issues: [`grok-host-auth.md`](grok-host-auth.md) (#23).
+
 ## Migration
 
 Re-run:
