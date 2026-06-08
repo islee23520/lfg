@@ -16,5 +16,6 @@ describe("scripts/assert-npm-pack-bin.mjs (#22)", () => {
     expect(script).toContain("publish-readiness.js")
     expect(script).toContain("npm-publish-auth.js")
     expect(script).toContain("npm-registry-version.js")
+    expect(script).toContain("fixture-minimal/hooks/hooks.json")
   })
 })

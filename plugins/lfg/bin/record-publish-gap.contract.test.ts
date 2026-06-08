@@ -12,5 +12,6 @@ describe("scripts/record-publish-gap.mjs (#22)", () => {
     expect(script).toContain("ulw-loop/evidence")
     expect(script).toContain("publish-gap-")
     expect(script).toContain("bin?.lfg")
+    expect(script).toContain("parseNpmRegistryVersion")
   })
 })
