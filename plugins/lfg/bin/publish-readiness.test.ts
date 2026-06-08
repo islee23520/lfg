@@ -46,6 +46,17 @@ describe("publish-readiness", () => {
     expect(gap.localVersion).toBe("0.1.2")
   })
 
+  test("blocked when registry version unknown string (#22)", () => {
+    const gap = evaluatePublishGap({
+      packageName: "@islee23520/lfg",
+      localVersion: "0.1.4",
+      registryVersion: "unknown",
+      hasBin: true,
+    })
+    expect(gap.publishReady).toBe(false)
+    expect(gap.blockedReason).toContain("unavailable")
+  })
+
   test("blocked when versions match", () => {
     const gap = evaluatePublishGap({
       packageName: "@islee23520/lfg",
