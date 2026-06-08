@@ -27,5 +27,8 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
     expect(text).toContain("post-install-ported-hooks.test.ts")
     expect(text).toContain("#32")
     expect(text).toContain("registry-bin-publish-gap")
+    expect(text).toContain("npm-publish-root-contract.test.ts")
+    expect(text).toContain("setup-doctor-parity.test.ts")
+    expect(text).toContain("lfg-project-local.test.ts")
   })
 })
