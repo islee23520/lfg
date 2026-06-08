@@ -8,6 +8,12 @@ describe("npm-publish-auth", () => {
     expect(auth.blockedReason).toContain("npm login")
   })
 
+  test("blocked when npm user empty string (#22)", () => {
+    const auth = evaluateNpmPublishAuth("")
+    expect(auth.ok).toBe(false)
+    expect(auth.blockedReason).toContain("npm login")
+  })
+
   test("ok when npm user present", () => {
     const auth = evaluateNpmPublishAuth("islee23520")
     expect(auth).toEqual({ ok: true, npmUser: "islee23520", blockedReason: null })
