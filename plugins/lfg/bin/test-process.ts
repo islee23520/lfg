@@ -33,7 +33,16 @@ async function ensureBuilt(script: string): Promise<void> {
     return
   }
 
-  buildPromise ??= runBuild()
+  try {
+    await access(script)
+    return
+  } catch {
+    // dist bundle missing — build once per process
+  }
+
+  buildPromise ??= runBuild().finally(() => {
+    buildPromise = null
+  })
   await buildPromise
 }
 
