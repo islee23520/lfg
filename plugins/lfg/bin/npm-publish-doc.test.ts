@@ -25,5 +25,6 @@ describe("docs/npm-publish.md (#22)", () => {
     expect(doc).toContain("could not determine executable")
     expect(doc).toContain("files")
     expect(doc).toContain("workspace dev only")
+    expect(doc).toContain("@latest")
   })
 })

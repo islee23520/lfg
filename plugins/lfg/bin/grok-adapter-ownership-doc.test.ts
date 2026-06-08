@@ -15,6 +15,12 @@ describe("docs/grok-adapter-ownership.md", () => {
     expect(text).toContain("plugins/lfg/bin/")
   })
 
+  test("ADR references npm publish doc for registry surface (#22)", async () => {
+    const text = await readFile(join(ROOT, "docs/grok-adapter-ownership.md"), "utf8")
+    expect(text).toContain("@islee23520/lfg")
+    expect(text).toContain("npx @islee23520/lfg setup")
+  })
+
   test("npm publish doc closes #22 from repository root (#22)", async () => {
     const text = await readFile(join(ROOT, "docs/npm-publish.md"), "utf8")
     expect(text).toContain("repository root")

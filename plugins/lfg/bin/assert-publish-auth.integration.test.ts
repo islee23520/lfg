@@ -16,8 +16,13 @@ describe("assert-npm-publish-auth integration (#22)", () => {
     } catch (error: unknown) {
       const err = error as { code?: number; stdout?: string }
       expect(err.code).toBe(2)
-      const auth = JSON.parse(String(err.stdout)) as { ok: boolean; blockedReason: string | null }
+      const auth = JSON.parse(String(err.stdout)) as {
+        ok: boolean
+        npmUser: string | null
+        blockedReason: string | null
+      }
       expect(auth.ok).toBe(false)
+      expect(auth.npmUser).toBeNull()
       expect(String(auth.blockedReason)).toContain("npm login")
     }
   }, 15_000)
