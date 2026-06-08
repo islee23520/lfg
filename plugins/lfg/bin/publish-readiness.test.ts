@@ -35,6 +35,17 @@ describe("publish-readiness", () => {
     expect(gap.blockedReason).toContain("unavailable")
   })
 
+  test("publishReady when local semver string differs from registry (#22)", () => {
+    const gap = evaluatePublishGap({
+      packageName: "@islee23520/lfg",
+      localVersion: "0.1.2",
+      registryVersion: "0.1.3",
+      hasBin: true,
+    })
+    expect(gap.publishReady).toBe(true)
+    expect(gap.localVersion).toBe("0.1.2")
+  })
+
   test("blocked when versions match", () => {
     const gap = evaluatePublishGap({
       packageName: "@islee23520/lfg",

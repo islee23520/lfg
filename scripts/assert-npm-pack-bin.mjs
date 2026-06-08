@@ -13,6 +13,7 @@ const required = [
   "package.json",
   "plugins/lfg/lfg",
   "plugins/lfg/dist/lfg.js",
+  "plugins/lfg/dist/self-test.js",
   "plugins/lfg/dist/publish-readiness.js",
   "plugins/lfg/dist/npm-publish-auth.js",
   "plugins/lfg/dist/npm-registry-version.js",
