@@ -5,7 +5,7 @@
   "status": "completed",
   "verifiedAt": "2026-06-08",
   "git": {
-    "mainHead": "2784cc6",
+    "mainHead": "b3b6ed6",
     "version": "0.1.4"
   },
   "commands": {
@@ -45,6 +45,7 @@
   ],
   "evidence": [
     ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run139-verify.txt",
+    ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run142-verify.txt",
     ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run141-verify.txt",
     ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run140-verify.txt",
     ".omo/ulw-loop/evidence/loop-019ea7dad1d5-run137-verify.txt",
