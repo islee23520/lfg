@@ -33,5 +33,24 @@ describe("npm publish workflow (#22)", () => {
     expect(pkg.scripts?.verify).toContain("assert-pack")
     expect(pkg.scripts?.["pre-publish-check"]).toMatch(/^npm run build &&/)
     expect(pkg.scripts?.["pre-publish-check"]).toContain("pre-publish-check.mjs")
+    expect(pkg.scripts?.prepublishOnly).toBe("npm test")
+  })
+
+  test("publish gap blockedReason null only when publishReady (#22)", () => {
+    const ready = evaluatePublishGap({
+      packageName: "@islee23520/lfg",
+      localVersion: "0.1.4",
+      registryVersion: "0.1.3",
+      hasBin: true,
+    })
+    expect(ready.blockedReason).toBeNull()
+    const noBin = evaluatePublishGap({
+      packageName: "@islee23520/lfg",
+      localVersion: "0.1.4",
+      registryVersion: "0.1.3",
+      hasBin: false,
+    })
+    expect(noBin.publishReady).toBe(false)
+    expect(noBin.blockedReason).not.toBeNull()
   })
 })

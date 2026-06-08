@@ -64,6 +64,7 @@ describe("lfg CLI", () => {
     expect(readme).toContain("npx lazycodex-ai install")
     expect(readme).toContain("grok-install")
     expect(readme).toContain("grok-adapter-parity")
+    expect(readme).toContain("docs/npm-publish.md")
     expect(readme).not.toContain("npx @islee23520/lfp setup")
     expect(readme).toContain("OpenAI-compatible base URL")
     expect(readme).toContain("/v1/models")
