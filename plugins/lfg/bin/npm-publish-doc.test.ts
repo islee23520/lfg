@@ -17,5 +17,7 @@ describe("docs/npm-publish.md (#22)", () => {
     expect(doc).toContain("dist/lfg.js")
     expect(doc).toContain("closes #22")
     expect(doc).toContain("LFG_DOCTOR_REGISTRY_VERSION")
+    expect(doc).toContain("publishGap")
+    expect(doc).toContain("cli.ok")
   })
 })

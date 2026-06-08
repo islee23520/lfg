@@ -80,12 +80,21 @@ describe("doctor cli layout (#22)", () => {
       )
       const distPath = join(installRoot, "plugins/lfg/dist/lfg.js")
       await cp(join(here, "..", "dist", "lfg.js"), distPath)
-      const doctor = await runGrokDoctor({ home, moduleUrl: pathToFileURL(distPath).href })
+      const doctor = await runGrokDoctor({
+        home,
+        moduleUrl: pathToFileURL(distPath).href,
+        registryVersion: "0.1.3",
+      })
       const cli = doctor.cli as { ok?: boolean; layout?: string }
       expect(cli.ok).toBe(false)
       expect(cli.layout).not.toBe("published-workspace")
       expect(doctor.ok).toBe(false)
       expect(doctor.failedRequired).toContain("cli")
+      expect(doctor.publishGap).toMatchObject({
+        localVersion: "0.1.3",
+        registryVersion: "0.1.3",
+        publishReady: false,
+      })
     } finally {
       await rm(home, { recursive: true, force: true })
       await rm(installRoot, { recursive: true, force: true })

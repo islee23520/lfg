@@ -12,5 +12,7 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
     expect(rows.length).toBeGreaterThanOrEqual(10)
     expect(text).toContain("plugins/lfg/grok-install/")
     expect(text).toContain("lfg doctor")
+    expect(text).toContain("publishGap")
+    expect(text).toContain("#22")
   })
 })

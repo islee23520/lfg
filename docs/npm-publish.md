@@ -32,3 +32,5 @@ npx lfg --json doctor
 ```
 
 Expected: `bin` resolves to `plugins/lfg/lfg` → `dist/lfg.js`; doctor `cli.ok: true` when `~/.grok` has stamp after `setup --run`.
+
+`lfg --json doctor` with `LFG_DOCTOR_REGISTRY_VERSION` includes `publishGap`; broken npm layouts (missing or wrong `bin.lfg`) set `cli.ok: false` and `publishGap.publishReady: false`.
