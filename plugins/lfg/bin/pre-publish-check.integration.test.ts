@@ -20,6 +20,7 @@ describe("pre-publish-check integration (#22)", () => {
         ready: boolean
         gap: { publishReady: boolean; hasBin: boolean }
         auth: { ok: boolean }
+        registryBin?: { legacyWrongTarget?: boolean; matchesPublishContract?: boolean; binLfg?: string | null }
       }
       expect(payload.ready).toBe(false)
       expect(payload.gap.hasBin).toBe(true)
@@ -29,6 +30,9 @@ describe("pre-publish-check integration (#22)", () => {
       expect(gap.packageName).toBe("@islee23520/lfg")
       expect(gap.localVersion).toMatch(/^\d+\.\d+\.\d+$/)
       expect(gap.registryVersion).toMatch(/^\d+\.\d+\.\d+$|unavailable/)
+      expect(payload.registryBin?.legacyWrongTarget).toBe(true)
+      expect(payload.registryBin?.matchesPublishContract).toBe(false)
+      expect(payload.registryBin?.binLfg).toBe("plugins/lfg/dist/lfg.js")
     }
   }, 30_000)
 

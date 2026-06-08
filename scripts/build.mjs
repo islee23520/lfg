@@ -9,6 +9,7 @@ const outputs = [
   ["plugins/lfg/bin/npm-publish-auth.ts", "plugins/lfg/dist/npm-publish-auth.js"],
   ["plugins/lfg/bin/npm-registry-version.ts", "plugins/lfg/dist/npm-registry-version.js"],
   ["plugins/lfg/bin/npm-publish-bin.ts", "plugins/lfg/dist/npm-publish-bin.js"],
+  ["plugins/lfg/bin/npm-registry-bin.ts", "plugins/lfg/dist/npm-registry-bin.js"],
 ]
 
 await Promise.all(

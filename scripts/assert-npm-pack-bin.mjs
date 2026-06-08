@@ -18,6 +18,7 @@ const required = [
   "plugins/lfg/dist/npm-publish-auth.js",
   "plugins/lfg/dist/npm-registry-version.js",
   "plugins/lfg/dist/npm-publish-bin.js",
+  "plugins/lfg/dist/npm-registry-bin.js",
   "plugins/lfg/dist/grok-install/fixture-minimal/hooks/hooks.json",
 ]
 const missing = required.filter((p) => !paths.includes(p))

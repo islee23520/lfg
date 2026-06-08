@@ -14,5 +14,7 @@ describe("scripts/record-publish-gap.mjs (#22)", () => {
     expect(script).toContain("isPublishedLfgBinTarget")
     expect(script).toContain("npm-publish-bin.js")
     expect(script).toContain("parseNpmRegistryVersion")
+    expect(script).toContain("registryBinPublishContract")
+    expect(script).toContain("npm-registry-bin.js")
   })
 })

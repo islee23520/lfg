@@ -25,10 +25,13 @@ describe("record-publish-gap integration (#22)", () => {
       publishReady: boolean
       evidencePath: string
       bin: { lfg?: string } | null
+      registryBin?: { legacyWrongTarget?: boolean; binLfg?: string | null }
     }
     expect(payload.hasBin).toBe(true)
     expect(payload.publishReady).toBe(true)
     expect(payload.bin?.lfg).toBe("plugins/lfg/lfg")
     expect(payload.evidencePath).toContain("ulw-loop/evidence/publish-gap-")
+    expect(payload.registryBin?.legacyWrongTarget).toBe(true)
+    expect(payload.registryBin?.binLfg).toBe("plugins/lfg/dist/lfg.js")
   }, 60_000)
 })
