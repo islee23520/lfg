@@ -32,6 +32,7 @@ describe("lfg CLI", () => {
       "record-publish-gap": "npm run build && node scripts/record-publish-gap.mjs",
       "assert-publish-auth": "npm run build && node scripts/assert-npm-publish-auth.mjs",
     })
+    expect((root as { name?: string }).name).toBe("@islee23520/lfg")
     expect(String(root.description)).toContain("grok-install")
     expect(root.scripts).not.toHaveProperty("postinstall")
     expect(workspace.scripts).toMatchObject({

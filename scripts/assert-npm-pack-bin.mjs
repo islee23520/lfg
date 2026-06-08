@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process"
+import { isPublishedLfgBinTarget, PUBLISHED_LFG_BIN_TARGET } from "../plugins/lfg/dist/npm-publish-bin.js"
 
 const raw = execFileSync("npm", ["pack", "--dry-run", "--json"], { encoding: "utf8" })
 const packs = JSON.parse(raw)
@@ -11,7 +12,7 @@ if (!pack?.files?.length) {
 const paths = pack.files.map((f) => f.path)
 const required = [
   "package.json",
-  "plugins/lfg/lfg",
+  PUBLISHED_LFG_BIN_TARGET,
   "plugins/lfg/dist/lfg.js",
   "plugins/lfg/dist/self-test.js",
   "plugins/lfg/dist/publish-readiness.js",
@@ -34,8 +35,8 @@ if (!binLfg) {
   console.error("assert-npm-pack-bin: root package.json missing bin.lfg")
   process.exit(1)
 }
-if (binLfg !== "plugins/lfg/lfg") {
-  console.error(`assert-npm-pack-bin: bin.lfg must be plugins/lfg/lfg (got ${JSON.stringify(binLfg)})`)
+if (!isPublishedLfgBinTarget(binLfg)) {
+  console.error(`assert-npm-pack-bin: bin.lfg must be ${PUBLISHED_LFG_BIN_TARGET} (got ${JSON.stringify(binLfg)})`)
   process.exit(1)
 }
 console.log(`assert-npm-pack-bin: ok @${rootPkg.version} (${pack.filename})`)
