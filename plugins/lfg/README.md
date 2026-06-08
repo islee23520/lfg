@@ -10,7 +10,7 @@ npx @islee23520/lfg setup
 
 Default `setup --run` runs `npx lazycodex-ai install` then **internal** `@islee23520/lfg grok-install` (omo adapter on `~/.grok`). Legacy `@islee23520/lfp` setup is not required on the default path.
 
-Parity roadmap: [`docs/grok-adapter-parity.md`](../../docs/grok-adapter-parity.md) (repo root).
+Parity roadmap: [`docs/grok-adapter-parity.md`](../../docs/grok-adapter-parity.md) (repo root). Publish: [`docs/npm-publish.md`](../../docs/npm-publish.md).
 
 ## What lfg does
 
