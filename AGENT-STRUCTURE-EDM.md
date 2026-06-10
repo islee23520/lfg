@@ -211,3 +211,60 @@ flowchart TD
     CONF -->|No| SKIP[Nothing changed]
     INSTALL --> DONE[~/.grok updated with Grok-first agents]
 ```
+
+---
+
+## Root Cause Analysis: Why Grok "Stopped Working" After LFG Install
+
+### Primary Symptom
+After `lfg setup --run`, Grok Build could not use lazycodex/omo agents properly. Agents appeared, but hooks were broken (duplicated bridge wrappers) and model assignments were wrong or used unknown models (`glm-5.1` etc.).
+
+### Two Independent Failure Modes Discovered
+
+#### 1. Hook Duplication (the "Grok won't run" part)
+- **Source of truth**: live `~/.grok/installed-plugins/lfg/hooks/hooks.json` contained many entries like:
+  ```
+  node "bridge" node "bridge" node "bridge" node "real-component" ...
+  ```
+- **Root cause in code**: `wrapLazyCodexHookCommand` in `normalize-plugin-hooks.ts` was **not idempotent**.
+  - It blindly prepended the bridge every time `normalizePluginHooksJson` / `mergePortedHooksIntoPlugin` ran.
+  - Repair path (`runInternalGrokInstall` when stamp exists) and initial install both call the same merge.
+  - Multiple runs, or repair after first install, accumulated wrappers.
+- **Effect**: Grok executed the hook command line, which tried to spawn `node bridge node bridge node real...`. The inner spawns either failed to locate the real CLI or passed mangled arguments, so rules/telemetry/ultrawork/lsp/etc. hooks never ran. This made the whole lazycodex integration appear "dead" even when models and agents were present.
+- **Fix**:
+  - Made `wrapLazyCodexHookCommand` peel any number of outer bridge layers until it reaches a non-bridge target, then apply **exactly one** clean wrapper.
+  - Added unit tests for double/triple-wrapped cases.
+  - Re-normalized the live hooks.json with the idempotent logic.
+  - Live result: 16 component commands, exactly 16 bridge markers, zero multi-wrapped.
+
+#### 2. Model Assignment Mismatch (the "unknown models" part)
+- Bundled `omo-agent-overrides.json` had Codex-era defaults (`grok-4.20-0309-non-reasoning` for explorer, `gpt-5.4-mini` for librarian) plus no entries for plan/metis/momus.
+- Discovery + interactive wizard + user overrides file on disk ended up writing `glm-5.1` (and other non-Grok models) for planning agents.
+- Codex originals used `gpt-5.5`/`gpt-5.3-codex-spark` etc.; Grok proxy had those, but they were not the optimal or "native" Grok models.
+- Result: agents existed in `~/.grok/agents/*.toml`, but the models were either slow, low-quality, or unfamiliar.
+- **Fix**:
+  - Rewrote `omo-agent-overrides.json` to Grok-first equivalents based on live proxy benchmarking (see tables above).
+  - Updated `FALLBACK_GLOBAL_LAZYCODEX_AGENTS`.
+  - Added `model-recommendations.ts` + recommendation table in interactive `lfg setup`.
+  - Forced live `~/.grok/agents/*.toml` + overrides + `config.toml` sections to the Grok-first set (`grok-3-mini-fast` for explorer, `grok-4.20-0309-reasoning` for plan/reasoning/momus, `grok-4.20-0309-non-reasoning` for coding/metis, `grok-4.3` for reviewer).
+  - Also fixed flavour-pack agents (artistry, visual-*) to be synced into `~/.grok/agents/`.
+
+### Why the Combination Felt Like "Grok is Broken"
+- Duplicated hooks → no rules, no ultrawork loop, no LSP checks, no telemetry → the "lazy codex experience" disappeared.
+- Bad models → even when an agent was invoked, it either used a slow/unknown model or fell back in ways the user didn't control.
+- Both problems were created or amplified by the LFG install/repair flow.
+
+### Current Live State (after fixes, before Grok restart)
+- `~/.grok/installed-plugins/lfg/hooks/hooks.json`: clean, single bridge per component hook, Grok event map, all expected events present.
+- Core agents (`explorer`, `plan`, `coding`, `reasoning`, `librarian`, `metis`, `momus`, `codex-ultrawork-reviewer`): all use `grok-*` models with correct reasoning effort.
+- `lazycodex-agent-overrides.json`: Grok-first.
+- `config.toml` lazycodex agent sections: consistent with above.
+- `lfg-install.json` stamp present; plugin dir is real (not symlink).
+- Flavour-pack vision agents also present in `~/.grok/agents/`.
+
+### What User Should Do Now
+1. Fully quit/restart Grok Build (so it reloads the plugin hooks from the real directory and re-reads `~/.grok/agents` + `config.toml`).
+2. Open a new session.
+3. Optionally run `lfg doctor` or just start using; the first SessionStart + UserPromptSubmit should fire the cleaned hooks.
+4. If you still see odd behavior, share the exact error or the output of the hook status lines that appear in the UI.
+

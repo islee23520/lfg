@@ -91,21 +91,50 @@ function normalizeHandler(handler: unknown, onChange: () => void): unknown {
   return { ...h, command: next }
 }
 
-/** Route component CLIs through Codex↔Grok stdin/env bridge. */
+/** Route component CLIs through Codex↔Grok stdin/env bridge.
+ * Idempotent: repeatedly peel any existing outer bridge wrappers, then apply exactly one clean layer.
+ */
 export function wrapLazyCodexHookCommand(command: string): string {
-  const trimmed = command.trim()
+  let trimmed = command.trim()
   if (!/^node\s+/i.test(trimmed)) {
     return command
   }
+
+  const BRIDGE_MARKER = "lfg-grok-hook-bridge.mjs"
+
+  // Peel outer bridge wrappers until we reach a non-bridge target.
+  // A wrapped form is: node "<bridge>" node "<real>" [args...]
+  // or without quotes.
+  while (true) {
+    const m = trimmed.match(/^node\s+("(?:[^"\\]|\\.)*"|[^\s]+)\s*(.*)$/i)
+    if (!m) break
+    const first = m[1]!
+    const rest = (m[2] ?? "").trim()
+    if (first.toLowerCase().includes(BRIDGE_MARKER)) {
+      // strip this bridge layer; the real command starts after it
+      if (rest.length === 0) {
+        // nothing left; bail to avoid infinite
+        break
+      }
+      trimmed = rest.startsWith("node ") ? rest : `node ${rest}`
+      continue
+    }
+    // first target is not the bridge
+    break
+  }
+
+  // If after peeling there is still no component/script, leave original untouched.
   if (!trimmed.includes("/components/") && !trimmed.includes("/scripts/")) {
     return command
   }
-  const match = trimmed.match(/^node\s+("(?:[^"\\]|\\.)*"|[^\s]+)\s*(.*)$/i)
-  if (!match) {
+
+  const m2 = trimmed.match(/^node\s+("(?:[^"\\]|\\.)*"|[^\s]+)\s*(.*)$/i)
+  if (!m2) {
     return command
   }
-  const nodeTarget = match[1]!
-  const rest = match[2] ?? ""
+  const nodeTarget = m2[1]!
+  const rest = m2[2] ?? ""
   const bridge = '"${GROK_PLUGIN_ROOT}/hooks/lfg-grok-hook-bridge.mjs"'
-  return `node ${bridge} node ${nodeTarget}${rest.length > 0 ? ` ${rest}` : ""}`
+  const rebuilt = `node ${bridge} node ${nodeTarget}${rest.length > 0 ? ` ${rest}` : ""}`
+  return rebuilt
 }
