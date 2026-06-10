@@ -4,6 +4,7 @@ import type { LazycodexAgentOverrideMap } from "./lazycodex-agent-overrides"
 import { overrideForAgent } from "./lazycodex-agent-overrides"
 import { renderGrokRoleTomlFromCodex, renderMinimalGrokRoleToml } from "./codex-agent-toml-to-grok"
 import { resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
+import { resolveFlavourPackAssetsRoot } from "./resolve-flavour-pack-asset"
 
 const ULTRAWORK_AGENTS_DIR = join("components", "ultrawork", "agents")
 
@@ -66,5 +67,34 @@ export async function syncLazycodexAgentsToGrokLedger(
     await writeFile(path, renderMinimalGrokRoleToml(name, override), "utf8")
     written.push(path)
   }
+  // Sync flavour-pack agents (artistry, visual, etc.) from bundled assets
+  const flavourPackAgentsDir = await resolveFlavourPackAssetsRoot(import.meta.url)
+  const flavourAgentConfigs = join(flavourPackAgentsDir, "agent-configs")
+  let flavourEntries: string[]
+  try {
+    flavourEntries = await readdir(flavourAgentConfigs)
+  } catch {
+    flavourEntries = []
+  }
+  for (const fileName of flavourEntries) {
+    if (!fileName.endsWith(".toml")) {
+      continue
+    }
+    const baseName = fileName.slice(0, -".toml".length)
+    if (syncedNames.has(baseName)) {
+      continue
+    }
+    const codexText = await readFile(join(flavourAgentConfigs, fileName), "utf8")
+    const override = overrideForAgent(agentOverrides, baseName)
+    const rendered = renderGrokRoleTomlFromCodex(codexText, baseName, override, promptsDir)
+    const dest = join(agentsDir, fileName)
+    await writeFile(dest, rendered.toml, "utf8")
+    written.push(dest)
+    if (rendered.promptPath !== null && rendered.promptBody !== null) {
+      await writeFile(rendered.promptPath, rendered.promptBody, "utf8")
+    }
+    syncedNames.add(baseName)
+  }
+
   return { ok: true, agentsDir, promptsDir, written, sourcePluginRoot: resolved.pluginRoot }
 }

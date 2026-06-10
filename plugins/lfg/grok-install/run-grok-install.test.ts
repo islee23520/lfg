@@ -32,7 +32,7 @@ describe("runGrokInstall", () => {
     expect(run.configUpdate).toBeNull()
     expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
     const explorer = await readFile(join(home, ".grok", "agents", "explorer.toml"), "utf8")
-    expect(explorer).toContain('model = "grok-build"')
+    expect(explorer).toContain('model = "grok-3-mini-fast"')
     const stamp = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stamp).toContain("@islee23520/lfg")
   })

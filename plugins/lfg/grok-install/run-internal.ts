@@ -9,6 +9,7 @@ import { resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
 import { installGrokPluginFromSource, readGrokInstallStamp } from "./install"
 import { readLfgPackageVersionFromBundle } from "./package-version"
 import { resolveLazycodexGrokPluginSource } from "./resolve-lazycodex-plugin-source"
+import { ensureCuaDriverSkill } from "./ensure-cua-driver-skill"
 import { writeGrokInstallStamp } from "./write-install-stamp"
 
 const GROK_PLUGIN_DIR = "lfg" as const
@@ -51,6 +52,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
       pluginDirName: GROK_PLUGIN_DIR,
     })
     const hooks = await mergePortedHooksIntoPlugin(result.pluginRoot)
+    await ensureCuaDriverSkill(result.pluginRoot)
     return {
       ok: true,
       status: "installed",
@@ -62,7 +64,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
       installStampPath: result.installStampPath,
       version: result.version,
       exitCode: 0,
-      stdout: `grok lazycodex install -> ${result.pluginRoot} from ${lazycodexSource} events=${hooks.hookNames.join(",")}`,
+      stdout: `grok lazycodex install -> ${result.pluginRoot} from ${lazycodexSource} events=${hooks.hookNames.join(",")} cua-driver-skill=ensured`,
       stderr: "",
     }
   }
@@ -74,6 +76,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     pluginDirName: GROK_PLUGIN_DIR,
   })
   const hooks = await mergePortedHooksIntoPlugin(result.pluginRoot)
+  await ensureCuaDriverSkill(result.pluginRoot)
   return {
     ok: true,
     status: "installed",
@@ -85,7 +88,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     installStampPath: result.installStampPath,
     version: result.version,
     exitCode: 0,
-    stdout: `fixture fallback -> ${result.pluginRoot} events=${hooks.hookNames.join(",")}`,
+    stdout: `fixture fallback -> ${result.pluginRoot} events=${hooks.hookNames.join(",")} cua-driver-skill=ensured`,
     stderr: "",
     warning:
       "Full lazycodex tree not found. Set LFG_LAZYCODEX_PLUGIN_SOURCE or run `npx lazycodex-ai` once to populate npm cache, then re-run lfg setup --run.",
@@ -99,6 +102,7 @@ async function finishRepair(
   mode: string,
 ): Promise<JsonObject> {
   const hooks = await mergePortedHooksIntoPlugin(pluginRoot)
+  await ensureCuaDriverSkill(pluginRoot)
   const installStampPath = await writeGrokInstallStamp(pluginRoot, version)
   return {
     ok: true,
@@ -111,7 +115,7 @@ async function finishRepair(
     installStampPath,
     version,
     exitCode: 0,
-    stdout: `repaired adapter hooks at ${pluginRoot} events=${hooks.hookNames.join(",")}`,
+    stdout: `repaired adapter hooks at ${pluginRoot} events=${hooks.hookNames.join(",")} cua-driver-skill=ensured`,
     stderr: "",
   }
 }

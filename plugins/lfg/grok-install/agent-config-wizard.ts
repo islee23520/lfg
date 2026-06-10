@@ -1,5 +1,6 @@
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
 import type { LazycodexAgentConfig, ModelDiscovery, ReasoningLevel } from "../bin/lfg-models"
+import { ROLE_RECOMMENDATIONS, PERF_SNAPSHOT } from "./model-recommendations"
 import {
   CONFIGURABLE_LAZYCODEX_AGENT_NAMES,
   type LazycodexAgentOverrideMap,
@@ -31,6 +32,17 @@ export async function configureOmoAgentOverridesInteractively(
     if (ROLE_AGENTS.has(agentName)) {
       continue
     }
+    const rec = ROLE_RECOMMENDATIONS.find((r) => r.role === agentName)
+    if (rec !== undefined) {
+      const perf = PERF_SNAPSHOT[rec.recommended]
+      const latency = perf ? `${perf.latencyMs}ms` : ""
+      const tps = perf ? `${perf.tokensPerSec}t/s` : ""
+      writeLine(`  Recommended: ${rec.recommended} (${latency}, ${tps}) - ${rec.rationale.split(".")[0]}\n`)
+      const alts = rec.alternatives.filter((a) => discovery.modelIds.includes(a))
+      if (alts.length > 0) {
+        writeLine(`  Alternatives: ${alts.join(", ")}\n`)
+      }
+    }
     const current = out[agentName] ?? bundled[agentName]
     const change = await confirm(reader, `  Configure ${agentName}? [y/N] `)
     if (!change) {
@@ -38,8 +50,8 @@ export async function configureOmoAgentOverridesInteractively(
     }
     const defaultModel = current?.model ?? discovery.mapping.default
     const defaultReasoning = current?.reasoningLevel ?? "medium"
-    const model = await readModelChoice(reader, discovery, writeLine, `${agentName} model [${defaultModel}]: `, defaultModel)
-    const reasoningLevel = await readReasoningLevel(reader, writeLine, `${agentName} reasoning [${defaultReasoning}]: `, defaultReasoning)
+    const model = await readModelChoice(reader, discovery, writeLine, `  ${agentName} model [${defaultModel}]: `, defaultModel)
+    const reasoningLevel = await readReasoningLevel(reader, writeLine, `  ${agentName} reasoning [${defaultReasoning}]: `, defaultReasoning)
     writeLine(`  ${agentName}: ${model} / ${reasoningLevel}\n`)
     out[agentName] = { model, reasoningLevel }
   }

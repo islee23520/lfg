@@ -14,6 +14,7 @@ import type { JsonObject } from "./lfg-json"
 import type { ResolveSetupDiscoveryResult } from "../grok-install/resolve-setup-discovery"
 import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery"
 import type { LazycodexAgentOverrideMap } from "../grok-install/lazycodex-agent-overrides"
+import { formatRecommendationTable, ROLE_RECOMMENDATIONS, PERF_SNAPSHOT } from "../grok-install/model-recommendations"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
 
@@ -125,6 +126,10 @@ function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): void {
   output.write(`  fast: ${discovery.mapping.fast}\n`)
   output.write(`  reasoning: ${discovery.mapping.reasoning}\n`)
   output.write(`  coding: ${discovery.mapping.coding}\n\n`)
+
+  // Show Grok-first model recommendations
+  const recTable = formatRecommendationTable(discovery.modelIds)
+  output.write(recTable + "\n")
 }
 
 // NOTE: We no longer auto-apply agent defaults to skip questions in the bare interactive path.
@@ -186,8 +191,19 @@ async function readAgentConfig(reader: LineReader, discovery: ModelDiscovery): P
 }
 
 async function readAgentSetting(reader: LineReader, discovery: ModelDiscovery, agentName: LazycodexAgentName, defaultModel: string, defaultReasoningLevel: ReasoningLevel) {
-  const model = await readModelChoice(reader, discovery, `${agentName} model [${defaultModel}]: `, defaultModel)
-  const reasoningLevel = await readReasoningLevel(reader, `${agentName} reasoning level [${defaultReasoningLevel}]: `, defaultReasoningLevel)
+  const rec = ROLE_RECOMMENDATIONS.find((r) => r.role === agentName)
+  if (rec !== undefined) {
+    const perf = PERF_SNAPSHOT[rec.recommended]
+    const latency = perf ? `${perf.latencyMs}ms` : ""
+    const tps = perf ? `${perf.tokensPerSec}t/s` : ""
+    output.write(`  Recommended: ${rec.recommended} (${latency}, ${tps}) - ${rec.rationale.split(".")[0]}\n`)
+    const alts = rec.alternatives.filter((a) => discovery.modelIds.includes(a))
+    if (alts.length > 0) {
+      output.write(`  Alternatives: ${alts.join(", ")}\n`)
+    }
+  }
+  const model = await readModelChoice(reader, discovery, `  ${agentName} model [${defaultModel}]: `, defaultModel)
+  const reasoningLevel = await readReasoningLevel(reader, `  ${agentName} reasoning level [${defaultReasoningLevel}]: `, defaultReasoningLevel)
   output.write(`  ${agentName}: ${model} / ${reasoningLevel}\n`)
   return { model, reasoningLevel }
 }
