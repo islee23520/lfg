@@ -10,10 +10,9 @@ It is the npm entry for **Grok Build** with **omo-codex-parity install** plus bu
 npx @islee23520/lfg setup
 ```
 
-**Today (transition):** `setup --run` still chains `npx lazycodex-ai install` then
-`npx @islee23520/lfp setup`. **Planned:** `runGrokInstall()` in lfg + **port LFP capabilities**
-for Grok — see `docs/lfp-capability-port.md`, `docs/grok-adapter-ownership.md`,
-`plans/lfg-omo-grok-build-adapter.md`.
+**Default path:** `setup --run` runs **`runGrokInstall()`** — copies omo/lazycodex plugin into
+`~/.grok/installed-plugins/lfg`, merges Grok hooks, syncs agents, writes model config and LFP-style overrides.
+Does **not** require `npx lazycodex-ai install` into `~/.codex`.
 
 The **CLI** is not a Grok plugin (`lfgIsPlugin: false`). **`setup --run`** installs the
 **Grok plugin payload** (omo + ported extensions). Optional **Codex Light** home
@@ -22,7 +21,8 @@ The **CLI** is not a Grok plugin (`lfgIsPlugin: false`). **`setup --run`** insta
 ## STRUCTURE
 
 - `plugins/lfg/bin/lfg.ts`: CLI entrypoint for `setup`.
-- `plugins/lfg/bin/lfg-installer.ts`: Chained `npx` installers (lazycodex-ai, then LFP).
+- `plugins/lfg/bin/lfg-installer.ts`: Grok-only installer (`runGrokInstall`).
+- `plugins/lfg/grok-install/`: Internal plugin copy, hooks, agents, config.
 - `plugins/lfg/skills/lazycodex/SKILL.md`: skill that points users to the npm installer surface.
 
 ## WHERE TO LOOK
@@ -30,17 +30,17 @@ The **CLI** is not a Grok plugin (`lfgIsPlugin: false`). **`setup --run`** insta
 | Task | Location | Notes |
 |------|----------|-------|
 | Change CLI output or routing | `plugins/lfg/bin/lfg.ts` | Keep the command set to `setup`. |
-| Change installer wording or order | `plugins/lfg/bin/lfg-installer.ts` | Do not bypass upstream packages. |
-| Change setup behavior | `plugins/lfg/bin/lfg.ts` | Only explicit setup may mutate `~/.grok` (via upstream installers). |
-| Change user-facing skill copy | `plugins/lfg/skills/` | Lazycodex + LFP guidance via `lfg setup`. |
+| Change installer wording or Grok install | `plugins/lfg/bin/lfg-installer.ts`, `grok-install/` | Grok `~/.grok` only on default path. |
+| Change setup behavior | `plugins/lfg/bin/lfg.ts` | Only explicit `setup --run` may mutate `~/.grok`. |
+| Change user-facing skill copy | `plugins/lfg/skills/` | Grok-first lazycodex via `lfg setup`. |
 
 ## CODE MAP
 
 | Surface | Location | Role |
 |---------|----------|------|
-| `lfg setup` | `plugins/lfg/bin/lfg.ts` | Human-facing installer for lazycodex + LFP on Grok Build. |
-| `lfg --json setup` | `plugins/lfg/bin/lfg.ts` | Non-mutating plan for both upstream installers. |
-| `lfg --json setup --run` | `plugins/lfg/bin/lfg.ts` | Runs `npx lazycodex-ai install` then `npx @islee23520/lfp setup`. |
+| `lfg setup` | `plugins/lfg/bin/lfg.ts` | Human-facing Grok adapter installer. |
+| `lfg --json setup` | `plugins/lfg/bin/lfg.ts` | Non-mutating install plan. |
+| `lfg --json setup --run` | `plugins/lfg/bin/lfg.ts` | Internal grok-install on `~/.grok`. |
 | `lazycodex` skill | `plugins/lfg/skills/lazycodex/SKILL.md` | Points users at the npm installer surface. |
 
 ## COMMANDS
@@ -62,12 +62,12 @@ plugins/lfg/bin/lfg --json setup --run
 - Do not add unrelated runtime or workflow features.
 - Only mutate through an explicit `setup --run` surface or confirmed interactive setup.
 - Never print API keys in JSON output or final logs.
-- Keep CLI, package metadata, and skill copy consistent about the **two upstream installer commands** (fixed order).
+- Keep CLI, package metadata, and skill copy consistent about **Grok-first** `setup --run` (internal grok-install).
 
 ## ANTI-PATTERNS
 
 - Reintroducing broad runtime surfaces.
-- Adding another installer path that bypasses `npx lazycodex-ai install` or `npx @islee23520/lfp setup`.
+- Adding a default setup path that writes to `~/.codex` via `npx lazycodex-ai install`.
 - Letting non-setup commands silently write into `~/.grok`.
 - Expanding the helper into unrelated environment management.
 - Describing `lfg` as the LFP or lazycodex plugin itself.

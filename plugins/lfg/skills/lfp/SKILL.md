@@ -5,7 +5,7 @@ description: Install the @islee23520/lfp flavor pack on Grok Build through lfg s
 
 # LFP on Grok Build
 
-**@islee23520/lfp** is the flavor pack that runs on Grok Build after the lazycodex adapter is installed.
+**LFP-style per-agent overrides** on Grok Build are applied by `lfg` during setup (`lazycodex-agent-overrides.json`), not by requiring `npx @islee23520/lfp setup`.
 
 Use `lfg` as the package-facing setup helper:
 
@@ -13,13 +13,6 @@ Use `lfg` as the package-facing setup helper:
 npx @islee23520/lfg setup
 ```
 
-That runs, in order:
-
-```sh
-npx lazycodex-ai install
-npx @islee23520/lfp setup
-```
-
-Do not install LFP alone through `lfg` without the lazycodex step; `lfg setup --run` always runs both upstream installers.
+Default `setup --run` installs the lazycodex/omo adapter on `~/.grok` and applies ported override behavior.
 
 Do not describe `lfg` as a plugin or as the LFP runtime.

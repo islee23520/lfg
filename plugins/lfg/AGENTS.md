@@ -1,17 +1,10 @@
 # plugins/lfg
 
 **omo / lazycodex Grok Build adapter spinoff** — npm setup surface for Grok Build (not Linalab).
-Transition: two npx steps today; target: **`runGrokInstall()`** + **ported** LFP capabilities (not LFP package copy).
+Default **`setup --run`** runs **`runGrokInstall()`** (omo tree on `~/.grok`, ported hooks/agents/overrides). No `npx lazycodex-ai install` into `~/.codex`.
 
 ```sh
 npx @islee23520/lfg setup
-```
-
-runs (in order):
-
-```sh
-npx lazycodex-ai install
-npx @islee23520/lfp setup
 ```
 
 `lfg` is not a plugin and should not be framed as one.
@@ -21,14 +14,13 @@ npx @islee23520/lfp setup
 | Task | Location | Notes |
 |------|----------|-------|
 | CLI command surface | `bin/lfg.ts` | Supports only `setup`. |
-| Installer chain | `bin/lfg-installer.ts` | Fail-fast two-step `npx`. |
+| Grok install | `bin/lfg-installer.ts`, `grok-install/` | Single internal grok-install step. |
 | Package manifest | `package.json` | Bin and package metadata. |
 | Skill copy | `skills/lazycodex/SKILL.md` | User-facing installer guidance. |
 
 ## CONVENTIONS
 
-- Keep the package small and centered on the two upstream installers.
-- Use `npx lazycodex-ai install` then `npx @islee23520/lfp setup` in that order.
+- Keep the package small and centered on Grok `~/.grok` install (not Codex `npx lazycodex-ai install`).
 - Ask for the OpenAI-compatible base URL during interactive setup, then fetch
   `/v1/models` and map discovered model ids before install confirmation.
 - Keep `lfg setup` as the human-facing interactive installer.
@@ -44,7 +36,7 @@ npx @islee23520/lfp setup
 - Mutating `~/.grok` outside an explicit `setup` command surface.
 - Printing API keys in JSON output, logs, or summaries.
 - Duplicating installer metadata across files without updating tests.
-- Skipping or reordering the LFP step relative to lazycodex-ai.
+- Reintroducing `npx lazycodex-ai install` as a required default setup step.
 
 ## COMMANDS
 
