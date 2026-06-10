@@ -49,7 +49,8 @@ describe("lfg CLI", () => {
     const parsed = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as Record<string, unknown>
 
     expect(parsed.name).toBe("@islee23520/lfg")
-    expect(parsed.version).toBe("0.1.4")
+    const root = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8")) as { version?: string }
+    expect(parsed.version).toBe(root.version)
     expect(parsed.description).toContain("Grok Build adapter")
     expect(parsed.description).not.toContain("@islee23520/lfp setup")
     expect(parsed.bin).toEqual({ lfg: "lfg" })
@@ -70,6 +71,7 @@ describe("lfg CLI", () => {
     expect(readme).toContain("OpenAI-compatible base URL")
     expect(readme).toContain("/v1/models")
     expect(readme).toContain("not a plugin")
+    expect(readme).toContain("언제 무엇을 실행하면 되나")
     expect(readme).not.toContain("UltraWork Loop")
     expect(readme).not.toContain("doctor")
     expect(readme).not.toContain("dry-setup")

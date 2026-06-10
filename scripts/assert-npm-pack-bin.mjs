@@ -27,6 +27,11 @@ if (missing.length > 0) {
   console.error("assert-npm-pack-bin: missing paths:", missing.join(", "))
   process.exit(1)
 }
+const staleBuildPaths = paths.filter((p) => p.includes("/fixture-minimal.build-"))
+if (staleBuildPaths.length > 0) {
+  console.error("assert-npm-pack-bin: stale build temp paths:", staleBuildPaths.join(", "))
+  process.exit(1)
+}
 const rootPkg = JSON.parse(
   execFileSync("node", ["-e", "console.log(JSON.stringify(require('./package.json')))"], { encoding: "utf8" }),
 )

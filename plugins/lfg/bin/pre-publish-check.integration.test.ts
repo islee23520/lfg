@@ -42,9 +42,9 @@ describe("pre-publish-check integration (#22)", () => {
       ) as { version: string }
       expect(gap.localVersion).toBe(rootPkg.version)
       expect(gap.registryVersion).toMatch(/^\d+\.\d+\.\d+$|unavailable/)
-      expect(payload.registryBin?.legacyWrongTarget).toBe(true)
-      expect(payload.registryBin?.matchesPublishContract).toBe(false)
-      expect(payload.registryBin?.binLfg).toBe("plugins/lfg/dist/lfg.js")
+      expect(payload.registryBin?.legacyWrongTarget).toBe(false)
+      expect(payload.registryBin?.matchesPublishContract).toBe(true)
+      expect(payload.registryBin?.binLfg).toBe("plugins/lfg/lfg")
       expect(payload.auth.blockedReason).toContain("npm login")
     }
   }, 30_000)
@@ -64,8 +64,8 @@ describe("pre-publish-check integration (#22)", () => {
       expect(combined).toContain("build.mjs")
       expect(combined).toContain('"hasBin": true')
       expect(combined).toContain('"publishReady": true')
-      expect(combined).toContain('"legacyWrongTarget": true')
-      expect(combined).toContain("plugins/lfg/dist/lfg.js")
+      expect(combined).toContain('"legacyWrongTarget": false')
+      expect(combined).toContain("plugins/lfg/lfg")
     }
   }, 60_000)
 })

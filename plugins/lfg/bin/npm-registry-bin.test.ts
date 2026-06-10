@@ -43,7 +43,7 @@ describe("npm-registry-bin (#22)", () => {
     expect(contract.legacyWrongTarget).toBe(false)
   })
 
-  test("live registry bin.lfg is legacy until 0.1.4+ ships (#22)", async () => {
+  test("live registry bin.lfg matches publish contract after 0.1.4+ ships (#22)", async () => {
     const { execFile } = await import("node:child_process")
     const { promisify } = await import("node:util")
     const execFileAsync = promisify(execFile)
@@ -51,9 +51,9 @@ describe("npm-registry-bin (#22)", () => {
       const { stdout } = await execFileAsync("npm", ["view", "@islee23520/lfg", "bin.lfg"], { encoding: "utf8" })
       const bin = parseNpmRegistryBinLfg(stdout)
       const contract = registryBinPublishContract(bin)
-      expect(bin).toBe("plugins/lfg/dist/lfg.js")
-      expect(contract.legacyWrongTarget).toBe(true)
-      expect(contract.matchesPublishContract).toBe(false)
+      expect(bin).toBe("plugins/lfg/lfg")
+      expect(contract.legacyWrongTarget).toBe(false)
+      expect(contract.matchesPublishContract).toBe(true)
     } catch {
       expect.fail("npm view @islee23520/lfg bin.lfg should be reachable")
     }

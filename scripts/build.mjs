@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { chmod, cp, mkdir, rename, rm } from "node:fs/promises"
+import { chmod, cp, mkdir, readdir, rename, rm } from "node:fs/promises"
 import { build } from "esbuild"
 
 const outputs = [
@@ -28,7 +28,13 @@ await Promise.all(
 
 const fixtureSrc = "plugins/lfg/grok-install/fixture-minimal"
 const fixtureDst = "plugins/lfg/dist/grok-install/fixture-minimal"
-await mkdir("plugins/lfg/dist/grok-install", { recursive: true })
+const grokDistDir = "plugins/lfg/dist/grok-install"
+await mkdir(grokDistDir, { recursive: true })
+await Promise.all(
+  (await readdir(grokDistDir, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith("fixture-minimal.build-"))
+    .map((entry) => rm(`${grokDistDir}/${entry.name}`, { recursive: true, force: true })),
+)
 const fixtureTmp = `${fixtureDst}.build-${process.pid}-${Date.now()}`
 await rm(fixtureTmp, { recursive: true, force: true })
 await cp(fixtureSrc, fixtureTmp, { recursive: true })

@@ -17,7 +17,8 @@ describe("grok-install", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-stamp-ver-"))
     await runInternalGrokInstall({ HOME: home })
     const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")
-    expect(stampRaw).toContain("0.1.4")
+    const pkg = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8")) as { version: string }
+    expect(stampRaw).toContain(pkg.version)
   })
 
   test("install is idempotent for install stamp version", async () => {

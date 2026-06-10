@@ -19,7 +19,16 @@ describe("user-facing copy (#33)", () => {
     expect(readme).toContain("~/.grok")
     expect(readme).toContain("installed-plugins/lfg")
     expect(readme).toContain("does **not** run `npx lazycodex-ai install`")
+    expect(readme).toContain("언제 무엇을 실행하면 되나")
     expect(readme).not.toContain("npx @islee23520/lfp setup")
+  })
+
+  test("lfg skill documents purpose and setup rhythm for agents", async () => {
+    const skill = await readFile(join(ROOT, "plugins/lfg/skills/lfg/SKILL.md"), "utf8")
+    expect(skill).toContain("name: lfg")
+    expect(skill).toContain("언제 어떤 명령")
+    expect(skill).toContain("npx @islee23520/lfg setup")
+    expect(skill).not.toContain("npx @islee23520/lfp setup")
   })
 
   test("canonical plan doc exists for ULW execution", async () => {

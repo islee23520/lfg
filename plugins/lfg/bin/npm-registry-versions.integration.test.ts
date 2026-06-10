@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile)
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url))
 
 describe("npm registry version history (#22)", () => {
-  test("latest registry semver is behind local and legacy bin until 0.1.4 publish", async () => {
+  test("latest registry semver is behind local and uses publish-contract bin", async () => {
     const local = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
       name: string
       version: string
@@ -22,12 +22,12 @@ describe("npm registry version history (#22)", () => {
       encoding: "utf8",
     })
     const versions = JSON.parse(versionsRaw) as readonly string[]
-    expect(versions).toContain("0.1.3")
+    expect(versions).toContain("0.1.4")
     expect(versions).not.toContain(local.version)
 
     const { stdout: latest } = await execFileAsync("npm", ["view", local.name, "version"], { encoding: "utf8" })
     const registryVersion = latest.trim()
-    expect(registryVersion).toBe("0.1.3")
+    expect(registryVersion).not.toBe(local.version)
 
     const gap = evaluatePublishGap({
       packageName: local.name,
@@ -41,8 +41,8 @@ describe("npm registry version history (#22)", () => {
       encoding: "utf8",
     })
     const registryBin = parseNpmRegistryBinLfg(binRaw)
-    expect(isLegacyRegistryBinLfg(registryBin)).toBe(true)
-    expect(isPublishedLfgBinTarget(registryBin)).toBe(false)
+    expect(isLegacyRegistryBinLfg(registryBin)).toBe(false)
+    expect(isPublishedLfgBinTarget(registryBin)).toBe(true)
   }, 30_000)
 
   test("0.1.1 on registry had no bin field (#22 could not determine executable)", async () => {
