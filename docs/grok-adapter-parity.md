@@ -18,6 +18,7 @@ Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
 | Telemetry | plugin telemetry | vendored in tree | N/A (upstream plugin telemetry; lfg does not emit) |
 | Extension hooks (LFP port) | legacy LFP | `grok-install/extension-hooks.ts` | Implemented (`post-install-ported-hooks.test.ts` #32; `extension-hooks.test.ts`; `extension-hooks.catalog.test.ts`; `hook-trust`) |
 | Extension agent overrides (LFP port) | legacy LFP | `grok-install/agent-overrides.ts` | Implemented (`agent-overrides.test.ts` #30; `apply-agent-tomls.ts` merge) |
+| Per-agent model overrides (LFP-style) | LFP `omo-agent-model-overrides` + `agent-config` | `lazycodex-agent-overrides.ts` + `sync-lazycodex-agents-to-grok.ts` | Implemented (`lazycodex-agent-overrides.test.ts`; `~/.grok/lazycodex-agent-overrides.json`; interactive setup) |
 
 **Normative port map:** `docs/lfp-capability-port.md`  
 **Ownership:** `docs/grok-adapter-ownership.md` (ADR; tested in `grok-adapter-ownership-doc.test.ts`)
