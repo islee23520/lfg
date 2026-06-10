@@ -11,7 +11,11 @@ describe("pre-publish-check integration (#22)", () => {
   test("exits 2 with gap.publishReady and auth blocked when not logged in", async () => {
     const script = join(ROOT, "scripts/pre-publish-check.mjs")
     try {
-      await execFileAsync("node", [script], { cwd: ROOT, encoding: "utf8" })
+      await execFileAsync("node", [script], {
+        cwd: ROOT,
+        encoding: "utf8",
+        env: { ...process.env, LFG_NPM_WHOAMI: "" },
+      })
       expect.fail("expected exit 2")
     } catch (error: unknown) {
       const err = error as { code?: number; stdout?: string }
@@ -47,7 +51,11 @@ describe("pre-publish-check integration (#22)", () => {
 
   test("npm run pre-publish-check wires build then exits 2 when not logged in (#22)", async () => {
     try {
-      await execFileAsync("npm", ["run", "pre-publish-check"], { cwd: ROOT, encoding: "utf8" })
+      await execFileAsync("npm", ["run", "pre-publish-check"], {
+        cwd: ROOT,
+        encoding: "utf8",
+        env: { ...process.env, LFG_NPM_WHOAMI: "" },
+      })
       expect.fail("expected exit 2")
     } catch (error: unknown) {
       const err = error as { code?: number; stdout?: string; stderr?: string }

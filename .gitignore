@@ -1,7 +1,9 @@
 .DS_Store
 *.log
 .lfg
-.omo
+.omo/*
+!.omo/plan-evidence/
+!.omo/plan-evidence/**
 node_modules/
 .bun/
 coverage/
@@ -10,4 +12,3 @@ test-results/
 plugins/lfg/dist/
 plans/
 *lfg*.tgz
-docs/

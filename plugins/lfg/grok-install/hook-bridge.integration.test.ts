@@ -53,6 +53,11 @@ process.stdin.on('end',()=>{
     )
     await chmod(stubCli, 0o755)
 
+    await writeFile(
+      join(pluginRoot, "lfg-install.json"),
+      `${JSON.stringify({ packageName: "@islee23520/lfg", version: "test", platform: "grok" }, null, 2)}\n`,
+    )
+
     await runInternalGrokInstall({ HOME: home })
 
     const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")

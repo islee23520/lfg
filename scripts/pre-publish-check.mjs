@@ -24,12 +24,7 @@ try {
   registryBinLfg = null
 }
 const registryBin = registryBinPublishContract(registryBinLfg)
-let npmUser = null
-try {
-  npmUser = execFileSync("npm", ["whoami"], { encoding: "utf8" }).trim()
-} catch {
-  npmUser = null
-}
+let npmUser = resolveNpmWhoami()
 const gap = evaluatePublishGap({
   packageName: local.name,
   localVersion: local.version,
@@ -41,3 +36,19 @@ const ready = gap.publishReady && auth.ok
 const payload = { ready, gap, auth, registryBin }
 console.log(JSON.stringify(payload, null, 2))
 process.exit(ready ? 0 : 2)
+
+/** Test hook: LFG_NPM_WHOAMI="" forces unauthenticated; any other non-empty value is used as npm user. */
+function resolveNpmWhoami() {
+  const override = process.env.LFG_NPM_WHOAMI
+  if (override === "" || override === "__none__") {
+    return null
+  }
+  if (typeof override === "string" && override.length > 0) {
+    return override.trim()
+  }
+  try {
+    return execFileSync("npm", ["whoami"], { encoding: "utf8" }).trim()
+  } catch {
+    return null
+  }
+}
