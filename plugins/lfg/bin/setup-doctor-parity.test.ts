@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, writeFile } from "node:fs/promises"
+import { mkdtemp } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
@@ -9,17 +9,7 @@ import { runLfg } from "./test-process"
 describe("setup vs doctor install surface (#21)", () => {
   test("postInstallVerify verified matches doctor installSurface.ok", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-setup-doc-parity-"))
-    const fakeBin = await mkdtemp(join(tmpdir(), "lfg-fake-npx-parity-"))
-    await writeFile(
-      join(fakeBin, "npx"),
-      `#!/usr/bin/env bash
-case "$*" in *lazycodex-ai*) echo fake lazycodex install: $* ;; *) echo unexpected: $* >&2; exit 2 ;; esac
-exit 0
-`,
-      "utf8",
-    )
-    await chmod(join(fakeBin, "npx"), 0o755)
-    const setup = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const setup = await runLfg(["--json", "setup", "--run"], { HOME: home })
     expect(setup.exitCode).toBe(0)
     const setupJson = setup.json as {
       ok?: boolean

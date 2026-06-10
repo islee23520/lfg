@@ -63,10 +63,9 @@ describe("lfg CLI", () => {
 
     expect(readme).toContain("What lfg does")
     expect(readme).toContain("npx @islee23520/lfg setup")
-    expect(readme).toContain("npx lazycodex-ai install")
-    expect(readme).toContain("grok-install")
-    expect(readme).toContain("grok-adapter-parity")
-    expect(readme).toContain("docs/npm-publish.md")
+    expect(readme).toContain("~/.grok")
+    expect(readme).toContain("installed-plugins/lfg")
+    expect(readme).toContain("does **not** run `npx lazycodex-ai install`")
     expect(readme).not.toContain("npx @islee23520/lfp setup")
     expect(readme).toContain("OpenAI-compatible base URL")
     expect(readme).toContain("/v1/models")
@@ -97,7 +96,8 @@ describe("lfg CLI", () => {
   })
 
   test("setup returns a non-mutating install plan by default", async () => {
-    const result = await runLfg(["--json", "setup"], {})
+    const home = await mkdtemp(join(tmpdir(), "lfg-plan-home-"))
+    const result = await runLfg(["--json", "setup"], { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -106,13 +106,13 @@ describe("lfg CLI", () => {
       command: "setup",
       dryRun: false,
       executed: false,
-      installerCommand: "npx lazycodex-ai install",
+      installerCommand: "@islee23520/lfg internal grok-install",
       lfpInstallerCommand: "@islee23520/lfg internal grok-install",
       companionPackage: "lfg-grok-install",
       packageExecutors: ["npx @islee23520/lfg"],
       lfgIsPlugin: false,
       modelDiscovery: {
-        required: true,
+        required: false,
         endpoint: "OpenAI-compatible /v1/models",
       },
     })
@@ -149,7 +149,7 @@ describe("lfg CLI", () => {
       ok: true,
       status: "planned",
       command: "setup",
-      installerCommand: "npx lazycodex-ai install",
+      installerCommand: "@islee23520/lfg internal grok-install",
       lfpInstallerCommand: "@islee23520/lfg internal grok-install",
     })
   })
@@ -170,8 +170,7 @@ describe("lfg CLI", () => {
 
   test("setup run is the only explicit installer execution surface", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-    const fakeBin = await makeFakeNpx(0)
-    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home })
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -179,16 +178,16 @@ describe("lfg CLI", () => {
       status: "installed",
       command: "setup",
       executed: true,
-      installerCommand: "npx lazycodex-ai install",
-      lfpInstallerCommand: "@islee23520/lfg internal grok-install",
-      installerArgs: ["lazycodex-ai", "install"],
-      lfpInstallerArgs: [],
+      installerCommand: "@islee23520/lfg internal grok-install",
+      installerArgs: [],
+      skippedCodexInstaller: true,
+      installPath: "grok",
     })
-    expect(JSON.stringify(result.json)).toContain("fake lazycodex install")
-    expect(JSON.stringify(result.json)).toContain("internal grok install")
+    expect(JSON.stringify(result.json)).toMatch(/grok lazycodex install|fixture fallback|repaired adapter hooks/)
     const installers = (result.json as { installers?: readonly { packageName: string }[] }).installers
-    expect(installers?.[1]).toMatchObject({ packageName: "lfg-grok-install", exitCode: 0 })
-    const stampPath = join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json")
+    expect(installers).toHaveLength(1)
+    expect(installers?.[0]).toMatchObject({ packageName: "lfg-grok-install", exitCode: 0 })
+    const stampPath = join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json")
     await expect(readFile(stampPath, "utf8")).resolves.toContain("@islee23520/lfg")
     expect(result.json).toMatchObject({
       postInstallVerify: { ok: true, status: "verified" },
@@ -198,8 +197,7 @@ describe("lfg CLI", () => {
   test("setup run passes fetched model mapping to the upstream installer", async () => {
     await withModelServer(["gpt-4.1-mini", "o3-mini"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-      const fakeBin = await makeFakeNpx(0)
-      const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+      const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home, OPENAI_API_KEY: "sk-test" })
 
       expect(result.exitCode).toBe(0)
       expect(result.json).toMatchObject({
@@ -213,52 +211,23 @@ describe("lfg CLI", () => {
           },
         },
       })
-      expect(JSON.stringify(result.json)).toContain(`LAZYCODEX_OPENAI_BASE_URL=${baseUrl}`)
-      expect(JSON.stringify(result.json)).toContain("LAZYCODEX_MODEL_DEFAULT=gpt-4.1-mini")
-      expect(JSON.stringify(result.json)).toContain("LAZYCODEX_MODEL_REASONING=o3-mini")
+      expect(JSON.stringify(result.json)).toContain("configUpdated")
+      expect(JSON.stringify(result.json)).toContain("gpt-4.1-mini")
     })
-  })
-
-  test("setup run reports installer failure", async () => {
-    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-    const fakeBin = await makeFakeNpx(7)
-    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
-
-    expect(result.exitCode).toBe(1)
-    expect(result.json).toMatchObject({
-      ok: false,
-      status: "install_failed",
-      command: "setup",
-      executed: true,
-      installerCommand: "npx lazycodex-ai install",
-      exitCode: 7,
-    })
-    expect(JSON.stringify(result.json)).toContain("fake lazycodex failure")
-    const installers = (result.json as { installers?: readonly unknown[] }).installers
-    expect(installers?.length).toBe(1)
-  })
-
-  test("setup run does not invoke lfp npx on fake PATH", async () => {
-    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-    const fakeBin = await makeFakeNpxRejectsLfp()
-    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
-
-    expect(result.exitCode).toBe(0)
-    expect(JSON.stringify(result.json)).not.toContain("fake lfp")
-    expect(JSON.stringify(result.json)).not.toContain("@islee23520/lfp")
   })
 
   test("interactive setup only confirms the upstream installer run", async () => {
     await withModelServer(["gpt-4.1-mini", "o3-mini"], async (baseUrl) => {
-      const result = await runLfgText(["setup"], `${baseUrl}\nn\n`, {})
+      const home = await mkdtemp(join(tmpdir(), "lfg-interactive-skip."))
+      const result = await runLfgText(["setup"], `${baseUrl}\nn\n`, { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
 
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain("lfg setup")
       expect(result.stdout).toContain("OpenAI-compatible base URL")
       expect(result.stdout).toContain("Found 2 models")
       expect(result.stdout).toContain("reasoning: o3-mini")
-      expect(result.stdout).toContain("npx lazycodex-ai install")
       expect(result.stdout).toContain("@islee23520/lfg internal grok-install")
+      expect(result.stdout).toContain("internal grok-install")
       expect(result.stdout).toContain("Install now? [y/N]")
       expect(result.stdout).toContain("Skipped install")
       expect(result.stdout).not.toContain("Restore previous Grok settings")
@@ -311,7 +280,7 @@ describe("lfg CLI", () => {
     await expect(readFile(nestedWorkspacePkg, "utf8")).rejects.toThrow()
     const home = await mkdtemp(join(tmpdir(), "lfg-npm-pack-home-"))
     const fixture = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lazycodex")
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
     await mkdir(pluginRoot, { recursive: true })
     await cp(fixture, pluginRoot, { recursive: true })
     await writeFile(

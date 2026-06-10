@@ -8,18 +8,10 @@ import { runLfg } from "./test-process"
 describe("setup-json-contract (#21)", () => {
   test("successful setup --run has no deprecated adapter repair keys", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-setup-contract-"))
-    const fakeBin = await mkdtemp(join(tmpdir(), "lfg-fake-npx-contract2-"))
-    const { chmod, writeFile } = await import("node:fs/promises")
-    await writeFile(
-      join(fakeBin, "npx"),
-      `#!/usr/bin/env bash
-case "$*" in *lazycodex-ai*) echo fake lazycodex install: $* ;; *) echo unexpected: $* >&2; exit 2 ;; esac
-exit 0
-`,
-      "utf8",
-    )
-    await chmod(join(fakeBin, "npx"), 0o755)
-    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], {
+      HOME: home,
+      LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
+    })
     expect(result.exitCode).toBe(0)
     const json = result.json as Record<string, unknown>
     expect(findDeprecatedSetupJsonKeys(json)).toEqual([])

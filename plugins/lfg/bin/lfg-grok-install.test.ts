@@ -7,6 +7,7 @@ import { applyLazycodexAgentTomls } from "../grok-install/apply-agent-tomls"
 import { runInternalGrokInstall } from "../grok-install/run-internal"
 import { mergeAgentTomlOverrides } from "../grok-install/agent-overrides"
 import { defaultLazycodexAgentConfig } from "./lfg-models"
+import { mergePortedHooksIntoPlugin } from "../grok-install/extension-hooks"
 import { installGrokPluginFromSource, readGrokInstallStamp } from "../grok-install/install"
 import { runGrokDoctor } from "../grok-install/doctor"
 import { runLfg } from "./test-process"
@@ -15,7 +16,7 @@ describe("grok-install", () => {
   test("internal install stamp uses published package version", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-stamp-ver-"))
     await runInternalGrokInstall({ HOME: home })
-    const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json"), "utf8")
+    const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stampRaw).toContain("0.1.4")
   })
 
@@ -25,14 +26,14 @@ describe("grok-install", () => {
     await writeFile(join(source, "package.json"), '{"name":"fixture-plugin"}\n')
     await installGrokPluginFromSource({ home, sourceRoot: source, version: "1.2.3" })
     await installGrokPluginFromSource({ home, sourceRoot: source, version: "1.2.3" })
-    const stamp = await readGrokInstallStamp(join(home, ".grok", "installed-plugins", "lazycodex"))
+    const stamp = await readGrokInstallStamp(join(home, ".grok", "installed-plugins", "lfg"))
     expect(stamp).toEqual({ packageName: "@islee23520/lfg", version: "1.2.3" })
   })
 
   test("runInternalGrokInstall twice is stable (#27)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-idem-internal-"))
     await runInternalGrokInstall({ HOME: home })
-    const stampPath = join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json")
+    const stampPath = join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json")
     const first = await readFile(stampPath, "utf8")
     await runInternalGrokInstall({ HOME: home })
     const second = await readFile(stampPath, "utf8")
@@ -66,8 +67,7 @@ describe("grok-install", () => {
 
   test("doctor passes after fixture install", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-doc-"))
-    const source = await mkdtemp(join(tmpdir(), "lfg-grok-src2-"))
-    await writeFile(join(source, "README.md"), "fixture\n")
+    const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
     await installGrokPluginFromSource({ home, sourceRoot: source })
     const json = await runGrokDoctor({ home })
     expect(json.ok).toBe(true)
@@ -76,37 +76,31 @@ describe("grok-install", () => {
 })
 
 describe("lfg internal grok install contract", () => {
-  test("setup --run does not invoke lfp npx", async () => {
+  test("setup --run uses grok-only install path", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-contract-"))
-    const fakeBin = await mkdtemp(join(tmpdir(), "lfg-fake-npx-contract-"))
-    const body = `case "$*" in
-  *lazycodex-ai*) echo fake lazycodex install: $* ;;
-  *@islee23520/lfp*) echo unexpected lfp npx: $* >&2; exit 2 ;;
-  *) echo unexpected npx: $* >&2; exit 2 ;;
-esac`
-    await writeFile(join(fakeBin, "npx"), `#!/usr/bin/env bash\n${body}\nexit 0\n`)
-    await chmod(join(fakeBin, "npx"), 0o755)
-    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, PATH: `${fakeBin}:${process.env.PATH ?? ""}` })
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home })
     expect(result.exitCode).toBe(0)
-    expect(JSON.stringify(result.json)).not.toContain("@islee23520/lfp")
     expect(result.json).toMatchObject({
+      skippedCodexInstaller: true,
       postInstallVerify: { ok: true, status: "verified" },
     })
+    expect(JSON.stringify(result.json)).not.toContain("@islee23520/lfp")
   })
 
-  test("installed fixture hooks.json registers lfg-visual-guidance", async () => {
+  test("installed fixture hooks.json uses Grok SessionStart event map", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-hooks-home-"))
     await runInternalGrokInstall({ HOME: home })
-    const raw = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "hooks", "hooks.json"), "utf8")
-    const parsed = JSON.parse(raw) as { hooks: readonly { name: string }[] }
-    expect(parsed.hooks.some((hook) => hook.name === "lfg-visual-guidance")).toBe(true)
-    expect(parsed.hooks.some((hook) => hook.name === "lfg-agent-reminder")).toBe(true)
+    const raw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "hooks", "hooks.json"), "utf8")
+    const parsed = JSON.parse(raw) as { hooks: { SessionStart?: unknown } }
+    expect(Array.isArray(parsed.hooks.SessionStart)).toBe(true)
   })
 
   test("doctor command returns JSON when plugin installed", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-cli-doc-"))
     const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
     await installGrokPluginFromSource({ home, sourceRoot: source })
+    await mergePortedHooksIntoPlugin(pluginRoot)
     const result = await runLfg(["--json", "doctor"], { HOME: home })
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
@@ -122,7 +116,7 @@ esac`
         expect.objectContaining({ name: "grok_install_surface", ok: true }),
       ]),
     })
-    const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json"), "utf8")
+    const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stampRaw).toContain("@islee23520/lfg")
   })
 

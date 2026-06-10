@@ -1,8 +1,16 @@
 {
-  "hooks": [
-    {
-      "name": "lfg-visual-guidance",
-      "description": "Ported visual guidance hook (fixture)"
-    }
-  ]
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"process.exit(0)\"",
+            "timeout": 5,
+            "description": "lfg fixture session hook"
+          }
+        ]
+      }
+    ]
+  }
 }

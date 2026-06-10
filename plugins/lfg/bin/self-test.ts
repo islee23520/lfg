@@ -10,8 +10,8 @@ const LFG = join(here, "lfg.js")
 const doctorHome = await prepareDoctorHome()
 
 const checks = [
-  await commandOk(["setup"], "npx lazycodex-ai install"),
   await commandOk(["setup"], "@islee23520/lfg internal grok-install"),
+  await commandOk(["setup"], "installed-plugins/lfg"),
   await commandOk(["help"], "npx @islee23520/lfg setup"),
   await commandOk(["doctor"], '"command": "doctor"', { HOME: doctorHome }),
   await commandFails(["dry-setup"], "unsupported_command"),
@@ -26,7 +26,7 @@ process.exit(checks.every(Boolean) ? 0 : 1)
 async function prepareDoctorHome(): Promise<string> {
   const home = await mkdtemp(join(tmpdir(), "lfg-selftest-home-"))
   const fixture = join(here, "grok-install", "fixture-minimal")
-  const pluginRoot = join(home, ".grok", "installed-plugins", "lazycodex")
+  const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
   await mkdir(dirname(pluginRoot), { recursive: true })
   await cp(fixture, pluginRoot, { recursive: true })
   const stamp = { packageName: "@islee23520/lfg", version: "self-test", platform: "grok" }

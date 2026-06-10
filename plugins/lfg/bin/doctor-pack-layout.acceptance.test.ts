@@ -42,7 +42,7 @@ describe("doctor pack layout acceptance (#25)", () => {
     await execFileAsync("npm", ["install", tarball], { cwd: installDir, encoding: "utf8", maxBuffer: 4_000_000 })
     const home = await mkdtemp(join(tmpdir(), "lfg-doc25-home-"))
     const fixture = join(ROOT, "plugins/lfg/grok-install/fixture-minimal")
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lazycodex")
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
     await mkdir(pluginRoot, { recursive: true })
     await cp(fixture, pluginRoot, { recursive: true })
     await writeFile(

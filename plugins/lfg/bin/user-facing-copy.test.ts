@@ -14,11 +14,12 @@ describe("user-facing copy (#33)", () => {
     expect(pkg.description).not.toContain("npx @islee23520/lfp setup")
   })
 
-  test("plugins/lfg README links parity doc and deprecates LFP default", async () => {
+  test("plugins/lfg README describes Grok-first install without Codex npx default", async () => {
     const readme = await readFile(join(ROOT, "plugins/lfg/README.md"), "utf8")
-    expect(readme).toContain("grok-adapter-parity.md")
-    expect(readme).toContain("not required on the default path")
-    expect(readme).toContain("internal")
+    expect(readme).toContain("~/.grok")
+    expect(readme).toContain("installed-plugins/lfg")
+    expect(readme).toContain("does **not** run `npx lazycodex-ai install`")
+    expect(readme).not.toContain("npx @islee23520/lfp setup")
   })
 
   test("canonical plan doc exists for ULW execution", async () => {

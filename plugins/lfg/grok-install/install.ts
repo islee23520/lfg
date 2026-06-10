@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, writeFile } from "node:fs/promises"
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 
 export type GrokInstallResult = {
@@ -15,14 +15,24 @@ export type GrokInstallOptions = {
   readonly version?: string
 }
 
-const DEFAULT_PLUGIN_DIR = "lazycodex"
+const DEFAULT_PLUGIN_DIR = "lfg"
 const DEFAULT_VERSION = "0.0.0-dev"
 
 export async function installGrokPluginFromSource(options: GrokInstallOptions): Promise<GrokInstallResult> {
   const pluginDirName = options.pluginDirName ?? DEFAULT_PLUGIN_DIR
   const version = options.version ?? DEFAULT_VERSION
   const pluginRoot = join(options.home, ".grok", "installed-plugins", pluginDirName)
+
+  // Always materialize a real directory owned by lfg under ~/.grok.
+  // Remove whatever is there (including symlinks pointing into ~/.codex or legacy locations)
+  // so that lazycodex/omo features are installed separately and directly into Grok.
   await mkdir(join(options.home, ".grok", "installed-plugins"), { recursive: true })
+  try {
+    await rm(pluginRoot, { recursive: true, force: true })
+  } catch {
+    // ignore if not present
+  }
+
   await cp(options.sourceRoot, pluginRoot, { recursive: true, force: true })
   const installStampPath = join(pluginRoot, "lfg-install.json")
   const stamp = { packageName: "@islee23520/lfg", version, platform: "grok" as const }

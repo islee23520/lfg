@@ -6,6 +6,7 @@ import { readGrokInstallStamp } from "./install"
 import { buildDoctorChecks, doctorChecksJson } from "./doctor-checks"
 import { doctorPublishGapJson } from "./doctor-publish-gap"
 import { readLfgPackageVersionFromBundle, readPublishRootVersionFromBundle } from "./package-version"
+import { resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
 import { verifyGrokInstallSurface } from "./post-install-verify"
 
 export type GrokDoctorOptions = {
@@ -17,15 +18,19 @@ export type GrokDoctorOptions = {
 }
 
 export async function runGrokDoctor(options: GrokDoctorOptions): Promise<JsonObject> {
-  const pluginDirName = options.pluginDirName ?? "lazycodex"
-  const pluginRoot = join(options.home, ".grok", "installed-plugins", pluginDirName)
+  const resolved = await resolveGrokAdapterPluginRoot(options.home)
+  const pluginDirName = options.pluginDirName ?? resolved?.pluginDirName ?? "lfg"
+  const pluginRoot = resolved?.pluginRoot ?? join(options.home, ".grok", "installed-plugins", pluginDirName)
   const configPath = join(options.home, ".grok", "config.toml")
-  const pluginExists = await pathExists(pluginRoot)
+  const pluginExists = resolved !== null || (await pathExists(pluginRoot))
   const configExists = await pathExists(configPath)
   const stamp = pluginExists ? await readGrokInstallStamp(pluginRoot) : null
   const moduleUrl = options.moduleUrl ?? import.meta.url
   const cli = await resolveLfgCliLayout(moduleUrl)
-  const installSurface = await verifyGrokInstallSurface({ home: options.home, pluginDirName })
+  const installSurface = await verifyGrokInstallSurface({
+    home: options.home,
+    ...(options.pluginDirName === undefined ? {} : { pluginDirName: options.pluginDirName }),
+  })
   const pluginOk = installSurface.ok === true
   const checks = buildDoctorChecks(cli, pluginOk)
   const checkReport = doctorChecksJson(checks)
