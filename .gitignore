@@ -1,6 +1,7 @@
 .DS_Store
 *.log
-.lfg/
+.lfg
+.omo
 node_modules/
 .bun/
 coverage/
@@ -9,3 +10,4 @@ test-results/
 plugins/lfg/dist/
 plans/
 *lfg*.tgz
+docs/
