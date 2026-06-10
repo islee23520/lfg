@@ -15,15 +15,15 @@ describe("hook trust acceptance (#28)", () => {
     const result = validateGrokHooksJson(parsed)
     expect(result).toEqual({
       ok: true,
-      hookNames: ["lfg-visual-guidance"],
+      hookNames: ["SessionStart"],
       error: null,
     })
   })
 
-  test("rejects hook entry without name field", () => {
-    const result = validateGrokHooksJson({ hooks: [{ description: "no name" }] })
+  test("rejects legacy metadata hooks list", () => {
+    const result = validateGrokHooksJson({ hooks: [{ name: "catalog-entry", description: "no events" }] })
     expect(result.ok).toBe(false)
-    expect(result.error).toContain("name")
+    expect(result.error).toContain("legacy metadata")
   })
 
   test("postInstallVerify registers trusted hooks after installGrokPluginFromSource", async () => {
@@ -34,7 +34,7 @@ describe("hook trust acceptance (#28)", () => {
     expect(verify).toMatchObject({
       ok: true,
       hooksRegistered: true,
-      hookNames: ["lfg-visual-guidance"],
+      hookNames: ["SessionStart"],
       hookTrustError: null,
     })
   })

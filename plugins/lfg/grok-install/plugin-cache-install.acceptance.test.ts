@@ -11,19 +11,19 @@ const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), "fixture-minimal")
 
 /** Epic #27 / plan task 3 — fixture-only, no network. */
 describe("plugin cache install acceptance (#27)", () => {
-  test("syncs fixture to ~/.grok/installed-plugins/lazycodex", async () => {
+  test("syncs fixture to ~/.grok/installed-plugins/lfg", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-accept-install-"))
     await installGrokPluginFromSource({ home, sourceRoot: FIXTURE, version: "3.3.3" })
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lazycodex")
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
     await access(join(pluginRoot, "hooks", "hooks.json"))
     const verify = await verifyGrokInstallSurface({ home })
-    expect(verify).toMatchObject({ ok: true, status: "verified", pluginDirName: "lazycodex" })
+    expect(verify).toMatchObject({ ok: true, status: "verified", pluginDirName: "lfg" })
   })
 
   test("writes lfg-install.json stamp at Grok plugin root", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-accept-stamp-"))
     await installGrokPluginFromSource({ home, sourceRoot: FIXTURE, version: "4.4.4" })
-    const raw = await readFile(join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json"), "utf8")
+    const raw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")
     expect(JSON.parse(raw)).toEqual({
       packageName: "@islee23520/lfg",
       version: "4.4.4",
@@ -41,7 +41,7 @@ describe("plugin cache install acceptance (#27)", () => {
     }
     const env = { HOME: home, OPENAI_API_KEY: "sk-test" }
     await runGrokInstall(discovery, env)
-    const stampPath = join(home, ".grok", "installed-plugins", "lazycodex", "lfg-install.json")
+    const stampPath = join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json")
     const firstStamp = await readFile(stampPath, "utf8")
     const firstVerify = await verifyGrokInstallSurface({ home })
     await runGrokInstall(discovery, env)

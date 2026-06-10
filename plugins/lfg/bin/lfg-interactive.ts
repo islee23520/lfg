@@ -1,18 +1,50 @@
 import { createInterface } from "node:readline/promises"
 import { stdin as input, stdout as output } from "node:process"
-import { LAZYCODEX_INSTALLER_COMMAND, runLazycodexInstaller } from "./lfg-installer"
+import { runLazycodexInstaller } from "./lfg-installer"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-install/run-grok-install"
-import { defaultLazycodexAgentConfig, fetchModelDiscovery, type LazycodexAgentConfig, type LazycodexAgentName, type ModelDiscovery, type ReasoningLevel } from "./lfg-models"
+import { configureOmoAgentOverridesInteractively } from "../grok-install/agent-config-wizard"
+import {
+  defaultLazycodexAgentConfig,
+  type LazycodexAgentConfig,
+  type LazycodexAgentName,
+  type ModelDiscovery,
+  type ReasoningLevel,
+} from "./lfg-models"
 import type { JsonObject } from "./lfg-json"
+import type { ResolveSetupDiscoveryResult } from "../grok-install/resolve-setup-discovery"
+import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery"
+import type { LazycodexAgentOverrideMap } from "../grok-install/lazycodex-agent-overrides"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
 
-export async function runInstallWizard(plan: JsonObject): Promise<JsonObject> {
+export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetupDiscoveryResult): Promise<JsonObject> {
   printInstallHeader()
   const reader = createLineReader()
   try {
-    const discovery = await discoverModelsInteractively(reader)
-    const configuredDiscovery = discovery === null ? null : await configureLazycodexAgents(reader, discovery)
+    let discovery = resolved?.discovery ?? null
+    if (discovery === null) {
+      discovery = await discoverModelsInteractively(reader)
+    } else {
+      printAutoDiscovery(resolved ?? { discovery, baseUrlUsed: null, baseUrlSource: "none", autoDiscovered: false })
+    }
+
+    // Bare `lfg setup` (plain human command, no --json, no --run) is meant to be conversational.
+    // We show what was discovered (so the person sees which models will become the Grok aliases),
+    // ask if they want to customize the main three role agents, and always require an explicit
+    // final confirmation before touching the filesystem.
+    //
+    // This is the whole point of the interactive surface: the human gets to see the plan
+    // (models etc.) and say "yes, do the direct install into a real ~/.grok/installed-plugins/lfg dir".
+    const configuredDiscovery =
+      discovery === null ? null : await configureLazycodexAgentsFull(reader, discovery)
+
+    // This is the interactive gate for bare `lfg setup`.
+    // The whole reason for the non --json / non --run command is to show the human
+    // what models were found (these become the Grok aliases), let them customize the
+    // main role agents if they want, and then **explicitly say yes** before we
+    // do the direct install (real dir under ~/.grok/installed-plugins/lfg, no symlinks,
+    // hooks + agents + overrides + config).
+    output.write("\n")
     const confirmed = await confirm(reader, "Install now? [y/N] ")
     if (!confirmed) {
       output.write("\nSkipped install. Nothing was changed.\n")
@@ -20,8 +52,13 @@ export async function runInstallWizard(plan: JsonObject): Promise<JsonObject> {
       return { ok: true, status: "skipped", executed: false }
     }
 
-    output.write(`\nRunning: ${LAZYCODEX_INSTALLER_COMMAND}\n`)
-    output.write(`Running: ${INTERNAL_GROK_INSTALL_COMMAND}\n\n`)
+    // Make it explicit in interactive that we do a direct materialization into Grok's tree.
+    // This guarantees a real directory we own (no symlinks to ~/.codex or legacy locations).
+    output.write("\nDirect Grok install: the adapter will be copied into a real directory at ~/.grok/installed-plugins/lfg.\n")
+    output.write("Any previous symlink or non-owned entry at that path will be replaced before applying hooks, agents, and config.\n\n")
+
+    output.write(`\nRunning Grok install: ${INTERNAL_GROK_INSTALL_COMMAND}\n`)
+    output.write("(Codex npx lazycodex-ai install is not used on this path.)\n\n")
     const result = await runLazycodexInstaller(configuredDiscovery)
     writeOutput(result.stdout)
     writeOutput(result.stderr)
@@ -30,7 +67,7 @@ export async function runInstallWizard(plan: JsonObject): Promise<JsonObject> {
     }
     output.write(
       result.ok === true
-        ? "\nInstalled lazycodex-ai and Grok adapter for Grok Build.\n"
+        ? "\nInstalled lazycodex/omo Grok adapter under ~/.grok for Grok Build.\n"
         : "\nInstall failed. See installer output above.\n",
     )
     return result
@@ -41,40 +78,102 @@ export async function runInstallWizard(plan: JsonObject): Promise<JsonObject> {
 
 function printInstallHeader(): void {
   output.write("lfg setup\n\n")
-  output.write("This helper runs lazycodex-ai install and the internal Grok adapter for Grok Build.\n")
-  output.write("lfg is only the package-facing setup helper; it is not a plugin or runtime.\n\n")
-  output.write(`Installer: ${LAZYCODEX_INSTALLER_COMMAND}\n`)
-  output.write(`Installer: ${INTERNAL_GROK_INSTALL_COMMAND}\n\n`)
+  output.write("Direct install of the omo/lazycodex adapter into Grok Build.\n")
+  output.write("It will use a real directory at ~/.grok/installed-plugins/lfg (no symlinks to ~/.codex), apply hooks/agents/overrides, and update Grok model config.\n")
+  output.write("No Codex-side npx install is performed.\n\n")
+  output.write(`Step: ${INTERNAL_GROK_INSTALL_COMMAND}\n\n`)
 }
 
 async function discoverModelsInteractively(reader: LineReader): Promise<ModelDiscovery | null> {
-  output.write("OpenAI-compatible base URL (serving /v1/models): ")
+  const home = process.env.HOME ?? ""
+  const auto = home.length > 0 ? await resolveSetupDiscovery({ home, cliBaseUrl: null }) : null
+  if (auto && auto.discovery !== null && auto.discovery !== undefined) {
+    printAutoDiscovery(auto)
+    return auto.discovery
+  }
+  output.write("OpenAI-compatible base URL (Enter = skip model mapping): ")
   const answer = await reader.next()
   const baseUrl = answer.done === true ? "" : answer.value.trim()
   if (baseUrl.length === 0) {
     output.write("Skipped model discovery. Installer will run without model mapping.\n\n")
     return null
   }
-  output.write(`Fetching models from ${baseUrl} ...\n`)
-  const discovery = await fetchModelDiscovery(baseUrl)
-  output.write(`Found ${discovery.modelIds.length} models.\n`)
+  const manual = await resolveSetupDiscovery({ home: home.length > 0 ? home : "/tmp", cliBaseUrl: baseUrl })
+  if (manual.discovery === null) {
+    output.write(`Could not fetch models from ${baseUrl}. Installer will run without model mapping.\n\n`)
+    return null
+  }
+  printAutoDiscovery({ ...manual, baseUrlSource: "cli" })
+  return manual.discovery
+}
+
+function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): void {
+  const discovery = resolved.discovery
+  if (discovery === null) {
+    return
+  }
+  const sourceLabel =
+    resolved.baseUrlSource === "config"
+      ? "~/.grok/config.toml"
+      : resolved.baseUrlSource === "default"
+        ? "default proxy"
+        : resolved.baseUrlSource
+  output.write(`Using models from ${resolved.baseUrlUsed ?? discovery.baseUrl} (${sourceLabel}).\n`)
+  output.write(`Found ${discovery.modelIds.length} models; Grok [model.*] aliases will be written automatically.\n`)
   output.write("Model mapping:\n")
   output.write(`  default: ${discovery.mapping.default}\n`)
   output.write(`  fast: ${discovery.mapping.fast}\n`)
   output.write(`  reasoning: ${discovery.mapping.reasoning}\n`)
   output.write(`  coding: ${discovery.mapping.coding}\n\n`)
-  return discovery
 }
 
-async function configureLazycodexAgents(reader: LineReader, discovery: ModelDiscovery): Promise<ModelDiscovery> {
-  const shouldConfigure = await confirm(reader, "Configure LazyCodex agents? [y/N] ")
-  if (!shouldConfigure) {
-    return { ...discovery, agentConfig: defaultLazycodexAgentConfig(discovery) }
+// NOTE: We no longer auto-apply agent defaults to skip questions in the bare interactive path.
+// Bare `lfg setup` always goes through configureLazycodexAgentsFull so the human is asked
+// (role agents y/n, and always the final "Install now?"). Auto-discovery only avoids the
+// base-URL prompt; it does not turn the guided setup into a silent "just do it".
+
+
+async function configureLazycodexAgentsFull(reader: LineReader, discovery: ModelDiscovery): Promise<ModelDiscovery> {
+  const shouldConfigure = await confirm(reader, "Configure LazyCodex role agents (explorer / reasoning / coding)? [y/N] ")
+  const roleConfig = shouldConfigure
+    ? await readAgentConfig(reader, discovery)
+    : defaultLazycodexAgentConfig(discovery)
+
+  // Only enter the long-tail per-agent override wizard (librarian, plan, metis, ...) if the user
+  // explicitly opted into role configuration. This keeps the common interactive "just install the adapter"
+  // flow short: URL (optional) → role question (usually n) → Install now? → direct Grok materialization
+  // (real dir under installed-plugins/lfg, replacing any symlink or legacy entry).
+  let agentOverrideMap: LazycodexAgentOverrideMap | undefined
+  if (shouldConfigure) {
+    agentOverrideMap = await configureOmoAgentOverridesInteractively(
+      reader,
+      discovery,
+      roleConfig,
+      (text) => output.write(text),
+      confirm,
+    )
+  } else {
+    // Use defaults (bundled omo overrides + role defaults). No long series of "Configure xxx?" questions.
+    const bundled = await loadBundledDefaultOmoOverridesForInteractive()
+    agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {})
   }
-  output.write("\nLazyCodex agent model configuration\n")
-  output.write("Choose from fetched /v1/models only. Leave blank to keep the suggested value.\n")
-  output.write(`Available models: ${discovery.modelIds.join(", ")}\n\n`)
-  return { ...discovery, agentConfig: await readAgentConfig(reader, discovery) }
+
+  return { ...discovery, agentConfig: roleConfig, agentOverrideMap }
+}
+
+// Small helpers to avoid importing the whole overrides module at top level just for the default path.
+async function loadBundledDefaultOmoOverridesForInteractive() {
+  const mod = await import("../grok-install/lazycodex-agent-overrides.js")
+  return mod.loadBundledDefaultOmoOverrides()
+}
+
+async function mergeLazycodexAgentOverrides(
+  roleConfig: LazycodexAgentConfig,
+  bundled: any,
+  extra: any,
+) {
+  const mod = await import("../grok-install/lazycodex-agent-overrides.js")
+  return mod.mergeLazycodexAgentOverrides(roleConfig, bundled, extra)
 }
 
 async function readAgentConfig(reader: LineReader, discovery: ModelDiscovery): Promise<LazycodexAgentConfig> {

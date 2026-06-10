@@ -1,0 +1,111 @@
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
+import { isGrokEventHooksJson, validateGrokHooksJson } from "./hook-trust"
+import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset"
+
+const BRIDGE_RELATIVE = join("hooks", "lfg-grok-hook-bridge.mjs")
+
+const PLUGIN_ROOT_PLACEHOLDER = /\$\{PLUGIN_ROOT\}/g
+
+/** Grok expands GROK_PLUGIN_ROOT; lazycodex hooks still use ${PLUGIN_ROOT} in commands. */
+export function normalizeHookCommandPaths(command: string): string {
+  return command.replace(PLUGIN_ROOT_PLACEHOLDER, "${GROK_PLUGIN_ROOT}")
+}
+
+type JsonRecord = Record<string, unknown>
+
+export async function syncGrokHookBridgeIntoPlugin(pluginRoot: string): Promise<string> {
+  const assetPath = await resolveGrokHookBridgeAssetPath()
+  const destPath = join(pluginRoot, BRIDGE_RELATIVE)
+  await mkdir(dirname(destPath), { recursive: true })
+  await copyFile(assetPath, destPath)
+  return destPath
+}
+
+export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
+  readonly path: string
+  readonly changed: boolean
+  readonly hookNames: readonly string[]
+}> {
+  await syncGrokHookBridgeIntoPlugin(pluginRoot)
+  const hooksPath = join(pluginRoot, "hooks", "hooks.json")
+  const raw = await readFile(hooksPath, "utf8")
+  const parsed: unknown = JSON.parse(raw)
+  if (!isGrokEventHooksJson(parsed)) {
+    const trust = validateGrokHooksJson(parsed)
+    throw new Error(trust.error ?? "hooks.json is not Grok event format")
+  }
+  const record = parsed as JsonRecord
+  const hooksBlock = record.hooks as JsonRecord
+  let changed = false
+  const nextBlock: JsonRecord = {}
+  for (const [eventName, groups] of Object.entries(hooksBlock)) {
+    if (!Array.isArray(groups)) {
+      nextBlock[eventName] = groups
+      continue
+    }
+    nextBlock[eventName] = groups.map((group) =>
+      normalizeHookGroup(group, () => {
+        changed = true
+      }),
+    )
+  }
+  const nextPayload = { hooks: nextBlock }
+  const trust = validateGrokHooksJson(nextPayload)
+  if (!trust.ok) {
+    throw new Error(trust.error ?? "invalid hooks after normalize")
+  }
+  const nextText = `${JSON.stringify(nextPayload, null, 2)}\n`
+  if (changed || nextText !== raw) {
+    await writeFile(hooksPath, nextText, "utf8")
+    return { path: hooksPath, changed: true, hookNames: trust.hookNames }
+  }
+  return { path: hooksPath, changed: false, hookNames: trust.hookNames }
+}
+
+function normalizeHookGroup(group: unknown, onChange: () => void): unknown {
+  if (typeof group !== "object" || group === null) {
+    return group
+  }
+  const g = group as JsonRecord
+  if (!Array.isArray(g.hooks)) {
+    return group
+  }
+  const hooks = g.hooks.map((handler) => normalizeHandler(handler, onChange))
+  return { ...g, hooks }
+}
+
+function normalizeHandler(handler: unknown, onChange: () => void): unknown {
+  if (typeof handler !== "object" || handler === null) {
+    return handler
+  }
+  const h = handler as JsonRecord
+  if (h.type !== "command" || typeof h.command !== "string") {
+    return handler
+  }
+  const next = wrapLazyCodexHookCommand(normalizeHookCommandPaths(h.command))
+  if (next === h.command) {
+    return handler
+  }
+  onChange()
+  return { ...h, command: next }
+}
+
+/** Route component CLIs through Codex↔Grok stdin/env bridge. */
+export function wrapLazyCodexHookCommand(command: string): string {
+  const trimmed = command.trim()
+  if (!/^node\s+/i.test(trimmed)) {
+    return command
+  }
+  if (!trimmed.includes("/components/") && !trimmed.includes("/scripts/")) {
+    return command
+  }
+  const match = trimmed.match(/^node\s+("(?:[^"\\]|\\.)*"|[^\s]+)\s*(.*)$/i)
+  if (!match) {
+    return command
+  }
+  const nodeTarget = match[1]!
+  const rest = match[2] ?? ""
+  const bridge = '"${GROK_PLUGIN_ROOT}/hooks/lfg-grok-hook-bridge.mjs"'
+  return `node ${bridge} node ${nodeTarget}${rest.length > 0 ? ` ${rest}` : ""}`
+}

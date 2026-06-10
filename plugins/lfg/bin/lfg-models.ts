@@ -1,4 +1,5 @@
 import { isRecord, type JsonObject } from "./lfg-json"
+import type { LazycodexAgentOverrideMap } from "../grok-install/lazycodex-agent-overrides"
 
 export type ModelMapping = {
   readonly default: string
@@ -24,6 +25,8 @@ export type ModelDiscovery = {
   readonly modelIds: readonly string[]
   readonly mapping: ModelMapping
   readonly agentConfig?: LazycodexAgentConfig
+  /** Per-agent overrides (LFP-style); persisted to ~/.grok/lazycodex-agent-overrides.json on install. */
+  readonly agentOverrideMap?: LazycodexAgentOverrideMap
 }
 
 export class ModelDiscoveryError extends Error {
@@ -35,9 +38,10 @@ export class ModelDiscoveryError extends Error {
 
 export function modelDiscoveryPlan(): JsonObject {
   return {
-    required: true,
+    required: false,
     endpoint: "OpenAI-compatible /v1/models",
-    prompt: "OpenAI-compatible base URL",
+    prompt: "OpenAI-compatible base URL (optional — auto from ~/.grok/config.toml or http://127.0.0.1:8317/v1)",
+    autoSources: ["--base-url", "LFG_GROK_BASE_URL", "[endpoints].models_base_url", "default_proxy"],
   }
 }
 

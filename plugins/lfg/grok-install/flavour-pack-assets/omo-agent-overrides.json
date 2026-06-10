@@ -1,0 +1,17 @@
+{
+  "source": {
+    "agentsDir": "${CODEX_HOME}/agents"
+  },
+  "overrides": {
+    "explorer": {
+      "model": "grok-4.20-0309-non-reasoning",
+      "model_reasoning_effort": "low",
+      "service_tier": "default"
+    },
+    "librarian": {
+      "model": "gpt-5.4-mini",
+      "model_reasoning_effort": "low",
+      "service_tier": "default"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
@@ -6,17 +6,32 @@ import { installGrokPluginFromSource } from "./install"
 import { mergePortedHooksIntoPlugin } from "./extension-hooks"
 
 describe("extension-hooks", () => {
-  test("merge adds lfg-agent-reminder and keeps visual guidance", async () => {
+  test("normalize rewrites PLUGIN_ROOT in installed tree", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-ext-hooks-"))
     const source = join(import.meta.dirname, "fixture-minimal")
     const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
-    const result = await mergePortedHooksIntoPlugin(pluginRoot)
-    const raw = await readFile(result.path, "utf8")
-    const parsed = JSON.parse(raw) as { hooks: readonly { name: string }[] }
-    const names = parsed.hooks.map((h) => h.name)
-    expect(names).toContain("lfg-visual-guidance")
-    expect(names).toContain("lfg-agent-reminder")
-    expect(result.hookNames).toEqual(names)
+    const hooksPath = join(pluginRoot, "hooks", "hooks.json")
+    const withLegacy = {
+      hooks: {
+        UserPromptSubmit: [
+          {
+            hooks: [
+              {
+                type: "command",
+                command: 'node "${PLUGIN_ROOT}/components/ultrawork/dist/cli.js" hook user-prompt-submit',
+                timeout: 5,
+              },
+            ],
+          },
+        ],
+      },
+    }
+    await writeFile(hooksPath, `${JSON.stringify(withLegacy, null, 2)}\n`, "utf8")
+    await mergePortedHooksIntoPlugin(pluginRoot)
+    const raw = await readFile(hooksPath, "utf8")
+    expect(raw).toContain("${GROK_PLUGIN_ROOT}")
+    expect(raw).not.toContain("${PLUGIN_ROOT}")
+    expect(raw).toContain("lfg-grok-hook-bridge.mjs")
   })
 
   test("second merge is stable (idempotent)", async () => {

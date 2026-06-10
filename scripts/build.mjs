@@ -32,6 +32,13 @@ await mkdir("plugins/lfg/dist/grok-install", { recursive: true })
 const fixtureTmp = `${fixtureDst}.build-${process.pid}-${Date.now()}`
 await rm(fixtureTmp, { recursive: true, force: true })
 await cp(fixtureSrc, fixtureTmp, { recursive: true })
+const bridgeSrc = "plugins/lfg/grok-install/assets/lfg-grok-hook-bridge.mjs"
+const bridgeDstDir = "plugins/lfg/dist/grok-install/assets"
+await mkdir(bridgeDstDir, { recursive: true })
+await cp(bridgeSrc, `${bridgeDstDir}/lfg-grok-hook-bridge.mjs`)
+const flavourSrc = "plugins/lfg/grok-install/flavour-pack-assets"
+const flavourDst = "plugins/lfg/dist/grok-install/flavour-pack-assets"
+await cp(flavourSrc, flavourDst, { recursive: true })
 for (let attempt = 0; attempt < 8; attempt++) {
   await rm(fixtureDst, { recursive: true, force: true })
   try {

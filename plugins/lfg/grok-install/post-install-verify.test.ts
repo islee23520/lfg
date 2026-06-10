@@ -15,10 +15,10 @@ describe("post-install-verify", () => {
     expect(json).toMatchObject({
       ok: true,
       status: "verified",
-      distribution: { packageName: "@islee23520/lfg", version: "9.9.9" },
       hooksRegistered: true,
-      hookNames: ["lfg-visual-guidance"],
+      hookNames: ["SessionStart"],
     })
+    expect(json.stamp).toMatchObject({ packageName: "@islee23520/lfg", version: "9.9.9" })
   })
 
   test("missing_adapter when plugin tree absent", async () => {
