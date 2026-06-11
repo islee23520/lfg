@@ -29,6 +29,13 @@ export type ModelDiscovery = {
   readonly agentConfig?: LazycodexAgentConfig
   /** Per-agent overrides (LFP-style); persisted to ~/.grok/lazycodex-agent-overrides.json on install. */
   readonly agentOverrideMap?: LazycodexAgentOverrideMap
+  /** Model id → context window size (in tokens).
+   * Primary source: values advertised by the local proxy in /v1/models (context_window, max_model_len, max_input_tokens, etc.).
+   * Secondary source (best-effort): public LiteLLM model spec catalog (https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json)
+   *   matched by exact id or normalized alias. Local/proxy values always win over public catalog.
+   * Used by writeGrokModelConfig to populate context_window under each [model.*] so Grok's auto-compact uses the right budget per model.
+   */
+  readonly contextWindows?: Readonly<Record<string, number>>
 }
 
 export class ModelDiscoveryError extends Error {
@@ -49,6 +56,9 @@ export function modelDiscoveryPlan(): JsonObject {
   }
 }
 
+const PUBLIC_LITELLM_CATALOG_URL =
+  "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
+
 export async function fetchModelDiscovery(inputBaseUrl: string): Promise<ModelDiscovery> {
   const { baseUrl, modelsUrl } = normalizeModelUrls(inputBaseUrl)
   const response = await fetch(modelsUrl, { headers: modelRequestHeaders() })
@@ -60,11 +70,86 @@ export async function fetchModelDiscovery(inputBaseUrl: string): Promise<ModelDi
   if (modelIds.length === 0) {
     throw new ModelDiscoveryError(`No model ids found in ${modelsUrl}`)
   }
+  let contextWindows = extractContextWindows(payload) ?? {}
+
+  // Always attempt to enrich from the public LiteLLM model spec catalog (best-effort, ~4.5s timeout).
+  // This pulls max_input_tokens (preferred) or max_tokens for widely known models.
+  // Local/proxy-advertised values (from the /v1/models response) always win for the same model id.
+  // The goal is to stop everything defaulting to Grok's 200k when the user's OpenAI-compatible proxy
+  // does not emit context sizes itself.
+  try {
+    const publicMap = await loadPublicLiteLLMContextMap()
+    if (publicMap && Object.keys(publicMap).length > 0) {
+      for (const id of modelIds) {
+        if (contextWindows[id] != null) continue // local wins
+        const direct = publicMap[id]
+        if (typeof direct === "number" && direct > 0) {
+          contextWindows[id] = direct
+          continue
+        }
+        const norm = aliasGroupKey(id)
+        const byNorm = publicMap[norm]
+        if (typeof byNorm === "number" && byNorm > 0) {
+          contextWindows[id] = byNorm
+          continue
+        }
+        // try stripping provider prefix, e.g. "openai/gpt-5.5" or "anthropic/claude-..."
+        const last = id.includes("/") ? id.split("/").pop()! : id
+        const norm2 = aliasGroupKey(last)
+        const byLast = publicMap[norm2]
+        if (typeof byLast === "number" && byLast > 0) {
+          contextWindows[id] = byLast
+        }
+      }
+    }
+  } catch {
+    // silent; public catalog is only a best-effort enrichment
+  }
+
+  if (Object.keys(contextWindows).length === 0) {
+    contextWindows = undefined
+  }
+
   return {
     baseUrl,
     modelsUrl,
     modelIds,
     mapping: mapModels(modelIds),
+    contextWindows,
+  }
+}
+
+/** Load the public LiteLLM model catalog and return a map of (raw key or normalized) → max input tokens.
+ * Uses max_input_tokens preferentially, falls back to max_tokens. Never throws on network issues.
+ */
+export async function loadPublicLiteLLMContextMap(): Promise<Readonly<Record<string, number>>> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 4500)
+  try {
+    const res = await fetch(PUBLIC_LITELLM_CATALOG_URL, { signal: controller.signal })
+    if (!res.ok) return {}
+    const data: unknown = await res.json()
+    if (!isRecord(data)) return {}
+    const out: Record<string, number> = {}
+    for (const [rawKey, spec] of Object.entries(data)) {
+      if (rawKey === "sample_spec" || !isRecord(spec)) continue
+      const maxIn = toPositiveInt((spec as Record<string, unknown>).max_input_tokens)
+      const maxTok = toPositiveInt((spec as Record<string, unknown>).max_tokens)
+      const n = maxIn ?? maxTok
+      if (n === null) continue
+      out[rawKey] = n
+      const norm = aliasGroupKey(rawKey)
+      if (!out[norm]) out[norm] = n
+      // also store a few common provider-stripped variants for better hit rate
+      const noSlash = rawKey.includes("/") ? rawKey.split("/").pop()! : rawKey
+      const norm2 = aliasGroupKey(noSlash)
+      if (!out[norm2]) out[norm2] = n
+    }
+    return out
+  } catch {
+    return {}
+  } finally {
+    clearTimeout(timer)
   }
 }
 
@@ -73,7 +158,7 @@ export function modelDiscoveryEnv(discovery: ModelDiscovery | null, agentConfig:
     return {}
   }
   const agents = agentConfig ?? defaultLazycodexAgentConfig(discovery)
-  return {
+  const env: Record<string, string> = {
     LAZYCODEX_OPENAI_BASE_URL: discovery.baseUrl,
     LAZYCODEX_OPENAI_MODELS: discovery.modelIds.join(","),
     LAZYCODEX_MODEL_DEFAULT: discovery.mapping.default,
@@ -89,6 +174,10 @@ export function modelDiscoveryEnv(discovery: ModelDiscovery | null, agentConfig:
     LAZYCODEX_AGENT_CODING_MODEL: agents.coding.model,
     LAZYCODEX_AGENT_CODING_REASONING_LEVEL: agents.coding.reasoningLevel,
   }
+  if (discovery.contextWindows && Object.keys(discovery.contextWindows).length > 0) {
+    env.LAZYCODEX_CONTEXT_WINDOWS = JSON.stringify(discovery.contextWindows)
+  }
+  return env
 }
 
 export function defaultLazycodexAgentConfig(discovery: ModelDiscovery): LazycodexAgentConfig {
@@ -101,6 +190,7 @@ export function defaultLazycodexAgentConfig(discovery: ModelDiscovery): Lazycode
 
 export function applyModelPreset(discovery: ModelDiscovery, preset: SetupPreset): ModelDiscovery {
   const mapping = preset === "grok" ? grokCenteredMapping(discovery.modelIds) : gptCenteredMapping(discovery.modelIds)
+  // preserve contextWindows across preset application
   return { ...discovery, mapping, preset }
 }
 
@@ -144,6 +234,60 @@ function extractModelIds(payload: unknown): readonly string[] {
     throw new ModelDiscoveryError("Model list response must be an object with a data array")
   }
   return payload.data.flatMap((item: unknown) => (isRecord(item) && typeof item.id === "string" ? [item.id] : []))
+}
+
+function extractContextWindows(payload: unknown): Readonly<Record<string, number>> | undefined {
+  if (!isRecord(payload) || !Array.isArray(payload.data)) return undefined
+  const out: Record<string, number> = {}
+  for (const item of payload.data) {
+    if (!isRecord(item) || typeof item.id !== "string") continue
+    const cw = pickContextWindow(item)
+    if (cw !== null) out[item.id] = cw
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+function pickContextWindow(item: Record<string, unknown>): number | null {
+  const candidates = [
+    "context_window",
+    "contextWindow",
+    "context_window_size",
+    "contextWindowSize",
+    "max_model_len",
+    "maxModelLen",
+    "max_model_length",
+    "maxModelLength",
+    "max_input_tokens",
+    "maxInputTokens",
+    "max_tokens",
+    "maxTokens",
+    "n_ctx",
+    "nCtx",
+  ]
+  for (const key of candidates) {
+    const v = (item as Record<string, unknown>)[key]
+    const n = toPositiveInt(v)
+    if (n !== null) return n
+  }
+  // Some servers nest under "info" or "limits"
+  const info = isRecord(item.info) ? item.info : isRecord(item.limits) ? item.limits : null
+  if (info) {
+    for (const key of candidates) {
+      const v = (info as Record<string, unknown>)[key]
+      const n = toPositiveInt(v)
+      if (n !== null) return n
+    }
+  }
+  return null
+}
+
+function toPositiveInt(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v) && v > 0) return Math.floor(v)
+  if (typeof v === "string") {
+    const n = Number(v)
+    if (Number.isFinite(n) && n > 0) return Math.floor(n)
+  }
+  return null
 }
 
 function mapModels(modelIds: readonly string[]): ModelMapping {

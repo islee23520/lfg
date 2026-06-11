@@ -122,6 +122,76 @@ describe("lfg Grok config persistence", () => {
       expect(config).toContain("[lazycodex.agents.coding]")
     })
   })
+
+  test("setup run writes context_window per model when upstream advertises it (context_window)", async () => {
+    const apiKey = "sk-cw-key"
+    const descriptors = [
+      { id: "gpt-4.1-mini", context_window: 128000 },
+      { id: "o3-mini", context_window: 200000 },
+    ]
+    await withModelServer(descriptors, { requiredApiKey: apiKey }, async (baseUrl) => {
+      const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+      const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], {
+        HOME: home,
+        OPENAI_API_KEY: apiKey,
+      })
+      expect(result.exitCode).toBe(0)
+      const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+      expect(section(config, 'model."gpt-4.1-mini"')).toContain("context_window = 128000")
+      expect(section(config, 'model."o3-mini"')).toContain("context_window = 200000")
+    })
+  })
+
+  test("setup run writes context_window from max_model_len when context_window absent", async () => {
+    const descriptors = [{ id: "grok-3-mini", max_model_len: 131072 }]
+    await withModelServer(descriptors, async (baseUrl) => {
+      const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+      const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home })
+      expect(result.exitCode).toBe(0)
+      const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+      expect(section(config, 'model."grok-3-mini"')).toContain("context_window = 131072")
+    })
+  })
+
+  test("setup preserves prior context_window when fresh discovery omits it for that model", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+    const configPath = join(home, ".grok", "config.toml")
+    await mkdir(join(home, ".grok"), { recursive: true })
+    await writeFile(
+      configPath,
+      `[endpoints]\nmodels_base_url = "http://127.0.0.1:8317/v1"\n\n[model."grok-build"]\nmodel = "old"\nbase_url = "http://127.0.0.1:8317/v1"\ncontext_window = 99999\n`,
+      "utf8",
+    )
+
+    // Discovery has no context info for grok-build
+    await withModelServer(["grok-build"], async (baseUrl) => {
+      const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home })
+      expect(result.exitCode).toBe(0)
+      const config = await readFile(configPath, "utf8")
+      // Must keep the prior value since discovery did not provide one
+      expect(section(config, 'model."grok-build"')).toContain("context_window = 99999")
+    })
+  })
+
+  test("setup overrides prior context_window when fresh discovery provides a new value", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-home."))
+    const configPath = join(home, ".grok", "config.toml")
+    await mkdir(join(home, ".grok"), { recursive: true })
+    await writeFile(
+      configPath,
+      `[endpoints]\nmodels_base_url = "http://127.0.0.1:8317/v1"\n\n[model."grok-build"]\nmodel = "old"\nbase_url = "http://127.0.0.1:8317/v1"\ncontext_window = 100000\n`,
+      "utf8",
+    )
+
+    const descriptors = [{ id: "grok-build", context_window: 256000 }]
+    await withModelServer(descriptors, async (baseUrl) => {
+      const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home })
+      expect(result.exitCode).toBe(0)
+      const config = await readFile(configPath, "utf8")
+      // Fresh discovery must win
+      expect(section(config, 'model."grok-build"')).toContain("context_window = 256000")
+    })
+  })
 })
 
 function section(source: string, name: string): string {
@@ -129,22 +199,27 @@ function section(source: string, name: string): string {
   return new RegExp(`\\[${escaped}\\]\\n[\\s\\S]*?(?=\\n\\[[^\\n]+\\]|$)`).exec(source)?.[0] ?? ""
 }
 
+export type ModelDescriptor = { readonly id: string; readonly context_window?: number; readonly max_model_len?: number }
+
 type ModelServerOptions = {
   readonly requiredApiKey?: string
 }
 
+async function withModelServer(descriptors: readonly ModelDescriptor[], run: (baseUrl: string) => Promise<void>): Promise<void>
+async function withModelServer(descriptors: readonly ModelDescriptor[], options: ModelServerOptions, run: (baseUrl: string) => Promise<void>): Promise<void>
 async function withModelServer(modelIds: readonly string[], run: (baseUrl: string) => Promise<void>): Promise<void>
 async function withModelServer(modelIds: readonly string[], options: ModelServerOptions, run: (baseUrl: string) => Promise<void>): Promise<void>
 async function withModelServer(
-  modelIds: readonly string[],
-  optionsOrRun: ModelServerOptions | ((baseUrl: string) => Promise<void>),
+  descriptorsOrIds: readonly (string | ModelDescriptor)[],
+  optionsOrRun?: ModelServerOptions | ((baseUrl: string) => Promise<void>),
   maybeRun?: (baseUrl: string) => Promise<void>,
 ): Promise<void> {
-  const options = typeof optionsOrRun === "function" ? {} : optionsOrRun
+  const options = typeof optionsOrRun === "function" || optionsOrRun === undefined ? {} : optionsOrRun
   const run = typeof optionsOrRun === "function" ? optionsOrRun : maybeRun
   if (typeof run !== "function") {
     throw new Error("model server callback is required")
   }
+  const descriptors: readonly ModelDescriptor[] = descriptorsOrIds.map((d) => (typeof d === "string" ? { id: d } : d))
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
     if (request.url !== "/v1/models") {
       response.writeHead(404, { "content-type": "application/json" })
@@ -158,7 +233,7 @@ async function withModelServer(
       return
     }
     response.writeHead(200, { "content-type": "application/json" })
-    response.end(JSON.stringify({ data: modelIds.map((id) => ({ id })) }))
+    response.end(JSON.stringify({ data: descriptors.map((d) => ({ id: d.id, ...(d.context_window !== undefined ? { context_window: d.context_window } : {}), ...(d.max_model_len !== undefined ? { max_model_len: d.max_model_len } : {}) })) }))
   })
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
   const address = server.address()

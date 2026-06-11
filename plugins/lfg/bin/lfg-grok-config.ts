@@ -32,7 +32,7 @@ export async function writeGrokModelConfig(discovery: ModelDiscovery, options: G
   const current = await readTextIfExists(path)
   const endpoints = removeTomlKey(upsertTomlKey(current, "endpoints", "models_base_url", baseUrl), "endpoints", "api_key")
   const agentConfig = options.agentConfig ?? discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
-  const modelConfig = upsertModelSections(upsertSection(endpoints, "models", [`default = ${tomlString(discovery.mapping.default)}`]), discovery, baseUrl, options.apiKey)
+  const modelConfig = upsertModelSections(upsertSection(endpoints, "models", [`default = ${tomlString(discovery.mapping.default)}`]), discovery, baseUrl, options.apiKey, current)
   const next = upsertSection(
     upsertLazycodexAgentSections(modelConfig, agentConfig),
     "lazycodex.models",
@@ -128,21 +128,72 @@ function upsertSection(source: string, section: string, lines: readonly string[]
   return trimmed.length === 0 ? block : `${trimmed}\n\n${block}`
 }
 
-function upsertModelSections(source: string, discovery: ModelDiscovery, baseUrl: string, apiKey: string | undefined): string {
-  if (typeof apiKey !== "string" || apiKey.length === 0) {
-    return source
-  }
+function upsertModelSections(
+  source: string,
+  discovery: ModelDiscovery,
+  baseUrl: string,
+  apiKey: string | undefined,
+  priorConfig: string,
+): string {
   const aliases = modelAliases(discovery)
   let next = source
   for (const alias of aliases) {
     const upstreamModelId = alias === "grok-build" ? discovery.mapping.default : canonicalModelForAlias(discovery.modelIds, alias)
-    next = upsertSection(next, modelSectionName(alias), [
+    const lines = [
       `model = ${tomlString(upstreamModelId)}`,
       `base_url = ${tomlString(baseUrl)}`,
-      `api_key = ${tomlString(apiKey)}`,
-    ])
+    ]
+    if (typeof apiKey === "string" && apiKey.length > 0) {
+      lines.push(`api_key = ${tomlString(apiKey)}`)
+    }
+    // Per-model context window: fresh discovery wins; if absent in this discovery, preserve prior value from the on-disk config if present.
+    const cw = resolveContextWindowForModel(discovery, upstreamModelId, priorConfig, alias)
+    if (cw !== null) {
+      lines.push(`context_window = ${cw}`)
+    }
+    next = upsertSection(next, modelSectionName(alias), lines)
   }
   return next
+}
+
+function resolveContextWindowForModel(
+  discovery: ModelDiscovery,
+  upstreamModelId: string,
+  priorConfig: string,
+  alias: string,
+): number | null {
+  // 1) Fresh discovery value (exact id or via alias canonicalization)
+  const cwMap = discovery.contextWindows
+  if (cwMap) {
+    const exact = cwMap[upstreamModelId]
+    if (typeof exact === "number" && exact > 0) return exact
+    // Also try the alias key itself (e.g. "grok-build") if present in the map
+    const byAlias = cwMap[alias]
+    if (typeof byAlias === "number" && byAlias > 0) return byAlias
+  }
+
+  // 2) Preserve prior value from the existing config.toml for this alias section
+  const prior = readPriorContextWindow(priorConfig, alias)
+  if (prior !== null) return prior
+
+  return null
+}
+
+function readPriorContextWindow(source: string, alias: string): number | null {
+  const sectionName = modelSectionName(alias)
+  // Find the section header
+  const header = `[${sectionName}]`
+  const start = source.indexOf(header)
+  if (start === -1) return null
+  const rest = source.slice(start + header.length)
+  const next = /\n\[[^\n]+\]/.exec(rest)
+  const body = next?.index === undefined ? rest : rest.slice(0, next.index)
+  const m = /^\s*context_window\s*=\s*(.+)$/m.exec(body)
+  if (!m?.[1]) return null
+  const raw = m[1].trim()
+  // Accept bare int or quoted int
+  const n = raw.startsWith('"') || raw.startsWith("'") ? Number(raw.slice(1, -1)) : Number(raw)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
 }
 
 function modelAliases(discovery: ModelDiscovery): readonly string[] {
