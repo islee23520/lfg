@@ -9,6 +9,23 @@
     "email": "lysk9884@gmail.com"
   },
   "type": "module",
+  "bin": {
+    "lfg": "plugins/lfg/dist/lfg.js"
+  },
+  "description": "Run the lazycodex setup helper with npx @islee23520/lfg setup.",
+  "files": [
+    "plugins/lfg/AGENTS.md",
+    "plugins/lfg/README.md",
+    "plugins/lfg/dist",
+    "plugins/lfg/package.json",
+    "plugins/lfg/skills"
+  ],
+  "keywords": [
+    "lazycodex",
+    "grok-build",
+    "npx",
+    "setup"
+  ],
   "workspaces": [
     "plugins/lfg"
   ],

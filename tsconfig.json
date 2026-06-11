@@ -15,7 +15,8 @@
     "noEmit": true
   },
   "include": [
-    "plugins/lfg/bin/**/*.ts"
+    "plugins/lfg/bin/**/*.ts",
+    "plugins/lfg/test-utils/**/*.ts"
   ],
   "exclude": [
     "plugins/lfg/dist"

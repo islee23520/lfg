@@ -1,9 +1,19 @@
-import { access, chmod, mkdtemp, readFile, writeFile } from "node:fs/promises"
-import { execFile } from "node:child_process"
+import { access, mkdtemp, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
 import { runLfg, runLfgFromCwd, runLfgText } from "./test-process"
+import {
+  installAndRunCommand,
+  installAndRunCommandWithExecutable,
+  makeFakeNpx,
+  makeFakeStableNpx,
+  packRootDryRunFilePaths,
+  packRootTarball,
+  packWorkspaceDryRunFilePaths,
+  parseTrailingJsonObject,
+  systemNpxPath,
+} from "../test-utils/package-surface"
 
 describe("lfg CLI", () => {
   test("package metadata stays publishable to npm public registry", async () => {
@@ -41,7 +51,7 @@ describe("lfg CLI", () => {
   })
 
   test("packed package excludes MCP output and exposes only the lfg bin", async () => {
-    const files = await packDryRunFilePaths()
+    const files = await packWorkspaceDryRunFilePaths()
 
     expect(files).toContain("README.md")
     expect(files).toContain("dist/lfg.js")
@@ -51,6 +61,87 @@ describe("lfg CLI", () => {
     expect(files).not.toContain(".npmignore")
     expect(files).not.toContain("dist/lfg-mcp.js")
     expect(files).not.toContain("dist/lfg-mcp.js.map")
+  })
+
+  test("root package metadata exposes an npx-runnable lfg bin", async () => {
+    const parsed = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8")) as Record<string, unknown>
+
+    expect(parsed.name).toBe("@islee23520/lfg")
+    expect(parsed.description).toBe("Run the lazycodex setup helper with npx @islee23520/lfg setup.")
+    expect(parsed.bin).toEqual({ lfg: "plugins/lfg/dist/lfg.js" })
+    expect(parsed.files).toEqual([
+      "plugins/lfg/AGENTS.md",
+      "plugins/lfg/README.md",
+      "plugins/lfg/dist",
+      "plugins/lfg/package.json",
+      "plugins/lfg/skills",
+    ])
+  })
+
+  test("root package dry-run pack stays slim for the npx package surface", async () => {
+    const files = await packRootDryRunFilePaths()
+
+    expect(files).toContain("plugins/lfg/dist/lfg.js")
+    expect(files).toContain("plugins/lfg/dist/self-test.js")
+    expect(files).toContain("plugins/lfg/package.json")
+    expect(files).not.toContain(".npmignore")
+    expect(files).not.toContain(".github/workflows/smoke.yml")
+    expect(files).not.toContain(".omo/boulder.json")
+    expect(files).not.toContain(".lfg/state/schema.json")
+    expect(files).not.toContain("plugins/lfg/bin/lfg.ts")
+  })
+
+  test("root package doctor succeeds after installing the tarball through npx", async () => {
+    const tarball = await packRootTarball()
+    const result = await installAndRunCommand(tarball, ["@islee23520/lfg", "--json", "doctor"])
+
+    expect(result.exitCode).toBe(0)
+    const parsed = JSON.parse(result.stdout) as Record<string, unknown>
+    expect(parsed).toMatchObject({
+      ok: true,
+      status: "pass",
+      helperRoot: expect.stringContaining("node_modules/@islee23520/lfg/plugins/lfg"),
+    })
+    expect(JSON.stringify(parsed)).toContain("plugins/lfg/dist/lfg.js")
+  })
+
+  test("root package setup plan stays non-mutating when run through npx", async () => {
+    const tarball = await packRootTarball()
+    const result = await installAndRunCommand(tarball, ["@islee23520/lfg", "--json", "setup"])
+
+    expect(result.exitCode).toBe(0)
+    const parsed = JSON.parse(result.stdout) as Record<string, unknown>
+    expect(parsed).toMatchObject({
+      ok: true,
+      status: "planned",
+      command: "setup",
+      dryRun: false,
+      executed: false,
+      installerCommand: "npx lazycodex-ai install",
+    })
+  })
+
+  test("root package setup run invokes the installer through npx", async () => {
+    const tarball = await packRootTarball()
+    const fakeBin = await makeFakeNpx(0)
+    const result = await installAndRunCommandWithExecutable(
+      tarball,
+      systemNpxPath(),
+      ["@islee23520/lfg", "--json", "setup", "--run"],
+      { PATH: `${fakeBin}:${process.env.PATH ?? ""}` },
+    )
+
+    expect(result.exitCode).toBe(0)
+    const parsed = parseTrailingJsonObject(result.stdout)
+    expect(parsed).toMatchObject({
+      ok: true,
+      status: "installed",
+      command: "setup",
+      executed: true,
+      installerCommand: "npx lazycodex-ai install",
+      installerArgs: ["lazycodex-ai", "install"],
+    })
+    expect(JSON.stringify(parsed)).toContain("fake lazycodex install")
   })
 
   test("dry-setup returns non-mutating setup plan for package executors", async () => {
@@ -217,57 +308,4 @@ async function pathExists(path: string): Promise<boolean> {
     if (error instanceof Error) return false
     throw error
   }
-}
-
-async function packDryRunFilePaths(): Promise<readonly string[]> {
-  const result = await execFileResult("npm", ["pack", "--workspace", "@islee23520/lfg", "--dry-run", "--json"])
-  expect(result.exitCode).toBe(0)
-  const parsed = JSON.parse(result.stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
-  return parsed.flatMap((pack) => pack.files?.map((file) => file.path).filter((path): path is string => typeof path === "string") ?? [])
-}
-
-async function makeFakeNpx(exitCode: number): Promise<string> {
-  const bin = await mkdtemp(join(tmpdir(), "lfg-fake-npx."))
-  const body = exitCode === 0 ? await fakeInstallerScript() : "echo fake lazycodex failure: $* >&2"
-  await writeFile(join(bin, "npx"), `#!/usr/bin/env bash\n${body}\nexit ${exitCode}\n`)
-  await chmod(join(bin, "npx"), 0o755)
-  return bin
-}
-
-async function makeFakeStableNpx(): Promise<string> {
-  const bin = await mkdtemp(join(tmpdir(), "lfg-fake-npx."))
-  const adapterRoot = join("$HOME", ".grok", "installed-plugins", "lazycodex")
-  await writeFile(
-    join(bin, "npx"),
-    [
-      "#!/usr/bin/env bash",
-      "set -euo pipefail",
-      `mkdir -p "${adapterRoot}/.codex-plugin" "${adapterRoot}/skills"`,
-      `printf '%s\\n' '{"name":"lazycodex","version":"0.1.0"}' > "${adapterRoot}/.codex-plugin/plugin.json"`,
-      `printf '%s\\n' '{"mcpServers":{}}' > "${adapterRoot}/.mcp.json"`,
-      'echo fake stable lazycodex install: "$@"',
-      "",
-    ].join("\n"),
-  )
-  await chmod(join(bin, "npx"), 0o755)
-  return bin
-}
-
-function execFileResult(file: string, args: readonly string[]): Promise<{ readonly exitCode: number; readonly stdout: string }> {
-  return new Promise((resolve) => {
-    execFile(file, [...args], (error, stdout) => {
-      const exitCode = typeof error === "object" && error !== null && "code" in error && typeof error.code === "number" ? error.code : 0
-      resolve({ exitCode, stdout })
-    })
-  })
-}
-
-async function fakeInstallerScript(): Promise<string> {
-  const adapterRoot = join("$HOME", ".grok", "installed-plugins", "0-1-0-ff47fdd7")
-  return [
-    `mkdir -p "${adapterRoot}/.codex-plugin" "${adapterRoot}/skills"`,
-    `printf '%s\\n' '{"name":"lazycodex","version":"0.1.0"}' > "${adapterRoot}/.codex-plugin/plugin.json"`,
-    `printf '%s\\n' '{"mcpServers":{}}' > "${adapterRoot}/.mcp.json"`,
-    "echo fake lazycodex install: $*",
-  ].join("\n")
 }

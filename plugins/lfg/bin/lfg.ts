@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs"
 import { access, stat } from "node:fs/promises"
-import { join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import { commandPath, unsupportedCommand } from "./lfg-command"
 import { detectLazycodexAdapter, grokSurfaces, grokVerificationCommands } from "./lfg-grok"
 import { runInstallWizard } from "./lfg-interactive"
@@ -71,7 +72,8 @@ async function doctor(): Promise<JsonObject> {
   }
   add("helper_data", await directoryExists(env.data) || await directoryExists(resolve(env.data, "..")), env.data)
   add("state_schema", schema.version === STATE_SCHEMA_VERSION, `virtual schema version=${schema.version}; no local write`)
-  add("cli", await pathExists(join(env.root, "bin", "lfg.ts")), join(env.root, "bin", "lfg.ts"))
+  const cliPath = resolveCliPath(env.root)
+  add("cli", await pathExists(cliPath), cliPath)
 
   const failedRequired = checks.filter((check) => check.required === true && check.ok !== true)
   const warnings = checks.filter((check) => check.required !== true && check.ok !== true)
@@ -144,16 +146,27 @@ async function inspectStateSchema(env: LfgEnv): Promise<JsonObject> {
 
 function resolveLfgEnv(): LfgEnv {
   const cwd = process.cwd()
-  const root = resolve(process.env.GROK_PLUGIN_ROOT ?? defaultHelperRoot(cwd))
+  const root = resolve(process.env.GROK_PLUGIN_ROOT ?? defaultHelperRoot(cwd, currentHelperRoot()))
   const data = resolve(process.env.GROK_PLUGIN_DATA ?? join(cwd, ".lfg"))
   return { root, data, stateDir: join(data, "state"), launcher: process.env.LFG_LAUNCHER ?? "lfg" }
 }
 
-function defaultHelperRoot(cwd: string): string {
+function defaultHelperRoot(cwd: string, installedRoot: string): string {
   if (existsSync(join(cwd, "bin", "lfg.ts")) && existsSync(join(cwd, "package.json"))) return cwd
   const workspacePackage = resolve(cwd, "plugins", "lfg")
   if (existsSync(join(workspacePackage, "bin", "lfg.ts"))) return workspacePackage
-  return workspacePackage
+  return installedRoot
+}
+
+function currentHelperRoot(): string {
+  const currentFile = fileURLToPath(import.meta.url)
+  return resolve(dirname(currentFile), "..")
+}
+
+function resolveCliPath(root: string): string {
+  const sourceCliPath = join(root, "bin", "lfg.ts")
+  if (existsSync(sourceCliPath)) return sourceCliPath
+  return join(root, "dist", "lfg.js")
 }
 
 function parseArgs(argv: readonly string[]): ParsedArgs {

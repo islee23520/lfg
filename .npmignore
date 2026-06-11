@@ -1,0 +1,16 @@
+*
+.omo
+.lfg
+!package.json
+!plugins/
+!plugins/lfg/
+!plugins/lfg/AGENTS.md
+!plugins/lfg/README.md
+!plugins/lfg/package.json
+!plugins/lfg/skills/
+!plugins/lfg/skills/**
+!plugins/lfg/dist/
+!plugins/lfg/dist/lfg.js
+!plugins/lfg/dist/lfg.js.map
+!plugins/lfg/dist/self-test.js
+!plugins/lfg/dist/self-test.js.map
