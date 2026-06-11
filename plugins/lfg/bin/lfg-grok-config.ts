@@ -56,6 +56,50 @@ export function grokConfigJson(update: GrokConfigUpdate): JsonObject {
   }
 }
 
+export type ModelConfigRefreshResult = {
+  readonly ok: boolean
+  readonly status: "refreshed" | "no_discovery"
+  readonly discovery: ModelDiscovery | null
+  readonly configUpdate: GrokConfigUpdate | null
+  readonly modelsBaseUrl: string | null
+}
+
+/**
+ * Lightweight refresh of model info + per-model auth into ~/.grok/config.toml.
+ * Performs discovery (if provided) and writes lfg-owned sections (endpoints, model.*, lazycodex.models/agents).
+ * Does NOT touch the Grok plugin tree, hooks, or agents TOMLs.
+ * Context windows are sourced from the discovery (proxy first, then public LiteLLM catalog enrichment, local wins).
+ * Per-model api_key lines are written from the provided apiKey (typically OPENAI_API_KEY) when present.
+ */
+export async function refreshGrokModelConfig(
+  discovery: ModelDiscovery | null,
+  options: GrokConfigOptions = {},
+): Promise<ModelConfigRefreshResult> {
+  const home = options.home ?? homedir()
+  if (discovery === null) {
+    return {
+      ok: false,
+      status: "no_discovery",
+      discovery: null,
+      configUpdate: null,
+      modelsBaseUrl: null,
+    }
+  }
+  const agentConfig = options.agentConfig ?? discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
+  const configUpdate = await writeGrokModelConfig(discovery, {
+    home,
+    apiKey: options.apiKey ?? process.env.OPENAI_API_KEY,
+    agentConfig,
+  })
+  return {
+    ok: true,
+    status: "refreshed",
+    discovery,
+    configUpdate,
+    modelsBaseUrl: configUpdate.modelsBaseUrl,
+  }
+}
+
 function modelsBaseUrl(discovery: ModelDiscovery): string {
   return discovery.modelsUrl.endsWith("/models") ? discovery.modelsUrl.slice(0, -"/models".length) : discovery.baseUrl
 }

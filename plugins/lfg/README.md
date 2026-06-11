@@ -18,6 +18,7 @@ npx @islee23520/lfg setup
 | 모델 동기화 / 기존 정상 설치 보존 | `npx @islee23520/lfg setup --run` |
 | 강제 재설치 / 어댑터 트리 복구 | `npx @islee23520/lfg setup --run --force` |
 | CI / 스크립트 | `npx @islee23520/lfg --json setup --run` |
+| 모델/컨텍스트/인증만 리프레시 (플러그인 트리 변경 없음) | `npx @islee23520/lfg --json setup --refresh --run` |
 | 모델만 변경 | `setup` 다시 실행, 또는 `~/.grok`의 `models_base_url` 변경 후 `setup --run` |
 
 ## What lfg does

@@ -70,7 +70,8 @@ export async function fetchModelDiscovery(inputBaseUrl: string): Promise<ModelDi
   if (modelIds.length === 0) {
     throw new ModelDiscoveryError(`No model ids found in ${modelsUrl}`)
   }
-  let contextWindows = extractContextWindows(payload) ?? {}
+  const localContextWindows = extractContextWindows(payload) ?? {}
+  const contextWindows: Record<string, number> = { ...localContextWindows }
 
   // Always attempt to enrich from the public LiteLLM model spec catalog (best-effort, ~4.5s timeout).
   // This pulls max_input_tokens (preferred) or max_tokens for widely known models.
@@ -106,16 +107,15 @@ export async function fetchModelDiscovery(inputBaseUrl: string): Promise<ModelDi
     // silent; public catalog is only a best-effort enrichment
   }
 
-  if (Object.keys(contextWindows).length === 0) {
-    contextWindows = undefined
-  }
+  const finalContextWindows: Readonly<Record<string, number>> | undefined =
+    Object.keys(contextWindows).length === 0 ? undefined : contextWindows
 
   return {
     baseUrl,
     modelsUrl,
     modelIds,
     mapping: mapModels(modelIds),
-    contextWindows,
+    contextWindows: finalContextWindows,
   }
 }
 

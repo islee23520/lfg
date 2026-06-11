@@ -7,11 +7,13 @@ import { homedir } from "node:os"
 import { applyModelPreset, modelDiscoveryPlan, type ModelDiscovery, type SetupPreset } from "./lfg-models"
 import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery"
 import { isRecord, type JsonObject } from "./lfg-json"
+import { grokConfigJson, refreshGrokModelConfig } from "./lfg-grok-config"
 
 type ParsedArgs = {
   readonly json: boolean
   readonly run: boolean
   readonly force: boolean
+  readonly refresh: boolean
   readonly preset: SetupPreset
   readonly presetError: string | null
   readonly baseUrl: string | null
@@ -29,9 +31,11 @@ async function main(argv: readonly string[]): Promise<number> {
     // plan object or full status JSON as primary output. The wizard owns the entire conversation:
     // header, auto-discovered models, short questions (role customize? + final confirm), the
     // "Direct Grok install..." notice, and human success/failure lines.
+    // --refresh (model/auth re-sync) is a fast maintenance op and bypasses the full wizard.
     const isBareInteractiveSetup =
       !parsed.json && !parsed.run &&
-      parsed.positional[0] === "setup" && parsed.positional.length === 1
+      parsed.positional[0] === "setup" && parsed.positional.length === 1 &&
+      !parsed.refresh
 
     if (parsed.json) {
       // --json is the machine/automation surface. Always emit the structured value.
@@ -78,6 +82,22 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   const resolved = await resolveSetupDiscovery({ home, cliBaseUrl: args.baseUrl })
   const discovery = resolved.discovery === null ? null : applyModelPreset(resolved.discovery, args.preset)
   const presetResolved = { ...resolved, discovery }
+
+  // --refresh path: lightweight re-sync of model list + per-model context_window + auth into ~/.grok/config.toml.
+  // Does not mutate the Grok plugin tree, hooks, or agent TOMLs. Always attempts public LiteLLM catalog enrichment
+  // for context windows when the proxy does not advertise them (local/proxy values still win).
+  if (args.refresh) {
+    if (args.run) {
+      // Execute the refresh (discovery + write only).
+      const apiKey = process.env.OPENAI_API_KEY
+      const refreshResult = await refreshGrokModelConfig(discovery, { home, apiKey })
+      return buildRefreshExecutedJson(refreshResult, discovery, resolved)
+    }
+    // Plan / describe only (non-mutating).
+    const plan = refreshPlan(presetResolved, args.preset)
+    return args.json ? plan : runRefreshWizard(plan, presetResolved)
+  }
+
   if (args.run) {
     return runLazycodexInstaller(discovery, { force: args.force })
   }
@@ -86,7 +106,11 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
 }
 
 function isInteractiveInstall(args: ParsedArgs): boolean {
-  return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1
+  return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1 && !args.refresh
+}
+
+function isInteractiveRefresh(args: ParsedArgs): boolean {
+  return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1 && args.refresh === true
 }
 
 function setupPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>, preset: SetupPreset): JsonObject {
@@ -128,6 +152,102 @@ function setupPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>, 
   }
 }
 
+/** Non-mutating plan for `lfg --json setup --refresh` (and bare `lfg setup --refresh`). */
+function refreshPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>, preset: SetupPreset): JsonObject {
+  const discovery = resolved.discovery
+  return {
+    ok: true,
+    status: "planned",
+    command: "setup",
+    subcommand: "refresh",
+    role: "lazycodex_adapter_model_refresh",
+    adapterPackage: "lfg-grok-install",
+    companionPackage: "lfg-grok-install",
+    executed: false,
+    dryRun: false,
+    lfgIsPlugin: false,
+    selectedPreset: preset,
+    purpose: "Refresh only the model list, per-model context_window sizes, and auth (api_key) in ~/.grok/config.toml. Discovery uses the current base URL (proxy first, public LiteLLM catalog for context sizes as secondary source). Local/proxy-advertised values always win. Does not touch the Grok plugin tree, hooks, agents, or TOMLs.",
+    modelDiscovery: discovery ?? modelDiscoveryPlan(),
+    modelDiscoverySource: resolved.baseUrlSource,
+    modelsBaseUrlUsed: resolved.baseUrlUsed,
+    autoModelAliases: discovery !== null,
+    steps: [
+      { id: 1, status: discovery === null ? "pending" : "done", text: "Re-discover OpenAI-compatible models and context windows from CLI/env/config.toml/default proxy (public LiteLLM catalog enrichment attempted when proxy omits sizes)." },
+      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key if OPENAI_API_KEY present), and [lazycodex.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." },
+    ],
+    note: "This is a config-only maintenance operation. Use --run to execute. No Grok plugin install or hook registration occurs.",
+  }
+}
+
+/** Build the JSON result for an executed --refresh --run. */
+function buildRefreshExecutedJson(
+  refreshResult: Awaited<ReturnType<typeof refreshGrokModelConfig>>,
+  discovery: ModelDiscovery | null,
+  resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>,
+): JsonObject {
+  const base: JsonObject = {
+    ok: refreshResult.ok,
+    status: refreshResult.status === "refreshed" ? "refreshed" : "refresh_no_discovery",
+    command: "setup",
+    subcommand: "refresh",
+    executed: true,
+    role: "lazycodex_adapter_model_refresh",
+    adapterPackage: "lfg-grok-install",
+    companionPackage: "lfg-grok-install",
+    lfgIsPlugin: false,
+    modelDiscoverySource: resolved.baseUrlSource,
+    modelsBaseUrlUsed: resolved.baseUrlUsed,
+  }
+  if (refreshResult.configUpdate) {
+    ;(base as Record<string, unknown>).configUpdated = true
+    ;(base as Record<string, unknown>).configPath = refreshResult.configUpdate.path
+    ;(base as Record<string, unknown>).modelsBaseUrl = refreshResult.configUpdate.modelsBaseUrl
+    ;(base as Record<string, unknown>).grokConfig = grokConfigJson(refreshResult.configUpdate)
+  }
+  if (refreshResult.discovery) {
+    ;(base as Record<string, unknown>).modelDiscovery = refreshResult.discovery
+  } else if (discovery) {
+    ;(base as Record<string, unknown>).modelDiscovery = discovery
+  }
+  if (!refreshResult.ok) {
+    ;(base as Record<string, unknown>).error = "No model discovery available; provide --base-url, set LFG_GROK_BASE_URL/LAZYCODEX_OPENAI_BASE_URL, ensure ~/.grok/config.toml has [endpoints].models_base_url, or ensure the default proxy is reachable."
+  }
+  return base
+}
+
+/** For bare interactive `lfg setup --refresh` we keep it minimal: show plan info and execute if confirmed. */
+async function runRefreshWizard(plan: JsonObject, resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>): Promise<JsonObject> {
+  const { printInstallIntro, printStep } = await import("./lfg-interactive-ui.js")
+  const { createInterface } = await import("node:readline/promises")
+  const { stdin: input, stdout: output } = await import("node:process")
+  printInstallIntro()
+  printStep(1, "Model / auth refresh")
+  output.write("This will re-discover models and context windows (proxy + public LiteLLM catalog) and update ~/.grok/config.toml model sections.\n")
+  output.write("It does not reinstall or modify the Grok adapter plugin tree, hooks, or agent TOMLs.\n\n")
+  const reader = createInterface({ input, output })
+  try {
+    output.write("Proceed with refresh? [y/N] ")
+    const answer = await reader.question("")
+    const yes = answer.trim().toLowerCase().startsWith("y")
+    if (!yes) {
+      output.write("Cancelled.\n")
+      return { ok: true, status: "skipped", executed: false, command: "setup", subcommand: "refresh" }
+    }
+    const apiKey = process.env.OPENAI_API_KEY
+    const home = process.env.HOME ?? homedir()
+    const discovery = resolved.discovery
+    const refreshResult = await refreshGrokModelConfig(discovery, { home, apiKey })
+    if (refreshResult.configUpdate) {
+      output.write(`Updated ~/.grok/config.toml at ${refreshResult.configUpdate.path}\n`)
+    }
+    output.write(refreshResult.ok ? "Model config refreshed.\n" : "No discovery available; nothing written.\n")
+    return buildRefreshExecutedJson(refreshResult, discovery, resolved)
+  } finally {
+    reader.close()
+  }
+}
+
 function parseArgs(argv: readonly string[]): ParsedArgs {
   const positional: string[] = []
   let baseUrl: string | null = null
@@ -135,7 +255,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let presetError: string | null = null
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
-    if (arg === "--json" || arg === "--run" || arg === "--force") {
+    if (arg === "--json" || arg === "--run" || arg === "--force" || arg === "--refresh") {
       continue
     }
     if (arg === "--preset") {
@@ -163,7 +283,16 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
       positional.push(arg)
     }
   }
-  return { json: argv.includes("--json"), run: argv.includes("--run"), force: argv.includes("--force"), preset, presetError, baseUrl, positional }
+  return {
+    json: argv.includes("--json"),
+    run: argv.includes("--run"),
+    force: argv.includes("--force"),
+    refresh: argv.includes("--refresh"),
+    preset,
+    presetError,
+    baseUrl,
+    positional,
+  }
 }
 
 function isSetupPreset(value: unknown): value is SetupPreset {
@@ -199,7 +328,16 @@ function help(): string {
     "  lfg --json setup --preset grok",
     "  lfg --json setup --preset gpt",
     "  lfg --json setup --run --force",
+    "  lfg --json setup --refresh",
+    "  lfg --json setup --refresh --run",
+    "  lfg setup --refresh --run",
     "  (models auto: ~/.grok [endpoints].models_base_url or http://127.0.0.1:8317/v1)",
+    "",
+    "Refresh (model list + context windows + per-model auth):",
+    "  Re-discovers models from the current base URL (proxy + public LiteLLM catalog for context sizes),",
+    "  then writes fresh [model.*] sections (including grok-build alias) and lazycodex.models into ~/.grok/config.toml.",
+    "  Does not touch the Grok plugin tree, hooks, or agent TOMLs. Existing prior context_window values are preserved",
+    "  when the current discovery does not advertise a size for a model. OPENAI_API_KEY (if set) is written per model.",
     "",
     "Setup runs:",
     `  ${LAZYCODEX_INSTALLER_COMMAND}`,
