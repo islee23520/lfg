@@ -15,6 +15,7 @@ import type { ResolveSetupDiscoveryResult } from "../grok-install/resolve-setup-
 import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery"
 import type { LazycodexAgentOverrideMap } from "../grok-install/lazycodex-agent-overrides"
 import { formatRecommendationTable, ROLE_RECOMMENDATIONS, PERF_SNAPSHOT } from "../grok-install/model-recommendations"
+import { maybeRequestGitHubStars } from "./lfg-github-stars"
 import { printCancelled, printCompleted, printInstallIntro, printInstallPlan, printMagicWord, printStep } from "./lfg-interactive-ui"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
@@ -78,6 +79,9 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
         : "Install failed. See installer output above.\n",
     )
     printCompleted(result.ok === true)
+    if (result.ok === true) {
+      await maybeRequestGitHubStars(reader, confirm)
+    }
     return result
   } finally {
     reader.close()

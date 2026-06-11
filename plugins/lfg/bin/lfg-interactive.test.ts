@@ -35,7 +35,7 @@ describe("lfg interactive setup", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-star-"))
 
     // When: the user installs, then declines the optional GitHub star action.
-    const result = await runLfgText(["setup"], "\n\ny\nn\n", {
+    const result = await runLfgText(["setup"], "\ny\nn\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
     })
