@@ -15,6 +15,7 @@ import type { ResolveSetupDiscoveryResult } from "../grok-install/resolve-setup-
 import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery"
 import type { LazycodexAgentOverrideMap } from "../grok-install/lazycodex-agent-overrides"
 import { formatRecommendationTable, ROLE_RECOMMENDATIONS, PERF_SNAPSHOT } from "../grok-install/model-recommendations"
+import { printCancelled, printCompleted, printInstallIntro, printInstallPlan, printMagicWord, printStep } from "./lfg-interactive-ui"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
 
@@ -23,6 +24,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
   const reader = createLineReader()
   try {
     let discovery = resolved?.discovery ?? null
+    printStep(1, "Discovering Grok model endpoint")
     if (discovery === null) {
       discovery = await discoverModelsInteractively(reader)
     } else {
@@ -36,6 +38,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     //
     // This is the whole point of the interactive surface: the human gets to see the plan
     // (models etc.) and say "yes, do the direct install into a real ~/.grok/installed-plugins/lfg dir".
+    printStep(2, "Configuring LazyCodex agents")
     const configuredDiscovery =
       discovery === null ? null : await configureLazycodexAgentsFull(reader, discovery)
 
@@ -45,16 +48,18 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     // main role agents if they want, and then **explicitly say yes** before we
     // do the direct install (real dir under ~/.grok/installed-plugins/lfg, no symlinks,
     // hooks + agents + overrides + config).
-    output.write("\n")
+    printStep(3, "Reviewing install plan")
+    printInstallPlan(plan, configuredDiscovery !== null)
+    printMagicWord()
     const confirmed = await confirm(reader, "Install now? [y/N] ")
     if (!confirmed) {
-      output.write("\nSkipped install. Nothing was changed.\n")
-      output.write("Run again with: lfg setup\n")
+      printCancelled()
       return { ok: true, status: "skipped", executed: false }
     }
 
     // Make it explicit in interactive that we do a direct materialization into Grok's tree.
     // This guarantees a real directory we own (no symlinks to ~/.codex or legacy locations).
+    printStep(4, "Installing Grok adapter")
     output.write("\nDirect Grok install: the adapter will be copied into a real directory at ~/.grok/installed-plugins/lfg.\n")
     output.write("Any previous symlink or non-owned entry at that path will be replaced before applying hooks, agents, and config.\n\n")
 
@@ -66,11 +71,13 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     if (result.configUpdated === true) {
       output.write("Updated ~/.grok/config.toml with discovered model settings.\n")
     }
+    printStep(5, "Finalizing setup")
     output.write(
       result.ok === true
-        ? "\nInstalled lazycodex/omo Grok adapter under ~/.grok for Grok Build.\n"
-        : "\nInstall failed. See installer output above.\n",
+        ? "Installed lazycodex/omo Grok adapter under ~/.grok for Grok Build.\n"
+        : "Install failed. See installer output above.\n",
     )
+    printCompleted(result.ok === true)
     return result
   } finally {
     reader.close()
@@ -78,11 +85,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
 }
 
 function printInstallHeader(): void {
-  output.write("lfg setup\n\n")
-  output.write("Direct install of the omo/lazycodex adapter into Grok Build.\n")
-  output.write("It will use a real directory at ~/.grok/installed-plugins/lfg (no symlinks to ~/.codex), apply hooks/agents/overrides, and update Grok model config.\n")
-  output.write("No Codex-side npx install is performed.\n\n")
-  output.write(`Step: ${INTERNAL_GROK_INSTALL_COMMAND}\n\n`)
+  printInstallIntro()
 }
 
 async function discoverModelsInteractively(reader: LineReader): Promise<ModelDiscovery | null> {
