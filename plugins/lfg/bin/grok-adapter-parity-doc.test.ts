@@ -52,4 +52,26 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
     expect(text).toMatch(/\| Model catalog \|.*\| Implemented/)
     expect(text).not.toMatch(/\| Plugin cache install \|.*\| partial/)
   })
+
+  test("distinguishes core install parity from full OMO component parity for issue 36", async () => {
+    const text = await readFile(join(ROOT, "docs/grok-adapter-parity.md"), "utf8")
+    expect(text).toContain("## Core Install Parity")
+    expect(text).toContain("## Full OMO Component Parity")
+    expect(text).toContain("`lfg-component-inventory.json`")
+    for (const component of [
+      "comment-checker",
+      "git-bash",
+      "rules",
+      "lsp",
+      "ultrawork",
+      "ulw-loop",
+      "start-work-continuation",
+      "telemetry",
+    ] as const) {
+      expect(text).toMatch(new RegExp(`\\| \`${component}\` \\|.*components/${component}.*\\| .*\\| .*\\| (Implemented|Grok-adapted|Unsupported|Deferred) \\|`))
+    }
+    expect(text).toContain("plugins/lfg/grok-install/component-inventory.ts")
+    expect(text).toContain("hook-bridge.integration.test.ts")
+    expect(text).toContain("sync-lazycodex-agents-to-grok.ts")
+  })
 })

@@ -16,6 +16,7 @@ import { readGrokInstallStamp } from "./install"
 import { runInternalGrokInstall } from "./run-internal"
 import { writeLfgShadowAgents } from "./lfg-shadow-agents"
 import { syncLazycodexAgentsToGrokLedger, type SyncLazycodexAgentsResult } from "./sync-lazycodex-agents-to-grok"
+import { componentInventoryPath } from "./component-inventory"
 
 export const INTERNAL_GROK_INSTALL_PACKAGE = "lfg-grok-install" as const
 export const INTERNAL_GROK_INSTALL_COMMAND = "@islee23520/lfg internal grok-install" as const
@@ -41,7 +42,8 @@ export async function runGrokInstall(
   options: GrokInstallRunOptions = {},
 ): Promise<GrokInstallRunResult> {
   const home = env.HOME ?? homedir()
-  if (options.force !== true && (await hasExistingStampedLfgSetup(home))) {
+  const existingSetup = options.force === true ? null : await resolveExistingStampedLfgSetup(home)
+  if (existingSetup !== null) {
     const resolvedAgents = await resolveGlobalLazycodexAgentConfig(home, discovery)
     const configUpdate =
       discovery !== null
@@ -51,7 +53,6 @@ export async function runGrokInstall(
             agentConfig: resolvedAgents,
           })
         : null
-    await runInternalGrokInstall(env)
     const overrideMap = await resolveLazycodexAgentOverrides(home, resolvedAgents)
     const configFiles = await ensureLfgConfigFiles(home, overrideMap)
     await writeLfgShadowAgents(home, overrideMap)
@@ -67,6 +68,7 @@ export async function runGrokInstall(
         packageName: INTERNAL_GROK_INSTALL_PACKAGE,
         mode: "preserve_existing_setup",
         skippedExistingSetup: true,
+        componentInventoryPath: componentInventoryPath(existingSetup.pluginRoot),
         exitCode: 0,
         stdout:
           configUpdate === null
@@ -116,14 +118,18 @@ export async function runGrokInstall(
   }
 }
 
-async function hasExistingStampedLfgSetup(home: string): Promise<boolean> {
+type ExistingStampedLfgSetup = {
+  readonly pluginRoot: string
+}
+
+async function resolveExistingStampedLfgSetup(home: string): Promise<ExistingStampedLfgSetup | null> {
   const resolved = await resolveGrokAdapterPluginRoot(home)
-  return (
+  const ok =
     resolved?.pluginDirName === "lfg" &&
     (await isRealDirectory(resolved.pluginRoot)) &&
     (await readGrokInstallStamp(resolved.pluginRoot)) !== null &&
     (await readAdapterHooksTrust(resolved.pluginRoot)).ok
-  )
+  return ok ? { pluginRoot: resolved.pluginRoot } : null
 }
 
 async function isRealDirectory(path: string): Promise<boolean> {
@@ -143,6 +149,9 @@ export function grokInstallStepJson(internalStep: JsonObject): JsonObject {
     exitCode: typeof internalStep.exitCode === "number" ? internalStep.exitCode : 1,
     stdout: typeof internalStep.stdout === "string" ? internalStep.stdout : "",
     stderr: typeof internalStep.stderr === "string" ? internalStep.stderr : "",
+    ...(typeof internalStep.componentInventoryPath === "string"
+      ? { componentInventoryPath: internalStep.componentInventoryPath }
+      : {}),
   }
 }
 

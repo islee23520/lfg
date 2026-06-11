@@ -31,6 +31,36 @@ describe("plugin cache install acceptance (#27)", () => {
     })
   })
 
+  test("writes versioned component inventory at Grok plugin root", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-accept-inventory-"))
+    await installGrokPluginFromSource({ home, sourceRoot: FIXTURE, version: "5.5.5" })
+    const raw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json"), "utf8")
+    const inventory = JSON.parse(raw) as {
+      readonly inventoryVersion: number
+      readonly packageName: string
+      readonly packageVersion: string
+      readonly platform: string
+      readonly components: readonly { readonly id: string; readonly status: string }[]
+    }
+    expect(inventory).toMatchObject({
+      inventoryVersion: 1,
+      packageName: "@islee23520/lfg",
+      packageVersion: "5.5.5",
+      platform: "grok",
+    })
+    expect(inventory.components.map((component) => component.id)).toEqual([
+      "comment-checker",
+      "git-bash",
+      "rules",
+      "lsp",
+      "ultrawork",
+      "ulw-loop",
+      "start-work-continuation",
+      "telemetry",
+    ])
+    expect(inventory.components.every((component) => component.status.length > 0)).toBe(true)
+  })
+
   test("second runGrokInstall is idempotent for stamp and verify", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-accept-idem-"))
     const discovery = {

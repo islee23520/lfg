@@ -1,10 +1,12 @@
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { writeComponentInventory, type ComponentInventorySource } from "./component-inventory"
 
 export type GrokInstallResult = {
   readonly ok: true
   readonly pluginRoot: string
   readonly installStampPath: string
+  readonly componentInventoryPath: string
   readonly version: string
 }
 
@@ -13,6 +15,7 @@ export type GrokInstallOptions = {
   readonly sourceRoot: string
   readonly pluginDirName?: string
   readonly version?: string
+  readonly componentInventorySource?: ComponentInventorySource
 }
 
 const DEFAULT_PLUGIN_DIR = "lfg"
@@ -38,7 +41,12 @@ export async function installGrokPluginFromSource(options: GrokInstallOptions): 
   const installStampPath = join(pluginRoot, "lfg-install.json")
   const stamp = { packageName: "@islee23520/lfg", version, platform: "grok" as const }
   await writeFile(installStampPath, `${JSON.stringify(stamp, null, 2)}\n`, "utf8")
-  return { ok: true, pluginRoot, installStampPath, version }
+  const componentInventoryPath = await writeComponentInventory({
+    pluginRoot,
+    packageVersion: version,
+    source: options.componentInventorySource ?? "source_tree",
+  })
+  return { ok: true, pluginRoot, installStampPath, componentInventoryPath, version }
 }
 
 async function writeLfgPluginPackageManifest(pluginRoot: string, version: string): Promise<void> {

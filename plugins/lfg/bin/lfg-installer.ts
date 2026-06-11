@@ -52,6 +52,7 @@ export async function runLazycodexInstaller(
     installers: [internalResult],
     failedExit: ok ? 0 : internalResult.exitCode,
     ...configFieldsFromRun(grokRun.configUpdate),
+    internalStep: internalResult,
     postInstallVerify,
     agentPaths,
     agentTomlPaths: agentPaths,
