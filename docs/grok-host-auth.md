@@ -16,7 +16,7 @@
 | 1 | Fix config warnings: re-run `npx @islee23520/lfg --json setup --run` so `endpoints.api_key` is removed — see [`grok-config-endpoints.md`](grok-config-endpoints.md) (#24) |
 | 2 | Interactive: run `grok` and complete sign-in to refresh `~/.grok/auth.json` |
 | 3 | Headless BYOK: set `XAI_API_KEY` or `OPENAI_API_KEY` (and discovery base URL via `lfg setup --run`) |
-| 4 | Verify adapter: `npx @islee23520/lfg --json doctor` on fixture or real HOME after install |
+| 4 | Verify adapter plan: `npx @islee23520/lfg --json setup`; materialize only with explicit `setup --run` |
 
 ## lfg scope
 

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { JsonObject } from "../bin/lfg-json"
 import { mergePortedHooksIntoPlugin } from "./extension-hooks"
-import { resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
+import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
 import { installGrokPluginFromSource, readGrokInstallStamp } from "./install"
 import { readLfgPackageVersionFromBundle } from "./package-version"
 import { resolveLazycodexGrokPluginSource } from "./resolve-lazycodex-plugin-source"
@@ -27,11 +27,14 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
   // or lacks our stamp, we treat it as dirty/legacy and proceed to direct install
   // (installGrokPluginFromSource will rm -rf the target first to guarantee a real dir).
   const resolved = await resolveGrokAdapterPluginRoot(home)
+  const forceReinstall = env.LFG_SETUP_FORCE === "1" || env.LFG_SETUP_FORCE === "true"
   const canRepairCleanly =
+    !forceReinstall &&
     resolved !== null &&
     resolved.pluginDirName === GROK_PLUGIN_DIR &&
     (await isRealDirectory(resolved.pluginRoot)) &&
-    (await readGrokInstallStamp(resolved.pluginRoot)) !== null
+    (await readGrokInstallStamp(resolved.pluginRoot)) !== null &&
+    (await readAdapterHooksTrust(resolved.pluginRoot)).ok
 
   if (canRepairCleanly) {
     return finishRepair(resolved.pluginRoot, resolved.pluginDirName, version, "repair_adapter")

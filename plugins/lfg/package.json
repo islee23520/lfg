@@ -1,6 +1,6 @@
 {
   "name": "@islee23520/lfg",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publishConfig": {
     "access": "public"
   },
@@ -30,7 +30,7 @@
     "setup"
   ],
   "scripts": {
-    "setup": "sh lfg setup",
+    "setup": "sh lfg --json setup",
     "build": "node ../../scripts/build.mjs",
     "test": "npm run build && vitest run ./bin/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"

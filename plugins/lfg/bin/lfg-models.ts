@@ -9,6 +9,7 @@ export type ModelMapping = {
 }
 
 export type ReasoningLevel = "low" | "medium" | "high" | "xhigh"
+export type SetupPreset = "grok" | "gpt"
 
 export type LazycodexAgentName = "explorer" | "reasoning" | "coding"
 
@@ -24,6 +25,7 @@ export type ModelDiscovery = {
   readonly modelsUrl: string
   readonly modelIds: readonly string[]
   readonly mapping: ModelMapping
+  readonly preset?: SetupPreset
   readonly agentConfig?: LazycodexAgentConfig
   /** Per-agent overrides (LFP-style); persisted to ~/.grok/lazycodex-agent-overrides.json on install. */
   readonly agentOverrideMap?: LazycodexAgentOverrideMap
@@ -42,6 +44,8 @@ export function modelDiscoveryPlan(): JsonObject {
     endpoint: "OpenAI-compatible /v1/models",
     prompt: "OpenAI-compatible base URL (optional — auto from ~/.grok/config.toml or http://127.0.0.1:8317/v1)",
     autoSources: ["--base-url", "LFG_GROK_BASE_URL", "[endpoints].models_base_url", "default_proxy"],
+    presets: ["grok", "gpt"],
+    defaultPreset: "grok",
   }
 }
 
@@ -93,6 +97,11 @@ export function defaultLazycodexAgentConfig(discovery: ModelDiscovery): Lazycode
     reasoning: { model: discovery.mapping.reasoning, reasoningLevel: "high" },
     coding: { model: discovery.mapping.coding, reasoningLevel: "medium" },
   }
+}
+
+export function applyModelPreset(discovery: ModelDiscovery, preset: SetupPreset): ModelDiscovery {
+  const mapping = preset === "grok" ? grokCenteredMapping(discovery.modelIds) : gptCenteredMapping(discovery.modelIds)
+  return { ...discovery, mapping, preset }
 }
 
 function normalizeModelUrls(inputBaseUrl: string): { readonly baseUrl: string; readonly modelsUrl: string } {
@@ -147,6 +156,26 @@ function mapModels(modelIds: readonly string[]): ModelMapping {
     fast: findModel(modelIds, ["mini", "flash", "small", "fast"]) ?? canonicalModelFor(modelIds, first),
     reasoning: findModel(modelIds, ["grok-4.20-0309-reasoning", "reasoning", "reason", "o1", "o3", "o4", "r1", "grok-4", "gpt-5"]) ?? canonicalModelFor(modelIds, first),
     coding: findModel(modelIds, ["codex-auto-review", "codex", "code", "coder", "gpt", "grok", "claude"]) ?? canonicalModelFor(modelIds, first),
+  }
+}
+
+function grokCenteredMapping(modelIds: readonly string[]): ModelMapping {
+  const fallback = mapModels(modelIds)
+  return {
+    default: findModel(modelIds, ["grok-3-mini-fast", "grok-3-mini", "grok-build", "grok"]) ?? fallback.default,
+    fast: findModel(modelIds, ["grok-3-mini-fast", "grok-3-mini", "mini", "fast"]) ?? fallback.fast,
+    reasoning: findModel(modelIds, ["grok-4.20-0309-reasoning", "grok-4.3", "grok-4", "reasoning"]) ?? fallback.reasoning,
+    coding: findModel(modelIds, ["grok-4.20-0309-non-reasoning", "grok-build", "grok", "codex"]) ?? fallback.coding,
+  }
+}
+
+function gptCenteredMapping(modelIds: readonly string[]): ModelMapping {
+  const fallback = mapModels(modelIds)
+  return {
+    default: findModel(modelIds, ["gpt-5.4-mini", "gpt-5", "gpt"]) ?? fallback.default,
+    fast: findModel(modelIds, ["gpt-5.4-mini", "mini", "fast"]) ?? fallback.fast,
+    reasoning: findModel(modelIds, ["gpt-5.5", "gpt-5", "reasoning", "o3", "o4"]) ?? fallback.reasoning,
+    coding: findModel(modelIds, ["gpt-5.3-codex-spark", "gpt-5.3-codex", "codex", "gpt"]) ?? fallback.coding,
   }
 }
 

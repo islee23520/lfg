@@ -12,7 +12,7 @@ describe("docs/grok-host-auth.md (#23)", () => {
     expect(text).toContain("XAI_API_KEY")
     expect(text).toContain("setup --run")
     expect(text).toContain("grok-config-endpoints.md")
-    expect(text).toContain("doctor")
+    expect(text).toContain("setup")
     expect(text).not.toMatch(/sk-[a-zA-Z0-9]{10,}/)
     expect(text).not.toContain("api_key =")
   })

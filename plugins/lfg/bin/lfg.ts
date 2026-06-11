@@ -3,19 +3,22 @@ import { unsupportedCommand } from "./lfg-command"
 import { runInstallWizard } from "./lfg-interactive"
 import { LAZYCODEX_INSTALLER_COMMAND, runLazycodexInstaller } from "./lfg-installer"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-install/run-grok-install"
-import { runGrokDoctor } from "../grok-install/doctor"
-import { inspectProjectLocalGrok } from "../grok-install/project-local"
 import { homedir } from "node:os"
-import { modelDiscoveryPlan, type ModelDiscovery } from "./lfg-models"
+import { applyModelPreset, modelDiscoveryPlan, type ModelDiscovery, type SetupPreset } from "./lfg-models"
 import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery"
 import { isRecord, type JsonObject } from "./lfg-json"
 
 type ParsedArgs = {
   readonly json: boolean
   readonly run: boolean
+  readonly force: boolean
+  readonly preset: SetupPreset
+  readonly presetError: string | null
   readonly baseUrl: string | null
   readonly positional: readonly string[]
 }
+
+const DEFAULT_SETUP_PRESET: SetupPreset = "grok"
 
 async function main(argv: readonly string[]): Promise<number> {
   const parsed = parseArgs(argv)
@@ -61,40 +64,32 @@ async function main(argv: readonly string[]): Promise<number> {
 }
 
 async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
+  if (args.presetError !== null) {
+    return { ok: false, status: "invalid_preset", error: args.presetError, supportedPresets: ["grok", "gpt"] }
+  }
   const [command, subcommand] = args.positional
   if (!command || command === "help" || command === "--help" || command === "-h") {
     return help()
-  }
-  if (command === "doctor" && !subcommand) {
-    const registryVersion = process.env.LFG_DOCTOR_REGISTRY_VERSION ?? null
-    return runGrokDoctor({
-      home: process.env.HOME ?? homedir(),
-      moduleUrl: import.meta.url,
-      registryVersion: registryVersion && registryVersion.length > 0 ? registryVersion : null,
-    })
-  }
-  if (command === "project-local" && !subcommand) {
-    const projectRoot = process.env.LFG_PROJECT_ROOT ?? process.cwd()
-    const inspected = await inspectProjectLocalGrok({ projectRoot })
-    return { command: "project-local", lfgIsPlugin: false, ...inspected }
   }
   if (command !== "setup" || subcommand) {
     return unsupportedCommand(args.positional)
   }
   const home = process.env.HOME ?? homedir()
   const resolved = await resolveSetupDiscovery({ home, cliBaseUrl: args.baseUrl })
+  const discovery = resolved.discovery === null ? null : applyModelPreset(resolved.discovery, args.preset)
+  const presetResolved = { ...resolved, discovery }
   if (args.run) {
-    return runLazycodexInstaller(resolved.discovery)
+    return runLazycodexInstaller(discovery, { force: args.force })
   }
-  const plan = setupPlan(resolved)
-  return args.json ? plan : runInstallWizard(plan, resolved)
+  const plan = setupPlan(presetResolved, args.preset)
+  return args.json ? plan : runInstallWizard(plan, presetResolved)
 }
 
 function isInteractiveInstall(args: ParsedArgs): boolean {
   return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1
 }
 
-function setupPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>): JsonObject {
+function setupPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>, preset: SetupPreset): JsonObject {
   const discovery = resolved.discovery
   return {
     ok: true,
@@ -108,12 +103,17 @@ function setupPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>):
     lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     legacyCodexInstallerCommand: LAZYCODEX_INSTALLER_COMMAND,
     packageExecutors: ["npx @islee23520/lfg"],
+    selectedPreset: preset,
+    presets: [
+      { id: "grok", label: "Grok-centered", text: "Prefer Grok model ids for default, fast, reasoning, and coding aliases." },
+      { id: "gpt", label: "GPT-centered", text: "Prefer GPT/Codex model ids for default, reasoning, and coding aliases." },
+    ],
     executed: false,
     dryRun: false,
     lfgIsPlugin: false,
     skippedCodexInstaller: true,
     installPath: "grok",
-    purpose: "Grok-first direct install of the omo/lazycodex adapter into Grok Build. Materializes the full tree as a REAL owned directory at ~/.grok/installed-plugins/lfg (rm -rf any symlink or legacy entry first — never a pointer into ~/.codex). Applies Grok hooks, agents + LFP-style overrides, and model config directly on Grok surfaces. `npx lazycodex-ai install` (Codex path) is NOT executed on the default path.",
+    purpose: "Grok-first direct install of the omo/lazycodex adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/installed-plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). `npx lazycodex-ai install` (Codex path) is NOT executed on the default path.",
     modelDiscovery: discovery ?? modelDiscoveryPlan(),
     modelDiscoverySource: resolved.baseUrlSource,
     modelsBaseUrlUsed: resolved.baseUrlUsed,
@@ -121,19 +121,34 @@ function setupPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>):
     steps: [
       { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) that will be used for Grok [model.*] aliases and the explorer/reasoning/coding agents." },
       { id: 2, status: discovery === null ? "pending" : "done", text: "Build the Grok agent role configs and LFP-style per-agent overrides from the discovered models + bundled omo defaults." },
-      { id: 3, status: "pending", text: `Direct materialization via ${INTERNAL_GROK_INSTALL_COMMAND}: rm -rf ~/.grok/installed-plugins/lfg (guarantees a real directory owned by lfg, kills any symlink), cp the full omo/lazycodex plugin tree (from LFG_LAZYCODEX_PLUGIN_SOURCE, npm _npx cache of lazycodex-ai, or built-in fixture), write lfg-install.json stamp with platform:"grok".` },
-      { id: 4, status: "pending", text: `Post-install on the real lfg/ tree via ${INTERNAL_GROK_INSTALL_COMMAND}: register Grok-compatible hooks (with GROK_PLUGIN_ROOT rewriting), sync agents to ~/.grok/agents/*.toml, write lazcodex-agent-overrides.json, update ~/.grok/config.toml with lfg-owned sections, ensure the adapter is enabled for Grok Build.` },
+      { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/installed-plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_LAZYCODEX_PLUGIN_SOURCE, npm _npx cache of lazycodex-ai, or the built-in fixture.` },
+      { id: 4, status: "pending", text: `Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, sync agents to ~/.grok/agents/*.toml, write lazycodex-agent-overrides.json, and ensure the adapter is enabled for Grok Build.` },
     ],
-    note: "Grok-first. Default `lfg setup` (and --json setup) does not execute `npx lazycodex-ai install`. The legacyCodexInstallerCommand is kept only for reference (optional separate Codex bootstrap). Everything lives under ~/.grok as a real directory.",
+    note: "Grok-first. Default `lfg setup` (and --json setup) does not execute `npx lazycodex-ai install`. The legacyCodexInstallerCommand is kept only for reference (optional separate Codex bootstrap). Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit.",
   }
 }
 
 function parseArgs(argv: readonly string[]): ParsedArgs {
   const positional: string[] = []
   let baseUrl: string | null = null
+  let preset: SetupPreset = DEFAULT_SETUP_PRESET
+  let presetError: string | null = null
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
-    if (arg === "--json" || arg === "--run") {
+    if (arg === "--json" || arg === "--run" || arg === "--force") {
+      continue
+    }
+    if (arg === "--preset") {
+      const value = argv[index + 1]
+      if (isSetupPreset(value)) {
+        preset = value
+        index += 1
+        continue
+      }
+      presetError = `Unsupported setup preset: ${typeof value === "string" ? value : ""}`
+      if (typeof value === "string") {
+        index += 1
+      }
       continue
     }
     if (arg === "--base-url" || arg === "--openai-base-url") {
@@ -148,7 +163,11 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
       positional.push(arg)
     }
   }
-  return { json: argv.includes("--json"), run: argv.includes("--run"), baseUrl, positional }
+  return { json: argv.includes("--json"), run: argv.includes("--run"), force: argv.includes("--force"), preset, presetError, baseUrl, positional }
+}
+
+function isSetupPreset(value: unknown): value is SetupPreset {
+  return value === "grok" || value === "gpt"
 }
 
 function emit(value: JsonObject | string, json: boolean): void {
@@ -177,9 +196,10 @@ function help(): string {
     "  lfg --json setup",
     "  lfg --json setup --run",
     "  lfg setup --run",
+    "  lfg --json setup --preset grok",
+    "  lfg --json setup --preset gpt",
+    "  lfg --json setup --run --force",
     "  (models auto: ~/.grok [endpoints].models_base_url or http://127.0.0.1:8317/v1)",
-    "  lfg --json doctor",
-    "  lfg --json project-local",
     "",
     "Setup runs:",
     `  ${LAZYCODEX_INSTALLER_COMMAND}`,

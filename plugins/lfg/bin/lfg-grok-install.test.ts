@@ -96,41 +96,32 @@ describe("lfg internal grok install contract", () => {
     expect(Array.isArray(parsed.hooks.SessionStart)).toBe(true)
   })
 
-  test("doctor command returns JSON when plugin installed", async () => {
+  test("doctor remains internal and the public CLI advertises setup only", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-cli-doc-"))
     const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
     const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
     await installGrokPluginFromSource({ home, sourceRoot: source })
     await mergePortedHooksIntoPlugin(pluginRoot)
     const result = await runLfg(["--json", "doctor"], { HOME: home })
-    expect(result.exitCode).toBe(0)
+    expect(result.exitCode).toBe(1)
     expect(result.json).toMatchObject({
-      ok: true,
-      status: "pass",
+      ok: false,
+      status: "error",
+      code: "unsupported_command",
       command: "doctor",
       lfgIsPlugin: false,
-      cli: { ok: true, required: true, layout: "published-workspace" },
-      installSurface: { status: "verified", hooksRegistered: true },
-      failedRequired: [],
-      checks: expect.arrayContaining([
-        expect.objectContaining({ name: "cli", ok: true }),
-        expect.objectContaining({ name: "grok_install_surface", ok: true }),
-      ]),
+      supportedCommands: ["setup"],
     })
     const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stampRaw).toContain("@islee23520/lfg")
   })
 
-  test("doctor includes publishGap when LFG_DOCTOR_REGISTRY_VERSION set (#22)", async () => {
+  test("doctor publishGap remains available through the internal verifier (#22)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-doc-gap-"))
     const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
     await installGrokPluginFromSource({ home, sourceRoot: source })
-    const result = await runLfg(["--json", "doctor"], {
-      HOME: home,
-      LFG_DOCTOR_REGISTRY_VERSION: "0.1.3",
-    })
-    expect(result.exitCode).toBe(0)
-    expect(result.json).toMatchObject({
+    const result = await runGrokDoctor({ home, registryVersion: "0.1.3" })
+    expect(result).toMatchObject({
       publishGap: { registryVersion: "0.1.3", publishReady: true, blockedReason: null },
     })
   })

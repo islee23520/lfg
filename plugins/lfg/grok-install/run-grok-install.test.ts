@@ -1,9 +1,13 @@
-import { mkdtemp, readFile } from "node:fs/promises"
+import { cp, lstat, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
 import type { ModelDiscovery } from "../bin/lfg-models"
 import { runGrokInstall } from "./run-grok-install"
+
+const here = dirname(fileURLToPath(import.meta.url))
+const fixtureRoot = join(here, "fixture-minimal")
 
 describe("runGrokInstall", () => {
   test("config.toml merge is stable across two runs with same discovery", async () => {
@@ -69,5 +73,87 @@ describe("runGrokInstall", () => {
     const explorer = await readFile(join(home, ".grok", "agents", "explorer.toml"), "utf8")
     expect(explorer).toContain('model = "gpt-4.1-mini"')
     expect(explorer).toContain("reasoning_effort")
+  })
+
+  test("existing stamped setup preserves install assets while syncing discovered config unless force is explicit", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-existing-"))
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    const configPath = join(home, ".grok", "config.toml")
+    const agentPath = join(home, ".grok", "agents", "explorer.toml")
+    await mkdir(join(home, ".grok", "installed-plugins"), { recursive: true })
+    await mkdir(join(home, ".grok", "agents"), { recursive: true })
+    await cp(fixtureRoot, pluginRoot, { recursive: true })
+    await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"existing"}\n', "utf8")
+    await writeFile(configPath, '[lazycodex.models]\ndefault = "user-model"\n', "utf8")
+    await writeFile(agentPath, 'model = "user-agent"\n', "utf8")
+
+    const discovery: ModelDiscovery = {
+      baseUrl: "http://127.0.0.1:11434/v1",
+      modelsUrl: "http://127.0.0.1:11434/v1/models",
+      modelIds: ["gpt-5.5"],
+      mapping: { default: "gpt-5.5", fast: "gpt-5.5", reasoning: "gpt-5.5", coding: "gpt-5.5" },
+    }
+    const preserved = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
+
+    expect(preserved.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
+    expect(preserved.configUpdate).toMatchObject({ status: "configured", modelsBaseUrl: discovery.baseUrl })
+    expect(preserved.lazycodexAgents).toBeNull()
+    const config = await readFile(configPath, "utf8")
+    expect(config).toContain('default = "gpt-5.5"')
+    expect(config).toContain('"lfg"')
+    expect(config).toContain('"lazycodex"')
+    await expect(readFile(agentPath, "utf8")).resolves.toContain('model = "user-agent"')
+
+    const forced = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" }, { force: true })
+    expect(forced.internalStep).toMatchObject({ status: "installed" })
+    await expect(readFile(configPath, "utf8")).resolves.toContain('default = "gpt-5.5"')
+  })
+
+  test("existing stamped setup with no discovery keeps user config unchanged", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-existing-null-"))
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    const configPath = join(home, ".grok", "config.toml")
+    await mkdir(join(home, ".grok", "installed-plugins"), { recursive: true })
+    await cp(fixtureRoot, pluginRoot, { recursive: true })
+    await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"existing"}\n', "utf8")
+    await writeFile(configPath, '[lazycodex.models]\ndefault = "user-model"\n', "utf8")
+
+    const preserved = await runGrokInstall(null, { HOME: home })
+
+    expect(preserved.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
+    expect(preserved.configUpdate).toBeNull()
+    expect(preserved.lazycodexAgents).toBeNull()
+    await expect(readFile(configPath, "utf8")).resolves.toContain('default = "user-model"')
+  })
+
+  test("incomplete stamped setup is reinstalled instead of preserved", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-incomplete-"))
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    await mkdir(pluginRoot, { recursive: true })
+    await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"incomplete"}\n', "utf8")
+
+    const run = await runGrokInstall(null, { HOME: home })
+
+    expect(run.internalStep).toMatchObject({ status: "installed" })
+    expect(run.internalStep).not.toMatchObject({ skippedExistingSetup: true })
+    await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).resolves.toContain("SessionStart")
+  })
+
+  test("symlinked stamped setup is reinstalled as a real directory instead of preserved", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-symlink-"))
+    const target = await mkdtemp(join(tmpdir(), "lfg-grok-symlink-target-"))
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    await mkdir(join(home, ".grok", "installed-plugins"), { recursive: true })
+    await cp(fixtureRoot, target, { recursive: true })
+    await writeFile(join(target, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"symlink"}\n', "utf8")
+    await symlink(target, pluginRoot)
+
+    const run = await runGrokInstall(null, { HOME: home })
+
+    const stat = await lstat(pluginRoot)
+    expect(run.internalStep).toMatchObject({ status: "installed" })
+    expect(run.internalStep).not.toMatchObject({ skippedExistingSetup: true })
+    expect(stat.isDirectory()).toBe(true)
+    expect(stat.isSymbolicLink()).toBe(false)
   })
 })

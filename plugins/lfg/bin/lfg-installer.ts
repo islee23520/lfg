@@ -26,11 +26,18 @@ type InstallerStepResult = {
   readonly stderr: string
 }
 
+export type LazycodexInstallerOptions = {
+  readonly force?: boolean
+}
+
 /** Grok-first setup: materialize lazycodex under ~/.grok via internal grok-install (no Codex npx). */
-export async function runLazycodexInstaller(discovery: ModelDiscovery | null = null): Promise<JsonObject> {
+export async function runLazycodexInstaller(
+  discovery: ModelDiscovery | null = null,
+  options: LazycodexInstallerOptions = {},
+): Promise<JsonObject> {
   const agentConfig = discovery?.agentConfig ?? null
   const env = mergeStringEnv(process.env, modelDiscoveryEnv(discovery, agentConfig))
-  const grokRun = await runGrokInstall(discovery, env)
+  const grokRun = await runGrokInstall(discovery, env, { force: options.force })
   const internalResult = grokInstallStepJson(grokRun.internalStep) as InstallerStepResult
   const ok = grokRun.ok
   const home = env.HOME ?? process.env.HOME ?? ""
@@ -49,6 +56,7 @@ export async function runLazycodexInstaller(discovery: ModelDiscovery | null = n
     agentOverridesPath,
     installPath: "grok",
     skippedCodexInstaller: true,
+    preservedExistingSetup: grokRun.internalStep.skippedExistingSetup === true,
   })
 }
 

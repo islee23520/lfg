@@ -19,10 +19,9 @@ Not a Grok plugin. Not a runtime. Not a replacement for `lazycodex-ai`.
 | Situation | Command |
 |---|---|
 | First install | `npx @islee23520/lfg setup` |
-| Reinstall or repair | `npx @islee23520/lfg setup --run` |
+| Sync models / preserve healthy existing install | `npx @islee23520/lfg setup --run` |
+| Force reinstall or repair adapter tree | `npx @islee23520/lfg setup --run --force` |
 | Automation | `npx @islee23520/lfg --json setup --run` |
-| Inspect install state | `npx @islee23520/lfg --json doctor` |
-| Show commands | `npx @islee23520/lfg help` |
 
 During interactive setup, `lfg` can read an OpenAI-compatible base URL, fetch `/v1/models`, map model aliases, and ask before writing files.
 
@@ -32,10 +31,11 @@ During interactive setup, `lfg` can read an OpenAI-compatible base URL, fetch `/
 npx @islee23520/lfg setup
 npx @islee23520/lfg --json setup
 npx @islee23520/lfg --json setup --base-url http://127.0.0.1:11434
+npx @islee23520/lfg --json setup --preset grok
+npx @islee23520/lfg --json setup --preset gpt
 npx @islee23520/lfg --json setup --run
 npx @islee23520/lfg setup --run
-npx @islee23520/lfg --json doctor
-npx @islee23520/lfg help
+npx @islee23520/lfg setup --run --force
 ```
 
 ## Development

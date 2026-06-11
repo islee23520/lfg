@@ -1,19 +1,16 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process"
-import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const here = dirname(fileURLToPath(import.meta.url))
 const LFG = join(here, "lfg.js")
-const doctorHome = await prepareDoctorHome()
 
 const checks = [
   await commandOk(["setup"], "@islee23520/lfg internal grok-install"),
   await commandOk(["setup"], "installed-plugins/lfg"),
   await commandOk(["help"], "npx @islee23520/lfg setup"),
-  await commandOk(["doctor"], '"command": "doctor"', { HOME: doctorHome }),
+  await commandFails(["doctor"], "unsupported_command"),
   await commandFails(["dry-setup"], "unsupported_command"),
 ]
 
@@ -22,17 +19,6 @@ for (const [index, ok] of checks.entries()) {
 }
 
 process.exit(checks.every(Boolean) ? 0 : 1)
-
-async function prepareDoctorHome(): Promise<string> {
-  const home = await mkdtemp(join(tmpdir(), "lfg-selftest-home-"))
-  const fixture = join(here, "grok-install", "fixture-minimal")
-  const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
-  await mkdir(dirname(pluginRoot), { recursive: true })
-  await cp(fixture, pluginRoot, { recursive: true })
-  const stamp = { packageName: "@islee23520/lfg", version: "self-test", platform: "grok" }
-  await writeFile(join(pluginRoot, "lfg-install.json"), `${JSON.stringify(stamp, null, 2)}\n`)
-  return home
-}
 
 async function commandOk(args: readonly string[], expected: string, env: Readonly<Record<string, string>> = {}): Promise<boolean> {
   const result = await execFileResult(process.execPath, [LFG, "--json", ...args], env)

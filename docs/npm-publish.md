@@ -19,24 +19,16 @@ npm publish --access public   # must ship 0.1.4+ with `plugins/lfg/lfg` (registr
 
 `npm run assert-pack` runs `npm pack --dry-run` (triggers `prepack` → `npm run build`) then checks root `bin.lfg` and required dist paths.
 
-After publish, set `LFG_DOCTOR_REGISTRY_VERSION` to the registry version when checking publish gap locally:
-
-```sh
-LFG_DOCTOR_REGISTRY_VERSION=$(npm view @islee23520/lfg version) npx lfg --json doctor
-```
-
 Verify from a clean directory:
 
 ```sh
 mkdir /tmp/lfg-smoke && cd /tmp/lfg-smoke && npm init -y
 npm install @islee23520/lfg@latest
-npx @islee23520/lfg --json doctor
+npx @islee23520/lfg --json setup
 ```
 
-Expected: `bin` resolves to `plugins/lfg/lfg` → `dist/lfg.js`; doctor `cli.ok: true` when `~/.grok` has stamp after `setup --run`.
+Expected: `bin` resolves to `plugins/lfg/lfg` → `dist/lfg.js`; setup returns a non-mutating JSON plan unless `setup --run` is explicit.
 
 `@0.1.1` on npm has **no** `bin` — `npx @islee23520/lfg` fails with *could not determine executable* (`registry-install-smoke.integration.test.ts`).
 
-Registry `0.1.3` uses legacy `bin.lfg: plugins/lfg/dist/lfg.js` and does **not** ship the `plugins/lfg/lfg` shell shim (0.1.4+ pack does); `npx @islee23520/lfg` runs but republish `0.1.4+` with `plugins/lfg/lfg` is required for full doctor `cli` / `publishGap` parity (`registry-install-smoke.integration.test.ts`).
-
-`lfg --json doctor` with `LFG_DOCTOR_REGISTRY_VERSION` includes `publishGap`; broken npm layouts (missing or wrong `bin.lfg`) set `cli.ok: false` and `publishGap.publishReady: false`.
+Registry `0.1.3` uses legacy `bin.lfg: plugins/lfg/dist/lfg.js` and does **not** ship the `plugins/lfg/lfg` shell shim (0.1.4+ pack does); republish `0.1.4+` with `plugins/lfg/lfg` is required for the stable setup bin contract (`registry-install-smoke.integration.test.ts`).

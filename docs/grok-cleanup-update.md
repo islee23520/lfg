@@ -10,8 +10,9 @@ Codex exposes passthrough cleanup/update on `~/.codex`. Grok Build uses `~/.grok
 
 | Action | Surface |
 |--------|---------|
-| Re-install / refresh stamp + fixture tree | `npx @islee23520/lfg --json setup --run` (idempotent internal `runGrokInstall`) |
-| Verify install | `npx @islee23520/lfg --json doctor` |
+| Sync models / preserve healthy stamped adapter tree | `npx @islee23520/lfg --json setup --run` (idempotent internal `runGrokInstall`) |
+| Force re-install / replace adapter tree | `npx @islee23520/lfg --json setup --run --force` |
+| Verify install | Re-run `npx @islee23520/lfg --json setup --run` and inspect the JSON result |
 | Model/config merge | Same `setup --run` with `--base-url` when discovery needed |
 
 ## Not implemented (by design)

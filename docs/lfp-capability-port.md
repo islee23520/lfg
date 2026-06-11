@@ -11,7 +11,7 @@
 | Extra helper agents (artistry, visual-engineering, etc.) | **Port selectively** — only agents that make sense on Grok Build; rewrite configs, don’t copy TOML verbatim if model IDs differ |
 | `codex-plugin-install.mjs` / Codex marketplace `linalab` | **Do not port** — Grok uses `~/.grok` plugin layout from `grok-install` |
 | OpenAI-compat / cliproxy provider blocks for **Codex** | **Replace** with lfg `LAZYCODEX_*` + `lfg-grok-config.ts` / Grok `[model.*]` |
-| `cli.mjs` setup/doctor for Codex `CODEX_HOME` | **Replace** with `lfg setup` / `lfg doctor` targeting `~/.grok` |
+| `cli.mjs` setup/doctor for Codex `CODEX_HOME` | **Replace** with `lfg setup` targeting `~/.grok`; doctor-style checks stay internal |
 | Sync scripts (`sync-agent-overrides.mjs`, etc.) | **Reimplement** as part of `runGrokInstall()` idempotent merge |
 
 ## Implementation home

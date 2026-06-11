@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { execFile } from "node:child_process"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -11,8 +11,7 @@ import { resolveLfgCliLayout } from "./lfg-package-layout"
 const execFileAsync = promisify(execFile)
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url))
 
-/** #25 — doctor cli must not resolve dev paths like plugins/lfg/bin/lfg.ts from npm pack layout. */
-describe("doctor pack layout acceptance (#25)", () => {
+describe("packed CLI layout acceptance (#25)", () => {
   test("resolveLfgCliLayout from pack dist never uses bin/lfg.ts dev paths", async () => {
     const installRoot = await mkdtemp(join(tmpdir(), "lfg-doc25-layout-"))
     const distPath = join(installRoot, "plugins/lfg/dist/lfg.js")
@@ -30,7 +29,7 @@ describe("doctor pack layout acceptance (#25)", () => {
     expect(layout.packageRoot).toBe(installRoot)
   })
 
-  test("npx lfg --json doctor from local pack install has cli.ok true with fixture HOME", async () => {
+  test("npx lfg --json setup from local pack install uses the published workspace layout", async () => {
     const packDir = await mkdtemp(join(tmpdir(), "lfg-doc25-pack-"))
     const pack = await withNpmPackLock(() =>
       execFileAsync("npm", ["pack", "--pack-destination", packDir, "--json"], { cwd: ROOT, encoding: "utf8" }),
@@ -41,24 +40,16 @@ describe("doctor pack layout acceptance (#25)", () => {
     await execFileAsync("npm", ["init", "-y"], { cwd: installDir, encoding: "utf8" })
     await execFileAsync("npm", ["install", tarball], { cwd: installDir, encoding: "utf8", maxBuffer: 4_000_000 })
     const home = await mkdtemp(join(tmpdir(), "lfg-doc25-home-"))
-    const fixture = join(ROOT, "plugins/lfg/grok-install/fixture-minimal")
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
-    await mkdir(pluginRoot, { recursive: true })
-    await cp(fixture, pluginRoot, { recursive: true })
-    await writeFile(
-      join(pluginRoot, "lfg-install.json"),
-      `${JSON.stringify({ packageName: "@islee23520/lfg", version: "pack-test", platform: "grok" }, null, 2)}\n`,
-    )
-    const doctor = await execFileAsync("npx", ["lfg", "--json", "doctor"], {
+    const setup = await execFileAsync("npx", ["lfg", "--json", "setup"], {
       cwd: installDir,
       encoding: "utf8",
       env: { ...process.env, HOME: home },
       maxBuffer: 2_000_000,
     })
-    const json = JSON.parse(doctor.stdout) as { ok?: boolean; cli?: { ok?: boolean; distEntry?: string } }
+    const json = JSON.parse(setup.stdout) as { ok?: boolean; command?: string; companionPackage?: string; selectedPreset?: string }
     expect(json.ok).toBe(true)
-    expect(json.cli?.ok).toBe(true)
-    expect(String(json.cli?.distEntry)).toContain("dist/lfg.js")
-    expect(String(json.cli?.distEntry)).not.toContain("bin/lfg.ts")
+    expect(json.command).toBe("setup")
+    expect(json.companionPackage).toBe("lfg-grok-install")
+    expect(json.selectedPreset).toBe("grok")
   }, 120_000)
 })

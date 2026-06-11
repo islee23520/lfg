@@ -15,9 +15,9 @@ npx @islee23520/lfg setup
 | 상황 | 명령 |
 |------|------|
 | 처음 | `npx @islee23520/lfg setup` — (선택) OpenAI-compatible base URL, `/v1/models` 매핑, 역할 조정 후 `Install now?` **y** |
-| 다시 설치 | `npx @islee23520/lfg setup --run` |
+| 모델 동기화 / 기존 정상 설치 보존 | `npx @islee23520/lfg setup --run` |
+| 강제 재설치 / 어댑터 트리 복구 | `npx @islee23520/lfg setup --run --force` |
 | CI / 스크립트 | `npx @islee23520/lfg --json setup --run` |
-| 명령 목록 | `npx @islee23520/lfg help` |
 | 모델만 변경 | `setup` 다시 실행, 또는 `~/.grok`의 `models_base_url` 변경 후 `setup --run` |
 
 ## What lfg does
@@ -32,9 +32,11 @@ npx @islee23520/lfg setup
 npx @islee23520/lfg setup
 npx @islee23520/lfg --json setup
 npx @islee23520/lfg --json setup --base-url http://127.0.0.1:11434
+npx @islee23520/lfg --json setup --preset grok
+npx @islee23520/lfg --json setup --preset gpt
 npx @islee23520/lfg --json setup --run
 npx @islee23520/lfg setup --run
-npx @islee23520/lfg help
+npx @islee23520/lfg setup --run --force
 ```
 
 `lfg` is not a plugin, not a runtime, and not a replacement for `lazycodex-ai`.

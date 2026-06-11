@@ -1,3 +1,4 @@
+import { lstat } from "node:fs/promises"
 import { homedir } from "node:os"
 import type { JsonObject } from "../bin/lfg-json"
 import { grokConfigJson, writeGrokModelConfig } from "../bin/lfg-grok-config"
@@ -9,6 +10,8 @@ import {
   writeLazycodexAgentOverridesFile,
 } from "./lazycodex-agent-overrides"
 import { resolveGlobalLazycodexAgentConfig } from "./resolve-global-agent-config"
+import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
+import { readGrokInstallStamp } from "./install"
 import { runInternalGrokInstall } from "./run-internal"
 import { syncLazycodexAgentsToGrokLedger, type SyncLazycodexAgentsResult } from "./sync-lazycodex-agents-to-grok"
 
@@ -24,14 +27,56 @@ export type GrokInstallRunResult = {
   readonly pluginsEnabled: Awaited<ReturnType<typeof ensureLfgPluginsEnabled>> | null
 }
 
+export type GrokInstallRunOptions = {
+  readonly force?: boolean
+}
+
 /** Single transaction: internal plugin sync then optional config.toml merge (lfg-owned sections). */
 export async function runGrokInstall(
   discovery: ModelDiscovery | null,
   env: NodeJS.ProcessEnv = process.env,
+  options: GrokInstallRunOptions = {},
 ): Promise<GrokInstallRunResult> {
   const home = env.HOME ?? homedir()
+  if (options.force !== true && (await hasExistingStampedLfgSetup(home))) {
+    const resolvedAgents = await resolveGlobalLazycodexAgentConfig(home, discovery)
+    const configUpdate =
+      discovery !== null
+        ? await writeGrokModelConfig(discovery, {
+            apiKey: env.OPENAI_API_KEY,
+            home,
+            agentConfig: resolvedAgents,
+          })
+        : null
+    const pluginsEnabled = await ensureLfgPluginsEnabled(home)
+    return {
+      ok: true,
+      configUpdate,
+      internalStep: {
+        ok: true,
+        status: "already_installed",
+        step: "internal_grok_install",
+        packageName: INTERNAL_GROK_INSTALL_PACKAGE,
+        mode: "preserve_existing_setup",
+        skippedExistingSetup: true,
+        exitCode: 0,
+        stdout:
+          configUpdate === null
+            ? "existing Grok lfg setup preserved; pass --force to overwrite lfg-owned setup"
+            : "existing Grok lfg setup preserved; synced model config from discovered CLI proxy models",
+        stderr: "",
+      },
+      lazycodexAgents: null,
+      agentOverridesPath: null,
+      pluginsEnabled,
+    }
+  }
   const agentConfig = discovery?.agentConfig ?? null
-  const internalEnv = { ...env, ...modelDiscoveryEnv(discovery, agentConfig) }
+  const internalEnv = {
+    ...env,
+    ...modelDiscoveryEnv(discovery, agentConfig),
+    ...(options.force === true ? { LFG_SETUP_FORCE: "1" } : {}),
+  }
   const internalStep = await runInternalGrokInstall(internalEnv)
   const resolvedAgents = await resolveGlobalLazycodexAgentConfig(home, discovery)
   const configUpdate =
@@ -56,6 +101,25 @@ export async function runGrokInstall(
     lazycodexAgents,
     agentOverridesPath: overridesPath,
     pluginsEnabled,
+  }
+}
+
+async function hasExistingStampedLfgSetup(home: string): Promise<boolean> {
+  const resolved = await resolveGrokAdapterPluginRoot(home)
+  return (
+    resolved?.pluginDirName === "lfg" &&
+    (await isRealDirectory(resolved.pluginRoot)) &&
+    (await readGrokInstallStamp(resolved.pluginRoot)) !== null &&
+    (await readAdapterHooksTrust(resolved.pluginRoot)).ok
+  )
+}
+
+async function isRealDirectory(path: string): Promise<boolean> {
+  try {
+    const stat = await lstat(path)
+    return stat.isDirectory() && !stat.isSymbolicLink()
+  } catch {
+    return false
   }
 }
 

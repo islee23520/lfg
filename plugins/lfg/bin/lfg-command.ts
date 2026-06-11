@@ -9,7 +9,7 @@ export function unsupportedCommand(positional: readonly string[]): JsonObject {
     status: "error",
     code: "unsupported_command",
     command,
-    message: `lfg does not run ${command}; use setup or doctor for the Grok Build adapter.`,
+    message: `lfg does not run ${command}; use setup for the Grok Build adapter.`,
     role: "lazycodex_adapter_installer",
     adapterPackage: "lfg-grok-install",
     installerCommand: INTERNAL_GROK_INSTALL_COMMAND,
@@ -17,6 +17,6 @@ export function unsupportedCommand(positional: readonly string[]): JsonObject {
     grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     lfgIsPlugin: false,
-    supportedCommands: ["setup", "doctor", "project-local"],
+    supportedCommands: ["setup"],
   }
 }

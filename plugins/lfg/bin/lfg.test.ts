@@ -1,9 +1,8 @@
-import { chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { execFile } from "node:child_process"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { tmpdir } from "node:os"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
+import { join } from "node:path"
 import { describe, expect, test } from "vitest"
 import { withNpmPackLock } from "./npm-pack-mutex"
 import { runLfg, runLfgText } from "./test-process"
@@ -20,7 +19,7 @@ describe("lfg CLI", () => {
     expect(root.bin).toEqual({ lfg: "plugins/lfg/lfg" })
     expect(root.files).toEqual(["plugins/lfg/AGENTS.md", "plugins/lfg/lfg", "plugins/lfg/README.md", "plugins/lfg/dist", "plugins/lfg/skills"])
     expect(root.scripts).toMatchObject({
-      setup: "sh plugins/lfg/lfg setup",
+      setup: "sh plugins/lfg/lfg --json setup",
       test: "npm run build && vitest run plugins/lfg/bin/*.test.ts plugins/lfg/grok-install/*.test.ts",
       "self-test": "npm run build && node plugins/lfg/dist/self-test.js",
       typecheck: "tsc --noEmit",
@@ -37,7 +36,7 @@ describe("lfg CLI", () => {
     expect(String(root.description)).toContain("grok-install")
     expect(root.scripts).not.toHaveProperty("postinstall")
     expect(workspace.scripts).toMatchObject({
-      setup: "sh lfg setup",
+      setup: "sh lfg --json setup",
       build: "node ../../scripts/build.mjs",
       test: "npm run build && vitest run ./bin/*.test.ts",
       typecheck: "tsc --noEmit -p tsconfig.json",
@@ -236,7 +235,7 @@ describe("lfg CLI", () => {
     })
   })
 
-  test("unsupported commands advertise setup and doctor", async () => {
+  test("unsupported commands advertise setup only", async () => {
     for (const legacy of [["--json", "dry-setup"], ["--json", "install"], ["--json", "setup", "show"]] as const) {
       const result = await runLfg(legacy)
       expect(result.exitCode).toBe(1)
@@ -244,7 +243,7 @@ describe("lfg CLI", () => {
         ok: false,
         status: "error",
         code: "unsupported_command",
-        supportedCommands: ["setup", "doctor", "project-local"],
+        supportedCommands: ["setup"],
       })
     }
   })
@@ -256,11 +255,12 @@ describe("lfg CLI", () => {
     expect(result.stdout).toContain("lfg setup")
     expect(result.stdout).toContain("npx @islee23520/lfg setup")
     expect(result.stdout).not.toContain("dry-setup")
-    expect(result.stdout).toContain("doctor")
+    expect(result.stdout).not.toContain("doctor")
+    expect(result.stdout).not.toContain("project-local")
     expect(result.stdout).not.toContain("bunx")
   })
 
-  test("npm pack tarball exposes lfg bin and doctor passes from npm install layout", async () => {
+  test("npm pack tarball exposes lfg bin and setup works from npm install layout", async () => {
     const packDir = await mkdtemp(join(tmpdir(), "lfg-pack-out-"))
     const pack = await withNpmPackLock(() => execFileResult("npm", ["pack", "--pack-destination", packDir, "--json"]))
     expect(pack.exitCode).toBe(0)
@@ -281,45 +281,27 @@ describe("lfg CLI", () => {
     const nestedWorkspacePkg = join(installDir, "node_modules", "@islee23520", "lfg", "plugins", "lfg", "package.json")
     await expect(readFile(nestedWorkspacePkg, "utf8")).rejects.toThrow()
     const home = await mkdtemp(join(tmpdir(), "lfg-npm-pack-home-"))
-    const fixture = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal")
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
-    await mkdir(pluginRoot, { recursive: true })
-    await cp(fixture, pluginRoot, { recursive: true })
-    await writeFile(
-      join(pluginRoot, "lfg-install.json"),
-      `${JSON.stringify({ packageName: "@islee23520/lfg", version: "pack-test", platform: "grok" }, null, 2)}\n`,
-    )
-    const doctor = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, { HOME: home })
-    expect(doctor.exitCode).toBe(0)
-    const json = JSON.parse(doctor.stdout) as { ok?: boolean; cli?: { ok?: boolean } }
+    const setup = await execFileResultEnv("npx", ["lfg", "--json", "setup"], installDir, { HOME: home })
+    expect(setup.exitCode).toBe(0)
+    const json = JSON.parse(setup.stdout) as { ok?: boolean; command?: string; selectedPreset?: string }
     expect(json.ok).toBe(true)
-    expect(json.cli?.ok).toBe(true)
+    expect(json.command).toBe("setup")
+    expect(json.selectedPreset).toBe("grok")
     const scopedDoctor = await execFileResultEnv(
       "npx",
-      ["@islee23520/lfg", "--json", "doctor"],
+      ["@islee23520/lfg", "--json", "setup", "--preset", "gpt"],
       installDir,
       { HOME: home },
     )
     expect(scopedDoctor.exitCode).toBe(0)
-    const scopedJson = JSON.parse(scopedDoctor.stdout) as { ok?: boolean; cli?: { ok?: boolean } }
+    const scopedJson = JSON.parse(scopedDoctor.stdout) as { ok?: boolean; command?: string; selectedPreset?: string }
     expect(scopedJson.ok).toBe(true)
-    expect(scopedJson.cli?.ok).toBe(true)
-    const doctorGap = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, {
-      HOME: home,
-      LFG_DOCTOR_REGISTRY_VERSION: "0.1.3",
-    })
-    expect(doctorGap.exitCode).toBe(0)
-    const gapJson = JSON.parse(doctorGap.stdout) as {
-      cli?: { ok?: boolean; layout?: string }
-      publishGap?: { publishReady?: boolean; registryVersion?: string }
-    }
-    expect(gapJson.cli?.ok).toBe(true)
-    expect(gapJson.cli?.layout).toBe("published-workspace")
-    expect(gapJson.publishGap).toMatchObject({
-      registryVersion: "0.1.3",
-      publishReady: true,
-      blockedReason: null,
-    })
+    expect(scopedJson.command).toBe("setup")
+    expect(scopedJson.selectedPreset).toBe("gpt")
+    const doctor = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, { HOME: home })
+    expect(doctor.exitCode).toBe(1)
+    const unsupported = JSON.parse(doctor.stdout) as { ok?: boolean; code?: string; supportedCommands?: readonly string[] }
+    expect(unsupported).toMatchObject({ ok: false, code: "unsupported_command", supportedCommands: ["setup"] })
     await rm(installDir, { recursive: true, force: true })
     await rm(packDir, { recursive: true, force: true })
   }, 120_000)

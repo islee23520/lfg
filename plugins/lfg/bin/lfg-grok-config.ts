@@ -71,11 +71,58 @@ async function readTextIfExists(path: string): Promise<string> {
   }
 }
 
+function isBareKey(key: string): boolean {
+  return /^[A-Za-z0-9_-]+$/.test(key)
+}
+
+function parseKeyPath(section: string): string[] {
+  const parts: string[] = []
+  let current = ""
+  let inQuotes = false
+  for (let i = 0; i < section.length; i++) {
+    const char = section[i]
+    if (char === '"') {
+      inQuotes = !inQuotes
+    } else if (char === "." && !inQuotes) {
+      parts.push(current)
+      current = ""
+    } else {
+      current += char
+    }
+  }
+  if (current.length > 0 || parts.length === 0) {
+    parts.push(current)
+  }
+  return parts
+}
+
+function makeKeyPattern(part: string): string {
+  const escaped = escapeRegExp(part)
+  if (isBareKey(part)) {
+    return `(?:"${escaped}"|'${escaped}'|${escaped})`
+  }
+  return `(?:"${escaped}"|'${escaped}')`
+}
+
+function makeSectionRegex(section: string, flags = ""): RegExp {
+  const parts = parseKeyPath(section)
+  const partPatterns = parts.map(makeKeyPattern)
+  const patternStr = `(^|\\n)\\[\\s*${partPatterns.join("\\s*\\.\\s*")}\\s*\\]\\n[\\s\\S]*?(?=\\n\\[[^\\n]+\\]|$)`
+  return new RegExp(patternStr, flags)
+}
+
 function upsertSection(source: string, section: string, lines: readonly string[]): string {
   const block = `[${section}]\n${lines.join("\n")}\n`
-  const pattern = new RegExp(`(^|\\n)\\[${escapeRegExp(section)}\\]\\n[\\s\\S]*?(?=\\n\\[[^\\n]+\\]|$)`)
-  if (pattern.test(source)) {
-    return source.replace(pattern, (prefix: string) => `${prefix.startsWith("\n") ? "\n" : ""}${block}`)
+  if (makeSectionRegex(section).test(source)) {
+    let replaced = false
+    return source.replace(makeSectionRegex(section, "g"), (match: string) => {
+      const prefix = match.startsWith("\n") ? "\n" : ""
+      if (replaced) {
+        return prefix
+      }
+      replaced = true
+      return `${prefix}${block}`
+    })
   }
   const trimmed = source.trimEnd()
   return trimmed.length === 0 ? block : `${trimmed}\n\n${block}`
