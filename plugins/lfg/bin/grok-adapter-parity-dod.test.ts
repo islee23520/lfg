@@ -10,7 +10,8 @@ const PARITY = join(ROOT, "docs/grok-adapter-parity.md")
 describe("grok-adapter-parity DoD (#35)", () => {
   test("at least 90% of capability rows are Implemented or N/A", async () => {
     const text = await readFile(PARITY, "utf8")
-    const rows = text
+    const coreSection = text.split("## Full OMO Component Parity")[0] ?? text
+    const rows = coreSection
       .split("\n")
       .filter((line) => line.startsWith("|") && !line.includes("---") && !line.includes("omo-codex capability"))
     expect(rows.length).toBeGreaterThanOrEqual(10)

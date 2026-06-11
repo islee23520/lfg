@@ -2,6 +2,7 @@ import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { spawn } from "node:child_process"
 import { describe, expect, test } from "vitest"
 import { applyLazycodexAgentTomls } from "../grok-install/apply-agent-tomls"
 import { runInternalGrokInstall } from "../grok-install/run-internal"
@@ -88,6 +89,64 @@ describe("lfg internal grok install contract", () => {
     expect(JSON.stringify(result.json)).not.toContain("@islee23520/lfp")
   })
 
+  test("setup --run reports installed component inventory path", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-inventory-"))
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home, LFG_PACKAGE_VERSION: "9.8.7" })
+    expect(result.exitCode).toBe(0)
+    expect(result.json).toMatchObject({
+      internalStep: {
+        componentInventoryPath: join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json"),
+      },
+    })
+    const raw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json"), "utf8")
+    const inventory = JSON.parse(raw) as { readonly packageVersion: string }
+    expect(inventory.packageVersion).toBe("9.8.7")
+  })
+
+  test("setup --run installs executable rules and ultrawork hook bridge targets", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-hook-qa-"))
+    const result = await runLfg(["--json", "setup", "--run"], { HOME: home })
+    expect(result.exitCode).toBe(0)
+
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    expect(hooksRaw).toContain("components/rules/dist/cli.js")
+    expect(hooksRaw).toContain("components/ultrawork/dist/cli.js")
+
+    const bridgePath = join(pluginRoot, "hooks", "lfg-grok-hook-bridge.mjs")
+    const rules = await runInstalledHook(
+      [bridgePath, "node", join(pluginRoot, "components", "rules", "dist", "cli.js"), "hook", "session-start"],
+      { hookEventName: "session_start", sessionId: "test-session", cwd: process.cwd(), source: "startup" },
+      { GROK_PLUGIN_ROOT: pluginRoot, GROK_HOOK_EVENT: "session_start" },
+    )
+    expect(rules).toMatchObject({ exitCode: 0, stderr: "" })
+    expect(rules.stdout).toContain("rules-context-ok")
+
+    const ultrawork = await runInstalledHook(
+      [bridgePath, "node", join(pluginRoot, "components", "ultrawork", "dist", "cli.js"), "hook", "user-prompt-submit"],
+      { hookEventName: "user_prompt_submit", sessionId: "test-session", cwd: process.cwd(), prompt: "work" },
+      { GROK_PLUGIN_ROOT: pluginRoot, GROK_HOOK_EVENT: "user_prompt_submit" },
+    )
+    expect(ultrawork).toMatchObject({ exitCode: 0, stderr: "" })
+    expect(ultrawork.stdout).toContain("ultrawork-directive-ok")
+  })
+
+  test("preserved setup --run reports existing component inventory path without rewriting inventory", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-inventory-preserve-"))
+    await runLfg(["--json", "setup", "--run"], { HOME: home, LFG_PACKAGE_VERSION: "9.8.7" })
+    const second = await runLfg(["--json", "setup", "--run"], { HOME: home, LFG_PACKAGE_VERSION: "9.8.8" })
+    expect(second.exitCode).toBe(0)
+    expect(second.json).toMatchObject({
+      preservedExistingSetup: true,
+      internalStep: {
+        componentInventoryPath: join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json"),
+      },
+    })
+    const raw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json"), "utf8")
+    const inventory = JSON.parse(raw) as { readonly packageVersion: string }
+    expect(inventory.packageVersion).toBe("9.8.7")
+  })
+
   test("installed fixture hooks.json uses Grok SessionStart event map", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-hooks-home-"))
     await runInternalGrokInstall({ HOME: home })
@@ -126,3 +185,28 @@ describe("lfg internal grok install contract", () => {
     })
   })
 })
+
+function runInstalledHook(
+  argv: readonly string[],
+  payload: Readonly<Record<string, string>>,
+  env: Readonly<Record<string, string>>,
+): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, argv, {
+      env: { ...process.env, ...env },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    let stdout = ""
+    let stderr = ""
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString()
+    })
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString()
+    })
+    child.stdin.write(`${JSON.stringify(payload)}\n`)
+    child.stdin.end()
+    child.on("close", (code) => resolve({ exitCode: code ?? 1, stdout, stderr }))
+    child.on("error", () => resolve({ exitCode: 1, stdout, stderr }))
+  })
+}

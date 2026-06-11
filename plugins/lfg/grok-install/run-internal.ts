@@ -11,6 +11,7 @@ import { readLfgPackageVersionFromBundle } from "./package-version"
 import { resolveLazycodexGrokPluginSource } from "./resolve-lazycodex-plugin-source"
 import { ensureCuaDriverSkill } from "./ensure-cua-driver-skill"
 import { writeGrokInstallStamp } from "./write-install-stamp"
+import { writeComponentInventory } from "./component-inventory"
 
 const GROK_PLUGIN_DIR = "lfg" as const
 
@@ -53,6 +54,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
       sourceRoot: lazycodexSource,
       version,
       pluginDirName: GROK_PLUGIN_DIR,
+      componentInventorySource: mode,
     })
     const hooks = await mergePortedHooksIntoPlugin(result.pluginRoot)
     await ensureCuaDriverSkill(result.pluginRoot)
@@ -65,6 +67,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
       pluginRoot: result.pluginRoot,
       pluginDirName: GROK_PLUGIN_DIR,
       installStampPath: result.installStampPath,
+      componentInventoryPath: result.componentInventoryPath,
       version: result.version,
       exitCode: 0,
       stdout: `grok lazycodex install -> ${result.pluginRoot} from ${lazycodexSource} events=${hooks.hookNames.join(",")} cua-driver-skill=ensured`,
@@ -77,6 +80,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     sourceRoot: defaultFixtureSourceRoot(),
     version,
     pluginDirName: GROK_PLUGIN_DIR,
+    componentInventorySource: "fixture_fallback",
   })
   const hooks = await mergePortedHooksIntoPlugin(result.pluginRoot)
   await ensureCuaDriverSkill(result.pluginRoot)
@@ -89,6 +93,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     pluginRoot: result.pluginRoot,
     pluginDirName: GROK_PLUGIN_DIR,
     installStampPath: result.installStampPath,
+    componentInventoryPath: result.componentInventoryPath,
     version: result.version,
     exitCode: 0,
     stdout: `fixture fallback -> ${result.pluginRoot} events=${hooks.hookNames.join(",")} cua-driver-skill=ensured`,
@@ -107,6 +112,7 @@ async function finishRepair(
   const hooks = await mergePortedHooksIntoPlugin(pluginRoot)
   await ensureCuaDriverSkill(pluginRoot)
   const installStampPath = await writeGrokInstallStamp(pluginRoot, version)
+  const componentInventoryPath = await writeComponentInventory({ pluginRoot, packageVersion: version, source: "repair_adapter" })
   return {
     ok: true,
     status: "installed",
@@ -116,6 +122,7 @@ async function finishRepair(
     pluginRoot,
     pluginDirName,
     installStampPath,
+    componentInventoryPath,
     version,
     exitCode: 0,
     stdout: `repaired adapter hooks at ${pluginRoot} events=${hooks.hookNames.join(",")} cua-driver-skill=ensured`,

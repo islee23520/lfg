@@ -95,6 +95,30 @@ process.stdin.on('end',()=>{
     expect(stderr).toBe("")
     expect(exitCode).toBe(0)
   })
+
+  test("bridge exits non-zero when child hook command fails", async () => {
+    const bridgePath = await resolveGrokHookBridgeAssetPath()
+    const grokPayload = JSON.stringify({
+      hookEventName: "session_start",
+      sessionId: "test-session",
+      cwd: process.cwd(),
+      workspaceRoot: process.cwd(),
+      source: "startup",
+    })
+
+    const { exitCode } = await runBridgeCommand(
+      [bridgePath, "node", "-e", "process.stdin.resume(); process.stdin.on('end',()=>process.exit(7))"],
+      grokPayload,
+      {
+        GROK_PLUGIN_ROOT: join(tmpdir(), "lfg-missing-plugin-root"),
+        GROK_PLUGIN_DATA: join(tmpdir(), "lfg-missing-plugin-data"),
+        GROK_WORKSPACE_ROOT: process.cwd(),
+        GROK_HOOK_EVENT: "session_start",
+      },
+    )
+
+    expect(exitCode).toBe(7)
+  })
 })
 
 function runBridgeCommand(

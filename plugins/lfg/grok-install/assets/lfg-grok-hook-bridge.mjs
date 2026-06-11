@@ -27,16 +27,18 @@ if (pluginData.length > 0) {
 }
 
 const [executable, ...childArgs] = args;
-await new Promise((resolve) => {
+const exitCode = await new Promise((resolve) => {
   const child = spawn(executable, childArgs, {
     env: childEnv,
     stdio: ["pipe", "inherit", "inherit"],
   });
+  child.stdin.on("error", () => {});
   child.stdin.write(`${JSON.stringify(codexPayload)}\n`);
   child.stdin.end();
-  child.on("error", () => resolve());
-  child.on("close", () => resolve());
+  child.on("error", () => resolve(1));
+  child.on("close", (code) => resolve(code ?? 1));
 });
+process.exit(exitCode);
 
 function mapGrokHookInputToCodex(grok) {
   const event = normalizeHookEventName(grok);

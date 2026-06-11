@@ -5,9 +5,21 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"process.exit(0)\"",
+            "command": "node \"${PLUGIN_ROOT}/components/rules/dist/cli.js\" hook session-start",
             "timeout": 5,
-            "description": "lfg fixture session hook"
+            "description": "lfg fixture rules session hook"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/components/ultrawork/dist/cli.js\" hook user-prompt-submit",
+            "timeout": 5,
+            "description": "lfg fixture ultrawork prompt hook"
           }
         ]
       }
