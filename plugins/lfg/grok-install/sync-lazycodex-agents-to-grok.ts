@@ -73,12 +73,13 @@ export async function syncLazycodexAgentsToGrokLedger(
     written.push(...(await writeWorkerAgentSurfaces({ sourceName, grokName, override, agentsDir, rolesDir, promptsDir })))
   }
 
-  const flavourEntries = await readTomlEntries(join(await resolveFlavourPackAssetsRoot(import.meta.url), "agent-configs"))
+  const flavourRoot = await resolveFlavourPackAssetsRoot(import.meta.url)
+  const flavourEntries = await readTomlEntries(join(flavourRoot, "agent-configs"))
   for (const fileName of flavourEntries ?? []) {
     const sourceName = fileName.slice(0, -".toml".length)
     if (syncedNames.has(sourceName)) continue
     const grokName = sourceName
-    const codexText = await readFile(join(await resolveFlavourPackAssetsRoot(import.meta.url), "agent-configs", fileName), "utf8")
+    const codexText = await readFile(join(flavourRoot, "agent-configs", fileName), "utf8")
     const override = overrideForAgent(agentOverrides, sourceName)
     written.push(...(await writeMappedAgentSurfaces({ codexText, sourceName, grokName, override, agentsDir, rolesDir, personasDir, promptsDir })))
   }

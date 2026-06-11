@@ -69,6 +69,7 @@ node plugins/lfg/dist/lfg.js --json setup --run
 - Keep npm/npx as the project toolchain; do not add Bun scripts or runtime dependencies.
 - Keep root `package.json` as the publish target. `plugins/lfg/package.json` is workspace/dev-local.
 - Keep CLI, package metadata, docs, and skill copy consistent about Grok-first `setup --run`.
+- Keep product framing and user-facing references anchored to `https://github.com/code-yeongyu/oh-my-openagent`, explicitly calling out both the **codex adapter** core feature and the **opencode** feature when describing lfg’s lineage or purpose.
 - Keep `lfgIsPlugin: false`; this repo is a setup helper/adapter package, not the Grok plugin/runtime itself.
 - JSON CLI output is a contract. Update matching tests when fields or wording change.
 - Build output under `plugins/lfg/dist/` is generated; change source or assets, then rebuild.

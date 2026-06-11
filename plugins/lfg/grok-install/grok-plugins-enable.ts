@@ -95,7 +95,6 @@ function upsertSubagentToggles(source: string): string {
     ["cursor", false],
     ["general-purpose", false],
     ["explore", false],
-    ["plan", false],
     ["browser-use", false],
     ["grok-build", false],
     ["reasoning", true],
@@ -115,17 +114,9 @@ function upsertAgentPreference(source: string): string {
   const disabled = [
     "general-purpose",
     "explore",
-    "plan",
     "cursor",
     "browser-use",
     "grok-build",
-    "explorer",
-    "reasoning",
-    "coding",
-    "librarian",
-    "metis",
-    "momus",
-    "codex-ultrawork-reviewer",
   ]
   const block = `disabled = [\n${disabled.map((id) => `    ${tomlString(id)},`).join("\n")}\n]`
   return upsertTomlSection(source, "agents", block)

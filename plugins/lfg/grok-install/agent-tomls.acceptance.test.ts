@@ -17,7 +17,7 @@ describe("agent tomls acceptance (#30)", () => {
     const run = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
     expect(run.ok).toBe(true)
     expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
-    const reasoning = await readFile(join(home, ".grok", "roles", "lfg-reasoning.toml"), "utf8")
+    const reasoning = await readFile(join(home, ".grok", "roles", "reasoning.toml"), "utf8")
     expect(reasoning).toContain('model = "o3-mini"')
     expect(reasoning).toContain("reasoning_effort")
     expect(reasoning.match(/^model =/gm)?.length).toBe(1)

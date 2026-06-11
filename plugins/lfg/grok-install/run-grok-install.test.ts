@@ -37,8 +37,8 @@ describe("runGrokInstall", () => {
     expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
     const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
     expect(explorer).toContain('model = "gpt-5.4-mini"')
-    const explorerAgent = await readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "lfg-explorer.md"), "utf8")
-    expect(explorerAgent).toContain("name: lfg-explorer")
+    const explorerAgent = await readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "explorer.md"), "utf8")
+    expect(explorerAgent).toContain("name: explorer")
     const stamp = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stamp).toContain("@islee23520/lfg")
   })
@@ -75,8 +75,8 @@ describe("runGrokInstall", () => {
     const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
     expect(explorer).toContain('model = "gpt-4.1-mini"')
     expect(explorer).toContain("reasoning_effort")
-    const agent = await readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "lfg-explorer.md"), "utf8")
-    expect(agent).toContain("name: lfg-explorer")
+    const agent = await readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "explorer.md"), "utf8")
+    expect(agent).toContain("name: explorer")
   })
 
   test("existing stamped setup preserves install assets while syncing discovered config unless force is explicit", async () => {
