@@ -13,8 +13,8 @@ npx @islee23520/lfg setup
 
 | Task | Location | Notes |
 |------|----------|-------|
-| CLI command surface | `bin/lfg.ts` | Supports only `setup`. |
-| Grok install | `bin/lfg-installer.ts`, `grok-install/` | Single internal grok-install step. |
+| CLI command surface | `bin/` | Supports only `setup`; see `bin/AGENTS.md`. |
+| Grok install | `bin/lfg-installer.ts`, `grok-install/` | Single internal grok-install step; see `grok-install/AGENTS.md`. |
 | Package manifest | `package.json` | Bin and package metadata. |
 | Skill copy | `skills/lazycodex/SKILL.md` | User-facing installer guidance. |
 
