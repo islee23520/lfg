@@ -13,6 +13,7 @@
 
 1. **omo-style Grok adapter** — install/verify semantics comparable to `omo-codex` on `~/.grok` (adapter tree, config merge, agents, hooks, verification).
 2. **LFP-equivalent extensions** — capabilities from legacy `@islee23520/lfp` (hooks, agent overrides, optional extra agents) are **re-implemented for Grok** inside lfg — **not** a copy-paste vendor of the LFP package. See `docs/lfp-capability-port.md`.
+3. **Project `.omo` hook context** — lfg owns the Grok hook-time bridge that reads project-local `.omo/boulder.json` and exposes only concise active-work metadata plus `.omo/start-work/ledger.jsonl` existence/line count. It never emits ledger contents, and missing/malformed `.omo` state fails closed.
 
 **`@islee23520/lfp`** remains a separate npm package only if needed for **Codex-only** or legacy consumers; **Grok Build path is `npx @islee23520/lfg setup` only.**
 

@@ -2,15 +2,20 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { inspectProjectOmoLedger } from "./lfg-project-omo-ledger.mjs";
 
 const input = parseJson(await readStdin());
 const event = normalizeHookEventName(input);
 const home = process.env.HOME ?? homedir();
 const configPath = join(home, ".grok", "lfg-config.jsonc");
 const config = await readConfig(configPath);
+const projectRoot = projectRootFromInput(input);
+const sessionId = sessionIdFromInput(input);
+const ledger = await inspectProjectOmoLedger({ projectRoot, sessionId });
+const context = renderContext(configPath, config, ledger);
 
-if (config !== null) {
-  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: renderContext(configPath, config) } }));
+if (context !== null) {
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: context } }));
 }
 
 async function readConfig(path) {
@@ -23,7 +28,18 @@ async function readConfig(path) {
   }
 }
 
-function renderContext(path, config) {
+function renderContext(path, config, ledger) {
+  const lines = [];
+  if (config !== null) {
+    lines.push(...renderGlobalConfig(path, config));
+  }
+  if (ledger.status === "present" && ledger.work !== null) {
+    lines.push(...renderProjectOmoLedger(ledger));
+  }
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+function renderGlobalConfig(path, config) {
   const lines = [`LFG global config loaded from ${path}.`];
   const agents = objectField(config, "agents");
   if (agents !== null) {
@@ -51,7 +67,36 @@ function renderContext(path, config) {
       .map((entry) => `${entry[0]}=${entry[1]}`);
     if (entries.length > 0) lines.push(`LFG model aliases: ${entries.join(", ")}.`);
   }
-  return lines.join("\n");
+  return lines;
+}
+
+function renderProjectOmoLedger(ledger) {
+  const lines = [
+    `LFG project .omo ledger loaded from ${ledger.boulderPath}.`,
+    `Active work: ${ledger.work.workId}`,
+    `Plan: ${ledger.work.planName}`,
+    `Status: ${ledger.work.status}`,
+    `Active plan: ${ledger.work.activePlan}`,
+  ];
+  if (ledger.work.worktreePath !== null) lines.push(`Worktree: ${ledger.work.worktreePath}`);
+  lines.push(`Matched by: ${ledger.matchedBy ?? "none"}`);
+  lines.push(`Ledger exists: ${ledger.ledgerExists ? "true" : "false"}`);
+  lines.push(`Ledger line count: ${ledger.ledgerLineCount}`);
+  return lines;
+}
+
+function projectRootFromInput(record) {
+  return stringField(record ?? {}, "cwd")
+    ?? stringField(record ?? {}, "workspaceRoot")
+    ?? stringField(record ?? {}, "workspace_root")
+    ?? stringField(record ?? {}, "CLAUDE_PROJECT_DIR")
+    ?? process.env.GROK_WORKSPACE_ROOT
+    ?? process.env.CLAUDE_PROJECT_DIR
+    ?? process.cwd();
+}
+
+function sessionIdFromInput(record) {
+  return stringField(record ?? {}, "sessionId") ?? stringField(record ?? {}, "session_id");
 }
 
 function objectField(record, key) {

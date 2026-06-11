@@ -5,6 +5,7 @@ import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset"
 
 const BRIDGE_RELATIVE = join("hooks", "lfg-grok-hook-bridge.mjs")
 const CONFIG_LOADER_FILE = "lfg-config-loader.mjs" as const
+const PROJECT_OMO_LEDGER_FILE = "lfg-project-omo-ledger.mjs" as const
 const CONFIG_LOADER_RELATIVE = join("hooks", CONFIG_LOADER_FILE)
 
 const PLUGIN_ROOT_PLACEHOLDER = /\$\{PLUGIN_ROOT\}/g
@@ -22,6 +23,7 @@ export async function syncGrokHookBridgeIntoPlugin(pluginRoot: string): Promise<
   await mkdir(dirname(destPath), { recursive: true })
   await copyFile(assetPath, destPath)
   await copyFile(join(dirname(assetPath), CONFIG_LOADER_FILE), join(pluginRoot, CONFIG_LOADER_RELATIVE))
+  await copyFile(join(dirname(assetPath), PROJECT_OMO_LEDGER_FILE), join(pluginRoot, "hooks", PROJECT_OMO_LEDGER_FILE))
   return destPath
 }
 

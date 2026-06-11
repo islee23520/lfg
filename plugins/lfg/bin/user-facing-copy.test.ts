@@ -48,6 +48,8 @@ describe("user-facing copy (#33)", () => {
     expect(parity).toContain("grok-adapter-ownership.md")
     expect(parity).toMatch(/\| Plugin cache install \|.*\| Implemented/)
     expect(parity).toMatch(/\| Internal verifier \|.*\| Implemented/)
+    expect(parity).toMatch(/\| ulw-loop \/ start-work skills \|.*\| Implemented/)
+    expect(parity).toContain("project `.omo` ledger")
     expect(parity).not.toMatch(/\| Plugin cache install \|.*\| pending/)
     expect(parity).not.toMatch(/\| Internal verifier \|.*\| pending/)
   })

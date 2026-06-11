@@ -40,10 +40,12 @@ await rm(fixtureTmp, { recursive: true, force: true })
 await cp(fixtureSrc, fixtureTmp, { recursive: true })
 const bridgeSrc = "plugins/lfg/grok-install/assets/lfg-grok-hook-bridge.mjs"
 const configLoaderSrc = "plugins/lfg/grok-install/assets/lfg-config-loader.mjs"
+const projectOmoLedgerSrc = "plugins/lfg/grok-install/assets/lfg-project-omo-ledger.mjs"
 const bridgeDstDir = "plugins/lfg/dist/grok-install/assets"
 await mkdir(bridgeDstDir, { recursive: true })
 await cp(bridgeSrc, `${bridgeDstDir}/lfg-grok-hook-bridge.mjs`)
 await cp(configLoaderSrc, `${bridgeDstDir}/lfg-config-loader.mjs`)
+await cp(projectOmoLedgerSrc, `${bridgeDstDir}/lfg-project-omo-ledger.mjs`)
 const flavourSrc = "plugins/lfg/grok-install/flavour-pack-assets"
 const flavourDst = "plugins/lfg/dist/grok-install/flavour-pack-assets"
 await cp(flavourSrc, flavourDst, { recursive: true })
