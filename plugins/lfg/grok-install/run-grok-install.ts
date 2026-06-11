@@ -4,7 +4,8 @@ import type { JsonObject } from "../bin/lfg-json"
 import { grokConfigJson, writeGrokModelConfig } from "../bin/lfg-grok-config"
 import type { ModelDiscovery } from "../bin/lfg-models"
 import { modelDiscoveryEnv } from "../bin/lfg-models"
-import { ensureLfgPluginsEnabled } from "./grok-plugins-enable"
+import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled } from "./grok-plugins-enable"
+import { ensureLfgConfigFiles } from "./lfg-config"
 import {
   resolveLazycodexAgentOverrides,
   writeLazycodexAgentOverridesFile,
@@ -24,6 +25,7 @@ export type GrokInstallRunResult = {
   readonly internalStep: JsonObject
   readonly lazycodexAgents: SyncLazycodexAgentsResult | null
   readonly agentOverridesPath: string | null
+  readonly lfgConfigPath: string | null
   readonly pluginsEnabled: Awaited<ReturnType<typeof ensureLfgPluginsEnabled>> | null
 }
 
@@ -48,7 +50,10 @@ export async function runGrokInstall(
             agentConfig: resolvedAgents,
           })
         : null
+    await runInternalGrokInstall(env)
+    const configFiles = await ensureLfgConfigFiles(home, await resolveLazycodexAgentOverrides(home, resolvedAgents))
     const pluginsEnabled = await ensureLfgPluginsEnabled(home)
+    await ensureLfgAgentsPreferred(home)
     return {
       ok: true,
       configUpdate,
@@ -68,6 +73,7 @@ export async function runGrokInstall(
       },
       lazycodexAgents: null,
       agentOverridesPath: null,
+      lfgConfigPath: configFiles.configPath,
       pluginsEnabled,
     }
   }
@@ -92,14 +98,17 @@ export async function runGrokInstall(
       ? discovery.agentOverrideMap
       : await resolveLazycodexAgentOverrides(home, resolvedAgents)
   const overridesPath = await writeLazycodexAgentOverridesFile(home, overrideMap)
+  const configFiles = await ensureLfgConfigFiles(home, overrideMap)
   const lazycodexAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
   const pluginsEnabled = await ensureLfgPluginsEnabled(home)
+  await ensureLfgAgentsPreferred(home)
   return {
     ok: internalStep.ok === true,
     configUpdate,
     internalStep,
     lazycodexAgents,
     agentOverridesPath: overridesPath,
+    lfgConfigPath: configFiles.configPath,
     pluginsEnabled,
   }
 }

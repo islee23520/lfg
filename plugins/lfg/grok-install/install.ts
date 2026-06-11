@@ -34,10 +34,21 @@ export async function installGrokPluginFromSource(options: GrokInstallOptions): 
   }
 
   await cp(options.sourceRoot, pluginRoot, { recursive: true, force: true })
+  await writeLfgPluginPackageManifest(pluginRoot, version)
   const installStampPath = join(pluginRoot, "lfg-install.json")
   const stamp = { packageName: "@islee23520/lfg", version, platform: "grok" as const }
   await writeFile(installStampPath, `${JSON.stringify(stamp, null, 2)}\n`, "utf8")
   return { ok: true, pluginRoot, installStampPath, version }
+}
+
+async function writeLfgPluginPackageManifest(pluginRoot: string, version: string): Promise<void> {
+  const manifest = {
+    name: "LFG",
+    version,
+    description: "LFG Grok Build adapter payload.",
+    private: true,
+  }
+  await writeFile(join(pluginRoot, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8")
 }
 
 export async function readGrokInstallStamp(pluginRoot: string): Promise<{ readonly packageName: string; readonly version: string } | null> {

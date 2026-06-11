@@ -17,6 +17,18 @@ export async function ensureLfgPluginsEnabled(home: string = homedir()): Promise
   return { path, changed }
 }
 
+export async function ensureLfgAgentsPreferred(home: string = homedir()): Promise<{ readonly path: string; readonly changed: boolean }> {
+  const path = join(home, ".grok", "config.toml")
+  const current = await readTextIfExists(path)
+  const next = upsertAgentPreference(upsertSubagentToggles(current))
+  const changed = next !== current
+  if (changed) {
+    await mkdir(dirname(path), { recursive: true })
+    await writeFile(path, next, "utf8")
+  }
+  return { path, changed }
+}
+
 function upsertPluginsEnabled(source: string): string {
   const lines = parseEnabledArray(source)
   const merged = mergeUnique(lines, [...PLUGIN_IDS])
@@ -76,6 +88,61 @@ function mergeUnique(existing: readonly string[], add: readonly string[]): strin
 
 function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((v, i) => v === b[i])
+}
+
+function upsertSubagentToggles(source: string): string {
+  const toggles = new Map<string, boolean>([
+    ["cursor", false],
+    ["general-purpose", false],
+    ["explore", false],
+    ["plan", false],
+    ["browser-use", false],
+    ["grok-build", false],
+    ["reasoning", true],
+    ["coding", true],
+    ["explorer", true],
+    ["plan", true],
+    ["librarian", true],
+    ["metis", true],
+    ["momus", true],
+    ["reviewer", true],
+  ])
+  const block = [...toggles.entries()].map(([name, enabled]) => `${name} = ${enabled ? "true" : "false"}`).join("\n")
+  return upsertTomlSection(source, "subagents.toggle", block)
+}
+
+function upsertAgentPreference(source: string): string {
+  const disabled = [
+    "general-purpose",
+    "explore",
+    "plan",
+    "cursor",
+    "browser-use",
+    "grok-build",
+    "explorer",
+    "reasoning",
+    "coding",
+    "librarian",
+    "metis",
+    "momus",
+    "codex-ultrawork-reviewer",
+  ]
+  const block = `disabled = [\n${disabled.map((id) => `    ${tomlString(id)},`).join("\n")}\n]`
+  return upsertTomlSection(source, "agents", block)
+}
+
+function upsertTomlSection(source: string, section: string, body: string): string {
+  const pattern = new RegExp(`(^|\\n)(\\[${escapeRegExp(section)}\\]\\n)([\\s\\S]*?)(?=\\n\\[[^\\n]+\\]|$)`)
+  if (pattern.test(source)) {
+    return source.replace(pattern, (_match, prefix: string, header: string) => `${prefix.startsWith("\n") ? "\n" : ""}${header}${body}\n`)
+  }
+  const trimmed = source.trimEnd()
+  const block = `[${section}]\n${body}\n`
+  return trimmed.length === 0 ? block : `${trimmed}\n\n${block}`
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 function tomlString(value: string): string {

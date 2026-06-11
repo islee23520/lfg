@@ -32,6 +32,7 @@ describe("extension-hooks", () => {
     expect(raw).toContain("${GROK_PLUGIN_ROOT}")
     expect(raw).not.toContain("${PLUGIN_ROOT}")
     expect(raw).toContain("lfg-grok-hook-bridge.mjs")
+    expect(raw).toContain("lfg-config-loader.mjs")
   })
 
   test("second merge is stable (idempotent)", async () => {

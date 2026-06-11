@@ -286,7 +286,7 @@ describe("lfg CLI", () => {
     const json = JSON.parse(setup.stdout) as { ok?: boolean; command?: string; selectedPreset?: string }
     expect(json.ok).toBe(true)
     expect(json.command).toBe("setup")
-    expect(json.selectedPreset).toBe("grok")
+    expect(json.selectedPreset).toBe("gpt")
     const scopedDoctor = await execFileResultEnv(
       "npx",
       ["@islee23520/lfg", "--json", "setup", "--preset", "gpt"],

@@ -18,7 +18,7 @@ type ParsedArgs = {
   readonly positional: readonly string[]
 }
 
-const DEFAULT_SETUP_PRESET: SetupPreset = "grok"
+const DEFAULT_SETUP_PRESET: SetupPreset = "gpt"
 
 async function main(argv: readonly string[]): Promise<number> {
   const parsed = parseArgs(argv)
@@ -122,7 +122,7 @@ function setupPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>, 
       { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) that will be used for Grok [model.*] aliases and the explorer/reasoning/coding agents." },
       { id: 2, status: discovery === null ? "pending" : "done", text: "Build the Grok agent role configs and LFP-style per-agent overrides from the discovered models + bundled omo defaults." },
       { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/installed-plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_LAZYCODEX_PLUGIN_SOURCE, npm _npx cache of lazycodex-ai, or the built-in fixture.` },
-      { id: 4, status: "pending", text: `Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, sync agents to ~/.grok/agents/*.toml, write lazycodex-agent-overrides.json, and ensure the adapter is enabled for Grok Build.` },
+      { id: 4, status: "pending", text: `Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, install plugin-owned LFG agents, sync roles/personas/prompts, write lazycodex-agent-overrides.json, and ensure the adapter is enabled for Grok Build.` },
     ],
     note: "Grok-first. Default `lfg setup` (and --json setup) does not execute `npx lazycodex-ai install`. The legacyCodexInstallerCommand is kept only for reference (optional separate Codex bootstrap). Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit.",
   }

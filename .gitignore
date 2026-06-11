@@ -12,3 +12,4 @@ test-results/
 plugins/lfg/dist/
 plans/
 *lfg*.tgz
+*.code-workspace

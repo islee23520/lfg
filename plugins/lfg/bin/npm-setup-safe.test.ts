@@ -54,7 +54,7 @@ describe("npm setup script safety", () => {
   })
 
   test("root npm run setup -- --run preserves existing Grok setup assets while syncing discovered config", async () => {
-    await withModelServer(["grok-3-mini-fast", "gpt-5.5"], async (baseUrl) => {
+    await withModelServer(["grok-3-mini-fast", "gpt-5.4-mini", "gpt-5.5"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-npm-setup-existing-home."))
       const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
       const configPath = join(home, ".grok", "config.toml")
@@ -74,7 +74,7 @@ describe("npm setup script safety", () => {
         const result = JSON.parse(stdout) as { readonly preservedExistingSetup?: boolean; readonly configUpdated?: boolean }
         expect(result.preservedExistingSetup).toBe(true)
         expect(result.configUpdated).toBe(true)
-        await expect(readFile(configPath, "utf8")).resolves.toContain('default = "grok-3-mini-fast"')
+        await expect(readFile(configPath, "utf8")).resolves.toContain('default = "gpt-5.4-mini"')
         await expect(readFile(agentPath, "utf8")).resolves.toContain('model = "user-kept-agent"')
       } finally {
         await rm(home, { recursive: true, force: true })

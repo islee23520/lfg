@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { LazycodexAgentConfig, ReasoningLevel } from "../bin/lfg-models"
+import { applyLfgConfigToAgentOverrides, readLfgConfigFile } from "./lfg-config"
 import { resolveFlavourPackAssetsRoot } from "./resolve-flavour-pack-asset"
 
 export type LazycodexAgentModelOverride = {
@@ -94,8 +95,12 @@ export async function resolveLazycodexAgentOverrides(
   home: string,
   roleConfig: LazycodexAgentConfig,
 ): Promise<LazycodexAgentOverrideMap> {
-  const [bundled, fromFile] = await Promise.all([loadBundledDefaultOmoOverrides(), readLazycodexAgentOverridesFile(home)])
-  return mergeLazycodexAgentOverrides(roleConfig, bundled, fromFile)
+  const [bundled, fromFile, lfgConfig] = await Promise.all([
+    loadBundledDefaultOmoOverrides(),
+    readLazycodexAgentOverridesFile(home),
+    readLfgConfigFile(home),
+  ])
+  return applyLfgConfigToAgentOverrides(mergeLazycodexAgentOverrides(roleConfig, bundled, fromFile), roleConfig, lfgConfig)
 }
 
 export function overrideForAgent(map: LazycodexAgentOverrideMap, agentName: string): LazycodexAgentModelOverride | undefined {

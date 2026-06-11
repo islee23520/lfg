@@ -42,8 +42,9 @@ export async function runLazycodexInstaller(
   const ok = grokRun.ok
   const home = env.HOME ?? process.env.HOME ?? ""
   const postInstallVerify = home.length > 0 ? await verifyGrokInstallSurface({ home }) : { status: "missing_adapter", ok: false }
-  const agentTomlPaths = grokRun.lazycodexAgents?.written ?? []
+  const agentPaths = grokRun.lazycodexAgents?.written ?? []
   const agentOverridesPath = grokRun.agentOverridesPath ?? null
+  const lfgConfigPath = grokRun.lfgConfigPath ?? null
   return installJson({
     ok,
     status: ok ? "installed" : "install_failed",
@@ -52,8 +53,10 @@ export async function runLazycodexInstaller(
     failedExit: ok ? 0 : internalResult.exitCode,
     ...configFieldsFromRun(grokRun.configUpdate),
     postInstallVerify,
-    agentTomlPaths,
+    agentPaths,
+    agentTomlPaths: agentPaths,
     agentOverridesPath,
+    lfgConfigPath,
     installPath: "grok",
     skippedCodexInstaller: true,
     preservedExistingSetup: grokRun.internalStep.skippedExistingSetup === true,

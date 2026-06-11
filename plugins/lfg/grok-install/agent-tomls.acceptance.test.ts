@@ -17,12 +17,14 @@ describe("agent tomls acceptance (#30)", () => {
     const run = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
     expect(run.ok).toBe(true)
     expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
-    const reasoning = await readFile(join(home, ".grok", "agents", "reasoning.toml"), "utf8")
+    const reasoning = await readFile(join(home, ".grok", "roles", "lfg-reasoning.toml"), "utf8")
     expect(reasoning).toContain('model = "o3-mini"')
     expect(reasoning).toContain("reasoning_effort")
     expect(reasoning.match(/^model =/gm)?.length).toBe(1)
-    const coding = await readFile(join(home, ".grok", "agents", "coding.toml"), "utf8")
+    const coding = await readFile(join(home, ".grok", "roles", "coding.toml"), "utf8")
     expect(coding).toContain('model = "gpt-4.1-mini"')
+    const codingAgent = await readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "coding.md"), "utf8")
+    expect(codingAgent).toContain("name: coding")
   })
 
   test("null discovery materializes agents from existing config.toml", async () => {
@@ -47,7 +49,7 @@ reasoning_level = "medium"
     )
     const run = await runGrokInstall(null, { HOME: home })
     expect(run.ok).toBe(true)
-    const explorer = await readFile(join(home, ".grok", "agents", "explorer.toml"), "utf8")
+    const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
     expect(explorer).toContain('model = "ledger-explorer"')
   })
 

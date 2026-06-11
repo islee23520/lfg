@@ -45,7 +45,7 @@ export function modelDiscoveryPlan(): JsonObject {
     prompt: "OpenAI-compatible base URL (optional — auto from ~/.grok/config.toml or http://127.0.0.1:8317/v1)",
     autoSources: ["--base-url", "LFG_GROK_BASE_URL", "[endpoints].models_base_url", "default_proxy"],
     presets: ["grok", "gpt"],
-    defaultPreset: "grok",
+    defaultPreset: "gpt",
   }
 }
 

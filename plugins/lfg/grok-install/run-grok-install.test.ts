@@ -35,8 +35,10 @@ describe("runGrokInstall", () => {
     expect(run.ok).toBe(true)
     expect(run.configUpdate).toBeNull()
     expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
-    const explorer = await readFile(join(home, ".grok", "agents", "explorer.toml"), "utf8")
-    expect(explorer).toContain('model = "grok-3-mini-fast"')
+    const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
+    expect(explorer).toContain('model = "gpt-5.4-mini"')
+    const explorerAgent = await readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "lfg-explorer.md"), "utf8")
+    expect(explorerAgent).toContain("name: lfg-explorer")
     const stamp = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stamp).toContain("@islee23520/lfg")
   })
@@ -59,7 +61,7 @@ describe("runGrokInstall", () => {
     expect(first).toContain('"platform": "grok"')
   })
 
-  test("with discovery writes explorer agent toml (#30)", async () => {
+  test("with discovery writes plugin-owned explorer agent and role (#30)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-agents-"))
     const discovery: ModelDiscovery = {
       baseUrl: "http://127.0.0.1:11434/v1",
@@ -70,9 +72,11 @@ describe("runGrokInstall", () => {
     const run = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
     expect(run.ok).toBe(true)
     expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
-    const explorer = await readFile(join(home, ".grok", "agents", "explorer.toml"), "utf8")
+    const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
     expect(explorer).toContain('model = "gpt-4.1-mini"')
     expect(explorer).toContain("reasoning_effort")
+    const agent = await readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "lfg-explorer.md"), "utf8")
+    expect(agent).toContain("name: lfg-explorer")
   })
 
   test("existing stamped setup preserves install assets while syncing discovered config unless force is explicit", async () => {
@@ -102,6 +106,9 @@ describe("runGrokInstall", () => {
     expect(config).toContain('default = "gpt-5.5"')
     expect(config).toContain('"lfg"')
     expect(config).toContain('"lazycodex"')
+    expect(config).toContain("[agents]")
+    expect(config).toContain('"general-purpose"')
+    expect(config).toContain("explorer = true")
     await expect(readFile(agentPath, "utf8")).resolves.toContain('model = "user-agent"')
 
     const forced = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" }, { force: true })

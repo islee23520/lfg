@@ -18,7 +18,7 @@ describe("lfg Grok model config", () => {
       expect(config).toContain("[lazycodex.models]")
       expect(config).toContain('default = "grok-3-mini"')
       expect(config).toContain('reasoning = "grok-4.20-0309-reasoning"')
-      expect(config).toContain('coding = "grok-3-mini"')
+      expect(config).toContain('coding = "codex-auto-review"')
     })
   })
 

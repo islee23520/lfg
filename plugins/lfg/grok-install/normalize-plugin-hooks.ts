@@ -4,6 +4,8 @@ import { isGrokEventHooksJson, validateGrokHooksJson } from "./hook-trust"
 import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset"
 
 const BRIDGE_RELATIVE = join("hooks", "lfg-grok-hook-bridge.mjs")
+const CONFIG_LOADER_FILE = "lfg-config-loader.mjs" as const
+const CONFIG_LOADER_RELATIVE = join("hooks", CONFIG_LOADER_FILE)
 
 const PLUGIN_ROOT_PLACEHOLDER = /\$\{PLUGIN_ROOT\}/g
 
@@ -19,6 +21,7 @@ export async function syncGrokHookBridgeIntoPlugin(pluginRoot: string): Promise<
   const destPath = join(pluginRoot, BRIDGE_RELATIVE)
   await mkdir(dirname(destPath), { recursive: true })
   await copyFile(assetPath, destPath)
+  await copyFile(join(dirname(assetPath), CONFIG_LOADER_FILE), join(pluginRoot, CONFIG_LOADER_RELATIVE))
   return destPath
 }
 
@@ -50,7 +53,7 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
       }),
     )
   }
-  const nextPayload = { hooks: nextBlock }
+  const nextPayload = { hooks: addLfgConfigLoaderHooks(nextBlock) }
   const trust = validateGrokHooksJson(nextPayload)
   if (!trust.ok) {
     throw new Error(trust.error ?? "invalid hooks after normalize")
@@ -61,6 +64,38 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
     return { path: hooksPath, changed: true, hookNames: trust.hookNames }
   }
   return { path: hooksPath, changed: false, hookNames: trust.hookNames }
+}
+
+function addLfgConfigLoaderHooks(hooksBlock: JsonRecord): JsonRecord {
+  return {
+    ...hooksBlock,
+    SessionStart: appendConfigLoader(hooksBlock.SessionStart, "SessionStart"),
+    UserPromptSubmit: appendConfigLoader(hooksBlock.UserPromptSubmit, "UserPromptSubmit"),
+  }
+}
+
+function appendConfigLoader(groups: unknown, eventName: string): readonly unknown[] {
+  const current = Array.isArray(groups) ? groups : []
+  const command = `node "\${GROK_PLUGIN_ROOT}/hooks/${CONFIG_LOADER_FILE}"`
+  if (current.some((group) => groupHasCommand(group, command))) {
+    return current
+  }
+  return [
+    ...current,
+    {
+      hooks: [{ type: "command", command, timeout: 5, description: `lfg global config loader (${eventName})` }],
+    },
+  ]
+}
+
+function groupHasCommand(group: unknown, command: string): boolean {
+  if (typeof group !== "object" || group === null) return false
+  const hooks = (group as JsonRecord).hooks
+  if (!Array.isArray(hooks)) return false
+  return hooks.some((handler) => {
+    if (typeof handler !== "object" || handler === null) return false
+    return (handler as JsonRecord).command === command
+  })
 }
 
 function normalizeHookGroup(group: unknown, onChange: () => void): unknown {

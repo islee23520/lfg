@@ -21,49 +21,49 @@
   },
   "overrides": {
     "explorer": {
-      "model": "grok-3-mini-fast",
+      "model": "gpt-5.4-mini",
       "model_reasoning_effort": "low",
       "service_tier": "default",
       "role_rationale": "High-volume codebase search needs speed over depth"
     },
     "librarian": {
-      "model": "grok-3-mini",
+      "model": "gpt-5.4-mini",
       "model_reasoning_effort": "low",
       "service_tier": "default",
       "role_rationale": "External research needs reliable general model"
     },
     "plan": {
-      "model": "grok-4.20-0309-reasoning",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "xhigh",
       "service_tier": "default",
       "role_rationale": "Strategic planning needs deep reasoning"
     },
     "metis": {
-      "model": "grok-4.20-0309-non-reasoning",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
       "role_rationale": "Pre-planning analysis: fast but thorough contradiction detection"
     },
     "momus": {
-      "model": "grok-4.20-0309-reasoning",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "xhigh",
       "service_tier": "default",
       "role_rationale": "Plan review needs deep reasoning and edge-case detection"
     },
     "codex-ultrawork-reviewer": {
-      "model": "grok-4.3",
+      "model": "gpt-5.3-codex-spark",
       "model_reasoning_effort": "high",
       "service_tier": "default",
       "role_rationale": "Final verification needs frontier model depth"
     },
     "reasoning": {
-      "model": "grok-4.20-0309-reasoning",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
       "role_rationale": "General reasoning role"
     },
     "coding": {
-      "model": "grok-4.20-0309-non-reasoning",
+      "model": "gpt-5.3-codex-spark",
       "model_reasoning_effort": "medium",
       "service_tier": "default",
       "role_rationale": "Coding role: fast and accurate"
