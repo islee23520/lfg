@@ -1,9 +1,7 @@
 .DS_Store
 *.log
 .lfg
-.omo/*
-!.omo/plan-evidence/
-!.omo/plan-evidence/**
+.omo
 node_modules/
 .bun/
 coverage/
