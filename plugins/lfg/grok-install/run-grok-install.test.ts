@@ -107,8 +107,12 @@ describe("runGrokInstall", () => {
     expect(config).toContain('"lfg"')
     expect(config).toContain('"lazycodex"')
     expect(config).toContain("[agents]")
-    expect(config).toContain('"general-purpose"')
+    expect(config).toContain('default = "ulw"')
+    expect(config).toContain("general-purpose = true")
+    expect(config).toContain("explore = true")
+    expect(config).toContain("grok-build = true")
     expect(config).toContain("explorer = true")
+    await expect(readFile(join(home, ".grok", "agents", "ulw.md"), "utf8")).resolves.toContain("name: ulw")
     await expect(readFile(agentPath, "utf8")).resolves.toContain('model = "user-agent"')
 
     const forced = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" }, { force: true })

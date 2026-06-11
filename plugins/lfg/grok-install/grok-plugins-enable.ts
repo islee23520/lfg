@@ -93,10 +93,12 @@ function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
 function upsertSubagentToggles(source: string): string {
   const toggles = new Map<string, boolean>([
     ["cursor", false],
-    ["general-purpose", false],
-    ["explore", false],
+    ["general-purpose", true],
+    ["explore", true],
     ["browser-use", false],
-    ["grok-build", false],
+    ["grok-build", true],
+    ["builder", true],
+    ["ulw", true],
     ["reasoning", true],
     ["coding", true],
     ["explorer", true],
@@ -111,14 +113,8 @@ function upsertSubagentToggles(source: string): string {
 }
 
 function upsertAgentPreference(source: string): string {
-  const disabled = [
-    "general-purpose",
-    "explore",
-    "cursor",
-    "browser-use",
-    "grok-build",
-  ]
-  const block = `disabled = [\n${disabled.map((id) => `    ${tomlString(id)},`).join("\n")}\n]`
+  const disabled = ["cursor", "browser-use"] as const
+  const block = `default = ${tomlString("ulw")}\ndisabled = [\n${disabled.map((id) => `    ${tomlString(id)},`).join("\n")}\n]`
   return upsertTomlSection(source, "agents", block)
 }
 

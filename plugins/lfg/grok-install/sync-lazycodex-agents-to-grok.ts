@@ -4,6 +4,7 @@ import type { LazycodexAgentOverrideMap } from "./lazycodex-agent-overrides"
 import { overrideForAgent } from "./lazycodex-agent-overrides"
 import { renderGrokRoleTomlFromCodex, renderMinimalGrokRoleToml } from "./codex-agent-toml-to-grok"
 import { resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
+import { LFG_SHADOW_AGENT_NAMES, writeLfgShadowAgents } from "./lfg-shadow-agents"
 import { resolveFlavourPackAssetsRoot } from "./resolve-flavour-pack-asset"
 
 const ULTRAWORK_AGENTS_DIR = join("components", "ultrawork", "agents")
@@ -52,7 +53,7 @@ export async function syncLazycodexAgentsToGrokLedger(
   await mkdir(rolesDir, { recursive: true })
   await mkdir(personasDir, { recursive: true })
   await mkdir(promptsDir, { recursive: true })
-  await moveConflictingUserAgentsAside(home, [...Object.values(GROK_AGENT_NAMES)])
+  await moveConflictingUserAgentsAside(home, [...Object.values(GROK_AGENT_NAMES), ...LFG_SHADOW_AGENT_NAMES])
 
   const written: string[] = []
   const syncedNames = new Set<string>()
@@ -83,6 +84,8 @@ export async function syncLazycodexAgentsToGrokLedger(
     const override = overrideForAgent(agentOverrides, sourceName)
     written.push(...(await writeMappedAgentSurfaces({ codexText, sourceName, grokName, override, agentsDir, rolesDir, personasDir, promptsDir })))
   }
+
+  written.push(...(await writeLfgShadowAgents(home, agentOverrides)))
 
   return { ok: true, agentsDir, rolesDir, personasDir, promptsDir, written, sourcePluginRoot: resolved.pluginRoot }
 }
@@ -193,13 +196,18 @@ async function readTomlEntries(dir: string): Promise<string[] | null> {
 }
 
 async function moveConflictingUserAgentsAside(home: string, names: readonly string[]): Promise<void> {
+  await moveConflictingMarkdownAgentsAside(home, names)
+  const userAgentsDir = join(home, ".grok", "agents")
+  const tomlBackupDir = join(home, ".grok", "agents-toml-backup-lfg")
+  await mkdir(tomlBackupDir, { recursive: true })
+  for (const entry of (await readTomlEntries(userAgentsDir)) ?? []) await moveIfExists(join(userAgentsDir, entry), join(tomlBackupDir, basename(entry)))
+}
+
+async function moveConflictingMarkdownAgentsAside(home: string, names: readonly string[]): Promise<void> {
   const userAgentsDir = join(home, ".grok", "agents")
   const mdBackupDir = join(home, ".grok", "agents-user-backup-lfg")
-  const tomlBackupDir = join(home, ".grok", "agents-toml-backup-lfg")
   await mkdir(mdBackupDir, { recursive: true })
-  await mkdir(tomlBackupDir, { recursive: true })
   for (const name of names) await moveIfExists(join(userAgentsDir, `${name}.md`), join(mdBackupDir, `${name}.md`))
-  for (const entry of (await readTomlEntries(userAgentsDir)) ?? []) await moveIfExists(join(userAgentsDir, entry), join(tomlBackupDir, basename(entry)))
 }
 
 async function moveIfExists(source: string, dest: string): Promise<void> {

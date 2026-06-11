@@ -14,6 +14,7 @@ import { resolveGlobalLazycodexAgentConfig } from "./resolve-global-agent-config
 import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
 import { readGrokInstallStamp } from "./install"
 import { runInternalGrokInstall } from "./run-internal"
+import { writeLfgShadowAgents } from "./lfg-shadow-agents"
 import { syncLazycodexAgentsToGrokLedger, type SyncLazycodexAgentsResult } from "./sync-lazycodex-agents-to-grok"
 
 export const INTERNAL_GROK_INSTALL_PACKAGE = "lfg-grok-install" as const
@@ -51,7 +52,9 @@ export async function runGrokInstall(
           })
         : null
     await runInternalGrokInstall(env)
-    const configFiles = await ensureLfgConfigFiles(home, await resolveLazycodexAgentOverrides(home, resolvedAgents))
+    const overrideMap = await resolveLazycodexAgentOverrides(home, resolvedAgents)
+    const configFiles = await ensureLfgConfigFiles(home, overrideMap)
+    await writeLfgShadowAgents(home, overrideMap)
     const pluginsEnabled = await ensureLfgPluginsEnabled(home)
     await ensureLfgAgentsPreferred(home)
     return {
