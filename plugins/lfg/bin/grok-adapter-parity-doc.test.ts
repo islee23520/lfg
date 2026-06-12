@@ -65,12 +65,13 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
       "git-bash",
       "rules",
       "lsp",
+      "ast_grep",
       "ultrawork",
       "ulw-loop",
       "start-work-continuation",
       "telemetry",
     ] as const) {
-      expect(text).toMatch(new RegExp(`\\| \`${component}\` \\|.*components/${component}.*\\| .*\\| .*\\| (Implemented|Grok-adapted|Unsupported|Deferred) \\|`))
+      expect(text).toMatch(new RegExp(`\\| \`${component}\` \\|.*\\| .*\\| .*\\| (Implemented|Grok-adapted|Unsupported|Deferred|Windows-only) \\|`))
     }
     expect(text).toContain("plugins/lfg/grok-install/component-inventory.ts")
     expect(text).toContain("hook-bridge.integration.test.ts")

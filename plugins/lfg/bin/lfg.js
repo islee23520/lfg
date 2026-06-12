@@ -1,0 +1,328 @@
+#!/usr/bin/env node
+import { unsupportedCommand } from "./lfg-command";
+import { runInstallWizard } from "./lfg-interactive";
+import { LAZYCODEX_INSTALLER_COMMAND, runLazycodexInstaller } from "./lfg-installer";
+import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-install/run-grok-install";
+import { homedir } from "node:os";
+import { applyModelPreset, modelDiscoveryPlan } from "./lfg-models";
+import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery";
+import { isRecord } from "./lfg-json";
+import { grokConfigJson, refreshGrokModelConfig } from "./lfg-grok-config";
+const DEFAULT_SETUP_PRESET = "gpt";
+async function main(argv) {
+    const parsed = parseArgs(argv);
+    try {
+        const result = await dispatch(parsed);
+        // Bare `lfg setup` (the human guided command, no --json no --run) must never dump a raw
+        // plan object or full status JSON as primary output. The wizard owns the entire conversation:
+        // header, auto-discovered models, short questions (role customize? + final confirm), the
+        // "Direct Grok install..." notice, and human success/failure lines.
+        // --refresh (model/auth re-sync) is a fast maintenance op and bypasses the full wizard.
+        const isBareInteractiveSetup = !parsed.json && !parsed.run &&
+            parsed.positional[0] === "setup" && parsed.positional.length === 1 &&
+            !parsed.refresh;
+        if (parsed.json) {
+            // --json is the machine/automation surface. Always emit the structured value.
+            emit(result, true);
+        }
+        else if (parsed.run || isSetupForceShortcut(parsed)) {
+            // setup --run is the "just do the direct Grok materialization" command (for scripts).
+            // Only surface the human-readable stdout/stderr that the internal steps produced.
+            // The full object is available via --json setup --run if someone needs the structure.
+            if (isRecord(result)) {
+                const r = result;
+                const out = typeof r.stdout === "string" ? r.stdout : "";
+                const err = typeof r.stderr === "string" ? r.stderr : "";
+                if (out)
+                    process.stdout.write(out.endsWith("\n") ? out : `${out}\n`);
+                if (err)
+                    process.stderr.write(err.endsWith("\n") ? err : `${err}\n`);
+            }
+            else {
+                process.stdout.write(String(result) + "\n");
+            }
+        }
+        else if (!isBareInteractiveSetup) {
+            // Other non-json commands (help text etc.) can emit normally.
+            emit(result, false);
+        }
+        // For bare `lfg setup` we intentionally do not emit `result` here.
+        // runInstallWizard already wrote only the text a human should see.
+        return isFailure(result) ? 1 : 0;
+    }
+    catch (error) {
+        emit({ ok: false, status: "error", error: error instanceof Error ? error.message : String(error) }, true);
+        return 1;
+    }
+}
+async function dispatch(args) {
+    if (args.presetError !== null) {
+        return { ok: false, status: "invalid_preset", error: args.presetError, supportedPresets: ["grok", "gpt"] };
+    }
+    const [command, subcommand] = args.positional;
+    if (!command || command === "help" || command === "--help" || command === "-h") {
+        return help();
+    }
+    const isForceOnly = (subcommand === "--force" || subcommand === "force");
+    if (command !== "setup" || (subcommand && !isForceOnly)) {
+        return unsupportedCommand(args.positional);
+    }
+    const home = process.env.HOME ?? homedir();
+    const resolved = await resolveSetupDiscovery({ home, cliBaseUrl: args.baseUrl });
+    const discovery = resolved.discovery === null ? null : applyModelPreset(resolved.discovery, args.preset);
+    const presetResolved = { ...resolved, discovery };
+    // --refresh path: lightweight re-sync of model list + per-model context_window + auth into ~/.grok/config.toml.
+    // Does not mutate the Grok plugin tree, hooks, or agent TOMLs. Always attempts public LiteLLM catalog enrichment
+    // for context windows when the proxy does not advertise them (local/proxy values still win).
+    if (args.refresh) {
+        if (args.run) {
+            // Execute the refresh (discovery + write only).
+            const apiKey = process.env.OPENAI_API_KEY;
+            const refreshResult = await refreshGrokModelConfig(discovery, { home, apiKey });
+            return buildRefreshExecutedJson(refreshResult, discovery, resolved);
+        }
+        // Plan / describe only (non-mutating).
+        const plan = refreshPlan(presetResolved, args.preset);
+        return args.json ? plan : runRefreshWizard(plan, presetResolved);
+    }
+    if (args.run || isForceOnly) {
+        return runLazycodexInstaller(discovery, { force: args.force || isForceOnly });
+    }
+    const plan = setupPlan(presetResolved, args.preset);
+    return args.json ? plan : runInstallWizard(plan, presetResolved);
+}
+function isInteractiveInstall(args) {
+    return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1 && !args.refresh;
+}
+function isInteractiveRefresh(args) {
+    return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1 && args.refresh === true;
+}
+function isSetupForceShortcut(args) {
+    return !args.json && !args.run && args.positional[0] === "setup" && (args.positional[1] === "--force" || args.positional[1] === "force");
+}
+function setupPlan(resolved, preset) {
+    const discovery = resolved.discovery;
+    return {
+        ok: true,
+        status: "planned",
+        command: "setup",
+        role: "lazycodex_adapter_installer",
+        adapterPackage: "lfg-grok-install",
+        companionPackage: "lfg-grok-install",
+        installerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+        grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+        lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+        legacyCodexInstallerCommand: LAZYCODEX_INSTALLER_COMMAND,
+        packageExecutors: ["npx @islee23520/lfg"],
+        selectedPreset: preset,
+        presets: [
+            { id: "grok", label: "Grok-centered", text: "Prefer Grok model ids for default, fast, reasoning, and coding aliases." },
+            { id: "gpt", label: "GPT-centered", text: "Prefer GPT/Codex model ids for default, reasoning, and coding aliases." },
+        ],
+        executed: false,
+        dryRun: false,
+        lfgIsPlugin: false,
+        skippedCodexInstaller: true,
+        installPath: "grok",
+        purpose: "Grok-first direct install of the omo/lazycodex adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/installed-plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). `npx lazycodex-ai install` (Codex path) is NOT executed on the default path.",
+        modelDiscovery: discovery ?? modelDiscoveryPlan(),
+        modelDiscoverySource: resolved.baseUrlSource,
+        modelsBaseUrlUsed: resolved.baseUrlUsed,
+        autoModelAliases: discovery !== null,
+        steps: [
+            { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) that will be used for Grok [model.*] aliases and the explorer/reasoning/coding agents." },
+            { id: 2, status: discovery === null ? "pending" : "done", text: "Build the Grok agent role configs and LFP-style per-agent overrides from the discovered models + bundled omo defaults." },
+            { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/installed-plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_LAZYCODEX_PLUGIN_SOURCE, npm _npx cache of lazycodex-ai, or the built-in fixture.` },
+            { id: 4, status: "pending", text: `Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, install plugin-owned LFG agents, sync roles/personas/prompts, write lazycodex-agent-overrides.json, and ensure the adapter is enabled for Grok Build.` },
+        ],
+        note: "Grok-first. Default `lfg setup` (and --json setup) does not execute `npx lazycodex-ai install`. The legacyCodexInstallerCommand is kept only for reference (optional separate Codex bootstrap). Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit.",
+    };
+}
+/** Non-mutating plan for `lfg --json setup --refresh` (and bare `lfg setup --refresh`). */
+function refreshPlan(resolved, preset) {
+    const discovery = resolved.discovery;
+    return {
+        ok: true,
+        status: "planned",
+        command: "setup",
+        subcommand: "refresh",
+        role: "lazycodex_adapter_model_refresh",
+        adapterPackage: "lfg-grok-install",
+        companionPackage: "lfg-grok-install",
+        executed: false,
+        dryRun: false,
+        lfgIsPlugin: false,
+        selectedPreset: preset,
+        purpose: "Refresh only the model list, per-model context_window sizes, and auth (api_key) in ~/.grok/config.toml. Discovery uses the current base URL (proxy first, public LiteLLM catalog for context sizes as secondary source). Local/proxy-advertised values always win. Does not touch the Grok plugin tree, hooks, agents, or TOMLs.",
+        modelDiscovery: discovery ?? modelDiscoveryPlan(),
+        modelDiscoverySource: resolved.baseUrlSource,
+        modelsBaseUrlUsed: resolved.baseUrlUsed,
+        autoModelAliases: discovery !== null,
+        steps: [
+            { id: 1, status: discovery === null ? "pending" : "done", text: "Re-discover OpenAI-compatible models and context windows from CLI/env/config.toml/default proxy (public LiteLLM catalog enrichment attempted when proxy omits sizes)." },
+            { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key if OPENAI_API_KEY present), and [lazycodex.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." },
+        ],
+        note: "This is a config-only maintenance operation. Use --run to execute. No Grok plugin install or hook registration occurs.",
+    };
+}
+/** Build the JSON result for an executed --refresh --run. */
+function buildRefreshExecutedJson(refreshResult, discovery, resolved) {
+    const base = {
+        ok: refreshResult.ok,
+        status: refreshResult.status === "refreshed" ? "refreshed" : "refresh_no_discovery",
+        command: "setup",
+        subcommand: "refresh",
+        executed: true,
+        role: "lazycodex_adapter_model_refresh",
+        adapterPackage: "lfg-grok-install",
+        companionPackage: "lfg-grok-install",
+        lfgIsPlugin: false,
+        modelDiscoverySource: resolved.baseUrlSource,
+        modelsBaseUrlUsed: resolved.baseUrlUsed,
+    };
+    if (refreshResult.configUpdate) {
+        ;
+        base.configUpdated = true;
+        base.configPath = refreshResult.configUpdate.path;
+        base.modelsBaseUrl = refreshResult.configUpdate.modelsBaseUrl;
+        base.grokConfig = grokConfigJson(refreshResult.configUpdate);
+    }
+    if (refreshResult.discovery) {
+        ;
+        base.modelDiscovery = refreshResult.discovery;
+    }
+    else if (discovery) {
+        ;
+        base.modelDiscovery = discovery;
+    }
+    if (!refreshResult.ok) {
+        ;
+        base.error = "No model discovery available; provide --base-url, set LFG_GROK_BASE_URL/LAZYCODEX_OPENAI_BASE_URL, ensure ~/.grok/config.toml has [endpoints].models_base_url, or ensure the default proxy is reachable.";
+    }
+    return base;
+}
+/** For bare interactive `lfg setup --refresh` we keep it minimal: show plan info and execute if confirmed. */
+async function runRefreshWizard(plan, resolved) {
+    const { printInstallIntro, printStep } = await import("./lfg-interactive-ui.js");
+    const { createInterface } = await import("node:readline/promises");
+    const { stdin: input, stdout: output } = await import("node:process");
+    printInstallIntro();
+    printStep(1, "Model / auth refresh");
+    output.write("This will re-discover models and context windows (proxy + public LiteLLM catalog) and update ~/.grok/config.toml model sections.\n");
+    output.write("It does not reinstall or modify the Grok adapter plugin tree, hooks, or agent TOMLs.\n\n");
+    const reader = createInterface({ input, output });
+    try {
+        output.write("Proceed with refresh? [y/N] ");
+        const answer = await reader.question("");
+        const yes = answer.trim().toLowerCase().startsWith("y");
+        if (!yes) {
+            output.write("Cancelled.\n");
+            return { ok: true, status: "skipped", executed: false, command: "setup", subcommand: "refresh" };
+        }
+        const apiKey = process.env.OPENAI_API_KEY;
+        const home = process.env.HOME ?? homedir();
+        const discovery = resolved.discovery;
+        const refreshResult = await refreshGrokModelConfig(discovery, { home, apiKey });
+        if (refreshResult.configUpdate) {
+            output.write(`Updated ~/.grok/config.toml at ${refreshResult.configUpdate.path}\n`);
+        }
+        output.write(refreshResult.ok ? "Model config refreshed.\n" : "No discovery available; nothing written.\n");
+        return buildRefreshExecutedJson(refreshResult, discovery, resolved);
+    }
+    finally {
+        reader.close();
+    }
+}
+function parseArgs(argv) {
+    const positional = [];
+    let baseUrl = null;
+    let preset = DEFAULT_SETUP_PRESET;
+    let presetError = null;
+    for (let index = 0; index < argv.length; index += 1) {
+        const arg = argv[index];
+        if (arg === "--json" || arg === "--run" || arg === "--force" || arg === "--refresh") {
+            continue;
+        }
+        if (arg === "--preset") {
+            const value = argv[index + 1];
+            if (isSetupPreset(value)) {
+                preset = value;
+                index += 1;
+                continue;
+            }
+            presetError = `Unsupported setup preset: ${typeof value === "string" ? value : ""}`;
+            if (typeof value === "string") {
+                index += 1;
+            }
+            continue;
+        }
+        if (arg === "--base-url" || arg === "--openai-base-url") {
+            const value = argv[index + 1];
+            if (typeof value === "string") {
+                baseUrl = value;
+                index += 1;
+                continue;
+            }
+        }
+        if (typeof arg === "string") {
+            positional.push(arg);
+        }
+    }
+    return {
+        json: argv.includes("--json"),
+        run: argv.includes("--run"),
+        force: argv.includes("--force"),
+        refresh: argv.includes("--refresh"),
+        preset,
+        presetError,
+        baseUrl,
+        positional,
+    };
+}
+function isSetupPreset(value) {
+    return value === "grok" || value === "gpt";
+}
+function emit(value, json) {
+    if (json || typeof value !== "string") {
+        process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+        return;
+    }
+    process.stdout.write(`${value}\n`);
+}
+function isFailure(value) {
+    return isRecord(value) && value.ok === false;
+}
+function help() {
+    return [
+        "lfg - setup lazycodex-ai and Grok adapter extensions for Grok Build",
+        "",
+        "Commands:",
+        "  lfg setup",
+        "",
+        "Package execution:",
+        "  npx @islee23520/lfg setup",
+        "",
+        "Automation:",
+        "  lfg --json setup",
+        "  lfg --json setup --run",
+        "  lfg setup --run",
+        "  lfg --json setup --preset grok",
+        "  lfg --json setup --preset gpt",
+        "  lfg --json setup --run --force",
+        "  lfg --json setup --refresh",
+        "  lfg --json setup --refresh --run",
+        "  lfg setup --refresh --run",
+        "  (models auto: ~/.grok [endpoints].models_base_url or http://127.0.0.1:8317/v1)",
+        "",
+        "Refresh (model list + context windows + per-model auth):",
+        "  Re-discovers models from the current base URL (proxy + public LiteLLM catalog for context sizes),",
+        "  then writes fresh [model.*] sections (including grok-build alias) and lazycodex.models into ~/.grok/config.toml.",
+        "  Does not touch the Grok plugin tree, hooks, or agent TOMLs. Existing prior context_window values are preserved",
+        "  when the current discovery does not advertise a size for a model. OPENAI_API_KEY (if set) is written per model.",
+        "",
+        "Setup runs:",
+        `  ${LAZYCODEX_INSTALLER_COMMAND}`,
+        `  ${INTERNAL_GROK_INSTALL_COMMAND}`,
+    ].join("\n");
+}
+process.exit(await main(process.argv.slice(2)));

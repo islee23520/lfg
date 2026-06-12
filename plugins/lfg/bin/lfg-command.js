@@ -1,0 +1,20 @@
+import { LAZYCODEX_INSTALLER_COMMAND } from "./lfg-installer";
+import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-install/run-grok-install";
+export function unsupportedCommand(positional) {
+    const command = positional.join(" ") || "(empty)";
+    return {
+        ok: false,
+        status: "error",
+        code: "unsupported_command",
+        command,
+        message: `lfg does not run ${command}. Use "setup --run" (or "setup --run --force" to overwrite existing adapter).`,
+        role: "lazycodex_adapter_installer",
+        adapterPackage: "lfg-grok-install",
+        installerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+        companionPackage: "lfg-grok-install",
+        grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+        lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+        lfgIsPlugin: false,
+        supportedCommands: ["setup"],
+    };
+}

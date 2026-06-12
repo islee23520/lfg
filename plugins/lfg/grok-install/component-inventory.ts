@@ -9,9 +9,10 @@ export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-o
 
 const COMPONENTS = [
   { id: "comment-checker", status: "Deferred", evidence: "Codex PostToolUse hook behavior has no Grok-native equivalent wired by lfg yet." },
-  { id: "git-bash", status: "Unsupported", evidence: "Windows Git Bash MCP is Codex-host specific and outside Grok setup scope." },
+  { id: "git-bash", status: "Windows-only", evidence: "git_bash MCP emitted only on Windows per plan; disabled_mcp_servers on macOS/Linux." },
   { id: "rules", status: "Grok-adapted", evidence: "Component hooks are bridged through lfg-grok-hook-bridge.mjs when present in the installed payload." },
-  { id: "lsp", status: "Deferred", evidence: "LSP MCP tools are not exposed by the setup-only Grok adapter package yet." },
+  { id: "lsp", status: "Grok-adapted", evidence: "lsp MCP wired via plugin .mcp.json pointing to components/lsp/dist/cli.js (mcp subcommand supported)." },
+  { id: "ast_grep", status: "Grok-adapted", evidence: "ast_grep MCP included in .mcp.json (bundled runtime via build-bundled-mcp-runtimes or upstream resolve; verified in post-install)." },
   { id: "ultrawork", status: "Grok-adapted", evidence: "Ultrawork hook commands are bridged when present; role prompts are synced from component agents." },
   { id: "ulw-loop", status: "Grok-adapted", evidence: "Project .omo awareness is installed fail-closed through lfg-config-loader.mjs." },
   { id: "start-work-continuation", status: "Deferred", evidence: "Boulder/start-work continuation is not yet driven as a Grok-native lifecycle workflow." },

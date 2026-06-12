@@ -41,9 +41,12 @@ function resolveContextWindowForModel(
 ): number | null {
   const contextWindows = discovery.contextWindows
   if (contextWindows !== undefined) {
-    const exact = contextWindows[upstreamModelId]
+    // T1 canonical lookup: normalize via aliasGroupKey so discovery for "gpt-5.5"
+    // populates both canonical section and display-alias sections (e.g. "GPT-5.5")
+    const normalized = aliasGroupKey(upstreamModelId)
+    const exact = contextWindows[upstreamModelId] ?? contextWindows[normalized]
     if (typeof exact === "number" && exact > 0) return exact
-    const byAlias = contextWindows[alias]
+    const byAlias = contextWindows[alias] ?? contextWindows[aliasGroupKey(alias)]
     if (typeof byAlias === "number" && byAlias > 0) return byAlias
   }
   return readPriorContextWindow(priorConfig, alias)
@@ -56,7 +59,9 @@ function resolveFeatureMetadataForModel(
 ): ModelFeatureMetadata | null {
   const metadata = discovery.modelFeatureMetadata
   if (metadata === undefined) return null
-  return metadata[upstreamModelId] ?? metadata[alias] ?? null
+  // T1: canonical metadata from discovery applies to display aliases (via normalized key)
+  const normalized = aliasGroupKey(upstreamModelId)
+  return metadata[upstreamModelId] ?? metadata[normalized] ?? metadata[alias] ?? metadata[aliasGroupKey(alias)] ?? null
 }
 
 function readPriorContextWindow(source: string, alias: string): number | null {

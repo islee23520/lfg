@@ -4,7 +4,7 @@ import type { JsonObject } from "../bin/lfg-json"
 import { grokConfigJson, writeGrokModelConfig } from "../bin/lfg-grok-config"
 import type { ModelDiscovery } from "../bin/lfg-models"
 import { modelDiscoveryEnv } from "../bin/lfg-models"
-import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled } from "./grok-plugins-enable"
+import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentModels } from "./grok-plugins-enable"
 import { ensureLfgConfigFiles } from "./lfg-config"
 import {
   resolveLazycodexAgentOverrides,
@@ -28,6 +28,7 @@ export type GrokInstallRunResult = {
   readonly agentOverridesPath: string | null
   readonly lfgConfigPath: string | null
   readonly pluginsEnabled: Awaited<ReturnType<typeof ensureLfgPluginsEnabled>> | null
+  readonly subagentModels: Awaited<ReturnType<typeof ensureLfgSubagentModels>> | null
 }
 
 export type GrokInstallRunOptions = {
@@ -58,6 +59,7 @@ export async function runGrokInstall(
     const lazycodexAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
     const pluginsEnabled = await ensureLfgPluginsEnabled(home)
     await ensureLfgAgentsPreferred(home)
+    const subagentModels = await ensureLfgSubagentModels(home, { default: resolvedAgents.reasoning?.model, reasoning: resolvedAgents.reasoning?.model, coding: resolvedAgents.coding?.model } as any)
     return {
       ok: true,
       configUpdate,
@@ -80,6 +82,7 @@ export async function runGrokInstall(
       agentOverridesPath: overridesPath,
       lfgConfigPath: configFiles.configPath,
       pluginsEnabled,
+      subagentModels,
     }
   }
   const agentConfig = discovery?.agentConfig ?? null
@@ -107,6 +110,11 @@ export async function runGrokInstall(
   const lazycodexAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
   const pluginsEnabled = await ensureLfgPluginsEnabled(home)
   await ensureLfgAgentsPreferred(home)
+  const subagentModels = await ensureLfgSubagentModels(home, {
+    default: resolvedAgents.reasoning?.model ?? "grok-3-mini-fast",
+    reasoning: resolvedAgents.reasoning?.model ?? "grok-4.20-0309-reasoning",
+    coding: resolvedAgents.coding?.model ?? "grok-4.20-0309-non-reasoning",
+  })
   return {
     ok: internalStep.ok === true,
     configUpdate,
@@ -115,6 +123,7 @@ export async function runGrokInstall(
     agentOverridesPath: overridesPath,
     lfgConfigPath: configFiles.configPath,
     pluginsEnabled,
+    subagentModels,
   }
 }
 
@@ -142,7 +151,7 @@ async function isRealDirectory(path: string): Promise<boolean> {
 }
 
 export function grokInstallStepJson(internalStep: JsonObject): JsonObject {
-  return {
+  const base = {
     packageName: INTERNAL_GROK_INSTALL_PACKAGE,
     command: INTERNAL_GROK_INSTALL_COMMAND,
     args: [] as const,
@@ -153,6 +162,10 @@ export function grokInstallStepJson(internalStep: JsonObject): JsonObject {
       ? { componentInventoryPath: internalStep.componentInventoryPath }
       : {}),
   }
+  if (typeof internalStep.warning === "string" && internalStep.warning.length > 0) {
+    return { ...base, warning: internalStep.warning }
+  }
+  return base
 }
 
 export function configFieldsFromRun(configUpdate: GrokInstallRunResult["configUpdate"]): JsonObject {

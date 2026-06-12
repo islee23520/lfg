@@ -1,0 +1,343 @@
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, test } from "vitest";
+import { withNpmPackLock } from "./npm-pack-mutex";
+import { runLfg, runLfgText } from "./test-process";
+describe("lfg CLI", () => {
+    test("package metadata stays publishable to npm public registry", async () => {
+        const root = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8"));
+        const workspace = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+        expect(root).not.toHaveProperty("private");
+        expect(workspace).not.toHaveProperty("private");
+        expect(root.publishConfig).toEqual({ access: "public" });
+        expect(workspace.publishConfig).toEqual({ access: "public" });
+        expect(root.bin).toEqual({ lfg: "plugins/lfg/lfg" });
+        expect(root.files).toEqual(["plugins/lfg/AGENTS.md", "plugins/lfg/lfg", "plugins/lfg/README.md", "plugins/lfg/dist", "plugins/lfg/skills"]);
+        expect(root.scripts).toMatchObject({
+            setup: "sh plugins/lfg/lfg setup",
+            test: "npm run build && vitest run plugins/lfg/bin/*.test.ts plugins/lfg/grok-install/*.test.ts",
+            "self-test": "npm run build && node plugins/lfg/dist/self-test.js",
+            typecheck: "tsc --noEmit",
+            build: "node scripts/build.mjs",
+            prepublishOnly: "npm test",
+            prepack: "npm run build",
+            "assert-pack": "node scripts/assert-npm-pack-bin.mjs",
+            verify: "npm run assert-pack && npm test && npm run typecheck && npm run self-test",
+            "pre-publish-check": "npm run build && node scripts/pre-publish-check.mjs",
+            "record-publish-gap": "npm run build && node scripts/record-publish-gap.mjs",
+            "assert-publish-auth": "npm run build && node scripts/assert-npm-publish-auth.mjs",
+        });
+        expect(root.name).toBe("@islee23520/lfg");
+        expect(String(root.description)).toContain("grok-install");
+        expect(root.scripts).not.toHaveProperty("postinstall");
+        expect(workspace.scripts).toMatchObject({
+            setup: "sh lfg --json setup",
+            build: "node ../../scripts/build.mjs",
+            test: "npm run build && vitest run ./bin/*.test.ts",
+            typecheck: "tsc --noEmit -p tsconfig.json",
+        });
+        expect(workspace.scripts).not.toHaveProperty("postinstall");
+    });
+    test("package metadata exposes a single npx runnable lfg bin", async () => {
+        const parsed = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+        expect(parsed.name).toBe("@islee23520/lfg");
+        const root = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8"));
+        expect(parsed.version).toBe(root.version);
+        expect(parsed.description).toContain("Grok Build adapter");
+        expect(parsed.description).not.toContain("@islee23520/lfp setup");
+        expect(parsed.bin).toEqual({ lfg: "lfg" });
+        expect(parsed).not.toHaveProperty("exports");
+        expect(JSON.stringify(parsed)).not.toContain("plugin runtime");
+        expect(JSON.stringify(parsed)).not.toContain("bunx");
+    });
+    test("README explains the single install-helper purpose in English", async () => {
+        const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
+        expect(readme).toContain("What lfg does");
+        expect(readme).toContain("npx @islee23520/lfg setup");
+        expect(readme).toContain("~/.grok");
+        expect(readme).toContain("installed-plugins/lfg");
+        expect(readme).toContain("does **not** run `npx lazycodex-ai install`");
+        expect(readme).not.toContain("npx @islee23520/lfp setup");
+        expect(readme).toContain("OpenAI-compatible base URL");
+        expect(readme).toContain("/v1/models");
+        expect(readme).toContain("not a plugin");
+        expect(readme).toContain("언제 무엇을 실행하면 되나");
+        expect(readme).not.toContain("UltraWork Loop");
+        expect(readme).not.toContain("doctor");
+        expect(readme).not.toContain("dry-setup");
+        expect(readme).not.toContain("bunx");
+    });
+    test("packed package excludes source files and ships only runnable assets", async () => {
+        const files = await packDryRunFilePaths();
+        expect(files).toContain("package.json");
+        expect(files).toContain("plugins/lfg/lfg");
+        expect(files).toContain("plugins/lfg/README.md");
+        expect(files).toContain("plugins/lfg/dist/lfg.js");
+        expect(files).toContain("plugins/lfg/dist/self-test.js");
+        expect(files).toContain("plugins/lfg/skills/lazycodex/SKILL.md");
+        expect(files).toContain("plugins/lfg/skills/lfp/SKILL.md");
+        expect(files).not.toContain("plugins/lfg/bin/lfg");
+        expect(files).not.toContain("plugins/lfg/bin/lfg.ts");
+        expect(files).not.toContain("plugins/lfg/bin/lfg-installer.ts");
+        expect(files).not.toContain("plugins/lfg/package.json");
+        expect(files).not.toContain(".npmignore");
+        expect(files).not.toContain(".omo/artifacts/ulw-qa-main-setup-only.txt");
+        expect(files).not.toContain(".lfg");
+    });
+    test("setup returns a non-mutating install plan by default", async () => {
+        const home = await mkdtemp(join(tmpdir(), "lfg-plan-home-"));
+        const result = await runLfg(["--json", "setup"], { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" });
+        expect(result.exitCode).toBe(0);
+        expect(result.json).toMatchObject({
+            ok: true,
+            status: "planned",
+            command: "setup",
+            dryRun: false,
+            executed: false,
+            installerCommand: "@islee23520/lfg internal grok-install",
+            lfpInstallerCommand: "@islee23520/lfg internal grok-install",
+            companionPackage: "lfg-grok-install",
+            packageExecutors: ["npx @islee23520/lfg"],
+            lfgIsPlugin: false,
+            modelDiscovery: {
+                required: false,
+                endpoint: "OpenAI-compatible /v1/models",
+            },
+        });
+    });
+    test("json setup can fetch OpenAI-compatible models and map them", async () => {
+        await withModelServer(["gpt-4.1-mini", "o3-mini"], async (baseUrl) => {
+            const result = await runLfg(["--json", "setup", "--base-url", baseUrl], {});
+            expect(result.exitCode).toBe(0);
+            expect(result.json).toMatchObject({
+                ok: true,
+                status: "planned",
+                modelDiscovery: {
+                    baseUrl,
+                    modelsUrl: `${baseUrl}/v1/models`,
+                    modelIds: ["gpt-4.1-mini", "o3-mini"],
+                    mapping: {
+                        default: "gpt-4.1-mini",
+                        fast: "gpt-4.1-mini",
+                        reasoning: "o3-mini",
+                        coding: "gpt-4.1-mini",
+                    },
+                },
+            });
+        });
+    });
+    test("npm run setup reaches the setup command surface", async () => {
+        const result = await execFileResult("npm", ["run", "--silent", "setup", "--", "--json"]);
+        expect(result.exitCode).toBe(0);
+        expect(JSON.parse(result.stdout)).toMatchObject({
+            ok: true,
+            status: "planned",
+            command: "setup",
+            installerCommand: "@islee23520/lfg internal grok-install",
+            lfpInstallerCommand: "@islee23520/lfg internal grok-install",
+        });
+    });
+    test("posix shell launcher works from a Korean cwd", async () => {
+        const cwd = await mkdtemp(join(tmpdir(), "한국어 삭제."));
+        const syntax = await execFileResult("sh", ["-n", new URL("../lfg", import.meta.url).pathname]);
+        const result = await execFileResult("sh", [new URL("../lfg", import.meta.url).pathname, "--json", "setup"], cwd);
+        expect(syntax.exitCode).toBe(0);
+        expect(result.exitCode).toBe(0);
+        expect(JSON.parse(result.stdout)).toMatchObject({
+            ok: true,
+            status: "planned",
+            command: "setup",
+        });
+    });
+    test("setup run is the only explicit installer execution surface", async () => {
+        const home = await mkdtemp(join(tmpdir(), "lfg-home."));
+        const result = await runLfg(["--json", "setup", "--run"], { HOME: home });
+        expect(result.exitCode).toBe(0);
+        expect(result.json).toMatchObject({
+            ok: true,
+            status: "installed",
+            command: "setup",
+            executed: true,
+            installerCommand: "@islee23520/lfg internal grok-install",
+            installerArgs: [],
+            skippedCodexInstaller: true,
+            installPath: "grok",
+        });
+        expect(JSON.stringify(result.json)).toMatch(/grok lazycodex install|fixture fallback|repaired adapter hooks/);
+        const installers = result.json.installers;
+        expect(installers).toHaveLength(1);
+        expect(installers?.[0]).toMatchObject({ packageName: "lfg-grok-install", exitCode: 0 });
+        const stampPath = join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json");
+        await expect(readFile(stampPath, "utf8")).resolves.toContain("@islee23520/lfg");
+        expect(result.json).toMatchObject({
+            postInstallVerify: { ok: true, status: "verified" },
+        });
+    });
+    test("setup run passes fetched model mapping to the upstream installer", async () => {
+        await withModelServer(["gpt-4.1-mini", "o3-mini"], async (baseUrl) => {
+            const home = await mkdtemp(join(tmpdir(), "lfg-home."));
+            const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home, OPENAI_API_KEY: "sk-test" });
+            expect(result.exitCode).toBe(0);
+            expect(result.json).toMatchObject({
+                ok: true,
+                status: "installed",
+                modelDiscovery: {
+                    baseUrl,
+                    mapping: {
+                        default: "gpt-4.1-mini",
+                        reasoning: "o3-mini",
+                    },
+                },
+            });
+            expect(JSON.stringify(result.json)).toContain("configUpdated");
+            expect(JSON.stringify(result.json)).toContain("gpt-4.1-mini");
+        });
+    });
+    test("interactive setup only confirms the upstream installer run", async () => {
+        await withModelServer(["gpt-4.1-mini", "o3-mini"], async (baseUrl) => {
+            const home = await mkdtemp(join(tmpdir(), "lfg-interactive-skip."));
+            const result = await runLfgText(["setup"], `${baseUrl}\nn\n`, { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" });
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("lfg setup");
+            expect(result.stdout).toContain("OpenAI-compatible base URL");
+            expect(result.stdout).toContain("Found 2 models");
+            expect(result.stdout).toContain("reasoning: o3-mini");
+            expect(result.stdout).toContain("@islee23520/lfg internal grok-install");
+            expect(result.stdout).toContain("internal grok-install");
+            expect(result.stdout).toContain("Install now? [y/N]");
+            expect(result.stdout).toContain("Skipped install");
+            expect(result.stdout).not.toContain("Restore previous Grok settings");
+        });
+    });
+    test("unsupported commands advertise setup only", async () => {
+        for (const legacy of [["--json", "dry-setup"], ["--json", "install"], ["--json", "setup", "show"]]) {
+            const result = await runLfg(legacy);
+            expect(result.exitCode).toBe(1);
+            expect(result.json).toMatchObject({
+                ok: false,
+                status: "error",
+                code: "unsupported_command",
+                supportedCommands: ["setup"],
+            });
+        }
+    });
+    test("help advertises only setup", async () => {
+        const result = await runLfgText(["help"], "", {});
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("lfg setup");
+        expect(result.stdout).toContain("npx @islee23520/lfg setup");
+        expect(result.stdout).not.toContain("dry-setup");
+        expect(result.stdout).not.toContain("doctor");
+        expect(result.stdout).not.toContain("project-local");
+        expect(result.stdout).not.toContain("bunx");
+    });
+    test("npm pack tarball exposes lfg bin and setup works from npm install layout", async () => {
+        const packDir = await mkdtemp(join(tmpdir(), "lfg-pack-out-"));
+        const pack = await withNpmPackLock(() => execFileResult("npm", ["pack", "--pack-destination", packDir, "--json"]));
+        expect(pack.exitCode).toBe(0);
+        const packs = JSON.parse(pack.stdout);
+        const tarball = join(packDir, packs[0]?.filename ?? "");
+        expect(tarball).toMatch(/\.tgz$/);
+        const installDir = await mkdtemp(join(tmpdir(), "lfg-npm-pack-"));
+        const init = await execFileResult("npm", ["init", "-y"], installDir);
+        expect(init.exitCode).toBe(0);
+        const install = await execFileResult("npm", ["install", tarball], installDir);
+        expect(install.exitCode).toBe(0);
+        const installedPkg = JSON.parse(await readFile(join(installDir, "node_modules", "@islee23520", "lfg", "package.json"), "utf8"));
+        expect(installedPkg.bin?.lfg).toBe("plugins/lfg/lfg");
+        const shimOnDisk = join(installDir, "node_modules", "@islee23520", "lfg", "plugins", "lfg", "lfg");
+        await readFile(shimOnDisk, "utf8");
+        const nestedWorkspacePkg = join(installDir, "node_modules", "@islee23520", "lfg", "plugins", "lfg", "package.json");
+        await expect(readFile(nestedWorkspacePkg, "utf8")).rejects.toThrow();
+        const home = await mkdtemp(join(tmpdir(), "lfg-npm-pack-home-"));
+        const setup = await execFileResultEnv("npx", ["lfg", "--json", "setup"], installDir, { HOME: home });
+        expect(setup.exitCode).toBe(0);
+        const json = JSON.parse(setup.stdout);
+        expect(json.ok).toBe(true);
+        expect(json.command).toBe("setup");
+        expect(json.selectedPreset).toBe("gpt");
+        const scopedDoctor = await execFileResultEnv("npx", ["@islee23520/lfg", "--json", "setup", "--preset", "gpt"], installDir, { HOME: home });
+        expect(scopedDoctor.exitCode).toBe(0);
+        const scopedJson = JSON.parse(scopedDoctor.stdout);
+        expect(scopedJson.ok).toBe(true);
+        expect(scopedJson.command).toBe("setup");
+        expect(scopedJson.selectedPreset).toBe("gpt");
+        const doctor = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, { HOME: home });
+        expect(doctor.exitCode).toBe(1);
+        const unsupported = JSON.parse(doctor.stdout);
+        expect(unsupported).toMatchObject({ ok: false, code: "unsupported_command", supportedCommands: ["setup"] });
+        await rm(installDir, { recursive: true, force: true });
+        await rm(packDir, { recursive: true, force: true });
+    }, 120_000);
+});
+async function withModelServer(modelIds, run) {
+    const server = createServer((request, response) => {
+        if (request.url !== "/v1/models") {
+            response.writeHead(404, { "content-type": "application/json" });
+            response.end(JSON.stringify({ error: "not found" }));
+            return;
+        }
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({ data: modelIds.map((id) => ({ id })) }));
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (typeof address !== "object" || address === null) {
+        server.close();
+        throw new Error("model test server did not expose a TCP address");
+    }
+    try {
+        await run(`http://127.0.0.1:${address.port}`);
+    }
+    finally {
+        await new Promise((resolve, reject) => {
+            server.close((error) => {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                resolve();
+            });
+        });
+    }
+}
+async function packDryRunFilePaths() {
+    const result = await withNpmPackLock(() => execFileResult("npm", ["pack", "--dry-run", "--json"]));
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    return parsed.flatMap((pack) => pack.files?.map((file) => file.path).filter((path) => typeof path === "string") ?? []);
+}
+async function makeFakeNpx(exitCode) {
+    const bin = await mkdtemp(join(tmpdir(), "lfg-fake-npx."));
+    const body = exitCode === 0
+        ? "case \"$*\" in *lazycodex-ai*) echo fake lazycodex install: $*; echo LAZYCODEX_OPENAI_BASE_URL=${LAZYCODEX_OPENAI_BASE_URL:-}; echo LAZYCODEX_MODEL_DEFAULT=${LAZYCODEX_MODEL_DEFAULT:-}; echo LAZYCODEX_MODEL_REASONING=${LAZYCODEX_MODEL_REASONING:-} ;; *@islee23520/lfp*) echo unexpected lfp npx: $* >&2; exit 2 ;; *) echo unexpected npx: $* >&2; exit 2 ;; esac"
+        : "echo fake lazycodex failure: $* >&2";
+    await writeFile(join(bin, "npx"), `#!/usr/bin/env bash\n${body}\nexit ${exitCode}\n`);
+    await chmod(join(bin, "npx"), 0o755);
+    return bin;
+}
+async function makeFakeNpxRejectsLfp() {
+    const bin = await mkdtemp(join(tmpdir(), "lfg-fake-npx-no-lfp."));
+    const body = `case "$*" in
+  *lazycodex-ai*) echo fake lazycodex install: $* ;;
+  *@islee23520/lfp*) echo unexpected lfp npx: $* >&2; exit 2 ;;
+  *) echo unexpected npx: $* >&2; exit 2 ;;
+esac`;
+    await writeFile(join(bin, "npx"), `#!/usr/bin/env bash\n${body}\nexit 0\n`);
+    await chmod(join(bin, "npx"), 0o755);
+    return bin;
+}
+function execFileResult(file, args, cwd = process.cwd()) {
+    return execFileResultEnv(file, args, cwd, {});
+}
+function execFileResultEnv(file, args, cwd, env) {
+    return new Promise((resolve) => {
+        execFile(file, [...args], { cwd, env: { ...process.env, ...env } }, (error, stdout) => {
+            const exitCode = typeof error === "object" && error !== null && "code" in error && typeof error.code === "number" ? error.code : 0;
+            resolve({ exitCode, stdout });
+        });
+    });
+}
