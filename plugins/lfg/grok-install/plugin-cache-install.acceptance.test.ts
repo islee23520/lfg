@@ -40,6 +40,10 @@ describe("plugin cache install acceptance (#27)", () => {
       readonly packageName: string
       readonly packageVersion: string
       readonly platform: string
+      readonly upstreamName: string
+      readonly upstreamVersion: string
+      readonly upstreamTag: string
+      readonly upstreamReleaseUrl: string
       readonly components: readonly { readonly id: string; readonly status: string }[]
     }
     expect(inventory).toMatchObject({
@@ -47,6 +51,10 @@ describe("plugin cache install acceptance (#27)", () => {
       packageName: "@islee23520/lfg",
       packageVersion: "5.5.5",
       platform: "grok",
+      upstreamName: "lazycodex-ai",
+      upstreamVersion: "4.9.2",
+      upstreamTag: "v4.9.2",
+      upstreamReleaseUrl: "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.9.2",
     })
     expect(inventory.components.map((component) => component.id)).toEqual([
       "comment-checker",

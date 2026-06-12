@@ -2,6 +2,10 @@ import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 
 export const COMPONENT_INVENTORY_FILE = "lfg-component-inventory.json" as const
+export const UPSTREAM_OMO_NAME = "lazycodex-ai" as const
+export const UPSTREAM_OMO_VERSION = "4.9.2" as const
+export const UPSTREAM_OMO_TAG = "v4.9.2" as const
+export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.9.2" as const
 
 const COMPONENTS = [
   { id: "comment-checker", status: "Deferred", evidence: "Codex PostToolUse hook behavior has no Grok-native equivalent wired by lfg yet." },
@@ -39,6 +43,10 @@ export async function writeComponentInventory(options: ComponentInventoryOptions
     packageVersion: options.packageVersion,
     platform: "grok",
     source: options.source,
+    upstreamName: UPSTREAM_OMO_NAME,
+    upstreamVersion: UPSTREAM_OMO_VERSION,
+    upstreamTag: UPSTREAM_OMO_TAG,
+    upstreamReleaseUrl: UPSTREAM_OMO_RELEASE_URL,
     components: COMPONENTS,
   }
   await writeFile(path, `${JSON.stringify(inventory, null, 2)}\n`, "utf8")

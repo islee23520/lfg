@@ -31,6 +31,12 @@ matrix can be verified from a temp `HOME`.
 
 ## Full OMO Component Parity
 
+Current upstream baseline: `lazycodex-ai` / OMO `v4.9.2`
+(https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.9.2), latest
+as of 2026-06-12. `lfg-component-inventory.json` records this baseline in each
+fresh Grok setup so installed support can be audited against the tracked OMO
+release without expanding lfg beyond its setup-helper contract.
+
 Upstream component inventory is from
 `oh-my-openagent/packages/omo-codex/MARKETPLACE.md` at
 `96ad1974c5102e962c67d11d59852e4d9b2a174d`. Each row cites the upstream source

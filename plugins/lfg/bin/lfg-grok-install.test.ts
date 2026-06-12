@@ -99,8 +99,16 @@ describe("lfg internal grok install contract", () => {
       },
     })
     const raw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json"), "utf8")
-    const inventory = JSON.parse(raw) as { readonly packageVersion: string }
+    const inventory = JSON.parse(raw) as {
+      readonly packageVersion: string
+      readonly upstreamName: string
+      readonly upstreamVersion: string
+      readonly upstreamTag: string
+    }
     expect(inventory.packageVersion).toBe("9.8.7")
+    expect(inventory.upstreamName).toBe("lazycodex-ai")
+    expect(inventory.upstreamVersion).toBe("4.9.2")
+    expect(inventory.upstreamTag).toBe("v4.9.2")
   })
 
   test("setup --run installs executable rules and ultrawork hook bridge targets", async () => {
