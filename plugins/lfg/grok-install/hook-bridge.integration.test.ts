@@ -96,6 +96,83 @@ process.stdin.on('end',()=>{
     expect(exitCode).toBe(0)
   })
 
+  test("bridge runs ultrawork UserPromptSubmit via bridge and receives directive", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-bridge-ulw-"))
+    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    await mkdir(join(pluginRoot, "hooks"), { recursive: true })
+    await mkdir(join(pluginRoot, "components", "ultrawork", "dist"), { recursive: true })
+    await writeFile(
+      join(pluginRoot, "hooks", "hooks.json"),
+      `${JSON.stringify(
+        {
+          hooks: {
+            UserPromptSubmit: [
+              {
+                hooks: [
+                  {
+                    type: "command",
+                    command: 'node "${PLUGIN_ROOT}/components/ultrawork/dist/cli.js" hook user-prompt-submit',
+                    timeout: 10,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const stubCli = join(pluginRoot, "components", "ultrawork", "dist", "cli.js")
+    await writeFile(
+      stubCli,
+      `#!/usr/bin/env node
+let data='';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data',c=>data+=c);
+process.stdin.on('end',()=>{
+  const p=JSON.parse(data);
+  if(p.hook_event_name!=='UserPromptSubmit'){process.exit(2);}
+  if(!process.env.PLUGIN_ROOT){process.exit(3);}
+  process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:'UserPromptSubmit',additionalContext:'lfg-ulw-directive-ok'}})+'\\n');
+});
+`,
+    )
+    await chmod(stubCli, 0o755)
+
+    await writeFile(
+      join(pluginRoot, "lfg-install.json"),
+      `${JSON.stringify({ packageName: "@islee23520/lfg", version: "test", platform: "grok" }, null, 2)}\n`,
+    )
+
+    await runInternalGrokInstall({ HOME: home })
+
+    const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    expect(hooksRaw).toContain("lfg-grok-hook-bridge.mjs")
+
+    const bridgePath = join(pluginRoot, "hooks", "lfg-grok-hook-bridge.mjs")
+    const grokPayload = JSON.stringify({
+      hookEventName: "user_prompt_submit",
+      sessionId: "ulw-test",
+      cwd: process.cwd(),
+      prompt: "do the ultrawork",
+    })
+
+    const { exitCode, stderr } = await runBridgeCommand(
+      [bridgePath, "node", stubCli, "hook", "user-prompt-submit"],
+      grokPayload,
+      {
+        GROK_PLUGIN_ROOT: pluginRoot,
+        GROK_PLUGIN_DATA: join(home, ".grok", "plugin-data", "lfg"),
+        GROK_WORKSPACE_ROOT: process.cwd(),
+        GROK_HOOK_EVENT: "user_prompt_submit",
+      },
+    )
+    expect(stderr).toBe("")
+    expect(exitCode).toBe(0)
+  })
+
   test("bridge exits non-zero when child hook command fails", async () => {
     const bridgePath = await resolveGrokHookBridgeAssetPath()
     const grokPayload = JSON.stringify({

@@ -39,6 +39,29 @@ describe("installed project .omo loader runtime", () => {
     expect(malformed.stdout).not.toContain("LFG project .omo ledger loaded from")
     expect(malformed.stdout).not.toContain("bad")
   })
+
+  test("UserPromptSubmit loader path emits ultrawork directive and ulw-loop summary when present", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-omo-ulw-runtime-"))
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-omo-ulw-project-"))
+    await writeProjectOmo(projectRoot, "ulw-session")
+    // seed a real ulw-loop session with ledger
+    await mkdir(join(projectRoot, ".omo", "ulw-loop", "019e9705-2774-7683-a928-73d4d7755386"), { recursive: true })
+    await writeFile(join(projectRoot, ".omo", "ulw-loop", "019e9705-2774-7683-a928-73d4d7755386", "ledger.jsonl"), "evidence line\n", "utf8")
+
+    const setup = await runLfg(["--json", "setup", "--run"], { HOME: home })
+    expect(setup.exitCode).toBe(0)
+
+    const loader = join(home, ".grok", "installed-plugins", "lfg", "hooks", "lfg-config-loader.mjs")
+    const prompt = await runInstalledLoader(loader, home, {
+      hookEventName: "UserPromptSubmit",
+      sessionId: "ulw-session",
+      cwd: projectRoot,
+      prompt: "do the work",
+    })
+    expect(prompt).toMatchObject({ exitCode: 0, stderr: "" })
+    expect(prompt.stdout).toContain("ulw-loop sessions: 1")
+    expect(prompt.stdout).toContain("ulw-loop has active ledger: true")
+  })
 })
 
 type LoaderResult = {

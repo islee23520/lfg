@@ -163,6 +163,47 @@ describe("project .omo ledger", () => {
 
     expect(mjsSummary).toEqual(tsSummary)
   })
+
+  test("reports ulwLoop null when no .omo/ulw-loop directory exists", async () => {
+    const projectRoot = await projectWithBoulder({
+      activeWorkId: "w1",
+      works: { w1: work({ workId: "w1", sessionIds: [] }) },
+      ledgerLines: [],
+    })
+
+    const summary = await inspectProjectOmoLedger({ projectRoot, sessionId })
+
+    expect(summary.ulwLoop).toBeNull()
+  })
+
+  test("reports ulwLoop present=false when .omo/ulw-loop exists but has no sessions", async () => {
+    const projectRoot = await projectWithBoulder({
+      activeWorkId: "w1",
+      works: { w1: work({ workId: "w1", sessionIds: [] }) },
+      ledgerLines: [],
+    })
+    await mkdir(join(projectRoot, ".omo", "ulw-loop"), { recursive: true })
+
+    const summary = await inspectProjectOmoLedger({ projectRoot, sessionId })
+
+    expect(summary.ulwLoop).toEqual({ present: false, sessionCount: 0, hasActiveLedger: false })
+  })
+
+  test("reports ulwLoop session count and active ledger presence for real sessions", async () => {
+    const projectRoot = await projectWithBoulder({
+      activeWorkId: "w1",
+      works: { w1: work({ workId: "w1", sessionIds: [] }) },
+      ledgerLines: [],
+    })
+    await mkdir(join(projectRoot, ".omo", "ulw-loop", "019e9705-2774-7683-a928-73d4d7755386"), { recursive: true })
+    await mkdir(join(projectRoot, ".omo", "ulw-loop", "019e92ab-5bcc-79e3-8ea6-f68316306da5"), { recursive: true })
+    await writeFile(join(projectRoot, ".omo", "ulw-loop", "019e9705-2774-7683-a928-73d4d7755386", "ledger.jsonl"), "line1\n", "utf8")
+    // second session has no ledger file
+
+    const summary = await inspectProjectOmoLedger({ projectRoot, sessionId })
+
+    expect(summary.ulwLoop).toEqual({ present: true, sessionCount: 2, hasActiveLedger: true })
+  })
 })
 
 type MjsReader = {

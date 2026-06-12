@@ -82,6 +82,13 @@ function renderProjectOmoLedger(ledger) {
   lines.push(`Matched by: ${ledger.matchedBy ?? "none"}`);
   lines.push(`Ledger exists: ${ledger.ledgerExists ? "true" : "false"}`);
   lines.push(`Ledger line count: ${ledger.ledgerLineCount}`);
+  const ul = ledger.ulwLoop;
+  if (ul && typeof ul === "object" && ul.present) {
+    lines.push(`ulw-loop sessions: ${ul.sessionCount}`);
+    lines.push(`ulw-loop has active ledger: ${ul.hasActiveLedger ? "true" : "false"}`);
+  } else {
+    lines.push("ulw-loop: none");
+  }
   return lines;
 }
 

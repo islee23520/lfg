@@ -73,6 +73,7 @@ export async function fetchModelDiscovery(inputBaseUrl: string): Promise<ModelDi
   const localContextWindows = extractContextWindows(payload) ?? {}
   const contextWindows: Record<string, number> = { ...localContextWindows }
   const modelFeatureMetadata = extractModelFeatureMetadata(payload)
+  const modelsMissingContextWindow = modelIds.filter((id) => contextWindows[id] == null)
 
   // Always attempt to enrich from the public LiteLLM model spec catalog (best-effort, ~4.5s timeout).
   // This pulls max_input_tokens (preferred) or max_tokens for widely known models.
@@ -80,9 +81,9 @@ export async function fetchModelDiscovery(inputBaseUrl: string): Promise<ModelDi
   // The goal is to stop everything defaulting to Grok's 200k when the user's OpenAI-compatible proxy
   // does not emit context sizes itself.
   try {
-    const publicMap = await loadPublicLiteLLMContextMap()
+    const publicMap = modelsMissingContextWindow.length === 0 ? {} : await loadPublicLiteLLMContextMap()
     if (publicMap && Object.keys(publicMap).length > 0) {
-      for (const id of modelIds) {
+      for (const id of modelsMissingContextWindow) {
         if (contextWindows[id] != null) continue // local wins
         const direct = publicMap[id]
         if (typeof direct === "number" && direct > 0) {

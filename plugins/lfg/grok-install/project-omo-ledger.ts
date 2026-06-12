@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises"
+import { access, readFile, readdir, stat } from "node:fs/promises"
 import { join } from "node:path"
 
 export type ProjectOmoLedgerOptions = {
@@ -15,6 +15,13 @@ export type ProjectOmoLedgerSummary = {
   readonly ledgerExists: boolean
   readonly ledgerLineCount: number
   readonly matchedBy: "grok-session" | "codex-session" | "raw-session" | "active-work-id" | null
+  readonly ulwLoop: ProjectOmoUlwLoopSummary | null
+}
+
+export type ProjectOmoUlwLoopSummary = {
+  readonly present: boolean
+  readonly sessionCount: number
+  readonly hasActiveLedger: boolean
 }
 
 export type ProjectOmoLedgerWork = {
@@ -44,11 +51,18 @@ export async function inspectProjectOmoLedger(options: ProjectOmoLedgerOptions):
   const ledgerPath = join(options.projectRoot, ".omo", "start-work", "ledger.jsonl")
   const base = { projectRoot: options.projectRoot, boulderPath, ledgerPath }
   const raw = await readOptionalText(boulderPath)
-  if (raw === null) return { ...base, status: "absent", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null }
+  if (raw === null) {
+    const ulwLoop = await inspectUlwLoop(options.projectRoot) ?? { present: false, sessionCount: 0, hasActiveLedger: false }
+    return { ...base, status: "absent", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null, ulwLoop }
+  }
   const state = parseBoulderState(raw)
-  if (state === null) return { ...base, status: "malformed", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null }
+  if (state === null) {
+    const ulwLoop = await inspectUlwLoop(options.projectRoot) ?? { present: false, sessionCount: 0, hasActiveLedger: false }
+    return { ...base, status: "malformed", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null, ulwLoop }
+  }
   const match = findWork(state, options.sessionId)
   const ledger = await inspectLedger(ledgerPath)
+  const ulwLoop = await inspectUlwLoop(options.projectRoot)
   return {
     ...base,
     status: "present",
@@ -56,6 +70,7 @@ export async function inspectProjectOmoLedger(options: ProjectOmoLedgerOptions):
     ledgerExists: ledger.exists,
     ledgerLineCount: ledger.lineCount,
     matchedBy: match?.matchedBy ?? null,
+    ulwLoop,
   }
 }
 
@@ -141,6 +156,34 @@ async function inspectLedger(path: string): Promise<{ readonly exists: boolean; 
     return { exists: true, lineCount }
   } catch {
     return { exists: false, lineCount: 0 }
+  }
+}
+
+async function inspectUlwLoop(projectRoot: string): Promise<ProjectOmoUlwLoopSummary | null> {
+  const loopRoot = join(projectRoot, ".omo", "ulw-loop")
+  try {
+    const entries = await readdir(loopRoot, { withFileTypes: true })
+    const sessions = entries.filter((e) => e.isDirectory() && /^[0-9a-f-]{8,}$/i.test(e.name))
+    if (sessions.length === 0) {
+      return { present: false, sessionCount: 0, hasActiveLedger: false }
+    }
+    let hasActiveLedger = false
+    for (const s of sessions) {
+      const ledgerPath = join(loopRoot, s.name, "ledger.jsonl")
+      try {
+        const st = await stat(ledgerPath)
+        if (st.isFile() && st.size > 0) {
+          hasActiveLedger = true
+          break
+        }
+      } catch {
+        // ledger missing or unreadable for this session; continue
+      }
+    }
+    return { present: true, sessionCount: sessions.length, hasActiveLedger }
+  } catch {
+    // no .omo/ulw-loop directory or not readable
+    return null
   }
 }
 

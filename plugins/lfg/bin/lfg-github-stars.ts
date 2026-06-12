@@ -25,7 +25,7 @@ export async function maybeRequestGitHubStars(
 
 function starRepository(repository: string): Promise<{ readonly ok: boolean; readonly message: string }> {
   return new Promise((resolve) => {
-    const child = spawn("gh", ["repo", "star", repository], { stdio: ["ignore", "ignore", "pipe"] })
+    const child = spawn("gh", githubStarApiArgs(repository), { stdio: ["ignore", "ignore", "pipe"] })
     const chunks: Buffer[] = []
     child.stderr.on("data", (chunk: Buffer) => chunks.push(chunk))
     child.on("error", (error) => resolve({ ok: false, message: error.message }))
@@ -34,4 +34,8 @@ function starRepository(repository: string): Promise<{ readonly ok: boolean; rea
       resolve({ ok: code === 0, message: stderr.length > 0 ? stderr : "GitHub CLI failed or is not authenticated" })
     })
   })
+}
+
+export function githubStarApiArgs(repository: string): readonly string[] {
+  return ["api", "--method", "PUT", "--silent", `/user/starred/${repository}`]
 }

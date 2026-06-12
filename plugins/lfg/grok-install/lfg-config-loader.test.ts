@@ -38,6 +38,7 @@ describe("lfg-config-loader project .omo context", () => {
     expect(output.hookSpecificOutput.additionalContext).toContain("Ledger line count: 2")
     expect(output.hookSpecificOutput.additionalContext).not.toContain("ledger one")
     expect(output.hookSpecificOutput.additionalContext).not.toContain("ledger two")
+    expect(output.hookSpecificOutput.additionalContext).toContain("ulw-loop: none")
   })
 
   test("normalizes UserPromptSubmit and fails closed for malformed project .omo", async () => {

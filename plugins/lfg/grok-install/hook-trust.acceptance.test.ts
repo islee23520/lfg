@@ -13,11 +13,10 @@ describe("hook trust acceptance (#28)", () => {
     const hooksPath = join(dirname(fileURLToPath(import.meta.url)), "fixture-minimal", "hooks", "hooks.json")
     const parsed: unknown = JSON.parse(await readFile(hooksPath, "utf8"))
     const result = validateGrokHooksJson(parsed)
-    expect(result).toEqual({
-      ok: true,
-      hookNames: ["SessionStart"],
-      error: null,
-    })
+    expect(result.ok).toBe(true)
+    expect(result.error).toBeNull()
+    expect(result.hookNames).toContain("SessionStart")
+    expect(result.hookNames).toContain("UserPromptSubmit")
   })
 
   test("rejects legacy metadata hooks list", () => {
@@ -31,11 +30,10 @@ describe("hook trust acceptance (#28)", () => {
     const source = join(dirname(fileURLToPath(import.meta.url)), "fixture-minimal")
     await installGrokPluginFromSource({ home, sourceRoot: source, version: "8.8.8" })
     const verify = await verifyGrokInstallSurface({ home })
-    expect(verify).toMatchObject({
-      ok: true,
-      hooksRegistered: true,
-      hookNames: ["SessionStart"],
-      hookTrustError: null,
-    })
+    expect(verify.ok).toBe(true)
+    expect(verify.hooksRegistered).toBe(true)
+    expect(verify.hookTrustError).toBeNull()
+    expect(verify.hookNames).toContain("SessionStart")
+    expect(verify.hookNames).toContain("UserPromptSubmit")
   })
 })

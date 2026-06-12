@@ -16,9 +16,11 @@ describe("post-install-verify", () => {
       ok: true,
       status: "verified",
       hooksRegistered: true,
-      hookNames: ["SessionStart"],
     })
+    expect(json.hookNames).toContain("SessionStart")
     expect(json.stamp).toMatchObject({ packageName: "@islee23520/lfg", version: "9.9.9" })
+    expect(json.componentInventoryPath).toContain("lfg-component-inventory.json")
+    expect(json.payloadSource).toBe("source_tree")
   })
 
   test("missing_adapter when plugin tree absent", async () => {
