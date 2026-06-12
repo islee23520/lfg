@@ -127,20 +127,20 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     }
     const { shouldUseSetupTui, runSetupTui } = await import("./lfg-setup-tui.js")
     if (shouldUseSetupTui(args, { check: false, input: process.stdin as any, output: process.stdout as any })) {
-      await runSetupTui(args, { plan, resolved: presetResolved }, {
-        runLineSetup: async (_forcedArgs, _ctx, options) => {
-          // Delegate to the existing conversational wizard, now selector-aware so that
-          // when the TUI is active the Clack select factories (model/tier/reasoning)
-          // drive the per-agent prompts instead of raw readline. This matches the
-          // LFP setup TUI + line-mode handoff pattern.
-          await runInstallWizard(plan, presetResolved, {
-            modelSelector: options?.modelSelector,
-            tierSelector: options?.tierSelector,
-            reasoningSelector: options?.reasoningSelector,
-          })
-        },
+      // TUI path (bare `lfg setup` on real TTY): use the self-contained Clack runner.
+      // It performs the three role agent selects itself (Model / Service tier / Reasoning effort),
+      // prints ONLY the three clean summary lines (e.g. "  explorer: grok-3-mini-fast / low (tier: default)"),
+      // shows its own Install Summary + final Clack "Install now?" confirm, then directly runs the
+      // Grok installer. This path must never delegate to the classic readline wizard, because that
+      // wizard emits "Current:", "Default: keep...", "Recommended:", "Alternatives:", the "Configure
+      // other LazyCodex agents...?" question, the plan review, magic word, "Install now? [y/N]",
+      // "Installation cancelled...", and "oMoMoMoMo... Bye!".
+      // We deliberately pass no runLineSetup (or a no-op) so the self-contained TUI flow is used.
+      const tuiResult = await runSetupTui(args, { plan, resolved: presetResolved }, {
+        // No runLineSetup delegation for the main TUI experience. The runner is self-contained.
+        runLineSetup: undefined as any,
       })
-      return { ok: true, status: "tui_completed", executed: true }
+      return tuiResult ?? { ok: true, status: "tui_completed", executed: true }
     }
   }
 

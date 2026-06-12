@@ -24,9 +24,29 @@ export type InstallWizardOptions = {
   readonly modelSelector?: (spec: { agentName?: string; current: string; choices: Array<{ value: string; label: string; aliases: readonly string[]; key: string }> }) => Promise<string>;
   readonly tierSelector?: (spec: { agentName?: string; current: string }) => Promise<string>;
   readonly reasoningSelector?: (spec: { agentName?: string; current: string }) => Promise<string>;
+  // Internal for TUI path: skip the final plan review + "Install now?" gate so the TUI layer can own it with Clack.
+  readonly skipFinalGate?: boolean;
+  // Internal for TUI path: skip the "Configure other LazyCodex agents (librarian, plan, …)?" long tail so it does not leak raw prompts.
+  readonly skipOtherAgents?: boolean;
 };
 
 export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetupDiscoveryResult, options: InstallWizardOptions = {}): Promise<JsonObject> {
+  // === AGGRESSIVE TUI MODE GUARD (first thing) ===
+  // The Clack TUI (lfg-setup-tui) drives bare `lfg setup` on TTY.
+  // When any selector factory or skip flag is passed, this entire call must produce
+  // ONLY the three clean role summary lines (captured for "Setup results").
+  // It must NEVER emit:
+  //   Current / Default / Recommended / Alternatives lines
+  //   "Configure LazyCodex role agents? [y/N]"
+  //   "Configure other LazyCodex agents (librarian, plan, …)? [y/N]"
+  //   [n/5] step headers after discovery, Install Summary box, Magic Word box
+  //   "Install now? [y/N]", "Installation cancelled...", "oMoMoMoMo... Bye!"
+  // The TUI layer owns the final framing + confirm + execution.
+  const isTuiMode = !!(options && (
+    options.modelSelector || options.tierSelector || options.reasoningSelector ||
+    options.skipFinalGate || options.skipOtherAgents
+  ));
+
   printInstallHeader()
   const reader = createLineReader()
   try {
@@ -38,23 +58,36 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
       printAutoDiscovery(resolved ?? { discovery, baseUrlUsed: null, baseUrlSource: "none", autoDiscovered: false })
     }
 
-    // Bare `lfg setup` (plain human command, no --json, no --run) is meant to be conversational.
-    // We show what was discovered (so the person sees which models will become the Grok aliases),
-    // ask if they want to customize the main three role agents, and always require an explicit
-    // final confirmation before touching the filesystem.
-    //
-    // This is the whole point of the interactive surface: the human gets to see the plan
-    // (models etc.) and say "yes, do the direct install into a real ~/.grok/installed-plugins/lfg dir".
+    if (isTuiMode) {
+      // TUI fast path: directly execute only the three main role agents using the Clack selectors.
+      // This completely avoids every readline confirm, the long-tail wizard, and all later gates.
+      // readAgentSetting will also see isTui and suppress all guidance.
+      const roleConfig = discovery
+        ? await readAgentConfig(reader, discovery, options)
+        : defaultLazycodexAgentConfig({} as any);
+
+      // Always take bundled defaults for the rest of the agents; never ask about "other" agents.
+      const bundled = await loadBundledDefaultOmoOverridesForInteractive();
+      const agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {});
+
+      const configuredDiscovery = {
+        ...(discovery || {}),
+        agentConfig: roleConfig,
+        agentOverrideMap,
+      } as any;
+
+      if (resolved && typeof resolved === 'object') {
+        (resolved as any).configuredDiscovery = configuredDiscovery;
+      }
+      return { ok: true, status: "tui_configured", configuredDiscovery, executed: false };
+    }
+
+    // === Classic readline conversational path ONLY (no TUI indicators) ===
     printStep(2, "Configuring LazyCodex agents")
     const configuredDiscovery =
       discovery === null ? null : await configureLazycodexAgentsFull(reader, discovery, options)
 
-    // This is the interactive gate for bare `lfg setup`.
-    // The whole reason for the non --json / non --run command is to show the human
-    // what models were found (these become the Grok aliases), let them customize the
-    // main role agents if they want, and then **explicitly say yes** before we
-    // do the direct install (real dir under ~/.grok/installed-plugins/lfg, no symlinks,
-    // hooks + agents + overrides + config).
+    // This is the interactive gate for bare `lfg setup` (classic path only).
     printStep(3, "Reviewing install plan")
     printInstallPlan(plan, configuredDiscovery !== null)
     printMagicWord()
@@ -152,7 +185,13 @@ function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): void {
 
 
 async function configureLazycodexAgentsFull(reader: LineReader, discovery: ModelDiscovery, options: InstallWizardOptions = {}): Promise<ModelDiscovery> {
-  const shouldConfigure = await confirm(reader, "Configure LazyCodex role agents (explorer / reasoning / coding)? [y/N] ")
+  // When TUI selectors are injected we force the role configuration path so the three main
+  // agents are presented via nice Clack selects (with Current/Recommended context printed before each).
+  // This avoids a raw "Configure role agents? [y/N]" readline prompt during TUI capture.
+  const hasTuiSelectors = !!(options.modelSelector || options.tierSelector || options.reasoningSelector)
+  const shouldConfigure = hasTuiSelectors
+    ? true
+    : await confirm(reader, "Configure LazyCodex role agents (explorer / reasoning / coding)? [y/N] ")
   const roleConfig = shouldConfigure
     ? await readAgentConfig(reader, discovery, options)
     : defaultLazycodexAgentConfig(discovery)
@@ -162,7 +201,14 @@ async function configureLazycodexAgentsFull(reader: LineReader, discovery: Model
   // flow short: URL (optional) → role question (usually n) → Install now? → direct Grok materialization
   // (real dir under installed-plugins/lfg, replacing any symlink or legacy entry).
   let agentOverrideMap: LazycodexAgentOverrideMap | undefined
-  if (shouldConfigure) {
+  const hasTuiForLongTail = !!(options.modelSelector || options.tierSelector || options.reasoningSelector)
+  if (options.skipOtherAgents || hasTuiForLongTail) {
+    // TUI path (or explicit skip): do not invoke the long tail at all.
+    // This completely avoids the raw "Configure other LazyCodex agents (librarian, plan, …)?" prompt
+    // and any per-agent questions for the long tail when the Clack TUI is driving the three main roles.
+    const bundled = await loadBundledDefaultOmoOverridesForInteractive()
+    agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {})
+  } else if (shouldConfigure) {
     agentOverrideMap = await configureOmoAgentOverridesInteractively(
       reader,
       discovery,
@@ -212,21 +258,35 @@ async function readAgentSetting(
   defaultReasoningLevel: ReasoningLevel,
   options: InstallWizardOptions = {},
 ) {
-  const rec = ROLE_RECOMMENDATIONS.find((r) => r.role === agentName)
-  if (rec !== undefined) {
-    const perf = PERF_SNAPSHOT[rec.recommended]
-    const latency = perf ? `${perf.latencyMs}ms` : ""
-    const tps = perf ? `${perf.tokensPerSec}t/s` : ""
-    output.write(`  Recommended: ${rec.recommended} (${latency}, ${tps}) - ${rec.rationale.split(".")[0]}\n`)
-    const alts = rec.alternatives.filter((a) => discovery.modelIds.includes(a))
-    if (alts.length > 0) {
-      output.write(`  Alternatives: ${alts.join(", ")}\n`)
+  // TUI SUPPRESSION - THIS IS THE VERY FIRST EXECUTABLE LINE IN THE FUNCTION.
+  // If the TUI (Clack) is driving, any of the selector factories or skip* flags will be present.
+  // In that case, emit ABSOLUTELY NOTHING before the selector call.
+  // No "Current:", no "Default: keep...", no "Recommended:", no "Alternatives:".
+  // Those would pollute the captured "Setup results" note.
+  // The Clack select UI itself shows the current value (initial + "current" hint).
+  // After the three selects for the agent we emit only the terse summary line.
+  const isTui = !!(options && (
+    options.modelSelector || options.tierSelector || options.reasoningSelector ||
+    options.skipFinalGate || options.skipOtherAgents
+  ));
+
+  if (!isTui) {
+    const rec = ROLE_RECOMMENDATIONS.find((r) => r.role === agentName);
+    if (rec !== undefined) {
+      const perf = PERF_SNAPSHOT[rec.recommended];
+      const latency = perf ? `${perf.latencyMs}ms` : "";
+      const tps = perf ? `${perf.tokensPerSec}t/s` : "";
+      output.write(`  Recommended: ${rec.recommended} (${latency}, ${tps}) - ${rec.rationale.split(".")[0]}\n`);
+      const alts = rec.alternatives.filter((a) => discovery.modelIds.includes(a));
+      if (alts.length > 0) {
+        output.write(`  Alternatives: ${alts.join(", ")}\n`);
+      }
     }
+    output.write(`  Current: ${defaultModel} (reasoning: ${defaultReasoningLevel})\n`);
+    output.write("  Default: keep the current LazyCodex/OMO value; press Enter to leave it unchanged.\n");
   }
-  // LFP-style framing: show Current and note that Enter keeps the configured value.
-  output.write(`  Current: ${defaultModel} (reasoning: ${defaultReasoningLevel})\n`)
-  output.write("  Default: keep the current LazyCodex/OMO value; press Enter to leave it unchanged.\n")
-  const model = await readModelChoice(reader, discovery, `  ${agentName} model [${defaultModel}]: `, defaultModel, options.modelSelector)
+
+  const model = await readModelChoice(reader, discovery, `  ${agentName} model [${defaultModel}]: `, defaultModel, options.modelSelector);
   // Tier is only prompted when a tierSelector is provided (TUI path for LFP-style parity).
   // In classic readline we keep the previous minimal (model + reasoningLevel) question count so existing
   // canned-input tests continue to work. The TUI path supplies tierSelector and the captured transcript

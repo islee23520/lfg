@@ -28,6 +28,10 @@ export async function configureOmoAgentOverridesInteractively(
 ): Promise<LazycodexAgentOverrideMap> {
   const bundled = await loadBundledDefaultOmoOverrides()
   const base = mergeLazycodexAgentOverrides(roleConfig, bundled, {})
+  // TUI path (or explicit skip) must never ask the long-tail "other agents" question.
+  if ((options as any).skipOtherAgents === true) {
+    return base
+  }
   const shouldConfigure = await confirm(reader, "Configure other LazyCodex agents (librarian, plan, …)? [y/N] ")
   if (!shouldConfigure) {
     return base
