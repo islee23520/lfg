@@ -42,7 +42,7 @@ describe("sync lazycodex agents to grok", () => {
     expect(exploreShadow).toContain("Read-only")
     const ulw = await readFile(join(home, ".grok", "agents", "ulw.md"), "utf8")
     expect(ulw).toContain("name: ulw")
-    expect(ulw).toContain("Sisyphus")
+    expect(ulw).toContain("Sisyphus-style default orchestrator")
     const builder = await readFile(join(home, ".grok", "agents", "grok-build.md"), "utf8")
     expect(builder).toContain("name: grok-build")
   })

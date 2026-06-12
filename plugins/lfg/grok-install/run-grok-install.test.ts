@@ -84,12 +84,14 @@ describe("runGrokInstall", () => {
     const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
     const configPath = join(home, ".grok", "config.toml")
     const agentPath = join(home, ".grok", "agents", "explorer.toml")
+    const markdownAgentPath = join(home, ".grok", "agents", "ulw.md")
     await mkdir(join(home, ".grok", "installed-plugins"), { recursive: true })
     await mkdir(join(home, ".grok", "agents"), { recursive: true })
     await cp(fixtureRoot, pluginRoot, { recursive: true })
     await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"existing"}\n', "utf8")
     await writeFile(configPath, '[lazycodex.models]\ndefault = "user-model"\n', "utf8")
     await writeFile(agentPath, 'model = "user-agent"\n', "utf8")
+    await writeFile(markdownAgentPath, "---\nname: ulw\n---\n\nUSER MARKDOWN AGENT\n", "utf8")
 
     const discovery: ModelDiscovery = {
       baseUrl: "http://127.0.0.1:11434/v1",
@@ -101,7 +103,8 @@ describe("runGrokInstall", () => {
 
     expect(preserved.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
     expect(preserved.configUpdate).toMatchObject({ status: "configured", modelsBaseUrl: discovery.baseUrl })
-    expect(preserved.lazycodexAgents).toBeNull()
+    expect(preserved.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
+    expect(preserved.agentOverridesPath).toBe(join(home, ".grok", "lazycodex-agent-overrides.json"))
     const config = await readFile(configPath, "utf8")
     expect(config).toContain('default = "gpt-5.5"')
     expect(config).toContain('"lfg"')
@@ -113,7 +116,20 @@ describe("runGrokInstall", () => {
     expect(config).toContain("grok-build = true")
     expect(config).toContain("explorer = true")
     await expect(readFile(join(home, ".grok", "agents", "ulw.md"), "utf8")).resolves.toContain("name: ulw")
-    await expect(readFile(agentPath, "utf8")).resolves.toContain('model = "user-agent"')
+    await expect(readFile(agentPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(home, ".grok", "agents-toml-backup-lfg", "explorer.toml"), "utf8")).resolves.toContain('model = "user-agent"')
+    await expect(readFile(join(home, ".grok", "agents-user-backup-lfg", "ulw.md"), "utf8")).resolves.toContain("USER MARKDOWN AGENT")
+    await expect(readFile(markdownAgentPath, "utf8")).resolves.not.toContain("USER MARKDOWN AGENT")
+    await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "gpt-5.5"')
+    await expect(readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "explorer.md"), "utf8")).resolves.toContain("name: explorer")
+    await expect(readFile(join(home, ".grok", "lazycodex-agent-overrides.json"), "utf8")).resolves.toContain('"explorer"')
+
+    const repeated = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
+    expect(repeated.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
+    await expect(readFile(join(home, ".grok", "agents-user-backup-lfg", "ulw.md"), "utf8")).resolves.toContain("USER MARKDOWN AGENT")
+    await expect(readFile(join(home, ".grok", "agents-user-backup-lfg", "ulw.md"), "utf8")).resolves.not.toContain(
+      "Sisyphus-style default orchestrator",
+    )
 
     const forced = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" }, { force: true })
     expect(forced.internalStep).toMatchObject({ status: "installed" })
@@ -133,7 +149,8 @@ describe("runGrokInstall", () => {
 
     expect(preserved.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
     expect(preserved.configUpdate).toBeNull()
-    expect(preserved.lazycodexAgents).toBeNull()
+    expect(preserved.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
+    expect(preserved.agentOverridesPath).toBe(join(home, ".grok", "lazycodex-agent-overrides.json"))
     await expect(readFile(configPath, "utf8")).resolves.toContain('default = "user-model"')
   })
 

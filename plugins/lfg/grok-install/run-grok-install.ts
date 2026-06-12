@@ -14,7 +14,6 @@ import { resolveGlobalLazycodexAgentConfig } from "./resolve-global-agent-config
 import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
 import { readGrokInstallStamp } from "./install"
 import { runInternalGrokInstall } from "./run-internal"
-import { writeLfgShadowAgents } from "./lfg-shadow-agents"
 import { syncLazycodexAgentsToGrokLedger, type SyncLazycodexAgentsResult } from "./sync-lazycodex-agents-to-grok"
 import { componentInventoryPath } from "./component-inventory"
 
@@ -54,8 +53,9 @@ export async function runGrokInstall(
           })
         : null
     const overrideMap = await resolveLazycodexAgentOverrides(home, resolvedAgents)
+    const overridesPath = await writeLazycodexAgentOverridesFile(home, overrideMap)
     const configFiles = await ensureLfgConfigFiles(home, overrideMap)
-    await writeLfgShadowAgents(home, overrideMap)
+    const lazycodexAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
     const pluginsEnabled = await ensureLfgPluginsEnabled(home)
     await ensureLfgAgentsPreferred(home)
     return {
@@ -76,8 +76,8 @@ export async function runGrokInstall(
             : "existing Grok lfg setup preserved; synced model config from discovered CLI proxy models",
         stderr: "",
       },
-      lazycodexAgents: null,
-      agentOverridesPath: null,
+      lazycodexAgents,
+      agentOverridesPath: overridesPath,
       lfgConfigPath: configFiles.configPath,
       pluginsEnabled,
     }

@@ -19,10 +19,10 @@ async function writeShadowAgentSurfaces(shadowAgentsDir: string, agentOverrides:
     {
       name: "general-purpose",
       description:
-        "LFG LazyCodex general-purpose agent replacing the Grok built-in. High-reasoning default worker for broad research and execution tasks.",
+        "LFG LazyCodex general-purpose fallback agent. High-quality reasoning worker for broad research, analysis, and execution tasks when the default orchestrator is not required.",
       model: reasoningModel,
       permission: "default",
-      body: "Complete the assigned task directly. Use LFG/LazyCodex reasoning defaults. Do what was asked; nothing more, nothing less.",
+      body: "You are a high-quality general-purpose agent. Complete the assigned task directly using strong reasoning. Do exactly what was asked; nothing more, nothing less. Prefer concise, evidence-based responses.",
     },
     {
       name: "explore",
@@ -51,7 +51,7 @@ async function writeShadowAgentSurfaces(shadowAgentsDir: string, agentOverrides:
     {
       name: "ulw",
       description:
-        "LFG LazyCodex ULW default orchestrator, analogous to OMO/LazyCodex Sisyphus. Decomposes work, delegates to LFG workers, and closes the loop with evidence.",
+        "LFG LazyCodex Sisyphus-style default orchestrator (ulw). Decomposes work into minimal concrete steps, delegates to specialized LFG workers (explorer/reasoning/coding/reviewer), preserves user intent, and closes the loop with verification evidence.",
       model: reasoningModel,
       permission: "default",
       body: renderUlwBody("ulw"),
@@ -77,7 +77,17 @@ function renderShadowAgentMarkdown(definition: {
 }
 
 function renderUlwBody(name: string): string {
-  return `You are ${name}, the LFG LazyCodex ultrawork default orchestrator.\n\nOperate like OMO/LazyCodex Sisyphus: keep one concrete goal in focus, decompose only as much as needed, use the LFG explorer/reasoning/coding/reviewer workers when delegation helps, preserve user changes, and verify the result before reporting completion. Prefer direct execution over ceremony. Do not add scope beyond the user's request.`
+  return `You are ${name}, the **LFG LazyCodex Sisyphus-style default orchestrator**.
+
+Core principles:
+- Keep **one concrete goal** in focus at all times
+- Decompose **only as much as needed** — prefer direct execution
+- Use specialized LFG workers (explorer, reasoning, coding, reviewer, visual-qa, etc.) via subagent when it clearly helps
+- Always preserve existing user changes and intent
+- Verify the result with evidence before declaring completion
+- Prefer concise, actionable output over ceremony or unnecessary planning
+
+Do exactly what the user asked. Do not expand scope.`
 }
 
 async function moveConflictingMarkdownAgentsAside(home: string, names: readonly string[]): Promise<void> {

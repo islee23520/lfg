@@ -19,7 +19,7 @@ describe("lfg CLI", () => {
     expect(root.bin).toEqual({ lfg: "plugins/lfg/lfg" })
     expect(root.files).toEqual(["plugins/lfg/AGENTS.md", "plugins/lfg/lfg", "plugins/lfg/README.md", "plugins/lfg/dist", "plugins/lfg/skills"])
     expect(root.scripts).toMatchObject({
-      setup: "sh plugins/lfg/lfg --json setup",
+      setup: "sh plugins/lfg/lfg setup",
       test: "npm run build && vitest run plugins/lfg/bin/*.test.ts plugins/lfg/grok-install/*.test.ts",
       "self-test": "npm run build && node plugins/lfg/dist/self-test.js",
       typecheck: "tsc --noEmit",

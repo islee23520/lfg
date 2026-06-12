@@ -40,7 +40,7 @@ async function main(argv: readonly string[]): Promise<number> {
     if (parsed.json) {
       // --json is the machine/automation surface. Always emit the structured value.
       emit(result, true)
-    } else if (parsed.run) {
+    } else if (parsed.run || isSetupForceShortcut(parsed)) {
       // setup --run is the "just do the direct Grok materialization" command (for scripts).
       // Only surface the human-readable stdout/stderr that the internal steps produced.
       // The full object is available via --json setup --run if someone needs the structure.
@@ -75,7 +75,8 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   if (!command || command === "help" || command === "--help" || command === "-h") {
     return help()
   }
-  if (command !== "setup" || subcommand) {
+  const isForceOnly = (subcommand === "--force" || subcommand === "force")
+  if (command !== "setup" || (subcommand && !isForceOnly)) {
     return unsupportedCommand(args.positional)
   }
   const home = process.env.HOME ?? homedir()
@@ -98,8 +99,8 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     return args.json ? plan : runRefreshWizard(plan, presetResolved)
   }
 
-  if (args.run) {
-    return runLazycodexInstaller(discovery, { force: args.force })
+  if (args.run || isForceOnly) {
+    return runLazycodexInstaller(discovery, { force: args.force || isForceOnly })
   }
   const plan = setupPlan(presetResolved, args.preset)
   return args.json ? plan : runInstallWizard(plan, presetResolved)
@@ -111,6 +112,10 @@ function isInteractiveInstall(args: ParsedArgs): boolean {
 
 function isInteractiveRefresh(args: ParsedArgs): boolean {
   return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1 && args.refresh === true
+}
+
+function isSetupForceShortcut(args: ParsedArgs): boolean {
+  return !args.json && !args.run && args.positional[0] === "setup" && (args.positional[1] === "--force" || args.positional[1] === "force")
 }
 
 function setupPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>, preset: SetupPreset): JsonObject {

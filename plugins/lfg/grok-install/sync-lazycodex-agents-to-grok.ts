@@ -213,10 +213,20 @@ async function moveConflictingMarkdownAgentsAside(home: string, names: readonly 
 async function moveIfExists(source: string, dest: string): Promise<void> {
   try {
     const text = await readFile(source, "utf8")
-    await writeFile(dest, text, "utf8")
+    if (!(await fileExists(dest))) await writeFile(dest, text, "utf8")
     await unlink(source)
   } catch (error) {
     if (!isNodeError(error) || error.code !== "ENOENT") throw error
+  }
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await readFile(path, "utf8")
+    return true
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") return false
+    throw error
   }
 }
 

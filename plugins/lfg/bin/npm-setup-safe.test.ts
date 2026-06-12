@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process"
+import { execFile, spawn } from "node:child_process"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
@@ -12,23 +12,25 @@ const here = dirname(fileURLToPath(import.meta.url))
 const fixtureRoot = join(here, "..", "grok-install", "fixture-minimal")
 
 describe("npm setup script safety", () => {
-  test("root npm run setup is a non-mutating JSON plan by default", async () => {
+  test("root npm run setup opens the guided setup flow by default without mutating before confirmation", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-npm-setup-safe-home."))
     const sentinelPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok"), { recursive: true })
     await writeFile(sentinelPath, "[user]\nkeep = \"real-grok-config\"\n", "utf8")
 
     try {
-      const { stdout } = await execFileAsync("npm", ["run", "--silent", "setup"], {
-        env: { ...process.env, HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" },
+      const result = await runNpmSetup([], "\n\nn\n", {
+        HOME: home,
+        LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
       })
 
-      expect(JSON.parse(stdout)).toMatchObject({
-        ok: true,
-        status: "planned",
-        command: "setup",
-        executed: false,
-      })
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).toContain("oMoMoMoMo... lfg setup")
+      expect(result.stdout).toContain("[1/5] Discovering Grok model endpoint")
+      expect(result.stdout).toContain("[3/5] Reviewing install plan")
+      expect(result.stdout).toContain("Install now? [y/N]")
+      expect(result.stdout).toContain("Installation cancelled. Nothing was changed.")
+      expect(result.stdout).not.toContain("{\n")
       await expect(readFile(sentinelPath, "utf8")).resolves.toBe("[user]\nkeep = \"real-grok-config\"\n")
     } finally {
       await rm(home, { recursive: true, force: true })
@@ -39,7 +41,7 @@ describe("npm setup script safety", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-npm-setup-run-home."))
 
     try {
-      const { stdout } = await execFileAsync("npm", ["run", "--silent", "setup", "--", "--run"], {
+      const { stdout } = await execFileAsync("npm", ["run", "--silent", "setup", "--", "--json", "--run"], {
         env: { ...process.env, HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" },
       })
 
@@ -67,26 +69,40 @@ describe("npm setup script safety", () => {
       await writeFile(agentPath, 'model = "user-kept-agent"\n', "utf8")
 
       try {
-        const { stdout } = await execFileAsync("npm", ["run", "--silent", "setup", "--", "--run", "--base-url", baseUrl], {
+        const { stdout } = await execFileAsync("npm", ["run", "--silent", "setup", "--", "--json", "--run", "--base-url", baseUrl], {
           env: { ...process.env, HOME: home },
         })
 
-        const result = JSON.parse(stdout) as { readonly preservedExistingSetup?: boolean; readonly configUpdated?: boolean }
+        const result = JSON.parse(stdout) as {
+          readonly preservedExistingSetup?: boolean
+          readonly configUpdated?: boolean
+          readonly agentOverridesPath?: string | null
+          readonly agentPaths?: readonly string[]
+        }
         expect(result.preservedExistingSetup).toBe(true)
         expect(result.configUpdated).toBe(true)
+        expect(result.agentOverridesPath).toBe(join(home, ".grok", "lazycodex-agent-overrides.json"))
+        expect(result.agentPaths?.length).toBeGreaterThanOrEqual(1)
         await expect(readFile(configPath, "utf8")).resolves.toContain('default = "gpt-5.4-mini"')
-        await expect(readFile(agentPath, "utf8")).resolves.toContain('model = "user-kept-agent"')
+        await expect(readFile(agentPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+        await expect(readFile(join(home, ".grok", "agents-toml-backup-lfg", "explorer.toml"), "utf8")).resolves.toContain(
+          'model = "user-kept-agent"',
+        )
+        await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "gpt-5.4-mini"')
+        await expect(readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "explorer.md"), "utf8")).resolves.toContain(
+          "name: explorer",
+        )
       } finally {
         await rm(home, { recursive: true, force: true })
       }
     })
   })
 
-  test("root npm run setup exposes a gpt-centered preset plan", async () => {
+  test("root npm run setup -- --json exposes a gpt-centered preset plan", async () => {
     await withModelServer(["grok-3-mini-fast", "gpt-5.4-mini", "gpt-5.5"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-npm-setup-preset-home."))
       try {
-        const { stdout } = await execFileAsync("npm", ["run", "--silent", "setup", "--", "--preset", "gpt", "--base-url", baseUrl], {
+        const { stdout } = await execFileAsync("npm", ["run", "--silent", "setup", "--", "--json", "--preset", "gpt", "--base-url", baseUrl], {
           env: { ...process.env, HOME: home },
         })
         const result = JSON.parse(stdout) as {
@@ -101,6 +117,38 @@ describe("npm setup script safety", () => {
     })
   })
 })
+
+type NpmSetupResult = {
+  readonly exitCode: number
+  readonly stdout: string
+  readonly stderr: string
+}
+
+function runNpmSetup(
+  args: readonly string[],
+  inputText: string,
+  env: Readonly<Record<string, string>>,
+): Promise<NpmSetupResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("npm", ["run", "--silent", "setup", "--", ...args], {
+      env: { ...process.env, ...env },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const stdout: Buffer[] = []
+    const stderr: Buffer[] = []
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk))
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk))
+    child.on("error", reject)
+    child.on("close", (code) => {
+      resolve({
+        exitCode: code ?? 1,
+        stdout: Buffer.concat(stdout).toString("utf8"),
+        stderr: Buffer.concat(stderr).toString("utf8"),
+      })
+    })
+    child.stdin.end(inputText)
+  })
+}
 
 async function withModelServer(modelIds: readonly string[], run: (baseUrl: string) => Promise<void>): Promise<void> {
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
