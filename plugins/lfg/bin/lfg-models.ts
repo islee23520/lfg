@@ -1,4 +1,6 @@
 import { isRecord, type JsonObject } from "./lfg-json"
+import { aliasGroupKey, loadPublicLiteLLMContextMap } from "./lfg-model-context-catalog"
+import { extractContextWindows, extractModelFeatureMetadata, type ModelFeatureMetadata } from "./lfg-model-metadata"
 import type { LazycodexAgentOverrideMap } from "../grok-install/lazycodex-agent-overrides"
 
 export type ModelMapping = {
@@ -36,6 +38,7 @@ export type ModelDiscovery = {
    * Used by writeGrokModelConfig to populate context_window under each [model.*] so Grok's auto-compact uses the right budget per model.
    */
   readonly contextWindows?: Readonly<Record<string, number>>
+  readonly modelFeatureMetadata?: Readonly<Record<string, ModelFeatureMetadata>>
 }
 
 export class ModelDiscoveryError extends Error {
@@ -56,9 +59,6 @@ export function modelDiscoveryPlan(): JsonObject {
   }
 }
 
-const PUBLIC_LITELLM_CATALOG_URL =
-  "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
-
 export async function fetchModelDiscovery(inputBaseUrl: string): Promise<ModelDiscovery> {
   const { baseUrl, modelsUrl } = normalizeModelUrls(inputBaseUrl)
   const response = await fetch(modelsUrl, { headers: modelRequestHeaders() })
@@ -72,6 +72,7 @@ export async function fetchModelDiscovery(inputBaseUrl: string): Promise<ModelDi
   }
   const localContextWindows = extractContextWindows(payload) ?? {}
   const contextWindows: Record<string, number> = { ...localContextWindows }
+  const modelFeatureMetadata = extractModelFeatureMetadata(payload)
 
   // Always attempt to enrich from the public LiteLLM model spec catalog (best-effort, ~4.5s timeout).
   // This pulls max_input_tokens (preferred) or max_tokens for widely known models.
@@ -116,40 +117,7 @@ export async function fetchModelDiscovery(inputBaseUrl: string): Promise<ModelDi
     modelIds,
     mapping: mapModels(modelIds),
     contextWindows: finalContextWindows,
-  }
-}
-
-/** Load the public LiteLLM model catalog and return a map of (raw key or normalized) → max input tokens.
- * Uses max_input_tokens preferentially, falls back to max_tokens. Never throws on network issues.
- */
-export async function loadPublicLiteLLMContextMap(): Promise<Readonly<Record<string, number>>> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 4500)
-  try {
-    const res = await fetch(PUBLIC_LITELLM_CATALOG_URL, { signal: controller.signal })
-    if (!res.ok) return {}
-    const data: unknown = await res.json()
-    if (!isRecord(data)) return {}
-    const out: Record<string, number> = {}
-    for (const [rawKey, spec] of Object.entries(data)) {
-      if (rawKey === "sample_spec" || !isRecord(spec)) continue
-      const maxIn = toPositiveInt((spec as Record<string, unknown>).max_input_tokens)
-      const maxTok = toPositiveInt((spec as Record<string, unknown>).max_tokens)
-      const n = maxIn ?? maxTok
-      if (n === null) continue
-      out[rawKey] = n
-      const norm = aliasGroupKey(rawKey)
-      if (!out[norm]) out[norm] = n
-      // also store a few common provider-stripped variants for better hit rate
-      const noSlash = rawKey.includes("/") ? rawKey.split("/").pop()! : rawKey
-      const norm2 = aliasGroupKey(noSlash)
-      if (!out[norm2]) out[norm2] = n
-    }
-    return out
-  } catch {
-    return {}
-  } finally {
-    clearTimeout(timer)
+    ...(modelFeatureMetadata === undefined ? {} : { modelFeatureMetadata }),
   }
 }
 
@@ -236,60 +204,6 @@ function extractModelIds(payload: unknown): readonly string[] {
   return payload.data.flatMap((item: unknown) => (isRecord(item) && typeof item.id === "string" ? [item.id] : []))
 }
 
-function extractContextWindows(payload: unknown): Readonly<Record<string, number>> | undefined {
-  if (!isRecord(payload) || !Array.isArray(payload.data)) return undefined
-  const out: Record<string, number> = {}
-  for (const item of payload.data) {
-    if (!isRecord(item) || typeof item.id !== "string") continue
-    const cw = pickContextWindow(item)
-    if (cw !== null) out[item.id] = cw
-  }
-  return Object.keys(out).length > 0 ? out : undefined
-}
-
-function pickContextWindow(item: Record<string, unknown>): number | null {
-  const candidates = [
-    "context_window",
-    "contextWindow",
-    "context_window_size",
-    "contextWindowSize",
-    "max_model_len",
-    "maxModelLen",
-    "max_model_length",
-    "maxModelLength",
-    "max_input_tokens",
-    "maxInputTokens",
-    "max_tokens",
-    "maxTokens",
-    "n_ctx",
-    "nCtx",
-  ]
-  for (const key of candidates) {
-    const v = (item as Record<string, unknown>)[key]
-    const n = toPositiveInt(v)
-    if (n !== null) return n
-  }
-  // Some servers nest under "info" or "limits"
-  const info = isRecord(item.info) ? item.info : isRecord(item.limits) ? item.limits : null
-  if (info) {
-    for (const key of candidates) {
-      const v = (info as Record<string, unknown>)[key]
-      const n = toPositiveInt(v)
-      if (n !== null) return n
-    }
-  }
-  return null
-}
-
-function toPositiveInt(v: unknown): number | null {
-  if (typeof v === "number" && Number.isFinite(v) && v > 0) return Math.floor(v)
-  if (typeof v === "string") {
-    const n = Number(v)
-    if (Number.isFinite(n) && n > 0) return Math.floor(n)
-  }
-  return null
-}
-
 function mapModels(modelIds: readonly string[]): ModelMapping {
   const first = modelIds[0]
   if (typeof first !== "string") {
@@ -345,11 +259,4 @@ function canonicalModelFor(modelIds: readonly string[], modelId: string): string
     return exactNormalized
   }
   return candidates.find((id) => id === id.toLowerCase() && !/\s/.test(id)) ?? candidates[0] ?? modelId
-}
-
-function aliasGroupKey(modelId: string): string {
-  return modelId
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
 }
