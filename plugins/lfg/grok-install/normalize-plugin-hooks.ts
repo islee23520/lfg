@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises"
+import { access, copyFile, mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { isGrokEventHooksJson, validateGrokHooksJson } from "./hook-trust"
 import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset"
@@ -24,7 +24,28 @@ export async function syncGrokHookBridgeIntoPlugin(pluginRoot: string): Promise<
   await copyFile(assetPath, destPath)
   await copyFile(join(dirname(assetPath), CONFIG_LOADER_FILE), join(pluginRoot, CONFIG_LOADER_RELATIVE))
   await copyFile(join(dirname(assetPath), PROJECT_OMO_LEDGER_FILE), join(pluginRoot, "hooks", PROJECT_OMO_LEDGER_FILE))
+
+  // Copy .mcp.json so that Grok MCP servers (ast_grep, lsp, etc.) are wired with correct paths
+  const mcpAsset = join(dirname(assetPath), ".mcp.json")
+  if (await exists(mcpAsset)) {
+    await copyFile(mcpAsset, join(pluginRoot, ".mcp.json"))
+  } else {
+    // Fallback: copy from fixture if asset missing
+    const fixtureMcp = join(dirname(assetPath), "..", "fixture-minimal", ".mcp.json")
+    if (await exists(fixtureMcp)) {
+      await copyFile(fixtureMcp, join(pluginRoot, ".mcp.json"))
+    }
+  }
   return destPath
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function normalizePluginHooksJson(pluginRoot: string): Promise<{

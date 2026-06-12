@@ -14,6 +14,7 @@ type ParsedArgs = {
   readonly run: boolean
   readonly force: boolean
   readonly refresh: boolean
+  readonly noTui: boolean
   readonly preset: SetupPreset
   readonly presetError: string | null
   readonly baseUrl: string | null
@@ -71,7 +72,11 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   if (args.presetError !== null) {
     return { ok: false, status: "invalid_preset", error: args.presetError, supportedPresets: ["grok", "gpt"] }
   }
-  const [command, subcommand] = args.positional
+  // Tolerate TUI flags (and --force) that may appear as extra positionals from shell invocation
+  // (e.g. `lfg setup --no-tui`, `lfg --no-tui setup`). We already parse them into args.noTui etc.,
+  // but we keep the positional list stable for error messages and JSON contracts.
+  const effectivePos = (args.positional || []).filter((p) => !["--no-tui", "no-tui", "--force", "force"].includes(p as string))
+  const [command, subcommand] = effectivePos
   if (!command || command === "help" || command === "--help" || command === "-h") {
     return help()
   }
@@ -103,11 +108,49 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     return runLazycodexInstaller(discovery, { force: args.force || isForceOnly })
   }
   const plan = setupPlan(presetResolved, args.preset)
-  return args.json ? plan : runInstallWizard(plan, presetResolved)
+  if (args.json) {
+    return plan
+  }
+
+  // TTY-aware setup routing for bare `lfg setup` (parity with LFP `lfp setup`).
+  // When stdin/stdout are TTYs and --no-tui is not given, use the Clack TUI wrapper.
+  // The TUI shows LFP-style framing (intro/note/confirm/select/outro), captures the
+  // classic line wizard output into a "Setup results" note, then returns control.
+  // Non-TTY, --no-tui, or automation paths fall through to the existing readline wizard.
+  const isInteractiveBare = isInteractiveInstall(args)
+  if (isInteractiveBare) {
+    // Explicit --no-tui (or non-TTY) must bypass the TUI entirely and use the pure
+    // legacy readline wizard so that stdout contains only the classic oMo... steps
+    // with no Clack framing or @clack/prompts calls. This is required for C002 parity.
+    if (args.noTui) {
+      return runInstallWizard(plan, presetResolved)
+    }
+    const { shouldUseSetupTui, runSetupTui } = await import("./lfg-setup-tui.js")
+    if (shouldUseSetupTui(args, { check: false, input: process.stdin as any, output: process.stdout as any })) {
+      await runSetupTui(args, { plan, resolved: presetResolved }, {
+        runLineSetup: async (_forcedArgs, _ctx, options) => {
+          // Delegate to the existing conversational wizard, now selector-aware so that
+          // when the TUI is active the Clack select factories (model/tier/reasoning)
+          // drive the per-agent prompts instead of raw readline. This matches the
+          // LFP setup TUI + line-mode handoff pattern.
+          await runInstallWizard(plan, presetResolved, {
+            modelSelector: options?.modelSelector,
+            tierSelector: options?.tierSelector,
+            reasoningSelector: options?.reasoningSelector,
+          })
+        },
+      })
+      return { ok: true, status: "tui_completed", executed: true }
+    }
+  }
+
+  return runInstallWizard(plan, presetResolved)
 }
 
 function isInteractiveInstall(args: ParsedArgs): boolean {
-  return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1 && !args.refresh
+  // Treat explicit --no-tui (and stray --force tokens) as non-disqualifying for the "bare interactive" shape.
+  const cleaned = (args.positional || []).filter((p) => !["--no-tui", "no-tui", "--force", "force"].includes(String(p)))
+  return !args.json && !args.run && cleaned[0] === "setup" && cleaned.length === 1 && !args.refresh
 }
 
 function isInteractiveRefresh(args: ParsedArgs): boolean {
@@ -260,7 +303,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let presetError: string | null = null
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
-    if (arg === "--json" || arg === "--run" || arg === "--force" || arg === "--refresh") {
+    if (arg === "--json" || arg === "--run" || arg === "--force" || arg === "--refresh" || arg === "--no-tui") {
       continue
     }
     if (arg === "--preset") {
@@ -293,6 +336,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     run: argv.includes("--run"),
     force: argv.includes("--force"),
     refresh: argv.includes("--refresh"),
+    noTui: argv.includes("--no-tui"),
     preset,
     presetError,
     baseUrl,
@@ -336,7 +380,9 @@ function help(): string {
     "  lfg --json setup --refresh",
     "  lfg --json setup --refresh --run",
     "  lfg setup --refresh --run",
+    "  lfg setup --no-tui",
     "  (models auto: ~/.grok [endpoints].models_base_url or http://127.0.0.1:8317/v1)",
+    "  TTY bare setup uses a Clack-based TUI (LFP-style framing) with line fallback; --no-tui forces classic readline.",
     "",
     "Refresh (model list + context windows + per-model auth):",
     "  Re-discovers models from the current base URL (proxy + public LiteLLM catalog for context sizes),",

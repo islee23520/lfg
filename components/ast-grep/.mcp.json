@@ -1,0 +1,9 @@
+{
+	"mcpServers": {
+		"ast_grep": {
+			"command": "node",
+			"args": ["/Users/ilseoblee/.grok/installed-plugins/lfg/node_modules/@code-yeongyu/ast-grep-mcp/dist/cli.js", "mcp"],
+			"cwd": "/Users/ilseoblee/.grok/installed-plugins/lfg"
+		}
+	}
+}

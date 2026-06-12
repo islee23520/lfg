@@ -115,7 +115,7 @@ describe("lfg internal grok install contract", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-payload-src-"))
     const result = await runLfg(["--json", "setup", "--run"], { HOME: home })
     expect(result.exitCode).toBe(0)
-    const p = result.json.postInstallVerify as { payloadSource?: string; componentInventoryPath?: string } | undefined
+    const p = (result.json as any).postInstallVerify as { payloadSource?: string; componentInventoryPath?: string } | undefined
     expect(p).toBeTruthy()
     expect(p?.componentInventoryPath).toContain("lfg-component-inventory.json")
     // In this workspace without external lazycodex source it is fixture_fallback or source_tree depending on cache; assert it is a known value.
@@ -131,7 +131,7 @@ describe("lfg internal grok install contract", () => {
       LFG_LAZYCODEX_PLUGIN_SOURCE: "",
     })
     expect(result.exitCode).toBe(0)
-    const internal = result.json.internalStep as { payloadSource?: string; warning?: string; mode?: string } | undefined
+    const internal = (result.json as any).internalStep as { payloadSource?: string; warning?: string; mode?: string } | undefined
     // The internal step may be the preserved or fresh path; when fresh fixture it carries the warning.
     // We assert that if payloadSource indicates fixture, a warning string is present (user-visible guidance).
     if (internal?.payloadSource === "fixture_fallback" || internal?.mode === "fixture_fallback") {

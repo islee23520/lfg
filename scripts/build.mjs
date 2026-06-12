@@ -10,11 +10,17 @@ const outputs = [
   ["plugins/lfg/bin/npm-registry-version.ts", "plugins/lfg/dist/npm-registry-version.js"],
   ["plugins/lfg/bin/npm-publish-bin.ts", "plugins/lfg/dist/npm-publish-bin.js"],
   ["plugins/lfg/bin/npm-registry-bin.ts", "plugins/lfg/dist/npm-registry-bin.js"],
+  // TUI module for LFP-style Clack setup on TTY (dynamic import from the main bundle).
+  // Built as a separate file (like LFP's setup-tui.mjs) so the runtime relative import works.
+  // Its runtime deps (@clack/prompts, picocolors) are declared in root package.json "dependencies"
+  // and externalized here so the emitted module retains bare imports resolved from the installed package.
+  ["plugins/lfg/bin/lfg-setup-tui.ts", "plugins/lfg/dist/lfg-setup-tui.js"],
 ]
 
 await Promise.all(
-  outputs.map(([entryPoint, outfile]) =>
-    build({
+  outputs.map(([entryPoint, outfile]) => {
+    const isTui = entryPoint.includes("lfg-setup-tui");
+    return build({
       entryPoints: [entryPoint],
       outfile,
       bundle: true,
@@ -22,8 +28,9 @@ await Promise.all(
       format: "esm",
       sourcemap: true,
       target: "node20",
-    }),
-  ),
+      ...(isTui ? { external: ["@clack/prompts", "picocolors"] } : {}),
+    });
+  }),
 )
 
 const fixtureSrc = "plugins/lfg/grok-install/fixture-minimal"

@@ -76,15 +76,15 @@ describe("ensureLfgPluginsEnabled", () => {
     const next = upsertSubagentModels(`[subagents.models]\nnon-lfg-key = "user-value"\nreasoning = "old-reasoning"\n`, mapping)
     expect(next).toContain('[subagents.models]')
     expect(next).toContain('plan = "grok-4.20-0309-reasoning"')
-    expect(next).toContain('metis = "grok-4.20-0309-non-reasoning"')
+    expect(next).toContain('metis = "grok-4.20-0309-reasoning"')
     expect(next).toContain('momus = "grok-4.20-0309-reasoning"')
     expect(next).toContain('reasoning = "grok-4.20-0309-reasoning"')
     expect(next).toContain('explore = "grok-3-mini-fast"')
     expect(next).toContain('explorer = "grok-3-mini-fast"')
-    expect(next).toContain('librarian = "grok-3-mini"')
+    expect(next).toContain('librarian = "grok-3-mini-fast"')
     expect(next).toContain('coding = "grok-4.20-0309-non-reasoning"')
     expect(next).toContain('grok-build = "grok-4.20-0309-non-reasoning"')
-    expect(next).toContain('reviewer = "grok-4.3"')
+    expect(next).toContain('reviewer = "grok-4.20-0309-non-reasoning"')
     // Note: upsertTomlSection currently replaces the entire section body (per current implementation).
     // Non-LFG key preservation ("non-lfg-key") is planned for a future true-merge improvement.
   })

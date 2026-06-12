@@ -1,0 +1,25 @@
+{
+	"mcpServers": {
+		"ast_grep": {
+			"command": "node",
+			"args": ["/Users/ilseoblee/.grok/installed-plugins/lfg/node_modules/@code-yeongyu/ast-grep-mcp/dist/cli.js", "mcp"],
+			"cwd": "/Users/ilseoblee/.grok/installed-plugins/lfg"
+		},
+		"grep_app": {
+			"url": "https://mcp.grep.app"
+		},
+		"context7": {
+			"url": "https://mcp.context7.com/mcp"
+		},
+		"git_bash": {
+			"command": "node",
+			"args": ["/Users/ilseoblee/.grok/installed-plugins/lfg/components/git-bash/dist/cli.js", "mcp"],
+			"cwd": "/Users/ilseoblee/.grok/installed-plugins/lfg"
+		},
+		"lsp": {
+			"command": "node",
+			"args": ["/Users/ilseoblee/.grok/installed-plugins/lfg/node_modules/@code-yeongyu/lsp-daemon/dist/cli.js", "mcp"],
+			"cwd": "/Users/ilseoblee/.grok/installed-plugins/lfg"
+		}
+	}
+}
