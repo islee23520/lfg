@@ -41,3 +41,24 @@ describe("lazycodex-agent-overrides", () => {
     expect(merged.reasoning.model).toBe(role.reasoning.model)
   })
 })
+  test("writes and reads all 6 model fields including fallback (Wave 1A parity)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-override-6field-"))
+    await writeLazycodexAgentOverridesFile(home, {
+      explorer: {
+        model: "gpt-5.4-mini",
+        reasoningLevel: "low",
+        serviceTier: "fast",
+        modelFallback: "grok-3-mini-fast",
+        modelFallbackReasoningLevel: "low",
+        modelFallbackServiceTier: "default",
+      },
+    })
+    const read = await readLazycodexAgentOverridesFile(home)
+    expect(read.explorer?.serviceTier).toBe("fast")
+    expect(read.explorer?.modelFallback).toBe("grok-3-mini-fast")
+    expect(read.explorer?.modelFallbackReasoningLevel).toBe("low")
+    expect(read.explorer?.modelFallbackServiceTier).toBe("default")
+    const raw = await readFile(join(home, ".grok", "lazycodex-agent-overrides.json"), "utf8")
+    expect(raw).toContain("service_tier")
+    expect(raw).toContain("model_fallback")
+  })

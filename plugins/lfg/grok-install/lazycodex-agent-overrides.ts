@@ -4,9 +4,15 @@ import type { LazycodexAgentConfig, ReasoningLevel } from "../bin/lfg-models"
 import { applyLfgConfigToAgentOverrides, readLfgConfigFile } from "./lfg-config"
 import { resolveFlavourPackAssetsRoot } from "./resolve-flavour-pack-asset"
 
+export type ServiceTier = "default" | "fast"
+
 export type LazycodexAgentModelOverride = {
   readonly model: string
   readonly reasoningLevel: ReasoningLevel
+  readonly serviceTier?: ServiceTier
+  readonly modelFallback?: string
+  readonly modelFallbackReasoningLevel?: ReasoningLevel
+  readonly modelFallbackServiceTier?: ServiceTier
 }
 
 export type LazycodexAgentOverrideMap = Readonly<Record<string, LazycodexAgentModelOverride>>
@@ -25,9 +31,18 @@ export const CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
   "codex-ultrawork-reviewer",
 ] as const
 
+type StoredOverrideFields = {
+  readonly model?: string
+  readonly reasoning_level?: string
+  readonly service_tier?: string
+  readonly model_fallback?: string
+  readonly model_fallback_reasoning_effort?: string
+  readonly model_fallback_service_tier?: string
+}
+
 type StoredOverridesFile = {
   readonly version?: number
-  readonly overrides?: Readonly<Record<string, { readonly model?: string; readonly reasoning_level?: string }>>
+  readonly overrides?: Readonly<Record<string, StoredOverrideFields>>
 }
 
 export function lazycodexAgentOverridesPath(home: string): string {
@@ -51,7 +66,14 @@ export async function writeLazycodexAgentOverridesFile(home: string, overrides: 
     overrides: Object.fromEntries(
       Object.entries(overrides).map(([name, setting]) => [
         name,
-        { model: setting.model, reasoning_level: setting.reasoningLevel },
+        {
+          model: setting.model,
+          reasoning_level: setting.reasoningLevel,
+          ...(setting.serviceTier !== undefined ? { service_tier: setting.serviceTier } : {}),
+          ...(setting.modelFallback !== undefined ? { model_fallback: setting.modelFallback } : {}),
+          ...(setting.modelFallbackReasoningLevel !== undefined ? { model_fallback_reasoning_effort: setting.modelFallbackReasoningLevel } : {}),
+          ...(setting.modelFallbackServiceTier !== undefined ? { model_fallback_service_tier: setting.modelFallbackServiceTier } : {}),
+        },
       ]),
     ),
   }
@@ -63,13 +85,13 @@ export async function loadBundledDefaultOmoOverrides(moduleUrl?: string): Promis
   try {
     const root = await resolveFlavourPackAssetsRoot(moduleUrl ?? import.meta.url)
     const raw = await readFile(join(root, "omo-agent-overrides.json"), "utf8")
-    const parsed = JSON.parse(raw) as { readonly overrides?: Readonly<Record<string, { readonly model?: string; readonly model_reasoning_effort?: string }>> }
+    const parsed = JSON.parse(raw) as { readonly overrides?: Readonly<Record<string, StoredOverrideFields>> }
     const out: Record<string, LazycodexAgentModelOverride> = {}
     for (const [name, fields] of Object.entries(parsed.overrides ?? {})) {
       const model = fields.model
-      const level = fields.model_reasoning_effort
+      const level = fields.reasoning_level ?? fields.model_reasoning_effort
       if (typeof model === "string" && model.length > 0 && isReasoningLevel(level)) {
-        out[name] = { model, reasoningLevel: level }
+        out[name] = parseOverrideFields(model, level, fields)
       }
     }
     return out
@@ -113,12 +135,31 @@ function parseOverridesJson(data: StoredOverridesFile): LazycodexAgentOverrideMa
     const model = fields.model
     const level = fields.reasoning_level
     if (typeof model === "string" && model.length > 0 && isReasoningLevel(level)) {
-      out[name] = { model, reasoningLevel: level }
+      out[name] = parseOverrideFields(model, level, fields)
     }
   }
   return out
 }
 
+function parseOverrideFields(
+  model: string,
+  reasoningLevel: ReasoningLevel,
+  fields: StoredOverrideFields,
+): LazycodexAgentModelOverride {
+  return {
+    model,
+    reasoningLevel,
+    ...(isServiceTier(fields.service_tier) ? { serviceTier: fields.service_tier } : {}),
+    ...(typeof fields.model_fallback === "string" && fields.model_fallback.length > 0 ? { modelFallback: fields.model_fallback } : {}),
+    ...(isReasoningLevel(fields.model_fallback_reasoning_effort) ? { modelFallbackReasoningLevel: fields.model_fallback_reasoning_effort } : {}),
+    ...(isServiceTier(fields.model_fallback_service_tier) ? { modelFallbackServiceTier: fields.model_fallback_service_tier } : {}),
+  }
+}
+
 function isReasoningLevel(value: string | undefined): value is ReasoningLevel {
   return value === "low" || value === "medium" || value === "high" || value === "xhigh"
+}
+
+function isServiceTier(value: string | undefined): value is ServiceTier {
+  return value === "default" || value === "fast"
 }
