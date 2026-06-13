@@ -10,6 +10,7 @@ import { installGrokPluginFromSource, readGrokInstallStamp } from "./install"
 import { readLfgPackageVersionFromBundle } from "./package-version"
 import { resolveLazycodexGrokPluginSource } from "./resolve-lazycodex-plugin-source"
 import { ensureCuaDriverSkill } from "./ensure-cua-driver-skill"
+import { ensureHephaestusModelGate } from "./ensure-hephaestus-model-gate"
 import { writeGrokInstallStamp } from "./write-install-stamp"
 import { writeComponentInventory } from "./component-inventory"
 import { materializeGrokMcpRuntimes } from "./materialize-grok-mcp"
@@ -59,6 +60,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     })
     const hooks = await mergePortedHooksIntoPlugin(result.pluginRoot)
     await ensureCuaDriverSkill(result.pluginRoot)
+    await ensureHephaestusModelGate(result.pluginRoot)
     return {
       ok: true,
       status: "installed",
@@ -85,6 +87,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
   })
   const hooks = await mergePortedHooksIntoPlugin(result.pluginRoot)
   await ensureCuaDriverSkill(result.pluginRoot)
+  await ensureHephaestusModelGate(result.pluginRoot)
   return {
     ok: true,
     status: "installed",
@@ -117,6 +120,7 @@ async function finishRepair(
   }
   const hooks = await mergePortedHooksIntoPlugin(pluginRoot)
   await ensureCuaDriverSkill(pluginRoot)
+  await ensureHephaestusModelGate(pluginRoot)
   const installStampPath = await writeGrokInstallStamp(pluginRoot, version)
   const componentInventoryPath = await writeComponentInventory({ pluginRoot, packageVersion: version, source: "repair_adapter" })
   return {
