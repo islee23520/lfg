@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 
 /**
  * Ensures the cua-driver (Computer Use) skill is present under the materialized
- * ~/.grok/installed-plugins/lfg/skills/cua-driver after LFG Grok install.
+ * ~/.grok/plugins/lfg/skills/cua-driver after LFG Grok install.
  *
  * This is what makes "Codex-style Computer Use" (native macOS app automation
  * via cua-driver) available to agents/personas when the user does

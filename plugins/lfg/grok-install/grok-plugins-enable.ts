@@ -106,11 +106,11 @@ function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
 function upsertSubagentToggles(source: string): string {
   const toggles = new Map<string, boolean>([
     ["cursor", false],
-    ["general-purpose", true],
-    ["explore", true],
+    ["general-purpose", false],
+    ["explore", false],
     ["browser-use", false],
-    ["grok-build", true],
-    ["builder", true],
+    ["grok-build", false],
+    ["builder", false],
     ["ulw", true],
     ["reasoning", true],
     ["coding", true],
@@ -135,6 +135,12 @@ function upsertAgentPreference(source: string): string {
  * - explorer / librarian / general-purpose / explore / ulw → fast/default model
  * - plan / metis / momus / reasoning → reasoning model
  * - coding / grok-build / builder / reviewer → coding / non-reasoning model
+ *
+ * Note: LFG no longer bundles/writes shadow agents for Grok builtins (general-purpose, explore,
+ * grok-build, builder, ulw). Real ultrawork agents (ulw, ultraresearch, feasible-goal, etc.)
+ * come from the lazycodex plugin tree (components/ultrawork/agents via lfg internal install)
+ * plus LFP-style per-agent overrides. The toggles and models routing below still apply to
+ * whatever agents actually exist (from lazycodex/LFP or user).
  */
 export function upsertSubagentModels(source: string, mapping: { readonly default?: string; readonly reasoning?: string; readonly coding?: string } = {}): string {
   const lfgOwned: Record<string, string> = {

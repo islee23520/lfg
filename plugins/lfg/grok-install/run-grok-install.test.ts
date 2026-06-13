@@ -37,9 +37,9 @@ describe("runGrokInstall", () => {
     expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
     const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
     expect(explorer).toContain('model = "gpt-5.4-mini"')
-    const explorerAgent = await readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "explorer.md"), "utf8")
+    const explorerAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")
     expect(explorerAgent).toContain("name: explorer")
-    const stamp = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")
+    const stamp = await readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stamp).toContain("@islee23520/lfg")
   })
 
@@ -53,7 +53,7 @@ describe("runGrokInstall", () => {
     }
     const env = { HOME: home, OPENAI_API_KEY: "sk-test-key" }
     await runGrokInstall(discovery, env)
-    const stampPath = join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json")
+    const stampPath = join(home, ".grok", "plugins", "lfg", "lfg-install.json")
     const first = await readFile(stampPath, "utf8")
     await runGrokInstall(discovery, env)
     const second = await readFile(stampPath, "utf8")
@@ -75,23 +75,24 @@ describe("runGrokInstall", () => {
     const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
     expect(explorer).toContain('model = "gpt-4.1-mini"')
     expect(explorer).toContain("reasoning_effort")
-    const agent = await readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "explorer.md"), "utf8")
+    const agent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")
     expect(agent).toContain("name: explorer")
   })
 
   test("existing stamped setup preserves install assets while syncing discovered config unless force is explicit", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-existing-"))
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    const pluginRoot = join(home, ".grok", "plugins", "lfg")
     const configPath = join(home, ".grok", "config.toml")
     const agentPath = join(home, ".grok", "agents", "explorer.toml")
-    const markdownAgentPath = join(home, ".grok", "agents", "ulw.md")
-    await mkdir(join(home, ".grok", "installed-plugins"), { recursive: true })
+    // Seed a user "ulw.md" (Grok builtin name) to prove LFG no longer bundles/writes a shadow "ulw".
+    const userUlwPath = join(home, ".grok", "agents", "ulw.md")
+    await mkdir(join(home, ".grok", "plugins"), { recursive: true })
     await mkdir(join(home, ".grok", "agents"), { recursive: true })
     await cp(fixtureRoot, pluginRoot, { recursive: true })
     await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"existing"}\n', "utf8")
     await writeFile(configPath, '[lazycodex.models]\ndefault = "user-model"\n', "utf8")
     await writeFile(agentPath, 'model = "user-agent"\n', "utf8")
-    await writeFile(markdownAgentPath, "---\nname: ulw\n---\n\nUSER MARKDOWN AGENT\n", "utf8")
+    await writeFile(userUlwPath, "---\nname: ulw\n---\n\nUSER ULW (should survive; LFG no longer bundles shadow ulw)\n", "utf8")
 
     const discovery: ModelDiscovery = {
       baseUrl: "http://127.0.0.1:11434/v1",
@@ -111,25 +112,25 @@ describe("runGrokInstall", () => {
     expect(config).toContain('"lazycodex"')
     expect(config).toContain("[agents]")
     expect(config).toContain('default = "ulw"')
-    expect(config).toContain("general-purpose = true")
-    expect(config).toContain("explore = true")
-    expect(config).toContain("grok-build = true")
+    // LFG no longer forces Grok builtin shadows for general-purpose/explore/grok-build/builder.
+    // It still enables LFG/lazycodex-provided agents (explorer from ultrawork, ulw when present, etc).
     expect(config).toContain("explorer = true")
-    await expect(readFile(join(home, ".grok", "agents", "ulw.md"), "utf8")).resolves.toContain("name: ulw")
+    // User-provided ulw.md (Grok builtin name) should survive because LFG no longer bundles a shadow "ulw".
+    await expect(readFile(userUlwPath, "utf8")).resolves.toContain("USER ULW (should survive")
     await expect(readFile(agentPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expect(readFile(join(home, ".grok", "agents-toml-backup-lfg", "explorer.toml"), "utf8")).resolves.toContain('model = "user-agent"')
-    await expect(readFile(join(home, ".grok", "agents-user-backup-lfg", "ulw.md"), "utf8")).resolves.toContain("USER MARKDOWN AGENT")
-    await expect(readFile(markdownAgentPath, "utf8")).resolves.not.toContain("USER MARKDOWN AGENT")
+    // No LFG-initiated backup for "ulw" (we don't claim that Grok builtin name anymore).
+    // The agents-user-backup-lfg dir may exist from other names, but ulw.md should not have been moved by LFG.
+    const ulwBackup = join(home, ".grok", "agents-user-backup-lfg", "ulw.md")
+    await expect(readFile(ulwBackup, "utf8")).rejects.toThrow()
     await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "gpt-5.5"')
-    await expect(readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "explorer.md"), "utf8")).resolves.toContain("name: explorer")
+    await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")).resolves.toContain("name: explorer")
     await expect(readFile(join(home, ".grok", "lazycodex-agent-overrides.json"), "utf8")).resolves.toContain('"explorer"')
 
     const repeated = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
     expect(repeated.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
-    await expect(readFile(join(home, ".grok", "agents-user-backup-lfg", "ulw.md"), "utf8")).resolves.toContain("USER MARKDOWN AGENT")
-    await expect(readFile(join(home, ".grok", "agents-user-backup-lfg", "ulw.md"), "utf8")).resolves.not.toContain(
-      "Sisyphus-style default orchestrator",
-    )
+    // User ulw still survives on repeat.
+    await expect(readFile(userUlwPath, "utf8")).resolves.toContain("USER ULW (should survive")
 
     const forced = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" }, { force: true })
     expect(forced.internalStep).toMatchObject({ status: "installed" })
@@ -138,9 +139,9 @@ describe("runGrokInstall", () => {
 
   test("existing stamped setup with no discovery keeps user config unchanged", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-existing-null-"))
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    const pluginRoot = join(home, ".grok", "plugins", "lfg")
     const configPath = join(home, ".grok", "config.toml")
-    await mkdir(join(home, ".grok", "installed-plugins"), { recursive: true })
+    await mkdir(join(home, ".grok", "plugins"), { recursive: true })
     await cp(fixtureRoot, pluginRoot, { recursive: true })
     await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"existing"}\n', "utf8")
     await writeFile(configPath, '[lazycodex.models]\ndefault = "user-model"\n', "utf8")
@@ -156,7 +157,7 @@ describe("runGrokInstall", () => {
 
   test("incomplete stamped setup is reinstalled instead of preserved", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-incomplete-"))
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    const pluginRoot = join(home, ".grok", "plugins", "lfg")
     await mkdir(pluginRoot, { recursive: true })
     await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"incomplete"}\n', "utf8")
 
@@ -170,8 +171,8 @@ describe("runGrokInstall", () => {
   test("symlinked stamped setup is reinstalled as a real directory instead of preserved", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-symlink-"))
     const target = await mkdtemp(join(tmpdir(), "lfg-grok-symlink-target-"))
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
-    await mkdir(join(home, ".grok", "installed-plugins"), { recursive: true })
+    const pluginRoot = join(home, ".grok", "plugins", "lfg")
+    await mkdir(join(home, ".grok", "plugins"), { recursive: true })
     await cp(fixtureRoot, target, { recursive: true })
     await writeFile(join(target, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"symlink"}\n', "utf8")
     await symlink(target, pluginRoot)

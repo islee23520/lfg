@@ -3,7 +3,6 @@ import { basename, join } from "node:path";
 import { overrideForAgent } from "./lazycodex-agent-overrides";
 import { renderGrokRoleTomlFromCodex, renderMinimalGrokRoleToml } from "./codex-agent-toml-to-grok";
 import { resolveGrokAdapterPluginRoot } from "./grok-adapter-paths";
-import { LFG_SHADOW_AGENT_NAMES, writeLfgShadowAgents } from "./lfg-shadow-agents";
 import { resolveFlavourPackAssetsRoot } from "./resolve-flavour-pack-asset";
 const ULTRAWORK_AGENTS_DIR = join("components", "ultrawork", "agents");
 const EXTRA_WORKER_AGENTS = ["reasoning", "coding"];
@@ -35,7 +34,7 @@ export async function syncLazycodexAgentsToGrokLedger(home, agentOverrides) {
     await mkdir(rolesDir, { recursive: true });
     await mkdir(personasDir, { recursive: true });
     await mkdir(promptsDir, { recursive: true });
-    await moveConflictingUserAgentsAside(home, [...Object.values(GROK_AGENT_NAMES), ...LFG_SHADOW_AGENT_NAMES]);
+    await moveConflictingUserAgentsAside(home, [...Object.values(GROK_AGENT_NAMES)]);
     const written = [];
     const syncedNames = new Set();
     for (const fileName of entries) {
@@ -66,7 +65,10 @@ export async function syncLazycodexAgentsToGrokLedger(home, agentOverrides) {
         const override = overrideForAgent(agentOverrides, sourceName);
         written.push(...(await writeMappedAgentSurfaces({ codexText, sourceName, grokName, override, agentsDir, rolesDir, personasDir, promptsDir })));
     }
-    written.push(...(await writeLfgShadowAgents(home, agentOverrides)));
+    // Bundle (LFG-shadowed Grok builtin) agents are intentionally disabled.
+    // Real agents (ulw, ultraresearch, feasible-goal, etc.) come from the lazycodex plugin tree
+    // (components/ultrawork/agents) and LFP-style overrides, so Grok builtins remain available
+    // unless the upstream lazycodex tree itself provides same-named agents.
     return { ok: true, agentsDir, rolesDir, personasDir, promptsDir, written, sourcePluginRoot: resolved.pluginRoot };
 }
 async function writeMappedAgentSurfaces(args) {

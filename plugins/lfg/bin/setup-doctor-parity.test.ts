@@ -20,6 +20,7 @@ describe("setup vs doctor install surface (#21)", () => {
 
     const doctor = await runGrokDoctor({ home })
     const installSurface = doctor.installSurface as { ok?: boolean; status?: string }
+    // Doctor may report native path; accept verified status regardless of legacy vs native
     expect(installSurface.ok).toBe(true)
     expect(installSurface.status).toBe("verified")
     expect(doctor.ok).toBe(true)

@@ -21,20 +21,26 @@ export type GrokInstallOptions = {
 const DEFAULT_PLUGIN_DIR = "lfg"
 const DEFAULT_VERSION = "0.0.0-dev"
 
+export function nativeGrokPluginRoot(home: string, pluginDirName: string = DEFAULT_PLUGIN_DIR): string {
+  return join(home, ".grok", "plugins", pluginDirName)
+}
+
+export function legacyInstalledGrokPluginRoot(home: string, pluginDirName: string = DEFAULT_PLUGIN_DIR): string {
+  return join(home, ".grok", "installed-plugins", pluginDirName)
+}
+
 export async function installGrokPluginFromSource(options: GrokInstallOptions): Promise<GrokInstallResult> {
   const pluginDirName = options.pluginDirName ?? DEFAULT_PLUGIN_DIR
   const version = options.version ?? DEFAULT_VERSION
-  const pluginRoot = join(options.home, ".grok", "installed-plugins", pluginDirName)
+  const pluginRoot = nativeGrokPluginRoot(options.home, pluginDirName)
+  const legacyPluginRoot = legacyInstalledGrokPluginRoot(options.home, pluginDirName)
 
-  // Always materialize a real directory owned by lfg under ~/.grok.
-  // Remove whatever is there (including symlinks pointing into ~/.codex or legacy locations)
-  // so that lazycodex/omo features are installed separately and directly into Grok.
-  await mkdir(join(options.home, ".grok", "installed-plugins"), { recursive: true })
-  try {
-    await rm(pluginRoot, { recursive: true, force: true })
-  } catch {
-    // ignore if not present
-  }
+  // Always materialize a real user plugin directory owned by lfg under ~/.grok/plugins.
+  // Grok discovers this location natively at session startup; the older installed-plugins
+  // adapter target is removed to avoid duplicate/stale hook registries.
+  await mkdir(join(options.home, ".grok", "plugins"), { recursive: true })
+  await rm(pluginRoot, { recursive: true, force: true })
+  await rm(legacyPluginRoot, { recursive: true, force: true })
 
   await cp(options.sourceRoot, pluginRoot, { recursive: true, force: true })
   await writeLfgPluginPackageManifest(pluginRoot, version)

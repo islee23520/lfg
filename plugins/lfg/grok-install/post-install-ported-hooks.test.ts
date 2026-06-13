@@ -9,7 +9,7 @@ import { verifyGrokInstallSurface } from "./post-install-verify"
 describe("post-install ported hooks (#32)", () => {
   test("repair on lazycodex-ai-shaped tree registers Grok hook events", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-post-hooks-"))
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    const pluginRoot = join(home, ".grok", "plugins", "lfg")
     await mkdir(join(pluginRoot, "hooks"), { recursive: true })
     await mkdir(join(pluginRoot, "components", "rules", "dist"), { recursive: true })
     await writeFile(
@@ -52,7 +52,7 @@ describe("post-install ported hooks (#32)", () => {
   test("installed hooks.json parses as Grok event map", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-post-hooks-json-"))
     await runInternalGrokInstall({ HOME: home })
-    const hooksPath = join(home, ".grok", "installed-plugins", "lfg", "hooks", "hooks.json")
+    const hooksPath = join(home, ".grok", "plugins", "lfg", "hooks", "hooks.json")
     const parsed: unknown = JSON.parse(await readFile(hooksPath, "utf8"))
     const trust = validateGrokHooksJson(parsed)
     expect(trust.ok).toBe(true)

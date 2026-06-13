@@ -15,6 +15,8 @@ export type GrokConfigOptions = {
   readonly home?: string
   readonly apiKey?: string
   readonly agentConfig?: LazycodexAgentConfig
+  /** Full per-agent model+reasoning map (roles + LFP/omo imported + flavour-pack). When present, used for all [lazycodex.agents.*] sections. */
+  readonly fullAgentModels?: Readonly<Record<string, { model: string; reasoningLevel: string }>>
 }
 
 /** Sections lfg merges in ~/.grok/config.toml (single writer: runGrokInstall → writeGrokModelConfig). */
@@ -34,8 +36,13 @@ export async function writeGrokModelConfig(discovery: ModelDiscovery, options: G
   const endpoints = removeTomlKey(upsertTomlKey(current, "endpoints", "models_base_url", baseUrl), "endpoints", "api_key")
   const agentConfig = options.agentConfig ?? discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
   const modelConfig = upsertModelSections(upsertSection(endpoints, "models", [`default = ${tomlString(discovery.mapping.default)}`]), discovery, baseUrl, options.apiKey, current)
+  // Write [lazycodex.agents.*] for the core three roles first, then any additional agents from fullAgentModels (LFP/omo imported + flavour-pack).
+  let withAgents = upsertLazycodexAgentSections(modelConfig, agentConfig)
+  if (options.fullAgentModels && Object.keys(options.fullAgentModels).length > 0) {
+    withAgents = upsertAllLazycodexAgentSections(withAgents, options.fullAgentModels)
+  }
   const next = upsertSection(
-    upsertLazycodexAgentSections(modelConfig, agentConfig),
+    withAgents,
     "lazycodex.models",
     [
       `default = ${tomlString(discovery.mapping.default)}`,
@@ -175,6 +182,21 @@ function upsertSection(source: string, section: string, lines: readonly string[]
 
 function upsertLazycodexAgentSections(source: string, agentConfig: LazycodexAgentConfig): string {
   return Object.entries(agentConfig).reduce(
+    (next, [agentName, setting]) =>
+      upsertSection(next, `lazycodex.agents.${agentName}`, [
+        `model = ${tomlString(setting.model)}`,
+        `reasoning_level = ${tomlString(setting.reasoningLevel)}`,
+      ]),
+    source,
+  )
+}
+
+/** Write [lazycodex.agents.*] for ALL agents (roles + LFP/omo imported + flavour-pack extras). */
+function upsertAllLazycodexAgentSections(
+  source: string,
+  full: Readonly<Record<string, { model: string; reasoningLevel: string }>>,
+): string {
+  return Object.entries(full).reduce(
     (next, [agentName, setting]) =>
       upsertSection(next, `lazycodex.agents.${agentName}`, [
         `model = ${tomlString(setting.model)}`,

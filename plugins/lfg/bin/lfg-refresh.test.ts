@@ -98,7 +98,7 @@ describe("lfg setup --refresh (model/auth re-sync)", () => {
           expect(config).toContain('api_key = "sk-refresh-test"')
 
           // Ensure no plugin tree was materialized (refresh is config-only)
-          // We only assert that we did not create the typical installed-plugins/lfg stamp dir in this run.
+          // We only assert that we did not create the typical plugins/lfg stamp dir in this run.
           // (Full install would also write component inventory etc.; we just confirm the narrow intent.)
           // A soft heuristic: if the user had no prior stamp, we should not have created one.
           // We don't hard-require absence because prior test state could exist; instead we check the JSON shape.

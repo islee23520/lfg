@@ -50,7 +50,7 @@ export async function runSetupTui(args: { readonly noTui?: boolean }, context: u
   prompts.note(
     [
       "Install the omo/lazycodex adapter for Grok Build.",
-      "Target: ~/.grok/installed-plugins/lfg as a real directory.",
+      "Target: ~/.grok/plugins/lfg as a real directory.",
       "Codex-side npx lazycodex-ai install is not used.",
       "Apply Grok adapter, hooks, agents, and model overrides from discovered proxy."
     ].join("\n"),
@@ -119,9 +119,18 @@ export async function runSetupTui(args: { readonly noTui?: boolean }, context: u
     coding: { model: codingModel, reasoningLevel: codingReasoning as any },
   };
 
+  // Make the global default model reflect a user-selected value during setup.
+  // Use the explorer model (high-volume default role) as the effective models.default.
+  // This ensures [models].default and [lazycodex.models].default are driven by setup choices.
+  const effectiveMapping = discovery?.mapping
+    ? { ...discovery.mapping, default: explorerModel }
+    : { default: explorerModel, fast: explorerModel, reasoning: reasoningModel, coding: codingModel };
+
   // For the rest of the agents we take the bundled OMO defaults (no long tail questions in TUI).
   // The runLazycodexInstaller path will resolve overrides from the global agent config / bundled.
-  const configuredForInstall = discovery ? { ...discovery, agentConfig } : { agentConfig };
+  const configuredForInstall = discovery
+    ? { ...discovery, mapping: effectiveMapping, agentConfig, agentOverrideMap: (discovery as any).agentOverrideMap }
+    : { mapping: effectiveMapping, agentConfig };
 
   // Show the clean "Setup results" using exactly the three summary lines we just emitted.
   const resultsText = roleResults
@@ -156,6 +165,8 @@ export async function runSetupTui(args: { readonly noTui?: boolean }, context: u
   // Perform the actual Grok materialization.
   try {
     const { runLazycodexInstaller } = await import("./lfg-installer.js");
+    // Pass the resolved agent overrides so the installer writes [lazycodex.agents.*] for ALL agents
+    // (roles + LFP/omo imported + flavour-pack). The installer forwards fullAgentModels to writeGrokModelConfig.
     const installRes: any = await runLazycodexInstaller(configuredForInstall as any);
     if (installRes?.stdout) {
       process.stdout.write(installRes.stdout.endsWith("\n") ? installRes.stdout : installRes.stdout + "\n");

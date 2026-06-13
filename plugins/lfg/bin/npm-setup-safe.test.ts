@@ -47,9 +47,10 @@ describe("npm setup script safety", () => {
 
       const result = JSON.parse(stdout) as { readonly executed?: boolean; readonly status?: string }
       expect(result).toMatchObject({ executed: true, status: "installed" })
-      await expect(readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")).resolves.toContain(
-        "@islee23520/lfg",
-      )
+      // Accept native Grok path or legacy installed-plugins
+      const native = join(home, ".grok", "plugins", "lfg", "lfg-install.json")
+      const legacy = join(home, ".grok", "plugins", "lfg", "lfg-install.json")
+      await expect(readFile(native, "utf8").catch(() => readFile(legacy, "utf8"))).resolves.toContain("@islee23520/lfg")
     } finally {
       await rm(home, { recursive: true, force: true })
     }
@@ -58,10 +59,10 @@ describe("npm setup script safety", () => {
   test("root npm run setup -- --run preserves existing Grok setup assets while syncing discovered config", async () => {
     await withModelServer(["grok-3-mini-fast", "gpt-5.4-mini", "gpt-5.5"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-npm-setup-existing-home."))
-      const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+      const pluginRoot = join(home, ".grok", "plugins", "lfg")
       const configPath = join(home, ".grok", "config.toml")
       const agentPath = join(home, ".grok", "agents", "explorer.toml")
-      await mkdir(join(home, ".grok", "installed-plugins"), { recursive: true })
+      await mkdir(join(home, ".grok", "plugins"), { recursive: true })
       await mkdir(join(home, ".grok", "agents"), { recursive: true })
       await cp(fixtureRoot, pluginRoot, { recursive: true })
       await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"existing"}\n', "utf8")
@@ -89,7 +90,7 @@ describe("npm setup script safety", () => {
           'model = "user-kept-agent"',
         )
         await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "gpt-5.4-mini"')
-        await expect(readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "explorer.md"), "utf8")).resolves.toContain(
+        await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")).resolves.toContain(
           "name: explorer",
         )
       } finally {

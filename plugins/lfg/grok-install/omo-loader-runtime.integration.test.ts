@@ -18,7 +18,7 @@ describe("installed project .omo loader runtime", () => {
     expect(setup.exitCode).toBe(0)
     expect(setup.json).toMatchObject({ ok: true, command: "setup", executed: true, installPath: "grok" })
 
-    const loader = join(home, ".grok", "installed-plugins", "lfg", "hooks", "lfg-config-loader.mjs")
+    const loader = join(home, ".grok", "plugins", "lfg", "hooks", "lfg-config-loader.mjs")
     const valid = await runInstalledLoader(loader, home, {
       hookEventName: "session_start",
       sessionId: "runtime-session",
@@ -51,7 +51,7 @@ describe("installed project .omo loader runtime", () => {
     const setup = await runLfg(["--json", "setup", "--run"], { HOME: home })
     expect(setup.exitCode).toBe(0)
 
-    const loader = join(home, ".grok", "installed-plugins", "lfg", "hooks", "lfg-config-loader.mjs")
+    const loader = join(home, ".grok", "plugins", "lfg", "hooks", "lfg-config-loader.mjs")
     const prompt = await runInstalledLoader(loader, home, {
       hookEventName: "UserPromptSubmit",
       sessionId: "ulw-session",

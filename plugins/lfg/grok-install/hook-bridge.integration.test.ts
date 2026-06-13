@@ -10,7 +10,7 @@ import { verifyGrokInstallSurface } from "./post-install-verify"
 describe("hook bridge integration", () => {
   test("setup repair installs bridge and runs rules session-start via bridge", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-bridge-int-"))
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    const pluginRoot = join(home, ".grok", "plugins", "lfg")
     await mkdir(join(pluginRoot, "hooks"), { recursive: true })
     await mkdir(join(pluginRoot, "components", "rules", "dist"), { recursive: true })
     await writeFile(
@@ -98,7 +98,7 @@ process.stdin.on('end',()=>{
 
   test("bridge runs ultrawork UserPromptSubmit via bridge and receives directive", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-bridge-ulw-"))
-    const pluginRoot = join(home, ".grok", "installed-plugins", "lfg")
+    const pluginRoot = join(home, ".grok", "plugins", "lfg")
     await mkdir(join(pluginRoot, "hooks"), { recursive: true })
     await mkdir(join(pluginRoot, "components", "ultrawork", "dist"), { recursive: true })
     await writeFile(

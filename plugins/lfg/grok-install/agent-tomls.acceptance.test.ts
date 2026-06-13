@@ -23,7 +23,7 @@ describe("agent tomls acceptance (#30)", () => {
     expect(reasoning.match(/^model =/gm)?.length).toBe(1)
     const coding = await readFile(join(home, ".grok", "roles", "coding.toml"), "utf8")
     expect(coding).toContain('model = "gpt-4.1-mini"')
-    const codingAgent = await readFile(join(home, ".grok", "installed-plugins", "lfg", "agents", "coding.md"), "utf8")
+    const codingAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "coding.md"), "utf8")
     expect(codingAgent).toContain("name: coding")
   })
 

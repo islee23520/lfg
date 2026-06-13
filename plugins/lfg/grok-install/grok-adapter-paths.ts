@@ -1,23 +1,29 @@
 import { access, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { isGrokEventHooksJson, validateGrokHooksJson } from "./hook-trust"
+import { legacyInstalledGrokPluginRoot, nativeGrokPluginRoot } from "./install"
 
 export const GROK_ADAPTER_PLUGIN_DIR_CANDIDATES = ["lfg", "lazycodex"] as const
 
 export type ResolvedGrokAdapter = {
   readonly pluginDirName: (typeof GROK_ADAPTER_PLUGIN_DIR_CANDIDATES)[number]
   readonly pluginRoot: string
+  readonly location: "native_plugins" | "legacy_installed_plugins"
 }
 
-/** Prefer lazycodex-ai install tree (`lfg`) over legacy internal copy dir (`lazycodex`). */
+/** Prefer native ~/.grok/plugins/lfg, then legacy ~/.grok/installed-plugins fallback. */
 export async function resolveGrokAdapterPluginRoot(home: string): Promise<ResolvedGrokAdapter | null> {
-  for (const pluginDirName of GROK_ADAPTER_PLUGIN_DIR_CANDIDATES) {
-    const pluginRoot = join(home, ".grok", "installed-plugins", pluginDirName)
-    if (!(await pathExists(pluginRoot))) {
-      continue
-    }
-    if (await looksLikeLazycodexAdapterTree(pluginRoot)) {
-      return { pluginDirName, pluginRoot }
+  for (const location of ["native_plugins", "legacy_installed_plugins"] as const) {
+    for (const pluginDirName of GROK_ADAPTER_PLUGIN_DIR_CANDIDATES) {
+      const pluginRoot = location === "native_plugins"
+        ? nativeGrokPluginRoot(home, pluginDirName)
+        : legacyInstalledGrokPluginRoot(home, pluginDirName)
+      if (!(await pathExists(pluginRoot))) {
+        continue
+      }
+      if (await looksLikeLazycodexAdapterTree(pluginRoot)) {
+        return { pluginDirName, pluginRoot, location }
+      }
     }
   }
   return null

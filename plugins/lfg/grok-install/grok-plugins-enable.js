@@ -84,11 +84,11 @@ function arraysEqual(a, b) {
 function upsertSubagentToggles(source) {
     const toggles = new Map([
         ["cursor", false],
-        ["general-purpose", true],
-        ["explore", true],
+        ["general-purpose", false],
+        ["explore", false],
         ["browser-use", false],
-        ["grok-build", true],
-        ["builder", true],
+        ["grok-build", false],
+        ["builder", false],
         ["ulw", true],
         ["reasoning", true],
         ["coding", true],

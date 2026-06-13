@@ -22,24 +22,32 @@ describe("ensureLfgPluginsEnabled", () => {
     expect(text).toContain('"user/old"')
   })
 
-  test("prefers LFG shadowed built-ins and ULW default agent", async () => {
+  test("disables Grok built-in subagents but keeps LFG/ulw agents enabled", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-agents-preferred-"))
     const configPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok"), { recursive: true })
     await writeFile(
       configPath,
-      `[subagents.toggle]\ngeneral-purpose = false\nexplore = false\ngrok-build = false\n\n[agents]\ndisabled = [\n    "general-purpose",\n    "explore",\n    "grok-build",\n]\n`,
+      `[subagents.toggle]\ngeneral-purpose = true\nexplore = true\ngrok-build = true\nbuilder = true\n\n[agents]\ndisabled = [\n    "general-purpose",\n    "explore",\n    "grok-build",\n]\n`,
     )
 
     await ensureLfgAgentsPreferred(home)
 
     const text = await readFile(configPath, "utf8")
-    expect(text).toContain("general-purpose = true")
-    expect(text).toContain("explore = true")
-    expect(text).toContain("grok-build = true")
-    expect(text).toContain("builder = true")
+    // Grok built-ins disabled
+    expect(text).toContain("general-purpose = false")
+    expect(text).toContain("explore = false")
+    expect(text).toContain("grok-build = false")
+    expect(text).toContain("builder = false")
+    // LFG-managed agents stay enabled (ulw + ultrawork family)
     expect(text).toContain("ulw = true")
+    expect(text).toContain("reasoning = true")
+    expect(text).toContain("coding = true")
+    expect(text).toContain("explorer = true")
+    expect(text).toContain("plan = true")
+    expect(text).toContain("reviewer = true")
     expect(text).toContain('default = "ulw"')
+    // No disabled list entries for builtins (LFG controls via toggle)
     expect(text).not.toContain('"general-purpose"')
     expect(text).not.toContain('"explore"')
     expect(text).not.toContain('"grok-build"')

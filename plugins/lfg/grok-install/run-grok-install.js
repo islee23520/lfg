@@ -90,7 +90,8 @@ export async function runGrokInstall(discovery, env = process.env, options = {})
 }
 async function resolveExistingStampedLfgSetup(home) {
     const resolved = await resolveGrokAdapterPluginRoot(home);
-    const ok = resolved?.pluginDirName === "lfg" &&
+    const ok = resolved?.location === "native_plugins" &&
+        resolved.pluginDirName === "lfg" &&
         (await isRealDirectory(resolved.pluginRoot)) &&
         (await readGrokInstallStamp(resolved.pluginRoot)) !== null &&
         (await readAdapterHooksTrust(resolved.pluginRoot)).ok;

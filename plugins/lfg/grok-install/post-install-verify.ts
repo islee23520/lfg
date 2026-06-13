@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { readGrokInstallStamp } from "./install"
+import { legacyInstalledGrokPluginRoot, nativeGrokPluginRoot, readGrokInstallStamp } from "./install"
 import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
 import { componentInventoryPath, type ComponentInventorySource } from "./component-inventory"
 
@@ -23,7 +23,7 @@ export type PostInstallVerifyResult = {
   readonly payloadSource: ComponentInventorySource | null
 }
 
-/** Same resolution as doctor: adapter under ~/.grok/installed-plugins/lfg or lazycodex. */
+/** Same resolution as doctor: adapter under ~/.grok/plugins/lfg or lazycodex. */
 export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions): Promise<PostInstallVerifyResult> {
   const resolved =
     options.pluginDirName === undefined
@@ -87,18 +87,19 @@ async function resolveFixedPlugin(
   home: string,
   pluginDirName: string,
 ): Promise<{ readonly pluginDirName: string; readonly pluginRoot: string } | null> {
-  const pluginRoot = join(home, ".grok", "installed-plugins", pluginDirName)
-  const hookTrust = await readAdapterHooksTrust(pluginRoot)
-  if (!hookTrust.ok && hookTrust.error === "hooks.json missing") {
-    try {
-      await readFile(join(pluginRoot, "lfg-install.json"), "utf8")
-      return { pluginDirName, pluginRoot }
-    } catch {
-      return null
+  for (const pluginRoot of [nativeGrokPluginRoot(home, pluginDirName), legacyInstalledGrokPluginRoot(home, pluginDirName)]) {
+    const hookTrust = await readAdapterHooksTrust(pluginRoot)
+    if (!hookTrust.ok && hookTrust.error === "hooks.json missing") {
+      try {
+        await readFile(join(pluginRoot, "lfg-install.json"), "utf8")
+        return { pluginDirName, pluginRoot }
+      } catch {
+        continue
+      }
     }
-  }
-  if (hookTrust.ok || (await readGrokInstallStamp(pluginRoot)) !== null) {
-    return { pluginDirName, pluginRoot }
+    if (hookTrust.ok || (await readGrokInstallStamp(pluginRoot)) !== null) {
+      return { pluginDirName, pluginRoot }
+    }
   }
   return (await resolveGrokAdapterPluginRoot(home)) ?? null
 }

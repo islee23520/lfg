@@ -9,7 +9,7 @@ describe("lfg-install.json stamp", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-stamp-"))
     const source = join(import.meta.dirname, "fixture-minimal")
     await installGrokPluginFromSource({ home, sourceRoot: source, version: "2.0.0" })
-    const raw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8")
+    const raw = await readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8")
     const stamp = JSON.parse(raw) as { packageName: string; version: string; platform: string }
     expect(stamp).toEqual({ packageName: "@islee23520/lfg", version: "2.0.0", platform: "grok" })
   })

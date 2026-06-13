@@ -37,7 +37,7 @@ export async function runLazycodexInstaller(
 ): Promise<JsonObject> {
   const agentConfig = discovery?.agentConfig ?? null
   const env = mergeStringEnv(process.env, modelDiscoveryEnv(discovery, agentConfig))
-  const grokRun = await runGrokInstall(discovery, env, { force: options.force })
+  const grokRun = await runGrokInstall(discovery, env, { force: options.force, fullAgentModels: discovery?.agentOverrideMap as any })
   const internalResult = grokInstallStepJson(grokRun.internalStep) as InstallerStepResult
   const ok = grokRun.ok
   const home = env.HOME ?? process.env.HOME ?? ""
@@ -45,6 +45,7 @@ export async function runLazycodexInstaller(
   const agentPaths = grokRun.lazycodexAgents?.written ?? []
   const agentOverridesPath = grokRun.agentOverridesPath ?? null
   const lfgConfigPath = grokRun.lfgConfigPath ?? null
+  const hooks = grokRun.hooks ?? null
   return installJson({
     ok,
     status: ok ? "installed" : "install_failed",
@@ -58,6 +59,7 @@ export async function runLazycodexInstaller(
     agentTomlPaths: agentPaths,
     agentOverridesPath,
     lfgConfigPath,
+    hooks,
     installPath: "grok",
     skippedCodexInstaller: true,
     preservedExistingSetup: grokRun.internalStep.skippedExistingSetup === true,

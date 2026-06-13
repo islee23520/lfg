@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { readGrokInstallStamp } from "./install";
+import { legacyInstalledGrokPluginRoot, nativeGrokPluginRoot, readGrokInstallStamp } from "./install";
 import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths";
 import { componentInventoryPath } from "./component-inventory";
 /** Same resolution as doctor: adapter under ~/.grok/installed-plugins/lfg or lazycodex. */
@@ -62,19 +62,20 @@ async function readPayloadSource(path) {
     }
 }
 async function resolveFixedPlugin(home, pluginDirName) {
-    const pluginRoot = join(home, ".grok", "installed-plugins", pluginDirName);
-    const hookTrust = await readAdapterHooksTrust(pluginRoot);
-    if (!hookTrust.ok && hookTrust.error === "hooks.json missing") {
-        try {
-            await readFile(join(pluginRoot, "lfg-install.json"), "utf8");
+    for (const pluginRoot of [nativeGrokPluginRoot(home, pluginDirName), legacyInstalledGrokPluginRoot(home, pluginDirName)]) {
+        const hookTrust = await readAdapterHooksTrust(pluginRoot);
+        if (!hookTrust.ok && hookTrust.error === "hooks.json missing") {
+            try {
+                await readFile(join(pluginRoot, "lfg-install.json"), "utf8");
+                return { pluginDirName, pluginRoot };
+            }
+            catch {
+                continue;
+            }
+        }
+        if (hookTrust.ok || (await readGrokInstallStamp(pluginRoot)) !== null) {
             return { pluginDirName, pluginRoot };
         }
-        catch {
-            return null;
-        }
-    }
-    if (hookTrust.ok || (await readGrokInstallStamp(pluginRoot)) !== null) {
-        return { pluginDirName, pluginRoot };
     }
     return (await resolveGrokAdapterPluginRoot(home)) ?? null;
 }

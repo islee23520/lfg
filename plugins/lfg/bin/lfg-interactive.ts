@@ -100,7 +100,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     // Make it explicit in interactive that we do a direct materialization into Grok's tree.
     // This guarantees a real directory we own (no symlinks to ~/.codex or legacy locations).
     printStep(4, "Installing Grok adapter")
-    output.write("\nDirect Grok install: the adapter will be copied into a real directory at ~/.grok/installed-plugins/lfg.\n")
+    output.write("\nDirect Grok install: the adapter will be copied into a real directory at ~/.grok/plugins/lfg.\n")
     output.write("Any previous symlink or non-owned entry at that path will be replaced before applying hooks, agents, and config.\n\n")
 
     output.write(`\nRunning Grok install: ${INTERNAL_GROK_INSTALL_COMMAND}\n`)
@@ -199,7 +199,7 @@ async function configureLazycodexAgentsFull(reader: LineReader, discovery: Model
   // Only enter the long-tail per-agent override wizard (librarian, plan, metis, ...) if the user
   // explicitly opted into role configuration. This keeps the common interactive "just install the adapter"
   // flow short: URL (optional) → role question (usually n) → Install now? → direct Grok materialization
-  // (real dir under installed-plugins/lfg, replacing any symlink or legacy entry).
+  // (real dir under plugins/lfg, replacing any symlink or legacy entry).
   let agentOverrideMap: LazycodexAgentOverrideMap | undefined
   const hasTuiForLongTail = !!(options.modelSelector || options.tierSelector || options.reasoningSelector)
   if (options.skipOtherAgents || hasTuiForLongTail) {
@@ -223,7 +223,13 @@ async function configureLazycodexAgentsFull(reader: LineReader, discovery: Model
     agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {})
   }
 
-  return { ...discovery, agentConfig: roleConfig, agentOverrideMap }
+  // Use the user-selected explorer model as the effective global default so [models].default
+  // and lazycodex.models.default reflect a deliberate setup choice.
+  const effectiveMapping = discovery.mapping
+    ? { ...discovery.mapping, default: roleConfig.explorer.model }
+    : { default: roleConfig.explorer.model, fast: roleConfig.explorer.model, reasoning: roleConfig.reasoning.model, coding: roleConfig.coding.model }
+
+  return { ...discovery, mapping: effectiveMapping, agentConfig: roleConfig, agentOverrideMap }
 }
 
 // Small helpers to avoid importing the whole overrides module at top level just for the default path.

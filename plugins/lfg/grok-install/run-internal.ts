@@ -22,16 +22,16 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     (await readLfgPackageVersionFromBundle(import.meta.url)) ??
     "0.0.0-dev"
 
-  // Only do cheap repair (no full re-copy) when we have a healthy, real directory
-  // that we previously installed ourselves under the canonical "lfg" name.
-  // If anything is a symlink (e.g. pointing into ~/.codex), a legacy "lazycodex" name,
-  // or lacks our stamp, we treat it as dirty/legacy and proceed to direct install
-  // (installGrokPluginFromSource will rm -rf the target first to guarantee a real dir).
+  // Only do cheap repair (no full re-copy) when we have a healthy, native user plugin
+  // directory that we previously installed ourselves under the canonical "lfg" name.
+  // Legacy installed-plugins entries are treated as dirty so the next setup migrates them
+  // into ~/.grok/plugins/lfg, which Grok discovers natively at session startup.
   const resolved = await resolveGrokAdapterPluginRoot(home)
   const forceReinstall = env.LFG_SETUP_FORCE === "1" || env.LFG_SETUP_FORCE === "true"
   const canRepairCleanly =
     !forceReinstall &&
     resolved !== null &&
+    resolved.location === "native_plugins" &&
     resolved.pluginDirName === GROK_PLUGIN_DIR &&
     (await isRealDirectory(resolved.pluginRoot)) &&
     (await readGrokInstallStamp(resolved.pluginRoot)) !== null &&
