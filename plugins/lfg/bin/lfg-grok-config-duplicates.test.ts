@@ -59,4 +59,40 @@ theme = "dark"
       await rm(home, { recursive: true, force: true })
     }
   })
+
+  test("skips unsafe full agent override names when writing lazycodex agent sections", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-agent-section-test-"))
+    const configPath = join(home, ".grok", "config.toml")
+
+    const discovery: ModelDiscovery = {
+      baseUrl: "http://127.0.0.1:8317/v1",
+      modelsUrl: "http://127.0.0.1:8317/v1/models",
+      modelIds: ["gpt-5.4-mini"],
+      mapping: {
+        default: "gpt-5.4-mini",
+        fast: "gpt-5.4-mini",
+        reasoning: "gpt-5.4-mini",
+        coding: "gpt-5.4-mini",
+      },
+    }
+
+    try {
+      await writeGrokModelConfig(discovery, {
+        home,
+        fullAgentModels: {
+          librarian: { model: "gpt-5.4-mini", reasoningLevel: "low" },
+          "bad.agent": { model: "bad-model", reasoningLevel: "high" },
+          "bad\nagent": { model: "newline-model", reasoningLevel: "high" },
+        },
+      })
+
+      const content = await readFile(configPath, "utf8")
+      expect(content).toContain("[lazycodex.agents.librarian]")
+      expect(content).not.toContain("[lazycodex.agents.bad.agent]")
+      expect(content).not.toContain("bad-model")
+      expect(content).not.toContain("newline-model")
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
+  })
 })

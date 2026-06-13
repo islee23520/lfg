@@ -198,10 +198,12 @@ function upsertAllLazycodexAgentSections(
 ): string {
   return Object.entries(full).reduce(
     (next, [agentName, setting]) =>
-      upsertSection(next, `lazycodex.agents.${agentName}`, [
-        `model = ${tomlString(setting.model)}`,
-        `reasoning_level = ${tomlString(setting.reasoningLevel)}`,
-      ]),
+      isBareKey(agentName)
+        ? upsertSection(next, `lazycodex.agents.${agentName}`, [
+            `model = ${tomlString(setting.model)}`,
+            `reasoning_level = ${tomlString(setting.reasoningLevel)}`,
+          ])
+        : next,
     source,
   )
 }

@@ -7,7 +7,6 @@ import { resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
 import { resolveFlavourPackAssetsRoot } from "./resolve-flavour-pack-asset"
 
 const ULTRAWORK_AGENTS_DIR = join("components", "ultrawork", "agents")
-const EXTRA_WORKER_AGENTS = ["reasoning", "coding"] as const
 
 const GROK_AGENT_NAMES: Readonly<Record<string, string>> = {
   plan: "plan",
@@ -41,8 +40,7 @@ export async function syncLazycodexAgentsToGrokLedger(
   if (resolved === null) return null
 
   const sourceDir = join(resolved.pluginRoot, ULTRAWORK_AGENTS_DIR)
-  const entries = await readTomlEntries(sourceDir)
-  if (entries === null) return null
+  const entries = (await readTomlEntries(sourceDir)) ?? []
 
   const agentsDir = join(resolved.pluginRoot, "agents")
   const rolesDir = join(home, ".grok", "roles")
@@ -65,14 +63,6 @@ export async function syncLazycodexAgentsToGrokLedger(
     syncedNames.add(sourceName)
   }
 
-  for (const sourceName of EXTRA_WORKER_AGENTS) {
-    if (syncedNames.has(sourceName)) continue
-    const override = overrideForAgent(agentOverrides, sourceName)
-    if (override === undefined) continue
-    const grokName = GROK_AGENT_NAMES[sourceName]
-    written.push(...(await writeWorkerAgentSurfaces({ sourceName, grokName, override, agentsDir, rolesDir, promptsDir })))
-  }
-
   const flavourRoot = await resolveFlavourPackAssetsRoot(import.meta.url)
   const flavourEntries = await readTomlEntries(join(flavourRoot, "agent-configs"))
   for (const fileName of flavourEntries ?? []) {
@@ -82,6 +72,14 @@ export async function syncLazycodexAgentsToGrokLedger(
     const codexText = await readFile(join(flavourRoot, "agent-configs", fileName), "utf8")
     const override = overrideForAgent(agentOverrides, sourceName)
     written.push(...(await writeMappedAgentSurfaces({ codexText, sourceName, grokName, override, agentsDir, rolesDir, personasDir, promptsDir })))
+    syncedNames.add(sourceName)
+  }
+
+  for (const [sourceName, grokName] of Object.entries(GROK_AGENT_NAMES)) {
+    if (syncedNames.has(sourceName)) continue
+    const override = overrideForAgent(agentOverrides, sourceName)
+    if (override === undefined) continue
+    written.push(...(await writeMinimalAgentSurfaces({ sourceName, grokName, override, agentsDir, rolesDir, promptsDir })))
   }
 
   // Bundle (LFG-shadowed Grok builtin) agents are intentionally disabled.
@@ -116,8 +114,8 @@ async function writeMappedAgentSurfaces(args: {
   return [agentPath, rolePath, personaPath, promptPath]
 }
 
-async function writeWorkerAgentSurfaces(args: {
-  readonly sourceName: "reasoning" | "coding"
+async function writeMinimalAgentSurfaces(args: {
+  readonly sourceName: string
   readonly grokName: string
   readonly override: NonNullable<ReturnType<typeof overrideForAgent>>
   readonly agentsDir: string
@@ -127,9 +125,9 @@ async function writeWorkerAgentSurfaces(args: {
   const promptPath = join(args.promptsDir, `${args.grokName}.md`)
   const rolePath = join(args.rolesDir, `${args.grokName}.toml`)
   const agentPath = join(args.agentsDir, `${args.grokName}.md`)
-  const prompt = `You are the LFG LazyCodex ${args.sourceName} worker. Complete the assigned task directly, keep scope tight, and verify before final response.\n`
+  const prompt = `You are the LFG LazyCodex ${args.sourceName} agent. Complete the assigned task directly, keep scope tight, and verify before final response.\n`
   const meta = {
-    description: `LFG LazyCodex ${args.sourceName} worker.`,
+    description: `LFG LazyCodex ${args.sourceName} agent.`,
     instructions: prompt,
     model: args.override.model,
     reasoning: args.override.reasoningLevel,

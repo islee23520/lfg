@@ -12,6 +12,7 @@ import { resolveLazycodexGrokPluginSource } from "./resolve-lazycodex-plugin-sou
 import { ensureCuaDriverSkill } from "./ensure-cua-driver-skill"
 import { writeGrokInstallStamp } from "./write-install-stamp"
 import { writeComponentInventory } from "./component-inventory"
+import { materializeGrokMcpRuntimes } from "./materialize-grok-mcp"
 
 const GROK_PLUGIN_DIR = "lfg" as const
 
@@ -38,7 +39,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     (await readAdapterHooksTrust(resolved.pluginRoot)).ok
 
   if (canRepairCleanly) {
-    return finishRepair(resolved.pluginRoot, resolved.pluginDirName, version, "repair_adapter")
+    return finishRepair(resolved.pluginRoot, resolved.pluginDirName, version, "repair_adapter", env)
   }
 
   const sourceOverride = env.LFG_GROK_INSTALL_SOURCE_ROOT?.trim()
@@ -108,7 +109,12 @@ async function finishRepair(
   pluginDirName: string,
   version: string,
   mode: string,
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<JsonObject> {
+  const lazycodexSource = await resolveLazycodexGrokPluginSource(env)
+  if (lazycodexSource) {
+    await materializeGrokMcpRuntimes(pluginRoot, lazycodexSource)
+  }
   const hooks = await mergePortedHooksIntoPlugin(pluginRoot)
   await ensureCuaDriverSkill(pluginRoot)
   const installStampPath = await writeGrokInstallStamp(pluginRoot, version)

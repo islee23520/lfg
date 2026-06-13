@@ -42,6 +42,8 @@ export type GrokInstallRunOptions = {
   readonly fullAgentModels?: Readonly<Record<string, { model: string; reasoningLevel: string }>>
 }
 
+type SubagentModelMapping = NonNullable<Parameters<typeof ensureLfgSubagentModels>[1]>
+
 /** Single transaction: internal plugin sync then optional config.toml merge (lfg-owned sections). */
 export async function runGrokInstall(
   discovery: ModelDiscovery | null,
@@ -52,22 +54,29 @@ export async function runGrokInstall(
   const existingSetup = options.force === true ? null : await resolveExistingStampedLfgSetup(home)
   if (existingSetup !== null) {
     const resolvedAgents = await resolveGlobalLazycodexAgentConfig(home, discovery)
+    const overrideMap =
+      discovery?.agentOverrideMap !== undefined
+        ? discovery.agentOverrideMap
+        : await resolveLazycodexAgentOverrides(home, resolvedAgents)
+    const fullAgentModels = options.fullAgentModels ?? overrideMap
     const configUpdate =
       discovery !== null
         ? await writeGrokModelConfig(discovery, {
             apiKey: env.OPENAI_API_KEY,
             home,
             agentConfig: resolvedAgents,
-            fullAgentModels: options.fullAgentModels,
+            fullAgentModels,
           })
         : null
-    const overrideMap = await resolveLazycodexAgentOverrides(home, resolvedAgents)
     const overridesPath = await writeLazycodexAgentOverridesFile(home, overrideMap)
     const configFiles = await ensureLfgConfigFiles(home, overrideMap)
     const lazycodexAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
     const pluginsEnabled = await ensureLfgPluginsEnabled(home)
     await ensureLfgAgentsPreferred(home)
-    const subagentModels = await ensureLfgSubagentModels(home, { default: resolvedAgents.reasoning?.model, reasoning: resolvedAgents.reasoning?.model, coding: resolvedAgents.coding?.model } as any)
+    const subagentModels = await ensureLfgSubagentModels(
+      home,
+      subagentModelMapping(resolvedAgents.explorer?.model ?? resolvedAgents.reasoning?.model, resolvedAgents.reasoning?.model, resolvedAgents.coding?.model),
+    )
 
     // Hooks must always be (re)normalized on every setup run so the Grok bridge,
     // lfg-config-loader, project omo ledger, and ultrawork component hooks are guaranteed loaded.
@@ -112,29 +121,33 @@ export async function runGrokInstall(
   }
   const internalStep = await runInternalGrokInstall(internalEnv)
   const resolvedAgents = await resolveGlobalLazycodexAgentConfig(home, discovery)
+  const overrideMap =
+    discovery?.agentOverrideMap !== undefined
+      ? discovery.agentOverrideMap
+      : await resolveLazycodexAgentOverrides(home, resolvedAgents)
+  const fullAgentModels = options.fullAgentModels ?? overrideMap
   const configUpdate =
     discovery !== null
       ? await writeGrokModelConfig(discovery, {
           apiKey: env.OPENAI_API_KEY,
           home,
           agentConfig: resolvedAgents,
-          fullAgentModels: options.fullAgentModels,
+          fullAgentModels,
         })
       : null
-  const overrideMap =
-    discovery?.agentOverrideMap !== undefined
-      ? discovery.agentOverrideMap
-      : await resolveLazycodexAgentOverrides(home, resolvedAgents)
   const overridesPath = await writeLazycodexAgentOverridesFile(home, overrideMap)
   const configFiles = await ensureLfgConfigFiles(home, overrideMap)
   const lazycodexAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
   const pluginsEnabled = await ensureLfgPluginsEnabled(home)
   await ensureLfgAgentsPreferred(home)
-  const subagentModels = await ensureLfgSubagentModels(home, {
-    default: resolvedAgents.reasoning?.model ?? "grok-3-mini-fast",
-    reasoning: resolvedAgents.reasoning?.model ?? "grok-4.20-0309-reasoning",
-    coding: resolvedAgents.coding?.model ?? "grok-4.20-0309-non-reasoning",
-  })
+  const subagentModels = await ensureLfgSubagentModels(
+    home,
+    subagentModelMapping(
+      resolvedAgents.explorer?.model ?? "grok-3-mini-fast",
+      resolvedAgents.reasoning?.model ?? "grok-4.20-0309-reasoning",
+      resolvedAgents.coding?.model ?? "grok-4.20-0309-non-reasoning",
+    ),
+  )
 
   // Always (re)normalize hooks on every install path (fresh or repair), so the Grok bridge,
   // lfg-config-loader, project omo ledger, and ultrawork component hooks are guaranteed present.
@@ -172,6 +185,14 @@ async function resolveExistingStampedLfgSetup(home: string): Promise<ExistingSta
     (await readGrokInstallStamp(resolved.pluginRoot)) !== null &&
     (await readAdapterHooksTrust(resolved.pluginRoot)).ok
   return ok ? { pluginRoot: resolved.pluginRoot } : null
+}
+
+function subagentModelMapping(defaultModel: string | undefined, reasoningModel: string | undefined, codingModel: string | undefined): SubagentModelMapping {
+  return {
+    ...(defaultModel === undefined ? {} : { default: defaultModel }),
+    ...(reasoningModel === undefined ? {} : { reasoning: reasoningModel }),
+    ...(codingModel === undefined ? {} : { coding: codingModel }),
+  }
 }
 
 async function isRealDirectory(path: string): Promise<boolean> {

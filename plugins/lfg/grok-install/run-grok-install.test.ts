@@ -137,6 +137,44 @@ describe("runGrokInstall", () => {
     await expect(readFile(configPath, "utf8")).resolves.toContain('default = "gpt-5.5"')
   })
 
+  test("existing stamped setup writes full agent model overrides from setup choices", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-existing-full-agents-"))
+    const pluginRoot = join(home, ".grok", "plugins", "lfg")
+    await mkdir(join(home, ".grok", "plugins"), { recursive: true })
+    await cp(fixtureRoot, pluginRoot, { recursive: true })
+    await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"existing"}\n', "utf8")
+
+    const discovery: ModelDiscovery = {
+      baseUrl: "http://127.0.0.1:11434/v1",
+      modelsUrl: "http://127.0.0.1:11434/v1/models",
+      modelIds: ["gpt-5.5", "gpt-5.4-mini"],
+      mapping: { default: "gpt-5.4-mini", fast: "gpt-5.4-mini", reasoning: "gpt-5.5", coding: "gpt-5.5" },
+      agentConfig: {
+        explorer: { model: "gpt-5.4-mini", reasoningLevel: "low" },
+        reasoning: { model: "gpt-5.5", reasoningLevel: "high" },
+        coding: { model: "gpt-5.5", reasoningLevel: "medium" },
+      },
+      agentOverrideMap: {
+        explorer: { model: "gpt-5.4-mini", reasoningLevel: "low" },
+        reasoning: { model: "gpt-5.5", reasoningLevel: "high" },
+        coding: { model: "gpt-5.5", reasoningLevel: "medium" },
+        librarian: { model: "custom-librarian", reasoningLevel: "low" },
+        plan: { model: "custom-plan", reasoningLevel: "xhigh" },
+      },
+    }
+
+    const run = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" }, { fullAgentModels: discovery.agentOverrideMap })
+
+    expect(run.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
+    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    expect(config).toContain("[lazycodex.agents.librarian]")
+    expect(config).toContain('model = "custom-librarian"')
+    expect(config).toContain("[lazycodex.agents.plan]")
+    expect(config).toContain('model = "custom-plan"')
+    await expect(readFile(join(home, ".grok", "lazycodex-agent-overrides.json"), "utf8")).resolves.toContain("custom-librarian")
+    await expect(readFile(join(home, ".grok", "roles", "librarian.toml"), "utf8")).resolves.toContain('model = "custom-librarian"')
+  })
+
   test("existing stamped setup with no discovery keeps user config unchanged", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-existing-null-"))
     const pluginRoot = join(home, ".grok", "plugins", "lfg")

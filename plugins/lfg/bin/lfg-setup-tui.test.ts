@@ -88,12 +88,18 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(/explorer:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
     expect(/reasoning:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
     expect(/coding:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
+    expect(/librarian:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
+    expect(/plan:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
+    expect(/metis:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
+    expect(/momus:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
+    expect(/codex-ultrawork-reviewer:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
     // Must NOT contain classic readline pollution
     expect(/Current: .* \(reasoning:/.test(resultsBody)).toBe(false);
     expect(/Default: keep the current LazyCodex\/OMO value/.test(resultsBody)).toBe(false);
     expect(/^\s*Recommended:/m.test(resultsBody)).toBe(false);
     expect(/^\s*Alternatives:/m.test(resultsBody)).toBe(false);
-    expect(/Configure (other )?LazyCodex agents/i.test(resultsBody)).toBe(false);
+    expect(/Configure other LazyCodex agents/i.test(resultsBody)).toBe(false);
+    expect(calls.some((c: any[]) => c[0] === "confirm" && /Core \+ ULW/.test(String(c[1])))).toBe(true);
 
     // The TUI shows its own clean "Install Summary" (not the classic printInstallPlan + Magic Word)
     expect(calls.some((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])))).toBe(true);

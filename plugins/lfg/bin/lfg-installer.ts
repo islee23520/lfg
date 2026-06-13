@@ -7,6 +7,7 @@ import {
   INTERNAL_GROK_INSTALL_COMMAND,
   INTERNAL_GROK_INSTALL_PACKAGE,
   runGrokInstall,
+  type GrokInstallRunOptions,
 } from "../grok-install/run-grok-install"
 import { verifyGrokInstallSurface } from "../grok-install/post-install-verify"
 
@@ -37,7 +38,11 @@ export async function runLazycodexInstaller(
 ): Promise<JsonObject> {
   const agentConfig = discovery?.agentConfig ?? null
   const env = mergeStringEnv(process.env, modelDiscoveryEnv(discovery, agentConfig))
-  const grokRun = await runGrokInstall(discovery, env, { force: options.force, fullAgentModels: discovery?.agentOverrideMap as any })
+  const grokOptions: GrokInstallRunOptions = {
+    ...(options.force === undefined ? {} : { force: options.force }),
+    ...(discovery?.agentOverrideMap === undefined ? {} : { fullAgentModels: discovery.agentOverrideMap }),
+  }
+  const grokRun = await runGrokInstall(discovery, env, grokOptions)
   const internalResult = grokInstallStepJson(grokRun.internalStep) as InstallerStepResult
   const ok = grokRun.ok
   const home = env.HOME ?? process.env.HOME ?? ""

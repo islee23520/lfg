@@ -1,16 +1,24 @@
 import * as clack from "@clack/prompts";
 import pc from "picocolors";
 
+import { isRecord } from "./lfg-json";
+import type { LazycodexAgentConfig, ModelDiscovery, ReasoningLevel } from "./lfg-models";
+import {
+  buildModelChoicesForTui,
+  createSetupSelectors,
+  type ModelChoice,
+  type ModelSelector,
+  type ReasoningSelector,
+  type TierSelector,
+} from "./lfg-setup-tui-selectors";
+import {
+  CONFIGURABLE_LAZYCODEX_AGENT_NAMES,
+  loadBundledDefaultOmoOverrides,
+  mergeLazycodexAgentOverrides,
+  type LazycodexAgentModelOverride,
+  type LazycodexAgentOverrideMap,
+} from "../grok-install/lazycodex-agent-overrides";
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-install/run-grok-install";
-
-// LFP-style tiers and reasoning efforts for selector factories (Grok path supports reasoningLevel;
-// tier is accepted for UX parity even if the underlying agent config primarily persists model+reasoningLevel).
-export const SERVICE_TIERS = [
-  { value: "default", label: "default (non-fast)" },
-  { value: "fast", label: "fast" },
-];
-
-export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 
 export function shouldUseSetupTui(args: { readonly noTui?: boolean }, options: { readonly check?: boolean; readonly input?: { readonly isTTY?: boolean }; readonly output?: { readonly isTTY?: boolean } }): boolean {
   if (options.check || args.noTui === true) return false;
@@ -26,24 +34,32 @@ export type RunSetupTuiOptions = {
     args: { readonly noTui: true },
     context: unknown,
     deps?: {
-      readonly modelSelector?: (spec: { agentName?: string; current: string; choices: Array<{ value: string; label: string; aliases: readonly string[]; key: string }> }) => Promise<string>;
-      readonly tierSelector?: (spec: { agentName?: string; current: string }) => Promise<string>;
-      readonly reasoningSelector?: (spec: { agentName?: string; current: string }) => Promise<string>;
+      readonly modelSelector?: ModelSelector;
+      readonly tierSelector?: TierSelector;
+      readonly reasoningSelector?: ReasoningSelector;
     },
   ) => Promise<void>;
 };
 
-export async function runSetupTui(args: { readonly noTui?: boolean }, context: unknown, deps: RunSetupTuiOptions = {}): Promise<any> {
+type AgentTuiResult = {
+  readonly name: string
+  readonly model: string
+  readonly tier: string
+  readonly reasoning: ReasoningLevel
+}
+
+type AgentOverrideConfigResult = {
+  readonly agentOverrideMap: LazycodexAgentOverrideMap
+  readonly extraResults: readonly AgentTuiResult[]
+}
+
+const ROLE_AGENT_NAMES = ["explorer", "reasoning", "coding"] as const
+const ROLE_AGENT_NAME_SET = new Set<string>(ROLE_AGENT_NAMES)
+const EXTRA_CORE_ULW_AGENT_NAMES = CONFIGURABLE_LAZYCODEX_AGENT_NAMES.filter((name) => !ROLE_AGENT_NAME_SET.has(name))
+
+export async function runSetupTui(args: { readonly noTui?: boolean }, context: unknown, deps: RunSetupTuiOptions = {}) {
   const prompts = deps.prompts ?? clack;
   const colors = deps.colors ?? pc;
-  const runLineSetup = deps.runLineSetup;
-  // runLineSetup is optional. The main bare TTY TUI path is self-contained (Clack selects for the
-  // three roles, only clean summary lines, own Install Summary + final Clack confirm, direct installer call).
-  // This guarantees zero leakage of the classic readline "Current:", "Default: keep...", "Recommended:",
-  // "Alternatives:", long-tail "Configure other LazyCodex agents...?", plan review, magic word,
-  // "Install now? [y/N]", "Installation cancelled...", or "oMo... Bye!" text.
-  // Legacy delegation via runLineSetup is only for test shims or other callers; we do not use it
-  // for the questioning phase in the primary TUI experience.
 
   prompts.intro(colors.inverse(" LFG setup "));
 
@@ -66,74 +82,26 @@ export async function runSetupTui(args: { readonly noTui?: boolean }, context: u
     throw new Error("lfg setup cancelled");
   }
 
-  // TUI owns the agent configuration phase completely using the Clack selectors.
-  // This guarantees that no classic readline guidance ("Current:", "Default: keep...",
-  // "Recommended:", "Alternatives:", "Configure role agents?", "Configure other LazyCodex agents...?")
-  // or later gates (plan review, magic word, "Install now?", cancelled, oMo bye) ever appear.
-  // We only ever show clean Clack UI + the three terse role summary lines + our own Install Summary + final confirm.
-
-  const ctx: any = context as any;
-  const discovery = ctx?.resolved?.discovery ?? ctx?.plan?.modelDiscovery ?? null;
-
-  const roleResults: Array<{ name: string; model: string; tier: string; reasoning: string }> = [];
-
-  // Explorer
-  const explorerModel = await createModelSelector(prompts)({
-    agentName: "explorer",
-    current: discovery?.mapping?.fast || discovery?.mapping?.default || "grok-3-mini-fast",
-    choices: buildModelChoicesForTui(discovery?.modelIds || []),
-  });
-  const explorerTier = await createTierSelector(prompts)({ agentName: "explorer", current: "default" });
-  const explorerReasoning = await createReasoningSelector(prompts)({ agentName: "explorer", current: "low" });
-  roleResults.push({ name: "explorer", model: explorerModel, tier: explorerTier, reasoning: explorerReasoning });
-  // The only line we emit for the transcript / results note for this agent
-  console.log(`  explorer: ${explorerModel} / ${explorerReasoning} (tier: ${explorerTier})`);
-
-  // Reasoning
-  const reasoningModel = await createModelSelector(prompts)({
-    agentName: "reasoning",
-    current: discovery?.mapping?.reasoning || "grok-4.20-0309-reasoning",
-    choices: buildModelChoicesForTui(discovery?.modelIds || []),
-  });
-  const reasoningTier = await createTierSelector(prompts)({ agentName: "reasoning", current: "default" });
-  const reasoningReasoning = await createReasoningSelector(prompts)({ agentName: "reasoning", current: "high" });
-  roleResults.push({ name: "reasoning", model: reasoningModel, tier: reasoningTier, reasoning: reasoningReasoning });
-  console.log(`  reasoning: ${reasoningModel} / ${reasoningReasoning} (tier: ${reasoningTier})`);
-
-  // Coding
-  const codingModel = await createModelSelector(prompts)({
-    agentName: "coding",
-    current: discovery?.mapping?.coding || "gpt-5.3-codex-spark",
-    choices: buildModelChoicesForTui(discovery?.modelIds || []),
-  });
-  const codingTier = await createTierSelector(prompts)({ agentName: "coding", current: "default" });
-  const codingReasoning = await createReasoningSelector(prompts)({ agentName: "coding", current: "medium" });
-  roleResults.push({ name: "coding", model: codingModel, tier: codingTier, reasoning: codingReasoning });
-  console.log(`  coding: ${codingModel} / ${codingReasoning} (tier: ${codingTier})`);
-
-  // Build a minimal configured discovery for the installer (model + reasoningLevel for the three roles).
-  // The installer / grok-install side only cares about the agentConfig shape for the main roles + overrides.
+  const discovery = readDiscoveryFromContext(context);
+  const choices = buildModelChoicesForTui(discovery?.modelIds ?? []);
+  const selectors = createSetupSelectors(prompts);
+  const roleResults = await configureRoleAgents(discovery, choices, selectors);
   const agentConfig = {
-    explorer: { model: explorerModel, reasoningLevel: explorerReasoning as any },
-    reasoning: { model: reasoningModel, reasoningLevel: reasoningReasoning as any },
-    coding: { model: codingModel, reasoningLevel: codingReasoning as any },
-  };
-
-  // Make the global default model reflect a user-selected value during setup.
-  // Use the explorer model (high-volume default role) as the effective models.default.
-  // This ensures [models].default and [lazycodex.models].default are driven by setup choices.
+    explorer: { model: roleResults[0].model, reasoningLevel: roleResults[0].reasoning },
+    reasoning: { model: roleResults[1].model, reasoningLevel: roleResults[1].reasoning },
+    coding: { model: roleResults[2].model, reasoningLevel: roleResults[2].reasoning },
+  } satisfies LazycodexAgentConfig;
+  const bundled = await loadBundledDefaultOmoOverrides();
+  const agentOverrides = await configureAgentOverrides(prompts, discovery, choices, selectors, agentConfig, bundled);
+  const explorerModel = agentConfig.explorer.model;
   const effectiveMapping = discovery?.mapping
     ? { ...discovery.mapping, default: explorerModel }
-    : { default: explorerModel, fast: explorerModel, reasoning: reasoningModel, coding: codingModel };
-
-  // For the rest of the agents we take the bundled OMO defaults (no long tail questions in TUI).
-  // The runLazycodexInstaller path will resolve overrides from the global agent config / bundled.
+    : { default: explorerModel, fast: explorerModel, reasoning: agentConfig.reasoning.model, coding: agentConfig.coding.model };
   const configuredForInstall = discovery
-    ? { ...discovery, mapping: effectiveMapping, agentConfig, agentOverrideMap: (discovery as any).agentOverrideMap }
-    : { mapping: effectiveMapping, agentConfig };
+    ? { ...discovery, mapping: effectiveMapping, agentConfig, agentOverrideMap: agentOverrides.agentOverrideMap }
+    : null;
 
-  // Show the clean "Setup results" using exactly the three summary lines we just emitted.
-  const resultsText = roleResults
+  const resultsText = [...roleResults, ...agentOverrides.extraResults]
     .map(r => `  ${r.name}: ${r.model} / ${r.reasoning} (tier: ${r.tier})`)
     .join("\n");
   prompts.note(resultsText, "Setup results");
@@ -162,17 +130,16 @@ export async function runSetupTui(args: { readonly noTui?: boolean }, context: u
     return { ok: true, status: "tui_skipped", executed: false };
   }
 
-  // Perform the actual Grok materialization.
   try {
     const { runLazycodexInstaller } = await import("./lfg-installer.js");
-    // Pass the resolved agent overrides so the installer writes [lazycodex.agents.*] for ALL agents
-    // (roles + LFP/omo imported + flavour-pack). The installer forwards fullAgentModels to writeGrokModelConfig.
-    const installRes: any = await runLazycodexInstaller(configuredForInstall as any);
+    const installRes: Record<string, unknown> = await runLazycodexInstaller(configuredForInstall);
     if (installRes?.stdout) {
-      process.stdout.write(installRes.stdout.endsWith("\n") ? installRes.stdout : installRes.stdout + "\n");
+      const stdout = String(installRes.stdout);
+      process.stdout.write(stdout.endsWith("\n") ? stdout : `${stdout}\n`);
     }
     if (installRes?.stderr) {
-      process.stderr.write(installRes.stderr.endsWith("\n") ? installRes.stderr : installRes.stderr + "\n");
+      const stderr = String(installRes.stderr);
+      process.stderr.write(stderr.endsWith("\n") ? stderr : `${stderr}\n`);
     }
     const success = installRes?.ok !== false;
     if (success) {
@@ -181,102 +148,95 @@ export async function runSetupTui(args: { readonly noTui?: boolean }, context: u
       prompts.outro("Install completed with warnings. See output above. Run lfg doctor to check.");
     }
     return { ok: success, status: success ? "tui_installed" : "tui_install_failed", executed: true };
-  } catch (e: any) {
+  } catch (error) {
     prompts.outro("Install failed during execution. See errors above.");
-    return { ok: false, status: "tui_error", error: String(e?.message || e), executed: false };
+    return { ok: false, status: "tui_error", error: error instanceof Error ? error.message : String(error), executed: false };
   }
 }
 
-// Small helper so the TUI can build choice lists for the model selects (must match the shape expected by the selector factories and the wizard).
-function buildModelChoicesForTui(models: readonly string[]) {
-  const groups = new Map<string, string[]>();
-  for (const m of models) {
-    const key = m.split("/").at(-1) ?? m;
-    const arr = groups.get(key) ?? [];
-    arr.push(m);
-    groups.set(key, arr);
+function readDiscoveryFromContext(context: unknown): ModelDiscovery | null {
+  if (!isRecord(context)) return null;
+  const resolved = context.resolved;
+  if (isRecord(resolved) && isModelDiscovery(resolved.discovery)) return resolved.discovery;
+  const plan = context.plan;
+  if (isRecord(plan) && isModelDiscovery(plan.modelDiscovery)) return plan.modelDiscovery;
+  return null;
+}
+
+function isModelDiscovery(value: unknown): value is ModelDiscovery {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.baseUrl === "string" &&
+    typeof value.modelsUrl === "string" &&
+    isStringArray(value.modelIds) &&
+    isRecord(value.mapping) &&
+    typeof value.mapping.default === "string" &&
+    typeof value.mapping.fast === "string" &&
+    typeof value.mapping.reasoning === "string" &&
+    typeof value.mapping.coding === "string"
+  );
+}
+
+function isStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+async function configureRoleAgents(
+  discovery: ModelDiscovery | null,
+  choices: readonly ModelChoice[],
+  selectors: { readonly modelSelector: ModelSelector; readonly tierSelector: TierSelector; readonly reasoningSelector: ReasoningSelector },
+): Promise<readonly [AgentTuiResult, AgentTuiResult, AgentTuiResult]> {
+  const explorer = await configureAgent("explorer", discovery?.mapping.fast ?? discovery?.mapping.default ?? "grok-3-mini-fast", "low", choices, selectors);
+  const reasoning = await configureAgent("reasoning", discovery?.mapping.reasoning ?? "grok-4.20-0309-reasoning", "high", choices, selectors);
+  const coding = await configureAgent("coding", discovery?.mapping.coding ?? "gpt-5.3-codex-spark", "medium", choices, selectors);
+  return [explorer, reasoning, coding];
+}
+
+async function configureAgent(
+  name: string,
+  currentModel: string,
+  currentReasoning: ReasoningLevel,
+  choices: readonly ModelChoice[],
+  selectors: { readonly modelSelector: ModelSelector; readonly tierSelector: TierSelector; readonly reasoningSelector: ReasoningSelector },
+): Promise<AgentTuiResult> {
+  const model = await selectors.modelSelector({ agentName: name, current: currentModel, choices });
+  const tier = await selectors.tierSelector({ agentName: name, current: "default" });
+  const reasoning = toReasoningLevel(await selectors.reasoningSelector({ agentName: name, current: currentReasoning }));
+  console.log(`  ${name}: ${model} / ${reasoning} (tier: ${tier})`);
+  return { name, model, tier, reasoning };
+}
+
+async function configureAgentOverrides(
+  prompts: typeof clack,
+  discovery: ModelDiscovery | null,
+  choices: readonly ModelChoice[],
+  selectors: { readonly modelSelector: ModelSelector; readonly tierSelector: TierSelector; readonly reasoningSelector: ReasoningSelector },
+  roleConfig: LazycodexAgentConfig,
+  bundled: LazycodexAgentOverrideMap,
+): Promise<AgentOverrideConfigResult> {
+  const base = mergeLazycodexAgentOverrides(roleConfig, bundled, {});
+  const shouldConfigure = await prompts.confirm({ message: "Configure Core + ULW agent overrides?", initialValue: false });
+  if (prompts.isCancel(shouldConfigure)) {
+    prompts.cancel("lfg setup cancelled.");
+    throw new Error("lfg setup cancelled");
   }
-  return [...groups.entries()].map(([key, aliases]) => {
-    const unique = [...new Set(aliases)].sort((a, b) => a.localeCompare(b));
-    const value = unique.find((a) => a === key) ?? unique.find((a) => a === `openai/${key}`) ?? unique[0];
-    const label = unique.length === 1 ? unique[0] : `${key} (aliases: ${unique.join(", ")})`;
-    return { key, aliases: unique, value, label };
-  });
+  if (shouldConfigure !== true) {
+    return { agentOverrideMap: base, extraResults: [] };
+  }
+  const next: Record<string, LazycodexAgentModelOverride> = { ...base };
+  const extraResults: AgentTuiResult[] = [];
+  for (const name of EXTRA_CORE_ULW_AGENT_NAMES) {
+    const current = base[name] ?? { model: discovery?.mapping.default ?? "gpt-5.4-mini", reasoningLevel: "medium" };
+    const result = await configureAgent(name, current.model, current.reasoningLevel, choices, selectors);
+    next[name] = { model: result.model, reasoningLevel: result.reasoning };
+    extraResults.push(result);
+  }
+  return { agentOverrideMap: next, extraResults };
 }
 
-function createModelSelector(prompts: typeof clack) {
-  return async ({ agentName, current, choices }: { agentName?: string; current: string; choices: Array<{ value: string; label: string; aliases: readonly string[]; key: string }> }): Promise<string> => {
-    const options = buildModelOptions(current, choices);
-    const selected = await prompts.select({
-      message: agentName ? `${agentName} model` : "Model",
-      options,
-      initialValue: options.find((o) => o.value === current)?.value ?? options[0]?.value,
-    });
-    if (prompts.isCancel(selected)) {
-      prompts.cancel("lfg setup cancelled.");
-      throw new Error("lfg setup cancelled");
-    }
-    return selected as string;
-  };
-}
-
-function buildModelOptions(current: string, choices: Array<{ value: string; label: string; aliases: readonly string[]; key: string }>) {
-  const options = choices.map((choice) => ({
-    value: choice.value,
-    label: choice.label,
-    hint: choice.aliases.includes(current) || choice.key === current ? "current" : undefined,
-  }));
-  if (options.some((o) => o.value === current)) return options;
-  return [{ value: current, label: current, hint: "current custom id" }, ...options];
-}
-
-function captureConsoleOutput(lines: string[]) {
-  const originalLog = console.log;
-  const originalError = console.error;
-  console.log = (...values: unknown[]) => lines.push(values.map(String).join(" "));
-  console.error = (...values: unknown[]) => lines.push(values.map(String).join(" "));
-  return () => {
-    console.log = originalLog;
-    console.error = originalError;
-  };
-}
-
-function createTierSelector(prompts: typeof clack) {
-  return async ({ agentName, current }: { agentName?: string; current: string }): Promise<string> => {
-    const options = SERVICE_TIERS.map((tier) => ({
-      value: tier.value,
-      label: tier.label,
-      hint: tier.value === current ? "current" : undefined,
-    }));
-    const selected = await prompts.select({
-      message: agentName ? `${agentName} service tier` : "Service tier",
-      options,
-      initialValue: current,
-    });
-    if (prompts.isCancel(selected)) {
-      prompts.cancel("lfg setup cancelled.");
-      throw new Error("lfg setup cancelled");
-    }
-    return selected as string;
-  };
-}
-
-function createReasoningSelector(prompts: typeof clack) {
-  return async ({ agentName, current }: { agentName?: string; current: string }): Promise<string> => {
-    const options = REASONING_EFFORTS.map((effort) => ({
-      value: effort,
-      label: effort,
-      hint: effort === current ? "current" : undefined,
-    }));
-    const selected = await prompts.select({
-      message: agentName ? `${agentName} reasoning effort` : "Reasoning effort",
-      options,
-      initialValue: current,
-    });
-    if (prompts.isCancel(selected)) {
-      prompts.cancel("lfg setup cancelled.");
-      throw new Error("lfg setup cancelled");
-    }
-    return selected as string;
-  };
+function toReasoningLevel(value: string): ReasoningLevel {
+  if (value === "low" || value === "medium" || value === "high" || value === "xhigh") {
+    return value;
+  }
+  return "medium";
 }
