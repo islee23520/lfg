@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { z } from "zod"
 import type { LazycodexAgentConfig, ReasoningLevel } from "../bin/lfg-models"
-import type { LazycodexAgentOverrideMap } from "./lazycodex-agent-overrides"
+import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap } from "./lazycodex-agent-overrides"
 
 const ReasoningLevelSchema = z.union([z.literal("low"), z.literal("medium"), z.literal("high"), z.literal("xhigh")])
 
@@ -78,13 +78,20 @@ export function applyLfgConfigToAgentOverrides(
   roleConfig: LazycodexAgentConfig,
   config: LfgConfig | null,
 ): LazycodexAgentOverrideMap {
-  const merged: Record<string, { readonly model: string; readonly reasoningLevel: ReasoningLevel }> = { ...base }
+  const merged: Record<string, LazycodexAgentModelOverride> = { ...base }
   for (const [name, agent] of Object.entries(config?.agents ?? {})) {
-    const fallback = merged[name] ?? agentFallback(name, roleConfig)
-    const model = agent.model ?? fallback?.model
-    const reasoningLevel = agent.reasoning_level ?? fallback?.reasoningLevel
+    const existing = merged[name] ?? agentFallback(name, roleConfig)
+    const model = agent.model ?? existing?.model
+    const reasoningLevel = agent.reasoning_level ?? existing?.reasoningLevel
     if (model !== undefined && reasoningLevel !== undefined) {
-      merged[name] = { model, reasoningLevel }
+      merged[name] = {
+        model,
+        reasoningLevel,
+        ...(existing?.serviceTier !== undefined ? { serviceTier: existing.serviceTier } : {}),
+        ...(existing?.modelFallback !== undefined ? { modelFallback: existing.modelFallback } : {}),
+        ...(existing?.modelFallbackReasoningLevel !== undefined ? { modelFallbackReasoningLevel: existing.modelFallbackReasoningLevel } : {}),
+        ...(existing?.modelFallbackServiceTier !== undefined ? { modelFallbackServiceTier: existing.modelFallbackServiceTier } : {}),
+      }
     }
   }
   return merged
@@ -99,7 +106,16 @@ function agentFallback(name: string, roleConfig: LazycodexAgentConfig): { readon
 
 function renderDefaultLfgConfig(seed: LazycodexAgentOverrideMap): string {
   const agents = Object.fromEntries(
-    Object.entries(seed).map(([name, value]) => [name, { model: value.model, reasoning_level: value.reasoningLevel, enabled: true }]),
+    Object.entries(seed).map(([name, value]) => [
+      name,
+      {
+        model: value.model,
+        reasoning_level: value.reasoningLevel,
+        enabled: true,
+        ...(value.serviceTier !== undefined ? { service_tier: value.serviceTier } : {}),
+        ...(value.modelFallback !== undefined ? { model_fallback: value.modelFallback } : {}),
+      },
+    ]),
   )
   return `${JSON.stringify({ $schema: `./${LFG_CONFIG_SCHEMA_FILENAME}`, version: 1, agents, subagents: { disableBuiltins: true } }, null, 2)}\n`
 }
