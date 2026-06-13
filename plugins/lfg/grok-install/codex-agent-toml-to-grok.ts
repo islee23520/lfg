@@ -40,6 +40,7 @@ export function renderGrokRoleTomlFromCodex(
   if (reasoning !== null && reasoning.length > 0) {
     lines.push(`reasoning_effort = ${tomlQuote(reasoning)}`)
   }
+  appendFallbackLines(lines, modelOverride)
   const prompt = parsed.developerInstructions.trim()
   let promptPath: string | null = null
   let promptBody: string | null = null
@@ -57,6 +58,7 @@ export function renderMinimalGrokRoleToml(agentName: string, override: Lazycodex
     `model = ${tomlQuote(override.model)}`,
     `reasoning_effort = ${tomlQuote(override.reasoningLevel)}`,
   ]
+  appendFallbackLines(lines, override)
   return `${lines.join("\n")}\n`
 }
 
@@ -116,6 +118,23 @@ export function codexAgentTomlToGrokRoleTomlWithPromptBody(
 
 function writeInlinePromptRef(_prompt: string): string {
   return ".grok/prompts/lazycodex-agent.md"
+}
+
+/** Append service_tier and model_fallback fields from an override to a TOML lines array. */
+function appendFallbackLines(lines: string[], override: { readonly serviceTier?: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string; readonly modelFallbackServiceTier?: string } | undefined): void {
+  if (override === undefined) return
+  if (override.serviceTier !== undefined) {
+    lines.push(`service_tier = ${tomlQuote(override.serviceTier)}`)
+  }
+  if (override.modelFallback !== undefined) {
+    lines.push(`model_fallback = ${tomlQuote(override.modelFallback)}`)
+  }
+  if (override.modelFallbackReasoningLevel !== undefined) {
+    lines.push(`model_fallback_reasoning_effort = ${tomlQuote(override.modelFallbackReasoningLevel)}`)
+  }
+  if (override.modelFallbackServiceTier !== undefined) {
+    lines.push(`model_fallback_service_tier = ${tomlQuote(override.modelFallbackServiceTier)}`)
+  }
 }
 
 type ParsedCodexAgent = {

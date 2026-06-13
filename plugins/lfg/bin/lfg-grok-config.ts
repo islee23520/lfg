@@ -194,18 +194,35 @@ function upsertLazycodexAgentSections(source: string, agentConfig: LazycodexAgen
 /** Write [lazycodex.agents.*] for ALL agents (roles + LFP/omo imported + flavour-pack extras). */
 function upsertAllLazycodexAgentSections(
   source: string,
-  full: Readonly<Record<string, { model: string; reasoningLevel: string }>>,
+  full: Readonly<Record<string, { readonly model: string; readonly reasoningLevel: string; readonly serviceTier?: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string; readonly modelFallbackServiceTier?: string }>>,
 ): string {
   return Object.entries(full).reduce(
     (next, [agentName, setting]) =>
       isBareKey(agentName)
-        ? upsertSection(next, `lazycodex.agents.${agentName}`, [
-            `model = ${tomlString(setting.model)}`,
-            `reasoning_level = ${tomlString(setting.reasoningLevel)}`,
-          ])
+        ? upsertSection(next, `lazycodex.agents.${agentName}`, agentOverrideTomlLines(setting))
         : next,
     source,
   )
+}
+
+function agentOverrideTomlLines(setting: { readonly model: string; readonly reasoningLevel: string; readonly serviceTier?: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string; readonly modelFallbackServiceTier?: string }): readonly string[] {
+  const lines: string[] = [
+    `model = ${tomlString(setting.model)}`,
+    `reasoning_level = ${tomlString(setting.reasoningLevel)}`,
+  ]
+  if (setting.serviceTier !== undefined) {
+    lines.push(`service_tier = ${tomlString(setting.serviceTier)}`)
+  }
+  if (setting.modelFallback !== undefined) {
+    lines.push(`model_fallback = ${tomlString(setting.modelFallback)}`)
+  }
+  if (setting.modelFallbackReasoningLevel !== undefined) {
+    lines.push(`model_fallback_reasoning_level = ${tomlString(setting.modelFallbackReasoningLevel)}`)
+  }
+  if (setting.modelFallbackServiceTier !== undefined) {
+    lines.push(`model_fallback_service_tier = ${tomlString(setting.modelFallbackServiceTier)}`)
+  }
+  return lines
 }
 
 function removeTomlKey(source: string, section: string, key: string): string {

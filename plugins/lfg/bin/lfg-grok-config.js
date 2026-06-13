@@ -148,12 +148,28 @@ function upsertLazycodexAgentSections(source, agentConfig) {
 }
 function upsertAllLazycodexAgentSections(source, full) {
   return Object.entries(full).reduce(
-    (next, [agentName, setting]) => isBareKey(agentName) ? upsertSection(next, `lazycodex.agents.${agentName}`, [
-      `model = ${tomlString(setting.model)}`,
-      `reasoning_level = ${tomlString(setting.reasoningLevel)}`
-    ]) : next,
+    (next, [agentName, setting]) => isBareKey(agentName) ? upsertSection(next, `lazycodex.agents.${agentName}`, agentOverrideTomlLines(setting)) : next,
     source
   );
+}
+function agentOverrideTomlLines(setting) {
+  const lines = [
+    `model = ${tomlString(setting.model)}`,
+    `reasoning_level = ${tomlString(setting.reasoningLevel)}`
+  ];
+  if (setting.serviceTier !== void 0) {
+    lines.push(`service_tier = ${tomlString(setting.serviceTier)}`);
+  }
+  if (setting.modelFallback !== void 0) {
+    lines.push(`model_fallback = ${tomlString(setting.modelFallback)}`);
+  }
+  if (setting.modelFallbackReasoningLevel !== void 0) {
+    lines.push(`model_fallback_reasoning_level = ${tomlString(setting.modelFallbackReasoningLevel)}`);
+  }
+  if (setting.modelFallbackServiceTier !== void 0) {
+    lines.push(`model_fallback_service_tier = ${tomlString(setting.modelFallbackServiceTier)}`);
+  }
+  return lines;
 }
 function removeTomlKey(source, section, key) {
   const header = `[${section}]`;

@@ -35,7 +35,7 @@ describe("lfg-config", () => {
     )
 
     const resolved = await resolveLazycodexAgentOverrides(home, defaultLazycodexAgentConfig(discovery))
-    expect(resolved.explorer).toEqual({ model: "user-fast", reasoningLevel: "medium" })
+    expect(resolved.explorer).toMatchObject({ model: "user-fast", reasoningLevel: "medium" })
     await expect(readLazycodexAgentOverridesFile(home)).resolves.toEqual({})
   })
 })

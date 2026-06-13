@@ -34,6 +34,7 @@ export const CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
 type StoredOverrideFields = {
   readonly model?: string
   readonly reasoning_level?: string
+  readonly model_reasoning_effort?: string
   readonly service_tier?: string
   readonly model_fallback?: string
   readonly model_fallback_reasoning_effort?: string
@@ -107,10 +108,27 @@ export function mergeLazycodexAgentOverrides(
   fromFile: LazycodexAgentOverrideMap,
 ): LazycodexAgentOverrideMap {
   const merged: Record<string, LazycodexAgentModelOverride> = { ...bundled, ...fromFile }
-  merged.explorer = fromFile.explorer ?? roleConfig.explorer
-  merged.reasoning = fromFile.reasoning ?? roleConfig.reasoning
-  merged.coding = fromFile.coding ?? roleConfig.coding
+  merged.explorer = mergeRoleWithBundled(fromFile.explorer, roleConfig.explorer, bundled.explorer)
+  merged.reasoning = mergeRoleWithBundled(fromFile.reasoning, roleConfig.reasoning, bundled.reasoning)
+  merged.coding = mergeRoleWithBundled(fromFile.coding, roleConfig.coding, bundled.coding)
   return merged
+}
+
+/** Role config provides model+reasoning; bundled provides fallback fields. User file wins overall. */
+function mergeRoleWithBundled(
+  fromFile: LazycodexAgentModelOverride | undefined,
+  role: { readonly model: string; readonly reasoningLevel: ReasoningLevel },
+  bundled: LazycodexAgentModelOverride | undefined,
+): LazycodexAgentModelOverride {
+  if (fromFile !== undefined) return fromFile
+  return {
+    model: role.model,
+    reasoningLevel: role.reasoningLevel,
+    ...(bundled?.serviceTier !== undefined ? { serviceTier: bundled.serviceTier } : {}),
+    ...(bundled?.modelFallback !== undefined ? { modelFallback: bundled.modelFallback } : {}),
+    ...(bundled?.modelFallbackReasoningLevel !== undefined ? { modelFallbackReasoningLevel: bundled.modelFallbackReasoningLevel } : {}),
+    ...(bundled?.modelFallbackServiceTier !== undefined ? { modelFallbackServiceTier: bundled.modelFallbackServiceTier } : {}),
+  }
 }
 
 export async function resolveLazycodexAgentOverrides(
