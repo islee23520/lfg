@@ -6,6 +6,7 @@ import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentMod
 import { ensureLfgConfigFiles } from "./lfg-config";
 import { mergePortedHooksIntoPlugin } from "./extension-hooks";
 import { ensureCuaDriverSkill } from "./ensure-cua-driver-skill";
+import { ensureHephaestusModelGate } from "./ensure-hephaestus-model-gate";
 import { normalizePluginHooksJson } from "./normalize-plugin-hooks";
 import {
   resolveLazycodexAgentOverrides,
@@ -17,6 +18,7 @@ import { readGrokInstallStamp } from "./install";
 import { runInternalGrokInstall } from "./run-internal";
 import { syncLazycodexAgentsToGrokLedger } from "./sync-lazycodex-agents-to-grok";
 import { componentInventoryPath } from "./component-inventory";
+import { applyRecommendationsToOverrideMap } from "./model-recommendation-patterns";
 const INTERNAL_GROK_INSTALL_PACKAGE = "lfg-grok-install";
 const INTERNAL_GROK_INSTALL_COMMAND = "@islee23520/lfg internal grok-install";
 async function runGrokInstall(discovery, env = process.env, options = {}) {
@@ -24,7 +26,12 @@ async function runGrokInstall(discovery, env = process.env, options = {}) {
   const existingSetup = options.force === true ? null : await resolveExistingStampedLfgSetup(home);
   if (existingSetup !== null) {
     const resolvedAgents2 = await resolveGlobalLazycodexAgentConfig(home, discovery);
-    const overrideMap2 = discovery?.agentOverrideMap !== void 0 ? discovery.agentOverrideMap : await resolveLazycodexAgentOverrides(home, resolvedAgents2);
+    const agentOverrideMap2 = discovery?.agentOverrideMap;
+    const overrideMap2 = agentOverrideMap2 !== void 0 ? agentOverrideMap2 : applyRecommendationsToOverrideMap(
+      await resolveLazycodexAgentOverrides(home, resolvedAgents2),
+      discovery?.modelIds ?? [],
+      discovery?.preset
+    );
     const fullAgentModels2 = options.fullAgentModels ?? overrideMap2;
     const configUpdate2 = discovery !== null ? await writeGrokModelConfig(discovery, {
       apiKey: env.OPENAI_API_KEY,
@@ -43,6 +50,7 @@ async function runGrokInstall(discovery, env = process.env, options = {}) {
     );
     const hooksNormalized = await normalizePluginHooksJson(existingSetup.pluginRoot);
     await ensureCuaDriverSkill(existingSetup.pluginRoot);
+    await ensureHephaestusModelGate(existingSetup.pluginRoot);
     return {
       ok: true,
       configUpdate: configUpdate2,
@@ -78,7 +86,12 @@ async function runGrokInstall(discovery, env = process.env, options = {}) {
   };
   const internalStep = await runInternalGrokInstall(internalEnv);
   const resolvedAgents = await resolveGlobalLazycodexAgentConfig(home, discovery);
-  const overrideMap = discovery?.agentOverrideMap !== void 0 ? discovery.agentOverrideMap : await resolveLazycodexAgentOverrides(home, resolvedAgents);
+  const agentOverrideMap = discovery?.agentOverrideMap;
+  const overrideMap = agentOverrideMap !== void 0 ? agentOverrideMap : applyRecommendationsToOverrideMap(
+    await resolveLazycodexAgentOverrides(home, resolvedAgents),
+    discovery?.modelIds ?? [],
+    discovery?.preset
+  );
   const fullAgentModels = options.fullAgentModels ?? overrideMap;
   const configUpdate = discovery !== null ? await writeGrokModelConfig(discovery, {
     apiKey: env.OPENAI_API_KEY,
@@ -104,6 +117,7 @@ async function runGrokInstall(discovery, env = process.env, options = {}) {
   if (pluginRootAfterInstall) {
     const norm = await normalizePluginHooksJson(pluginRootAfterInstall);
     await ensureCuaDriverSkill(pluginRootAfterInstall);
+    await ensureHephaestusModelGate(pluginRootAfterInstall);
     hooksFresh = { path: norm.path, hookNames: norm.hookNames, changed: norm.changed };
   }
   return {

@@ -8,6 +8,7 @@ import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentMod
 import { ensureLfgConfigFiles } from "./lfg-config"
 import { mergePortedHooksIntoPlugin } from "./extension-hooks"
 import { ensureCuaDriverSkill } from "./ensure-cua-driver-skill"
+import { ensureHephaestusModelGate } from "./ensure-hephaestus-model-gate"
 import { normalizePluginHooksJson } from "./normalize-plugin-hooks"
 import {
   resolveLazycodexAgentOverrides,
@@ -19,6 +20,7 @@ import { readGrokInstallStamp } from "./install"
 import { runInternalGrokInstall } from "./run-internal"
 import { syncLazycodexAgentsToGrokLedger, type SyncLazycodexAgentsResult } from "./sync-lazycodex-agents-to-grok"
 import { componentInventoryPath } from "./component-inventory"
+import { applyRecommendationsToOverrideMap } from "./model-recommendation-patterns"
 
 export const INTERNAL_GROK_INSTALL_PACKAGE = "lfg-grok-install" as const
 export const INTERNAL_GROK_INSTALL_COMMAND = "@islee23520/lfg internal grok-install" as const
@@ -54,10 +56,14 @@ export async function runGrokInstall(
   const existingSetup = options.force === true ? null : await resolveExistingStampedLfgSetup(home)
   if (existingSetup !== null) {
     const resolvedAgents = await resolveGlobalLazycodexAgentConfig(home, discovery)
-    const overrideMap =
-      discovery?.agentOverrideMap !== undefined
-        ? discovery.agentOverrideMap
-        : await resolveLazycodexAgentOverrides(home, resolvedAgents)
+    const agentOverrideMap = discovery?.agentOverrideMap
+    const overrideMap = agentOverrideMap !== undefined
+      ? agentOverrideMap
+      : applyRecommendationsToOverrideMap(
+          await resolveLazycodexAgentOverrides(home, resolvedAgents),
+          discovery?.modelIds ?? [],
+          discovery?.preset,
+        )
     const fullAgentModels = options.fullAgentModels ?? overrideMap
     const configUpdate =
       discovery !== null
@@ -82,6 +88,7 @@ export async function runGrokInstall(
     // lfg-config-loader, project omo ledger, and ultrawork component hooks are guaranteed loaded.
     const hooksNormalized = await normalizePluginHooksJson(existingSetup.pluginRoot)
     await ensureCuaDriverSkill(existingSetup.pluginRoot)
+    await ensureHephaestusModelGate(existingSetup.pluginRoot)
 
     return {
       ok: true,
@@ -121,10 +128,14 @@ export async function runGrokInstall(
   }
   const internalStep = await runInternalGrokInstall(internalEnv)
   const resolvedAgents = await resolveGlobalLazycodexAgentConfig(home, discovery)
-  const overrideMap =
-    discovery?.agentOverrideMap !== undefined
-      ? discovery.agentOverrideMap
-      : await resolveLazycodexAgentOverrides(home, resolvedAgents)
+  const agentOverrideMap = discovery?.agentOverrideMap
+  const overrideMap = agentOverrideMap !== undefined
+    ? agentOverrideMap
+    : applyRecommendationsToOverrideMap(
+        await resolveLazycodexAgentOverrides(home, resolvedAgents),
+        discovery?.modelIds ?? [],
+        discovery?.preset,
+      )
   const fullAgentModels = options.fullAgentModels ?? overrideMap
   const configUpdate =
     discovery !== null
@@ -156,6 +167,7 @@ export async function runGrokInstall(
   if (pluginRootAfterInstall) {
     const norm = await normalizePluginHooksJson(pluginRootAfterInstall)
     await ensureCuaDriverSkill(pluginRootAfterInstall)
+    await ensureHephaestusModelGate(pluginRootAfterInstall)
     hooksFresh = { path: norm.path, hookNames: norm.hookNames, changed: norm.changed }
   }
 
