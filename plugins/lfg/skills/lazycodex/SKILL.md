@@ -11,7 +11,7 @@ Use `lfg` only as the package-facing installer helper for this command:
 npx @islee23520/lfg setup
 ```
 
-That helper installs the omo / lazycodex adapter on **Grok Build** (`~/.grok/installed-plugins/lfg`, hooks, agents, model config). It does **not** run `npx lazycodex-ai install` into `~/.codex`.
+That helper installs the **omo / lazycodex Grok Build adapter** (core **codex adapter** + **opencode** feature from https://github.com/code-yeongyu/oh-my-openagent) on **Grok Build**. It installs **native first-party OMO hooks** and uses **bridge fallback only for legacy/imported hooks** (`~/.grok/installed-plugins/lfg`, agents, model config). It does **not** run `npx lazycodex-ai install` into `~/.codex`.
 
 See also the `lfp` skill for per-agent override ideas on Grok Build.
 

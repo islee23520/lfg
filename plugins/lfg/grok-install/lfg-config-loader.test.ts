@@ -24,21 +24,22 @@ describe("lfg-config-loader project .omo context", () => {
 
     expect(result).toMatchObject({ exitCode: 0, stderr: "" })
     const output = parseHookOutput(result.stdout)
-    expect(output.hookSpecificOutput.hookEventName).toBe("SessionStart")
-    expect(output.hookSpecificOutput.additionalContext).toContain("LFG global config loaded from")
-    expect(output.hookSpecificOutput.additionalContext).toContain("Configured LFG agents: reviewer.")
-    expect(output.hookSpecificOutput.additionalContext).toContain(
+    expect(output.statusMessage).toContain("LFG:")
+    expect(output.hookSpecificOutput?.hookEventName).toBe("SessionStart")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("LFG global config loaded from")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Configured LFG agents: reviewer.")
+    expect(output.hookSpecificOutput?.additionalContext).toContain(
       `LFG project .omo ledger loaded from ${join(projectRoot, ".omo", "boulder.json")}.`,
     )
-    expect(output.hookSpecificOutput.additionalContext).toContain("Active work: demo-work")
-    expect(output.hookSpecificOutput.additionalContext).toContain("Plan: Demo Plan")
-    expect(output.hookSpecificOutput.additionalContext).toContain("Status: active")
-    expect(output.hookSpecificOutput.additionalContext).toContain("Active plan: .omo/plans/demo.md")
-    expect(output.hookSpecificOutput.additionalContext).toContain("Ledger exists: true")
-    expect(output.hookSpecificOutput.additionalContext).toContain("Ledger line count: 2")
-    expect(output.hookSpecificOutput.additionalContext).not.toContain("ledger one")
-    expect(output.hookSpecificOutput.additionalContext).not.toContain("ledger two")
-    expect(output.hookSpecificOutput.additionalContext).toContain("ulw-loop: none")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Active work: demo-work")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Plan: Demo Plan")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Status: active")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Active plan: .omo/plans/demo.md")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Ledger exists: true")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Ledger line count: 2")
+    expect(output.hookSpecificOutput?.additionalContext).not.toContain("ledger one")
+    expect(output.hookSpecificOutput?.additionalContext).not.toContain("ledger two")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("ulw-loop: none")
   })
 
   test("normalizes UserPromptSubmit and fails closed for malformed project .omo", async () => {
@@ -56,12 +57,14 @@ describe("lfg-config-loader project .omo context", () => {
       },
     })
 
-    expect(result).toMatchObject({ exitCode: 0, stdout: "", stderr: "" })
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" })
+    expect(result.stdout).toContain("LFG: UserPromptSubmit (no config or active work)")
   })
 })
 
-type HookOutput = {
-  readonly hookSpecificOutput: {
+type ParsedHookOutput = {
+  readonly statusMessage?: string
+  readonly hookSpecificOutput?: {
     readonly hookEventName: string
     readonly additionalContext: string
   }
@@ -109,19 +112,21 @@ async function writeProjectOmo(projectRoot: string, sessionId: string, ledgerLin
   await writeFile(join(projectRoot, ".omo", "start-work", "ledger.jsonl"), `${ledgerLines.join("\n")}\n`, "utf8")
 }
 
-function parseHookOutput(stdout: string): HookOutput {
-  const parsed: unknown = JSON.parse(stdout)
+function parseHookOutput(stdout: string): ParsedHookOutput {
+  const parsed: unknown = JSON.parse(stdout.trim())
   if (!isHookOutput(parsed)) {
-    throw new TypeError("loader stdout was not hookSpecificOutput JSON")
+    throw new TypeError(`loader stdout was not valid hook output: ${stdout}`)
   }
   return parsed
 }
 
-function isHookOutput(value: unknown): value is HookOutput {
-  if (typeof value !== "object" || value === null || !("hookSpecificOutput" in value)) return false
-  const output = value.hookSpecificOutput
-  if (typeof output !== "object" || output === null) return false
-  return "hookEventName" in output && "additionalContext" in output
+function isHookOutput(value: unknown): value is ParsedHookOutput {
+  if (typeof value !== "object" || value === null) return false
+  const hasStatus = "statusMessage" in value && typeof (value as any).statusMessage === "string"
+  const hasHookOutput = "hookSpecificOutput" in value &&
+    typeof (value as any).hookSpecificOutput === "object" &&
+    (value as any).hookSpecificOutput !== null
+  return hasStatus || hasHookOutput
 }
 
 function runLoader(options: { readonly home: string; readonly payload: Record<string, string> }): Promise<LoaderResult> {

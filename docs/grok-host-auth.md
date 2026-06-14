@@ -8,6 +8,7 @@
 - Expired `expires_at` on stored tokens
 - `You are not authenticated` / empty model list
 - `Failed to fetch models: Auth("No API key for custom models endpoint. Set XAI_API_KEY.")`
+- Repeated `401 Invalid API key` from a local OpenAI-compatible endpoint while Grok refreshes cached OAuth tokens.
 
 ## Mitigations
 
@@ -15,7 +16,7 @@
 |------|--------|
 | 1 | Fix config warnings: re-run `npx @islee23520/lfg --json setup --run` so `endpoints.api_key` is removed — see [`grok-config-endpoints.md`](grok-config-endpoints.md) (#24) |
 | 2 | Interactive: run `grok` and complete sign-in to refresh `~/.grok/auth.json` |
-| 3 | Headless BYOK: set `XAI_API_KEY` or `OPENAI_API_KEY` (and discovery base URL via `lfg setup --run`) |
+| 3 | Headless BYOK: set `XAI_API_KEY` or `OPENAI_API_KEY` (and discovery base URL via `lfg setup --run`). If those env vars are unset, current lfg also falls back to the active Codex provider bearer token in `~/.codex/config.toml`. |
 | 4 | Verify adapter plan: `npx @islee23520/lfg --json setup`; materialize only with explicit `setup --run` |
 
 ## lfg scope

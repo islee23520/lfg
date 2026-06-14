@@ -6,7 +6,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const LFG = join(here, "lfg.js");
 const checks = [
     await commandOk(["setup"], "@islee23520/lfg internal grok-install"),
-    await commandOk(["setup"], "installed-plugins/lfg"),
+    await commandOk(["setup"], "plugins/lfg"),
     await commandOk(["help"], "npx @islee23520/lfg setup"),
     await commandFails(["doctor"], "unsupported_command"),
     await commandFails(["dry-setup"], "unsupported_command"),

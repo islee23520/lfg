@@ -1,6 +1,6 @@
 import { access, copyFile, mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { isGrokEventHooksJson, validateGrokHooksJson } from "./hook-trust"
+import { createFirstPartyNativeGrokHooks, createNativeGrokHooksForLegacyFallback, isGrokEventHooksJson, isLegacyMetadataHooksJson, validateGrokHooksJson } from "./hook-trust"
 import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset"
 
 const BRIDGE_RELATIVE = join("hooks", "lfg-grok-hook-bridge.mjs")
@@ -42,10 +42,19 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
   readonly changed: boolean
   readonly hookNames: readonly string[]
 }> {
+  /** T6 native first-party: uses validateGrokHooksJson + GROK_HOOK_EVENTS allowlist from hook-trust.
+   * Bridge wrapping retained only for legacy/imported hook JSON (idempotent peel+wrap). Fixture provides first-party event-map. */
   await syncGrokHookBridgeIntoPlugin(pluginRoot)
   const hooksPath = join(pluginRoot, "hooks", "hooks.json")
   const raw = await readFile(hooksPath, "utf8")
-  const parsed: unknown = JSON.parse(raw)
+  let parsed: unknown = JSON.parse(raw)
+  if (isLegacyMetadataHooksJson(parsed)) {
+    // T6: legacy/imported Codex-style hook JSON -> native Grok event-map *with* bridge fallback
+    parsed = createNativeGrokHooksForLegacyFallback()
+  } else if (!isGrokEventHooksJson(parsed)) {
+    // T6: non-legacy defaults to first-party native (no bridge wrapper)
+    parsed = createFirstPartyNativeGrokHooks()
+  }
   if (!isGrokEventHooksJson(parsed)) {
     const trust = validateGrokHooksJson(parsed)
     throw new Error(trust.error ?? "hooks.json is not Grok event format")
@@ -89,15 +98,24 @@ function addLfgConfigLoaderHooks(hooksBlock: JsonRecord): JsonRecord {
 function appendConfigLoader(groups: unknown, eventName: string): readonly unknown[] {
   const current = Array.isArray(groups) ? groups : []
   const command = `node "\${GROK_PLUGIN_ROOT}/hooks/${CONFIG_LOADER_FILE}"`
-  if (current.some((group) => groupHasCommand(group, command))) {
-    return current
-  }
-  return [
-    ...current,
+  const targetStatusMessage = `LFG: Loading global config and project context (${eventName})`
+
+  // Filter out any existing (possibly stale) config loader entries, then add the current one.
+  // This ensures we never have duplicates and always have the latest statusMessage.
+  const withoutOldLoader = current.filter((group) => !groupHasConfigLoaderCommand(group, command))
+  const withUpdatedLoader = [
+    ...withoutOldLoader,
     {
-      hooks: [{ type: "command", command, timeout: 5, description: `lfg global config loader (${eventName})` }],
+      hooks: [{
+        type: "command",
+        command,
+        timeout: 5,
+        description: `lfg global config loader (${eventName})`,
+        statusMessage: targetStatusMessage,
+      }],
     },
   ]
+  return withUpdatedLoader
 }
 
 function groupHasCommand(group: unknown, command: string): boolean {
@@ -107,6 +125,18 @@ function groupHasCommand(group: unknown, command: string): boolean {
   return hooks.some((handler) => {
     if (typeof handler !== "object" || handler === null) return false
     return (handler as JsonRecord).command === command
+  })
+}
+
+/** Returns true if this group contains a config loader with the given command (regardless of statusMessage). Used to deduplicate. */
+function groupHasConfigLoaderCommand(group: unknown, command: string): boolean {
+  if (typeof group !== "object" || group === null) return false
+  const hooks = (group as JsonRecord).hooks
+  if (!Array.isArray(hooks)) return false
+  return hooks.some((handler) => {
+    if (typeof handler !== "object" || handler === null) return false
+    const h = handler as JsonRecord
+    return h.command === command
   })
 }
 

@@ -86,12 +86,34 @@ describe("lfg setup --refresh (model/auth re-sync)", () => {
                 expect(config).toContain("context_window = 1050000"); // from gpt-5.5 (default)
                 expect(config).toContain('api_key = "sk-refresh-test"');
                 // Ensure no plugin tree was materialized (refresh is config-only)
-                // We only assert that we did not create the typical installed-plugins/lfg stamp dir in this run.
+                // We only assert that we did not create the typical plugins/lfg stamp dir in this run.
                 // (Full install would also write component inventory etc.; we just confirm the narrow intent.)
                 // A soft heuristic: if the user had no prior stamp, we should not have created one.
                 // We don't hard-require absence because prior test state could exist; instead we check the JSON shape.
                 expect(json).not.toHaveProperty("internalStep");
                 expect(json).not.toHaveProperty("postInstallVerify");
+            });
+        }
+        finally {
+            await rm(home, { recursive: true, force: true });
+        }
+    });
+    test("--json setup --refresh --run uses active Codex provider token when env key is absent", async () => {
+        const home = await mkdtemp(join(tmpdir(), "lfg-refresh-codex-token-"));
+        try {
+            await mkdir(join(home, ".codex"), { recursive: true });
+            await writeFile(join(home, ".codex", "config.toml"), [
+                'model_provider = "cliproxyapi"',
+                "",
+                "[model_providers.cliproxyapi]",
+                'experimental_bearer_token = "sk-codex-provider-token"',
+                "",
+            ].join("\n"), "utf8");
+            await withModelServer(["gpt-5.5"], async (baseUrl) => {
+                const result = await runLfg(["--json", "setup", "--refresh", "--run", "--base-url", baseUrl], { HOME: home, OPENAI_API_KEY: "" });
+                expect(result.exitCode).toBe(0);
+                const config = await readFile(join(home, ".grok", "config.toml"), "utf8");
+                expect(config).toContain('api_key = "sk-codex-provider-token"');
             });
         }
         finally {

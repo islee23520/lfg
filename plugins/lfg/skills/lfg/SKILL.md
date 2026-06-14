@@ -5,7 +5,7 @@ description: @islee23520/lfg — Grok Build omo/lazycodex 설치 CLI. 용도와 
 
 # lfg
 
-`npx @islee23520/lfg` installs the omo/lazycodex adapter into `~/.grok/installed-plugins/lfg`.
+`npx @islee23520/lfg` is the setup helper for the **omo / lazycodex Grok Build adapter** (https://github.com/code-yeongyu/oh-my-openagent **codex adapter** core + **opencode** feature). It installs **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks) into `~/.grok/installed-plugins/lfg`.
 
 ## 언제 어떤 명령?
 

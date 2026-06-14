@@ -4,7 +4,7 @@ const TOTAL_STEPS = 5;
 export function printInstallIntro() {
     output.write("oMoMoMoMo... lfg setup\n\n");
     output.write("Install the omo/lazycodex adapter for Grok Build.\n");
-    output.write("Target: ~/.grok/installed-plugins/lfg as a real directory.\n");
+    output.write("Target: ~/.grok/plugins/lfg as a real directory.\n");
     output.write("Codex-side npx lazycodex-ai install is not used.\n\n");
 }
 export function printStep(index, text) {

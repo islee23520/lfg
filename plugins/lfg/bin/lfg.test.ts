@@ -236,6 +236,31 @@ describe("lfg CLI", () => {
     })
   })
 
+  test("interactive role recommendations only show available models", async () => {
+    await withModelServer(["grok-3-mini-fast"], async (baseUrl) => {
+      const home = await mkdtemp(join(tmpdir(), "lfg-interactive-model-rec."))
+      const input = `${baseUrl}\ny\n\n\n\n\n\n\nn\nn\n`
+      const result = await runLfgText(["setup"], input, { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
+
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).toContain("Recommended: grok-3-mini-fast")
+      expect(result.stdout).not.toContain("Recommended: gpt-5.5")
+      expect(result.stdout).not.toContain("Recommended: grok-4.20-0309-reasoning")
+    })
+  })
+
+  test("interactive setup explicitly offers default and ulw target model configuration", async () => {
+    await withModelServer(["grok-3-mini-fast"], async (baseUrl) => {
+      const home = await mkdtemp(join(tmpdir(), "lfg-interactive-core-ulw."))
+      const input = `${baseUrl}\ny\n\n\n\n\n\n\nn\nn\n`
+      const result = await runLfgText(["setup"], input, { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
+
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).toContain("Configure default / ULW target models and other LazyCodex agents?")
+      expect(result.stdout).not.toContain("Configure other LazyCodex agents (librarian, plan, …)?")
+    })
+  })
+
   test("unsupported commands advertise setup only", async () => {
     for (const legacy of [["--json", "dry-setup"], ["--json", "install"], ["--json", "setup", "show"]] as const) {
       const result = await runLfg(legacy)
@@ -287,7 +312,7 @@ describe("lfg CLI", () => {
     const json = JSON.parse(setup.stdout) as { ok?: boolean; command?: string; selectedPreset?: string }
     expect(json.ok).toBe(true)
     expect(json.command).toBe("setup")
-    expect(json.selectedPreset).toBe("gpt")
+    expect(json.selectedPreset).toBe("grok")
     const scopedDoctor = await execFileResultEnv(
       "npx",
       ["@islee23520/lfg", "--json", "setup", "--preset", "gpt"],

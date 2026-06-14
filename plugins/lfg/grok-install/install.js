@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { writeComponentInventory } from "./component-inventory";
+import { materializeGrokMcpRuntimes } from "./materialize-grok-mcp";
 const DEFAULT_PLUGIN_DIR = "lfg";
 const DEFAULT_VERSION = "0.0.0-dev";
 export function nativeGrokPluginRoot(home, pluginDirName = DEFAULT_PLUGIN_DIR) {
@@ -30,6 +31,7 @@ export async function installGrokPluginFromSource(options) {
         packageVersion: version,
         source: options.componentInventorySource ?? "source_tree",
     });
+    await materializeGrokMcpRuntimes(pluginRoot, options.sourceRoot);
     return { ok: true, pluginRoot, installStampPath, componentInventoryPath, version };
 }
 async function writeLfgPluginPackageManifest(pluginRoot, version) {

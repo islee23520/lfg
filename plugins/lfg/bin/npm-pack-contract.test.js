@@ -29,6 +29,10 @@ describe("npm pack contract (#22)", () => {
         expect(paths).toContain("plugins/lfg/dist/npm-registry-bin.js");
         expect(paths).toContain("plugins/lfg/dist/publish-readiness.js");
         expect(paths).toContain("plugins/lfg/dist/grok-install/fixture-minimal/hooks/hooks.json");
+        // T5 contract: force native Grok hook + bridge fallback + OMO skill workflow payloads in pack (failing-first)
+        expect(paths.some((p) => p.includes("lfg-grok-hook-bridge.mjs") || p.includes("hook-bridge"))).toBe(true);
+        expect(paths.some((p) => p.startsWith("plugins/lfg/skills/") && (p.includes("ulw") || p.includes("ultrawork")))).toBe(true);
+        expect(paths).toContain("plugins/lfg/dist/grok-install/assets/lfg-grok-hook-bridge.mjs"); // bridge fallback surface
     });
     test("dry-run pack filename uses scoped package name and semver (#22)", async () => {
         const { stdout } = await withNpmPackLock(() => execFileAsync("npm", ["pack", "--dry-run", "--json"], { cwd: ROOT, encoding: "utf8" }));

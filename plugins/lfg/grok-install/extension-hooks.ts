@@ -1,6 +1,6 @@
 import { normalizePluginHooksJson } from "./normalize-plugin-hooks"
 
-/** Post-install: normalize lazycodex hooks for Grok (paths + trust); no metadata catalog merge. */
+/** T6: native first-party lfg hook install as Grok event-map (using validateGrokHooksJson + allowlist); bridge fallback for legacy/imported only. Idempotent. */
 export async function mergePortedHooksIntoPlugin(pluginRoot: string): Promise<{
   readonly path: string
   readonly hookNames: readonly string[]

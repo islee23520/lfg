@@ -2,9 +2,9 @@ import { defaultLazycodexAgentConfig } from "../bin/lfg-models";
 import { readLazycodexAgentsFromGrokConfig } from "./read-lazycodex-agents-from-config";
 /** Grok global ledger defaults when no discovery and no config.toml agent sections. */
 export const FALLBACK_GLOBAL_LAZYCODEX_AGENTS = {
-    explorer: { model: "gpt-5.4-mini", reasoningLevel: "low" },
-    reasoning: { model: "gpt-5.5", reasoningLevel: "high" },
-    coding: { model: "gpt-5.3-codex-spark", reasoningLevel: "medium" },
+    explorer: { model: "grok-3-mini-fast", reasoningLevel: "low" },
+    reasoning: { model: "grok-4.3", reasoningLevel: "high" },
+    coding: { model: "grok-4.20-0309-non-reasoning", reasoningLevel: "medium" },
 };
 /**
  * Resolve lazycodex role agents for ~/.grok/agents on every lfg install.

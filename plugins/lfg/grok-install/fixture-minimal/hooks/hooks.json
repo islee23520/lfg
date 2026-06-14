@@ -5,9 +5,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/components/rules/dist/cli.js\" hook session-start",
+            "command": "node \"${PLUGIN_ROOT}/hooks/lfg-native-rules.js\" hook session-start",
             "timeout": 5,
-            "description": "lfg fixture rules session hook"
+            "description": "lfg native first-party rules session hook (no bridge)"
           }
         ]
       }
@@ -17,9 +17,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/components/ultrawork/dist/cli.js\" hook user-prompt-submit",
+            "command": "node \"${PLUGIN_ROOT}/hooks/lfg-native-ultrawork.js\" hook user-prompt-submit",
             "timeout": 5,
-            "description": "lfg fixture ultrawork prompt hook"
+            "description": "lfg native first-party ultrawork prompt hook (no bridge)"
           }
         ]
       }

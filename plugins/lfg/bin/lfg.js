@@ -8,7 +8,8 @@ import { applyModelPreset, modelDiscoveryPlan } from "./lfg-models";
 import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery";
 import { isRecord } from "./lfg-json";
 import { grokConfigJson, refreshGrokModelConfig } from "./lfg-grok-config";
-const DEFAULT_SETUP_PRESET = "gpt";
+import { resolveGrokApiKey } from "../grok-install/grok-api-key";
+const DEFAULT_SETUP_PRESET = "grok";
 async function main(argv) {
     const parsed = parseArgs(argv);
     try {
@@ -59,7 +60,11 @@ async function dispatch(args) {
     if (args.presetError !== null) {
         return { ok: false, status: "invalid_preset", error: args.presetError, supportedPresets: ["grok", "gpt"] };
     }
-    const [command, subcommand] = args.positional;
+    // Tolerate TUI flags (and --force) that may appear as extra positionals from shell invocation
+    // (e.g. `lfg setup --no-tui`, `lfg --no-tui setup`). We already parse them into args.noTui etc.,
+    // but we keep the positional list stable for error messages and JSON contracts.
+    const effectivePos = (args.positional || []).filter((p) => !["--no-tui", "no-tui", "--force", "force"].includes(p));
+    const [command, subcommand] = effectivePos;
     if (!command || command === "help" || command === "--help" || command === "-h") {
         return help();
     }
@@ -77,7 +82,7 @@ async function dispatch(args) {
     if (args.refresh) {
         if (args.run) {
             // Execute the refresh (discovery + write only).
-            const apiKey = process.env.OPENAI_API_KEY;
+            const apiKey = await resolveGrokApiKey(process.env);
             const refreshResult = await refreshGrokModelConfig(discovery, { home, apiKey });
             return buildRefreshExecutedJson(refreshResult, discovery, resolved);
         }
@@ -89,10 +94,46 @@ async function dispatch(args) {
         return runLazycodexInstaller(discovery, { force: args.force || isForceOnly });
     }
     const plan = setupPlan(presetResolved, args.preset);
-    return args.json ? plan : runInstallWizard(plan, presetResolved);
+    if (args.json) {
+        return plan;
+    }
+    // TTY-aware setup routing for bare `lfg setup` (parity with LFP `lfp setup`).
+    // When stdin/stdout are TTYs and --no-tui is not given, use the Clack TUI wrapper.
+    // The TUI shows LFP-style framing (intro/note/confirm/select/outro), captures the
+    // classic line wizard output into a "Setup results" note, then returns control.
+    // Non-TTY, --no-tui, or automation paths fall through to the existing readline wizard.
+    const isInteractiveBare = isInteractiveInstall(args);
+    if (isInteractiveBare) {
+        // Explicit --no-tui (or non-TTY) must bypass the TUI entirely and use the pure
+        // legacy readline wizard so that stdout contains only the classic oMo... steps
+        // with no Clack framing or @clack/prompts calls. This is required for C002 parity.
+        if (args.noTui) {
+            return runInstallWizard(plan, presetResolved);
+        }
+        const { shouldUseSetupTui, runSetupTui } = await import("./lfg-setup-tui.js");
+        if (shouldUseSetupTui(args, { check: false, input: process.stdin, output: process.stdout })) {
+            // TUI path (bare `lfg setup` on real TTY): use the self-contained Clack runner.
+            // It performs the three role agent selects itself (Model / Service tier / Reasoning effort),
+            // prints ONLY the three clean summary lines (e.g. "  explorer: grok-3-mini-fast / low (tier: default)"),
+            // shows its own Install Summary + final Clack "Install now?" confirm, then directly runs the
+            // Grok installer. This path must never delegate to the classic readline wizard, because that
+            // wizard emits "Current:", "Default: keep...", "Recommended:", "Alternatives:", the "Configure
+            // other LazyCodex agents...?" question, the plan review, magic word, "Install now? [y/N]",
+            // "Installation cancelled...", and "oMoMoMoMo... Bye!".
+            // We deliberately pass no runLineSetup (or a no-op) so the self-contained TUI flow is used.
+            const tuiResult = await runSetupTui(args, { plan, resolved: presetResolved }, {
+                // No runLineSetup delegation for the main TUI experience. The runner is self-contained.
+                runLineSetup: undefined,
+            });
+            return tuiResult ?? { ok: true, status: "tui_completed", executed: true };
+        }
+    }
+    return runInstallWizard(plan, presetResolved);
 }
 function isInteractiveInstall(args) {
-    return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1 && !args.refresh;
+    // Treat explicit --no-tui (and stray --force tokens) as non-disqualifying for the "bare interactive" shape.
+    const cleaned = (args.positional || []).filter((p) => !["--no-tui", "no-tui", "--force", "force"].includes(String(p)));
+    return !args.json && !args.run && cleaned[0] === "setup" && cleaned.length === 1 && !args.refresh;
 }
 function isInteractiveRefresh(args) {
     return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1 && args.refresh === true;
@@ -116,7 +157,7 @@ function setupPlan(resolved, preset) {
         packageExecutors: ["npx @islee23520/lfg"],
         selectedPreset: preset,
         presets: [
-            { id: "grok", label: "Grok-centered", text: "Prefer Grok model ids for default, fast, reasoning, and coding aliases." },
+            { id: "grok", label: "Grok-centered hybrid", text: "Prefer Grok for default agents, with GPT help for critical review when available." },
             { id: "gpt", label: "GPT-centered", text: "Prefer GPT/Codex model ids for default, reasoning, and coding aliases." },
         ],
         executed: false,
@@ -124,7 +165,7 @@ function setupPlan(resolved, preset) {
         lfgIsPlugin: false,
         skippedCodexInstaller: true,
         installPath: "grok",
-        purpose: "Grok-first direct install of the omo/lazycodex adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/installed-plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). `npx lazycodex-ai install` (Codex path) is NOT executed on the default path.",
+        purpose: "Grok-first direct install of the omo/lazycodex adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). `npx lazycodex-ai install` (Codex path) is NOT executed on the default path.",
         modelDiscovery: discovery ?? modelDiscoveryPlan(),
         modelDiscoverySource: resolved.baseUrlSource,
         modelsBaseUrlUsed: resolved.baseUrlUsed,
@@ -132,7 +173,7 @@ function setupPlan(resolved, preset) {
         steps: [
             { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) that will be used for Grok [model.*] aliases and the explorer/reasoning/coding agents." },
             { id: 2, status: discovery === null ? "pending" : "done", text: "Build the Grok agent role configs and LFP-style per-agent overrides from the discovered models + bundled omo defaults." },
-            { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/installed-plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_LAZYCODEX_PLUGIN_SOURCE, npm _npx cache of lazycodex-ai, or the built-in fixture.` },
+            { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_LAZYCODEX_PLUGIN_SOURCE, npm _npx cache of lazycodex-ai, or the built-in fixture.` },
             { id: 4, status: "pending", text: `Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, install plugin-owned LFG agents, sync roles/personas/prompts, write lazycodex-agent-overrides.json, and ensure the adapter is enabled for Grok Build.` },
         ],
         note: "Grok-first. Default `lfg setup` (and --json setup) does not execute `npx lazycodex-ai install`. The legacyCodexInstallerCommand is kept only for reference (optional separate Codex bootstrap). Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit.",
@@ -160,7 +201,7 @@ function refreshPlan(resolved, preset) {
         autoModelAliases: discovery !== null,
         steps: [
             { id: 1, status: discovery === null ? "pending" : "done", text: "Re-discover OpenAI-compatible models and context windows from CLI/env/config.toml/default proxy (public LiteLLM catalog enrichment attempted when proxy omits sizes)." },
-            { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key if OPENAI_API_KEY present), and [lazycodex.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." },
+            { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key from OPENAI_API_KEY/XAI_API_KEY or the active Codex provider), and [lazycodex.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." },
         ],
         note: "This is a config-only maintenance operation. Use --run to execute. No Grok plugin install or hook registration occurs.",
     };
@@ -219,7 +260,7 @@ async function runRefreshWizard(plan, resolved) {
             output.write("Cancelled.\n");
             return { ok: true, status: "skipped", executed: false, command: "setup", subcommand: "refresh" };
         }
-        const apiKey = process.env.OPENAI_API_KEY;
+        const apiKey = await resolveGrokApiKey(process.env);
         const home = process.env.HOME ?? homedir();
         const discovery = resolved.discovery;
         const refreshResult = await refreshGrokModelConfig(discovery, { home, apiKey });
@@ -240,7 +281,7 @@ function parseArgs(argv) {
     let presetError = null;
     for (let index = 0; index < argv.length; index += 1) {
         const arg = argv[index];
-        if (arg === "--json" || arg === "--run" || arg === "--force" || arg === "--refresh") {
+        if (arg === "--json" || arg === "--run" || arg === "--force" || arg === "--refresh" || arg === "--no-tui") {
             continue;
         }
         if (arg === "--preset") {
@@ -273,6 +314,7 @@ function parseArgs(argv) {
         run: argv.includes("--run"),
         force: argv.includes("--force"),
         refresh: argv.includes("--refresh"),
+        noTui: argv.includes("--no-tui"),
         preset,
         presetError,
         baseUrl,
@@ -312,13 +354,16 @@ function help() {
         "  lfg --json setup --refresh",
         "  lfg --json setup --refresh --run",
         "  lfg setup --refresh --run",
+        "  lfg setup --no-tui",
         "  (models auto: ~/.grok [endpoints].models_base_url or http://127.0.0.1:8317/v1)",
+        "  TTY bare setup uses a Clack-based TUI (LFP-style framing) with line fallback; --no-tui forces classic readline.",
         "",
         "Refresh (model list + context windows + per-model auth):",
         "  Re-discovers models from the current base URL (proxy + public LiteLLM catalog for context sizes),",
         "  then writes fresh [model.*] sections (including grok-build alias) and lazycodex.models into ~/.grok/config.toml.",
         "  Does not touch the Grok plugin tree, hooks, or agent TOMLs. Existing prior context_window values are preserved",
-        "  when the current discovery does not advertise a size for a model. OPENAI_API_KEY (if set) is written per model.",
+        "  when the current discovery does not advertise a size for a model. OPENAI_API_KEY/XAI_API_KEY, or the active",
+        "  Codex provider token when env is unset, is written per model.",
         "",
         "Setup runs:",
         `  ${LAZYCODEX_INSTALLER_COMMAND}`,

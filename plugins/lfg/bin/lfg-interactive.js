@@ -5,10 +5,23 @@ import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-install/run-grok-install"
 import { configureOmoAgentOverridesInteractively } from "../grok-install/agent-config-wizard";
 import { defaultLazycodexAgentConfig, } from "./lfg-models";
 import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery";
-import { formatRecommendationTable, ROLE_RECOMMENDATIONS, PERF_SNAPSHOT } from "../grok-install/model-recommendations";
+import { buildRoleRecommendations, formatRecommendationTable, PERF_SNAPSHOT } from "../grok-install/model-recommendations";
 import { maybeRequestGitHubStars } from "./lfg-github-stars";
 import { printCancelled, printCompleted, printInstallIntro, printInstallPlan, printMagicWord, printStep } from "./lfg-interactive-ui";
-export async function runInstallWizard(plan, resolved) {
+export async function runInstallWizard(plan, resolved, options = {}) {
+    // === AGGRESSIVE TUI MODE GUARD (first thing) ===
+    // The Clack TUI (lfg-setup-tui) drives bare `lfg setup` on TTY.
+    // When any selector factory or skip flag is passed, this entire call must produce
+    // ONLY the three clean role summary lines (captured for "Setup results").
+    // It must NEVER emit:
+    //   Current / Default / Recommended / Alternatives lines
+    //   "Configure LazyCodex role agents? [y/N]"
+    //   "Configure other LazyCodex agents (librarian, plan, …)? [y/N]"
+    //   [n/5] step headers after discovery, Install Summary box, Magic Word box
+    //   "Install now? [y/N]", "Installation cancelled...", "oMoMoMoMo... Bye!"
+    // The TUI layer owns the final framing + confirm + execution.
+    const isTuiMode = !!(options && (options.modelSelector || options.tierSelector || options.reasoningSelector ||
+        options.skipFinalGate || options.skipOtherAgents));
     printInstallHeader();
     const reader = createLineReader();
     try {
@@ -20,21 +33,30 @@ export async function runInstallWizard(plan, resolved) {
         else {
             printAutoDiscovery(resolved ?? { discovery, baseUrlUsed: null, baseUrlSource: "none", autoDiscovered: false });
         }
-        // Bare `lfg setup` (plain human command, no --json, no --run) is meant to be conversational.
-        // We show what was discovered (so the person sees which models will become the Grok aliases),
-        // ask if they want to customize the main three role agents, and always require an explicit
-        // final confirmation before touching the filesystem.
-        //
-        // This is the whole point of the interactive surface: the human gets to see the plan
-        // (models etc.) and say "yes, do the direct install into a real ~/.grok/installed-plugins/lfg dir".
+        if (isTuiMode) {
+            // TUI fast path: directly execute only the three main role agents using the Clack selectors.
+            // This completely avoids every readline confirm, the long-tail wizard, and all later gates.
+            // readAgentSetting will also see isTui and suppress all guidance.
+            const roleConfig = discovery
+                ? await readAgentConfig(reader, discovery, options)
+                : defaultLazycodexAgentConfig({});
+            // Always take bundled defaults for the rest of the agents; never ask about "other" agents.
+            const bundled = await loadBundledDefaultOmoOverridesForInteractive();
+            const agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {});
+            const configuredDiscovery = {
+                ...(discovery || {}),
+                agentConfig: roleConfig,
+                agentOverrideMap,
+            };
+            if (resolved && typeof resolved === 'object') {
+                resolved.configuredDiscovery = configuredDiscovery;
+            }
+            return { ok: true, status: "tui_configured", configuredDiscovery, executed: false };
+        }
+        // === Classic readline conversational path ONLY (no TUI indicators) ===
         printStep(2, "Configuring LazyCodex agents");
-        const configuredDiscovery = discovery === null ? null : await configureLazycodexAgentsFull(reader, discovery);
-        // This is the interactive gate for bare `lfg setup`.
-        // The whole reason for the non --json / non --run command is to show the human
-        // what models were found (these become the Grok aliases), let them customize the
-        // main role agents if they want, and then **explicitly say yes** before we
-        // do the direct install (real dir under ~/.grok/installed-plugins/lfg, no symlinks,
-        // hooks + agents + overrides + config).
+        const configuredDiscovery = discovery === null ? null : await configureLazycodexAgentsFull(reader, discovery, options);
+        // This is the interactive gate for bare `lfg setup` (classic path only).
         printStep(3, "Reviewing install plan");
         printInstallPlan(plan, configuredDiscovery !== null);
         printMagicWord();
@@ -46,7 +68,7 @@ export async function runInstallWizard(plan, resolved) {
         // Make it explicit in interactive that we do a direct materialization into Grok's tree.
         // This guarantees a real directory we own (no symlinks to ~/.codex or legacy locations).
         printStep(4, "Installing Grok adapter");
-        output.write("\nDirect Grok install: the adapter will be copied into a real directory at ~/.grok/installed-plugins/lfg.\n");
+        output.write("\nDirect Grok install: the adapter will be copied into a real directory at ~/.grok/plugins/lfg.\n");
         output.write("Any previous symlink or non-owned entry at that path will be replaced before applying hooks, agents, and config.\n\n");
         output.write(`\nRunning Grok install: ${INTERNAL_GROK_INSTALL_COMMAND}\n`);
         output.write("(Codex npx lazycodex-ai install is not used on this path.)\n\n");
@@ -120,25 +142,44 @@ function printAutoDiscovery(resolved) {
 // Bare `lfg setup` always goes through configureLazycodexAgentsFull so the human is asked
 // (role agents y/n, and always the final "Install now?"). Auto-discovery only avoids the
 // base-URL prompt; it does not turn the guided setup into a silent "just do it".
-async function configureLazycodexAgentsFull(reader, discovery) {
-    const shouldConfigure = await confirm(reader, "Configure LazyCodex role agents (explorer / reasoning / coding)? [y/N] ");
+async function configureLazycodexAgentsFull(reader, discovery, options = {}) {
+    // When TUI selectors are injected we force the role configuration path so the three main
+    // agents are presented via nice Clack selects (with Current/Recommended context printed before each).
+    // This avoids a raw "Configure role agents? [y/N]" readline prompt during TUI capture.
+    const hasTuiSelectors = !!(options.modelSelector || options.tierSelector || options.reasoningSelector);
+    const shouldConfigure = hasTuiSelectors
+        ? true
+        : await confirm(reader, "Configure LazyCodex role agents (explorer / reasoning / coding)? [y/N] ");
     const roleConfig = shouldConfigure
-        ? await readAgentConfig(reader, discovery)
+        ? await readAgentConfig(reader, discovery, options)
         : defaultLazycodexAgentConfig(discovery);
     // Only enter the long-tail per-agent override wizard (librarian, plan, metis, ...) if the user
     // explicitly opted into role configuration. This keeps the common interactive "just install the adapter"
     // flow short: URL (optional) → role question (usually n) → Install now? → direct Grok materialization
-    // (real dir under installed-plugins/lfg, replacing any symlink or legacy entry).
+    // (real dir under plugins/lfg, replacing any symlink or legacy entry).
     let agentOverrideMap;
-    if (shouldConfigure) {
-        agentOverrideMap = await configureOmoAgentOverridesInteractively(reader, discovery, roleConfig, (text) => output.write(text), confirm);
+    const hasTuiForLongTail = !!(options.modelSelector || options.tierSelector || options.reasoningSelector);
+    if (options.skipOtherAgents || hasTuiForLongTail) {
+        // TUI path (or explicit skip): do not invoke the long tail at all.
+        // This completely avoids the raw "Configure other LazyCodex agents (librarian, plan, …)?" prompt
+        // and any per-agent questions for the long tail when the Clack TUI is driving the three main roles.
+        const bundled = await loadBundledDefaultOmoOverridesForInteractive();
+        agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {});
+    }
+    else if (shouldConfigure) {
+        agentOverrideMap = await configureOmoAgentOverridesInteractively(reader, discovery, roleConfig, (text) => output.write(text), confirm, options);
     }
     else {
         // Use defaults (bundled omo overrides + role defaults). No long series of "Configure xxx?" questions.
         const bundled = await loadBundledDefaultOmoOverridesForInteractive();
         agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {});
     }
-    return { ...discovery, agentConfig: roleConfig, agentOverrideMap };
+    // Use the user-selected explorer model as the effective global default so [models].default
+    // and lazycodex.models.default reflect a deliberate setup choice.
+    const effectiveMapping = discovery.mapping
+        ? { ...discovery.mapping, default: roleConfig.explorer.model }
+        : { default: roleConfig.explorer.model, fast: roleConfig.explorer.model, reasoning: roleConfig.reasoning.model, coding: roleConfig.coding.model };
+    return { ...discovery, mapping: effectiveMapping, agentConfig: roleConfig, agentOverrideMap };
 }
 // Small helpers to avoid importing the whole overrides module at top level just for the default path.
 async function loadBundledDefaultOmoOverridesForInteractive() {
@@ -149,32 +190,84 @@ async function mergeLazycodexAgentOverrides(roleConfig, bundled, extra) {
     const mod = await import("../grok-install/lazycodex-agent-overrides.js");
     return mod.mergeLazycodexAgentOverrides(roleConfig, bundled, extra);
 }
-async function readAgentConfig(reader, discovery) {
+async function readAgentConfig(reader, discovery, options = {}) {
     const defaults = defaultLazycodexAgentConfig(discovery);
     return {
-        explorer: await readAgentSetting(reader, discovery, "explorer", defaults.explorer.model, defaults.explorer.reasoningLevel),
-        reasoning: await readAgentSetting(reader, discovery, "reasoning", defaults.reasoning.model, defaults.reasoning.reasoningLevel),
-        coding: await readAgentSetting(reader, discovery, "coding", defaults.coding.model, defaults.coding.reasoningLevel),
+        explorer: await readAgentSetting(reader, discovery, "explorer", defaults.explorer.model, defaults.explorer.reasoningLevel, options),
+        reasoning: await readAgentSetting(reader, discovery, "reasoning", defaults.reasoning.model, defaults.reasoning.reasoningLevel, options),
+        coding: await readAgentSetting(reader, discovery, "coding", defaults.coding.model, defaults.coding.reasoningLevel, options),
     };
 }
-async function readAgentSetting(reader, discovery, agentName, defaultModel, defaultReasoningLevel) {
-    const rec = ROLE_RECOMMENDATIONS.find((r) => r.role === agentName);
-    if (rec !== undefined) {
-        const perf = PERF_SNAPSHOT[rec.recommended];
-        const latency = perf ? `${perf.latencyMs}ms` : "";
-        const tps = perf ? `${perf.tokensPerSec}t/s` : "";
-        output.write(`  Recommended: ${rec.recommended} (${latency}, ${tps}) - ${rec.rationale.split(".")[0]}\n`);
-        const alts = rec.alternatives.filter((a) => discovery.modelIds.includes(a));
-        if (alts.length > 0) {
-            output.write(`  Alternatives: ${alts.join(", ")}\n`);
+async function readAgentSetting(reader, discovery, agentName, defaultModel, defaultReasoningLevel, options = {}) {
+    // TUI SUPPRESSION - THIS IS THE VERY FIRST EXECUTABLE LINE IN THE FUNCTION.
+    // If the TUI (Clack) is driving, any of the selector factories or skip* flags will be present.
+    // In that case, emit ABSOLUTELY NOTHING before the selector call.
+    // No "Current:", no "Default: keep...", no "Recommended:", no "Alternatives:".
+    // Those would pollute the captured "Setup results" note.
+    // The Clack select UI itself shows the current value (initial + "current" hint).
+    // After the three selects for the agent we emit only the terse summary line.
+    const isTui = !!(options && (options.modelSelector || options.tierSelector || options.reasoningSelector ||
+        options.skipFinalGate || options.skipOtherAgents));
+    if (!isTui) {
+        const rec = buildRoleRecommendations(discovery.modelIds).find((r) => r.role === agentName);
+        if (rec !== undefined) {
+            const perf = PERF_SNAPSHOT[rec.recommended];
+            const latency = perf ? `${perf.latencyMs}ms` : "";
+            const tps = perf ? `${perf.tokensPerSec}t/s` : "";
+            output.write(`  Recommended: ${rec.recommended} (${latency}, ${tps}) - ${rec.rationale.split(".")[0]}\n`);
+            const alts = rec.alternatives.filter((a) => discovery.modelIds.includes(a));
+            if (alts.length > 0) {
+                output.write(`  Alternatives: ${alts.join(", ")}\n`);
+            }
         }
+        output.write(`  Current: ${defaultModel} (reasoning: ${defaultReasoningLevel})\n`);
+        output.write("  Default: keep the current LazyCodex/OMO value; press Enter to leave it unchanged.\n");
     }
-    const model = await readModelChoice(reader, discovery, `  ${agentName} model [${defaultModel}]: `, defaultModel);
-    const reasoningLevel = await readReasoningLevel(reader, `  ${agentName} reasoning level [${defaultReasoningLevel}]: `, defaultReasoningLevel);
-    output.write(`  ${agentName}: ${model} / ${reasoningLevel}\n`);
+    const model = await readModelChoice(reader, discovery, `  ${agentName} model [${defaultModel}]: `, defaultModel, options.modelSelector);
+    // Tier is only prompted when a tierSelector is provided (TUI path for LFP-style parity).
+    // In classic readline we keep the previous minimal (model + reasoningLevel) question count so existing
+    // canned-input tests continue to work. The TUI path supplies tierSelector and the captured transcript
+    // will include the tier line inside the "Setup results" note.
+    let tier;
+    if (typeof options.tierSelector === "function") {
+        tier = await readTierChoice(reader, `  ${agentName} service tier [default]: `, "default", options.tierSelector);
+    }
+    const reasoningLevel = await readReasoningLevel(reader, `  ${agentName} reasoning level [${defaultReasoningLevel}]: `, defaultReasoningLevel, options.reasoningSelector);
+    output.write(`  ${agentName}: ${model} / ${reasoningLevel}${tier ? ` (tier: ${tier})` : ""}\n`);
     return { model, reasoningLevel };
 }
-async function readModelChoice(reader, discovery, prompt, fallback) {
+async function readTierChoice(reader, prompt, fallback, tierSelector) {
+    if (typeof tierSelector === "function") {
+        // The selector is typically created with agentName context by the caller when needed.
+        // Here we call without agentName (the TUI selector factories accept optional agentName).
+        const selected = await tierSelector({ current: fallback });
+        return selected ?? fallback;
+    }
+    output.write(prompt);
+    const answer = await reader.next();
+    const value = answer.done === true ? "" : answer.value.trim().toLowerCase();
+    if (value.length === 0)
+        return fallback;
+    // Accept the small set we surface for parity.
+    if (["default", "fast"].includes(value))
+        return value;
+    if (value === "1")
+        return "default";
+    if (value === "2")
+        return "fast";
+    output.write(`  Unknown tier "${value}". Using ${fallback}.\n`);
+    return fallback;
+}
+async function readModelChoice(reader, discovery, prompt, fallback, modelSelector) {
+    if (typeof modelSelector === "function") {
+        // Build choice list for the injected selector (LFP groupModelAliases style).
+        const choices = buildModelChoices(discovery.modelIds);
+        const selected = await modelSelector({
+            current: fallback,
+            choices: choices.map((c) => ({ ...c, label: formatModelChoiceLabel(c) })),
+        });
+        return selected ?? fallback;
+    }
     output.write(prompt);
     const answer = await reader.next();
     const value = answer.done === true ? "" : answer.value.trim();
@@ -187,7 +280,11 @@ async function readModelChoice(reader, discovery, prompt, fallback) {
     output.write(`  Unknown model "${value}". Using ${fallback}.\n`);
     return fallback;
 }
-async function readReasoningLevel(reader, prompt, fallback) {
+async function readReasoningLevel(reader, prompt, fallback, reasoningSelector) {
+    if (typeof reasoningSelector === "function") {
+        const selected = await reasoningSelector({ current: fallback });
+        return (isReasoningLevel(selected) ? selected : fallback);
+    }
     output.write(prompt);
     const answer = await reader.next();
     const value = answer.done === true ? "" : answer.value.trim().toLowerCase();
@@ -198,6 +295,23 @@ async function readReasoningLevel(reader, prompt, fallback) {
         output.write(`  Unknown reasoning level "${value}". Using ${fallback}.\n`);
     }
     return fallback;
+}
+function buildModelChoices(models) {
+    const groups = new Map();
+    for (const m of models) {
+        const key = m.split("/").at(-1) ?? m;
+        const arr = groups.get(key) ?? [];
+        arr.push(m);
+        groups.set(key, arr);
+    }
+    return [...groups.entries()].map(([key, aliases]) => {
+        const unique = [...new Set(aliases)].sort((a, b) => a.localeCompare(b));
+        const value = unique.find((a) => a === key) ?? unique.find((a) => a === `openai/${key}`) ?? unique[0];
+        return { key, aliases: unique, value };
+    });
+}
+function formatModelChoiceLabel(choice) {
+    return choice.aliases.length === 1 ? choice.aliases[0] : `${choice.key} (aliases: ${choice.aliases.join(", ")})`;
 }
 function isReasoningLevel(value) {
     return value === "low" || value === "medium" || value === "high" || value === "xhigh";

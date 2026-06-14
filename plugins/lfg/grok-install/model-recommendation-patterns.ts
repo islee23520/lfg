@@ -11,7 +11,7 @@
 import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap, ServiceTier } from "./lazycodex-agent-overrides"
 import type { ReasoningLevel } from "../bin/lfg-models"
 
-export type PatternKind = "reasoning" | "utility"
+export type PatternKind = "reasoning" | "utility" | "critical" | "coding"
 
 export type RecommendedModelFields = {
   readonly model: string
@@ -24,10 +24,23 @@ export const REASONING_AGENT_NAMES: ReadonlySet<string> = new Set([
   "metis",
   "momus",
   "plan",
+  "ulw",
   "ulw-plan",
   "review-work",
   "codex-ultrawork-reviewer",
   "reasoning",
+])
+
+const CRITICAL_REVIEW_AGENT_NAMES: ReadonlySet<string> = new Set([
+  "momus",
+  "review-work",
+  "codex-ultrawork-reviewer",
+])
+
+const CODING_AGENT_NAMES: ReadonlySet<string> = new Set([
+  "coding",
+  "builder",
+  "grok-build",
 ])
 
 /** Pattern arrays ordered by preference. Grok IDs first, then GPT/Gemini/Claude fallbacks. */
@@ -39,7 +52,12 @@ export const REASONING_MODEL_PATTERNS: readonly RegExp[] = [
   /grok-4\.[0-9]+/i,
   /grok.*reasoning/i,
   /gpt-5\.5/i,
+  /gpt-5\.3.*codex/i,
   /gpt-5(?!.*mini)/i,
+  /glm-5\.2/i,
+  /glm-5.*turbo/i,
+  /glm-5/i,
+  /gemini-3.*pro.*high/i,
   /gemini.*pro/i,
   /claude.*opus/i,
   /o[1-4]/i,
@@ -49,15 +67,22 @@ export const REASONING_MODEL_PATTERNS: readonly RegExp[] = [
 
 // Utility models: fast, cheap, high-volume agents (explorer, librarian, coding non-reasoning).
 export const UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
+  /grok-4\.[0-9]+.*non-reasoning/i,
+  /grok-composer.*fast/i,
   /grok-3-mini-fast/i,
   /grok-3-mini/i,
-  /grok-4\.[0-9]+.*non-reasoning/i,
   /grok.*mini/i,
   /grok.*fast/i,
   /grok-build/i,
+  /gemini-3.*pro.*low/i,
+  /gemini-3.*pro.*high/i,
+  /gpt-5\.3.*codex/i,
+  /glm-5.*turbo/i,
+  /gemini-3\.1-flash-lite/i,
   /gpt-5\.[0-9]+-mini/i,
   /gpt-5\.[0-9]+.*mini/i,
   /gpt.*mini/i,
+  /glm-5\.2/i,
   /mini/i,
   /fast/i,
   /flash/i,
@@ -65,13 +90,36 @@ export const UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
   /gpt-5/i,
 ]
 
+export const CRITICAL_MODEL_PATTERNS: readonly RegExp[] = [
+  /gpt-5\.5/i,
+  /gpt-5\.3.*codex/i,
+  /grok-4\.3/i,
+  /grok-4\.[0-9]+.*reasoning/i,
+  /glm-5\.2/i,
+  /glm-5.*turbo/i,
+  /gemini-3.*pro.*high/i,
+  /gemini.*pro/i,
+]
+
+export const CODING_MODEL_PATTERNS: readonly RegExp[] = [
+  /grok-4\.[0-9]+.*non-reasoning/i,
+  /gpt-5\.3.*codex/i,
+  /grok-4\.[0-9]+.*reasoning/i,
+  /grok-build/i,
+  /glm-5.*turbo/i,
+  /gemini-3.*pro.*low/i,
+  /gemini-3.*pro.*high/i,
+]
+
 // GPT-first variant patterns (used when preset === "gpt").
 export const GPT_REASONING_MODEL_PATTERNS: readonly RegExp[] = [
   /gpt-5\.5/i,
+  /gpt-5\.3.*codex/i,
   /gpt-5(?!.*mini)/i,
   /grok-4\.[0-9]+.*reasoning/i,
   /grok-4\.3/i,
   /grok-4\.[0-9]+/i,
+  /glm-5\.2/i,
   /gemini.*pro/i,
   /claude.*opus/i,
   /o[1-4]/i,
@@ -79,9 +127,13 @@ export const GPT_REASONING_MODEL_PATTERNS: readonly RegExp[] = [
 ]
 
 export const GPT_UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
+  /gpt-5\.3.*codex/i,
   /gpt-5\.[0-9]+-mini/i,
   /gpt-5\.[0-9]+.*mini/i,
   /gpt.*mini/i,
+  /grok-4\.[0-9]+.*non-reasoning/i,
+  /gemini-3.*pro.*low/i,
+  /glm-5.*turbo/i,
   /mini/i,
   /fast/i,
   /flash/i,
@@ -98,8 +150,12 @@ export type RecommendationPreset = "grok" | "gpt"
 
 function patternsForKind(kind: PatternKind, preset?: RecommendationPreset): readonly RegExp[] {
   if (preset === "gpt") {
-    return kind === "reasoning" ? GPT_REASONING_MODEL_PATTERNS : GPT_UTILITY_MODEL_PATTERNS
+    if (kind === "critical" || kind === "reasoning") return GPT_REASONING_MODEL_PATTERNS
+    if (kind === "coding") return CODING_MODEL_PATTERNS
+    return GPT_UTILITY_MODEL_PATTERNS
   }
+  if (kind === "critical") return CRITICAL_MODEL_PATTERNS
+  if (kind === "coding") return CODING_MODEL_PATTERNS
   return kind === "reasoning" ? REASONING_MODEL_PATTERNS : UTILITY_MODEL_PATTERNS
 }
 
@@ -126,14 +182,16 @@ export function recommendAgentModelFields(
   models: readonly string[],
   preset?: RecommendationPreset,
 ): RecommendedModelFields | undefined {
+  const isCritical = CRITICAL_REVIEW_AGENT_NAMES.has(agentName)
   const isReasoning = REASONING_AGENT_NAMES.has(agentName)
-  const kind: PatternKind = isReasoning ? "reasoning" : "utility"
+  const isCoding = CODING_AGENT_NAMES.has(agentName)
+  const kind: PatternKind = isCritical ? "critical" : isCoding ? "coding" : isReasoning ? "reasoning" : "utility"
   const model = selectModelForPatterns(models, kind, preset)
   if (model === undefined) return undefined
   return {
     model,
-    reasoningLevel: isReasoning ? "high" : "low",
-    serviceTier: isReasoning ? "default" : "fast",
+    reasoningLevel: isCritical || isReasoning ? "high" : "medium",
+    serviceTier: kind === "utility" ? "fast" : "default",
   }
 }
 
@@ -174,18 +232,18 @@ export function applyRecommendedModelOverrides(
 }
 
 
-/** Role agents that already receive model assignment from discovery.mapping.
- * Recommendations skip these to preserve the curated mapping-layer selection.
+/** Agents whose model/reasoning/service_tier must not be overwritten by discovery pattern matching.
+ * - explorer/reasoning/coding: curated from discovery.mapping
+ * - default/ulw: bundled LFP-style Grok-first defaults (Hephaestus / Sisyphus analogues)
  */
-const ROLE_AGENT_NAMES = new Set(["explorer", "reasoning", "coding"])
+const CURATED_OVERRIDE_AGENT_NAMES = new Set(["explorer", "reasoning", "coding", "default", "ulw"])
 
 /** Apply pattern-based recommendations to an override map, preserving fallback fields.
  *
  * For each non-role agent, if a recommended model is found among the discovered
  * models, the agent's model + reasoningLevel + serviceTier are updated. Role
- * agents (explorer, reasoning, coding) are left unchanged since they receive
- * curated models from the discovery mapping layer. Fallback fields are always
- * preserved.
+ * curated agents (explorer, reasoning, coding, default, ulw) are left unchanged.
+ * Fallback fields are always preserved.
  *
  * Returns a new map; does not mutate the input.
  */
@@ -197,7 +255,7 @@ export function applyRecommendationsToOverrideMap(
   if (models.length === 0) return overrides
   const out: Record<string, LazycodexAgentModelOverride> = {}
   for (const [name, setting] of Object.entries(overrides)) {
-    if (ROLE_AGENT_NAMES.has(name)) {
+    if (CURATED_OVERRIDE_AGENT_NAMES.has(name)) {
       out[name] = setting
       continue
     }

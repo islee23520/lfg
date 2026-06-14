@@ -1,13 +1,12 @@
 # omo-codex → Grok parity (lfg owner)
 
-Status column updated during `plans/lfg-omo-grok-adapter.md` execution.
+Status column updated during `.omo/plans/grok-native-omo-hooks.md` execution (T11 checkbox).
 
-Issue #36 separates the already-shipped **core install parity** from the larger
-**full OMO component parity** surface. `lfg` remains a Grok setup helper, not a
-Grok plugin/runtime: `setup --run` materializes the payload under
-`~/.grok/installed-plugins/lfg`, writes `lfg-install.json`, and now writes a
-versioned `lfg-component-inventory.json` so the installed component-support
-matrix can be verified from a temp `HOME`.
+`lfg` is the npm entry for an **omo / lazycodex Grok Build adapter** (core **codex adapter** feature + **opencode** lineage from https://github.com/code-yeongyu/oh-my-openagent). It is a setup helper/adapter package only — not a Grok plugin or runtime.
+
+`setup --run` installs **native Grok hooks** (first-party OMO/lfg hook payloads as native Grok lifecycle events). It uses **bridge fallback** only for legacy/imported hooks. **Grok-first OMO parity** is achieved via native hooks + `~/.grok` payload under `installed-plugins/lfg` (with `lfg-install.json` and `lfg-component-inventory.json` for verification).
+
+Issue #36 separates already-shipped core install parity from full OMO component parity.
 
 ## Core Install Parity
 
@@ -25,7 +24,7 @@ matrix can be verified from a temp `HOME`.
 | Model catalog | `model-catalog.json` | `lfg-models.ts` + `LAZYCODEX_*` | Implemented (`lfg-models.mapping.test.ts`; `lfg-models.urls.test.ts`; setup discovery env) |
 | Autonomous permissions | `permissions.mjs` | N/A or Grok permissions | N/A |
 | Telemetry | plugin telemetry | vendored in tree | N/A (upstream plugin telemetry; lfg does not emit) |
-| Extension hooks (LFP port) | legacy LFP | `grok-install/extension-hooks.ts` | Implemented (`post-install-ported-hooks.test.ts` #32; `extension-hooks.test.ts`; `extension-hooks.catalog.test.ts`; `hook-trust`) |
+| Extension hooks (LFP port) | legacy LFP | `grok-install/extension-hooks.ts` | Implemented (`post-install-ported-hooks.test.ts` #32; `extension-hooks.test.ts`; `extension-hooks.catalog.test.ts`; `hook-trust`). **Grok setup installs native first-party OMO hooks**; bridge fallback used only for legacy/imported hooks. |
 | Extension agent overrides (LFP port) | legacy LFP | `grok-install/agent-overrides.ts` | Implemented (`agent-overrides.test.ts` #30; `apply-agent-tomls.ts` merge) |
 | Per-agent model overrides (LFP-style) | LFP `omo-agent-model-overrides` + `agent-config` | `lazycodex-agent-overrides.ts` + `sync-lazycodex-agents-to-grok.ts` | Implemented (`lazycodex-agent-overrides.test.ts`; `~/.grok/lazycodex-agent-overrides.json`; interactive setup) |
 
@@ -47,13 +46,15 @@ plus the local owner/test surface. The status vocabulary for this table is:
 |--------------------|-----------------|---------------------|------------------|--------|
 | `comment-checker` | `packages/omo-codex/MARKETPLACE.md`; `components/comment-checker` | `plugins/lfg/grok-install/component-inventory.ts`; `plugin-cache-install.acceptance.test.ts` | Codex PostToolUse comment-checker behavior is not wired as a Grok-native post-edit workflow. | Deferred |
 | `git-bash` | `packages/omo-codex/MARKETPLACE.md`; `components/git-bash` | `plugins/lfg/grok-install/component-inventory.ts`; `plugin-cache-install.acceptance.test.ts` | Windows-only MCP (emitted conditionally in .mcp.json; disabled_mcp_servers on non-Windows). | Windows-only |
-| `rules` | `packages/omo-codex/MARKETPLACE.md`; `components/rules` | `plugins/lfg/grok-install/normalize-plugin-hooks.ts`; `hook-bridge.integration.test.ts`; `post-install-ported-hooks.test.ts` | Component lifecycle hook commands are ported through `lfg-grok-hook-bridge.mjs` when the installed payload contains them. | Grok-adapted |
+| `rules` | `packages/omo-codex/MARKETPLACE.md`; `components/rules` | `plugins/lfg/grok-install/normalize-plugin-hooks.ts`; `hook-bridge.integration.test.ts`; `post-install-ported-hooks.test.ts` | **Native first-party OMO hooks** installed by Grok `lfg setup --run` (https://github.com/code-yeongyu/oh-my-openagent codex adapter + opencode). Bridge fallback (`lfg-grok-hook-bridge.mjs`) only for legacy/imported hooks. | Grok-adapted |
 | `lsp` | `packages/omo-codex/MARKETPLACE.md`; `components/lsp` | `plugins/lfg/grok-install/component-inventory.ts`; `grok-adapter-parity-doc.test.ts`; `lfg-mcp manifest in post-install-verify` | LSP MCP wired via plugin-root .mcp.json to installed `components/lsp/dist/cli.js` (mcp subcommand). | Grok-adapted |
 | `ast_grep` | upstream aggregate + build-bundled-mcp-runtimes | `plugins/lfg/grok-install/component-inventory.ts`; MCP manifest + doctor | ast_grep MCP included in .mcp.json (runtime resolved/bundled). | Grok-adapted |
-| `ultrawork` | `packages/omo-codex/MARKETPLACE.md`; `components/ultrawork` | `plugins/lfg/grok-install/sync-lazycodex-agents-to-grok.ts`; `sync-lazycodex-agents.test.ts` | Ultrawork hook commands are bridged when present, and component agent prompts are synced into Grok role/persona/prompt files. | Grok-adapted |
+| `ultrawork` | `packages/omo-codex/MARKETPLACE.md`; `components/ultrawork` | `plugins/lfg/grok-install/sync-lazycodex-agents-to-grok.ts`; `sync-lazycodex-agents.test.ts` | **Native first-party OMO hooks** (Grok-first OMO parity via https://github.com/code-yeongyu/oh-my-openagent codex adapter + opencode feature). Ultrawork bridged only for legacy; agent prompts synced. | Grok-adapted |
 | `ulw-loop` | `packages/omo-codex/MARKETPLACE.md`; `components/ulw-loop` | `plugins/lfg/grok-install/assets/lfg-config-loader.mjs`; `project-omo-ledger.test.ts`; `omo-loader-runtime.integration.test.ts` | Project `.omo` awareness is installed fail-closed through `lfg-config-loader.mjs`; `ulw-loop` session count + active ledger presence is now reported in hook context (SessionStart/UserPromptSubmit) when `.omo/ulw-loop/<session>/ledger.jsonl` exists. Full durable CLI execution remains owned by OMO. | Grok-adapted |
 | `start-work-continuation` | `packages/omo-codex/MARKETPLACE.md`; `components/start-work-continuation` | `plugins/lfg/grok-install/component-inventory.ts`; `grok-adapter-parity-doc.test.ts` | Boulder/start-work continuation is not yet driven as a Grok-native lifecycle workflow. | Deferred |
 | `telemetry` | `packages/omo-codex/MARKETPLACE.md`; `components/telemetry` | `plugins/lfg/grok-install/component-inventory.ts`; `plugin-cache-install.acceptance.test.ts` | lfg does not emit upstream anonymous telemetry. | Unsupported |
+
+**Native first-party OMO hooks + bridge fallback only for legacy/imported hooks** per T11 of `.omo/plans/grok-native-omo-hooks.md`. Grok-first OMO parity via **codex adapter** core + **opencode** feature (https://github.com/code-yeongyu/oh-my-openagent).
 
 **Normative port map:** `docs/lfp-capability-port.md`  
 **Ownership:** `docs/grok-adapter-ownership.md` (ADR; tested in `grok-adapter-ownership-doc.test.ts`)

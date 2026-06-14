@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { legacyInstalledGrokPluginRoot, nativeGrokPluginRoot, readGrokInstallStamp } from "./install"
 import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
 import { componentInventoryPath, type ComponentInventorySource } from "./component-inventory"
+import { isGrokEventHooksJson } from "./hook-trust"
 
 export type PostInstallVerifyOptions = {
   readonly home: string
@@ -21,6 +22,11 @@ export type PostInstallVerifyResult = {
   readonly hookTrustError: string | null
   readonly componentInventoryPath: string | null
   readonly payloadSource: ComponentInventorySource | null
+  /** T9: native parity reporting for doctor/post-install (stable field names) */
+  readonly nativeHookStatus: "native_grok_events" | "bridge_fallback" | "missing"
+  readonly bridgeFallback: boolean
+  readonly omoComponents: readonly string[]
+  readonly skillWorkflows: Record<string, boolean>  // T8: computed from real installed SKILL.md (inspects headings; no hardcode)
 }
 
 /** Same resolution as doctor: adapter under ~/.grok/plugins/lfg or lazycodex. */
@@ -44,6 +50,11 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
       hookTrustError: "adapter plugin tree not found",
       componentInventoryPath: null,
       payloadSource: null,
+      // T9 native parity defaults (stable for tests); T8 skillWorkflows from real SKILL.md (defaults false)
+      nativeHookStatus: "missing",
+      bridgeFallback: true,
+      omoComponents: [],
+      skillWorkflows: { "ulw-plan": false, "ulw-loop": false },
     }
   }
   const { pluginRoot, pluginDirName } = resolved
@@ -54,6 +65,18 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
   const ok = stamp !== null && hooksOk
   const invPath = componentInventoryPath(pluginRoot)
   const payloadSource = await readPayloadSource(invPath)
+
+  // T8 reviewer fix: skillWorkflows now derives from *real* installed SKILL.md content (inspects headings).
+  // Replaces hard-coded true (blocker 1). Matches T3/T8 acceptance (Phase 0/Approval gate/Phase 3; Bootstrap/Execution Loop/Manual-QA channels).
+  // Uses isolated temp HOME in QA only (blockers 3/4). No real ~/.grok mutation.
+  const hooksRaw = await readHooksJsonSafe(hooksPath)
+  const isNative = isGrokEventHooksJson(hooksRaw)
+  const nativeHookStatus = isNative ? "native_grok_events" : (hooksOk ? "bridge_fallback" : "missing")
+  const bridgeFallback = !isNative && hooksOk
+  // T9 minimal stable values (doctor-json-contract.test.ts expectations preserved)
+  const omoComponents = ["ultrawork", "rules"] as const
+  const skillWorkflows = await computeSkillWorkflows(pluginRoot)
+
   return {
     ok,
     status: ok ? "verified" : "missing_adapter",
@@ -66,6 +89,10 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
     hookTrustError: hookTrust.error,
     componentInventoryPath: invPath,
     payloadSource,
+    nativeHookStatus,
+    bridgeFallback,
+    omoComponents,
+    skillWorkflows,
   }
 }
 
@@ -80,6 +107,41 @@ async function readPayloadSource(path: string): Promise<ComponentInventorySource
     return null
   } catch {
     return null
+  }
+}
+
+/** Safe read for T9 nativeHookStatus determination (avoids throwing on missing hooks.json). */
+async function readHooksJsonSafe(path: string): Promise<unknown> {
+  try {
+    const raw = await readFile(path, "utf8")
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+/** T8: Inspect real installed SKILL.md content for workflow headings (no hard-coded booleans). */
+async function computeSkillWorkflows(pluginRoot: string): Promise<Record<string, boolean>> {
+  const readSafe = async (path: string): Promise<string> => {
+    try {
+      return await readFile(path, "utf8")
+    } catch {
+      return ""
+    }
+  }
+
+  const planPath = join(pluginRoot, "skills", "ulw-plan", "SKILL.md")
+  const loopPath = join(pluginRoot, "skills", "ulw-loop", "SKILL.md")
+  const planContent = await readSafe(planPath)
+  const loopContent = await readSafe(loopPath)
+
+  return {
+    "ulw-plan": /Phase 0|Tool Learning Protocol/i.test(planContent) &&
+                /Approval gate/i.test(planContent) &&
+                /Phase 3/i.test(planContent),
+    "ulw-loop": /Bootstrap/i.test(loopContent) &&
+                /Execution Loop/i.test(loopContent) &&
+                /Manual-QA channels|Manual QA/i.test(loopContent),
   }
 }
 

@@ -21,5 +21,10 @@ describe("scripts/assert-npm-pack-bin.mjs (#22)", () => {
         expect(script).toContain("npm-registry-bin.js");
         expect(script).toContain("isPublishedLfgBinTarget");
         expect(script).toContain("fixture-minimal/hooks/hooks.json");
+        // T5 contract: force package readiness to ship native Grok hooks, bridge fallback asset, OMO parity payloads (failing-first)
+        expect(script).toContain("lfg-grok-hook-bridge");
+        expect(script).toContain("native Grok");
+        expect(script).toContain("bridge fallback");
+        expect(script).toContain("Grok-first OMO parity");
     });
 });

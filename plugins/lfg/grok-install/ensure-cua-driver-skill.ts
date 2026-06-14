@@ -3,6 +3,71 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 /**
+ * Ensures ulw-plan and ulw-loop skills (T8) are present with self-contained
+ * workflow headings. Mirrors ensureCuaDriverSkill pattern for discoverability
+ * in Grok skill surface without references/full-workflow.md guessing.
+ * Uses source-of-truth SKILL.md in grok-install/skills/ + top-level skills/.
+ */
+export async function ensureUlwWorkflowSkills(pluginRoot: string): Promise<{ readonly ensured: boolean; readonly paths: string[] }> {
+  const skills = ["ulw-plan", "ulw-loop"]
+  const ensuredPaths: string[] = []
+  let anyEnsured = false
+
+  for (const skill of skills) {
+    const targetDir = join(pluginRoot, "skills", skill)
+    const targetFile = join(targetDir, "SKILL.md")
+    const bundled = await resolveBundledSkill(skill)
+    if (!bundled) continue
+
+    let need = false
+    try {
+      await access(targetFile)
+      const existing = await readFile(targetFile, "utf8")
+      if (existing.length < 100 || /placeholder|TODO|stub|omits all/i.test(existing)) {
+        need = true
+      }
+    } catch {
+      need = true
+    }
+
+    if (need) {
+      await mkdir(targetDir, { recursive: true })
+      await cp(bundled, targetFile, { force: true })
+      anyEnsured = true
+    }
+    ensuredPaths.push(targetFile)
+  }
+
+  return { ensured: anyEnsured, paths: ensuredPaths }
+}
+
+/**
+ * Resolve bundled SKILL.md for ulw-plan or ulw-loop (mirrors cua-driver resolver).
+ */
+async function resolveBundledSkill(skillName: string): Promise<string | null> {
+  const here = dirname(fileURLToPath(import.meta.url))
+  const candidates = [
+    // dist layout
+    join(here, "grok-install", "skills", skillName, "SKILL.md"),
+    join(here, "..", "grok-install", "skills", skillName, "SKILL.md"),
+    // source tree
+    join(here, "skills", skillName, "SKILL.md"),
+    join(here, "..", "skills", skillName, "SKILL.md"),
+    // published package root
+    join(here, "..", "..", "skills", skillName, "SKILL.md"),
+  ]
+  for (const p of candidates) {
+    try {
+      await access(p)
+      return p
+    } catch {
+      // keep looking
+    }
+  }
+  return null
+}
+
+/**
  * Ensures the cua-driver (Computer Use) skill is present under the materialized
  * ~/.grok/plugins/lfg/skills/cua-driver after LFG Grok install.
  *
@@ -46,32 +111,7 @@ export async function ensureCuaDriverSkill(pluginRoot: string): Promise<{ readon
   return { ensured: true, path: targetFile }
 }
 
-/**
- * Find the cua-driver/SKILL.md that is bundled with the currently running LFG.
- * Works from:
- * - dist/grok-install (after `npm run build`)
- * - source grok-install during dev
- * - the top-level skills/ that is part of the published package
- */
+/** Legacy alias for cua-driver resolver (kept for compatibility; calls shared impl). */
 export async function resolveBundledCuaDriverSkill(): Promise<string | null> {
-  const here = dirname(fileURLToPath(import.meta.url))
-  const candidates = [
-    // dist layout (what actually ships in the npm tarball and what run-internal sees at runtime)
-    join(here, "grok-install", "skills", "cua-driver", "SKILL.md"),
-    join(here, "..", "grok-install", "skills", "cua-driver", "SKILL.md"),
-    // source tree next to this module
-    join(here, "skills", "cua-driver", "SKILL.md"),
-    join(here, "..", "skills", "cua-driver", "SKILL.md"),
-    // published package root skills/ (declared in "files")
-    join(here, "..", "..", "skills", "cua-driver", "SKILL.md"),
-  ]
-  for (const p of candidates) {
-    try {
-      await access(p)
-      return p
-    } catch {
-      // keep looking
-    }
-  }
-  return null
+  return resolveBundledSkill("cua-driver")
 }

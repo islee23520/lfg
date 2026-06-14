@@ -9,6 +9,8 @@ import { resolveFlavourPackAssetsRoot } from "./resolve-flavour-pack-asset"
 const ULTRAWORK_AGENTS_DIR = join("components", "ultrawork", "agents")
 
 const GROK_AGENT_NAMES: Readonly<Record<string, string>> = {
+  default: "default",
+  ulw: "ulw",
   plan: "plan",
   explorer: "explorer",
   librarian: "librarian",
@@ -18,6 +20,9 @@ const GROK_AGENT_NAMES: Readonly<Record<string, string>> = {
   reasoning: "reasoning",
   coding: "coding",
 }
+
+/** Grok builtin ~/.grok/agents names LFG must not claim or back up (plugin-owned surfaces only). */
+const RESERVED_USER_GROK_AGENT_NAMES = new Set(["ulw"])
 
 const READ_ONLY_AGENT_NAMES = new Set(["plan", "explorer", "librarian", "metis", "momus", "codex-ultrawork-reviewer"])
 
@@ -50,7 +55,7 @@ export async function syncLazycodexAgentsToGrokLedger(
   await mkdir(rolesDir, { recursive: true })
   await mkdir(personasDir, { recursive: true })
   await mkdir(promptsDir, { recursive: true })
-  await moveConflictingUserAgentsAside(home, [...Object.values(GROK_AGENT_NAMES)])
+  await moveConflictingUserAgentsAside(home, conflictingUserAgentNames())
 
   const written: string[] = []
   const syncedNames = new Set<string>()
@@ -201,6 +206,10 @@ async function moveConflictingUserAgentsAside(home: string, names: readonly stri
   const tomlBackupDir = join(home, ".grok", "agents-toml-backup-lfg")
   await mkdir(tomlBackupDir, { recursive: true })
   for (const entry of (await readTomlEntries(userAgentsDir)) ?? []) await moveIfExists(join(userAgentsDir, entry), join(tomlBackupDir, basename(entry)))
+}
+
+function conflictingUserAgentNames(): string[] {
+  return [...Object.values(GROK_AGENT_NAMES)].filter((name) => !RESERVED_USER_GROK_AGENT_NAMES.has(name))
 }
 
 async function moveConflictingMarkdownAgentsAside(home: string, names: readonly string[]): Promise<void> {

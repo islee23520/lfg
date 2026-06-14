@@ -66,7 +66,7 @@ describe("pattern-based model auto-assignment", () => {
     const explorerRec = recs.get("explorer")
     expect(explorerRec).toBeDefined()
     expect(explorerRec!.model).toBe("grok-3-mini-fast")
-    expect(explorerRec!.reasoningLevel).toBe("low")
+    expect(explorerRec!.reasoningLevel).toBe("medium")
     expect(explorerRec!.serviceTier).toBe("fast")
   })
 

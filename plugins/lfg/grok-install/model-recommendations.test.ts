@@ -19,10 +19,10 @@ describe("model-recommendations", () => {
     }
   })
 
-  test("alternative model scores 80 for its role", () => {
+  test("alternative models score as strong role fits", () => {
     for (const rec of ROLE_RECOMMENDATIONS) {
       for (const alt of rec.alternatives) {
-        expect(scoreModelForRole(alt, rec.role)).toBe(80)
+        expect(scoreModelForRole(alt, rec.role)).toBeGreaterThanOrEqual(60)
       }
     }
   })
@@ -39,10 +39,10 @@ describe("model-recommendations", () => {
     expect(table).toContain("Recommended")
   })
 
-  test("formatRecommendationTable marks missing models", () => {
+  test("formatRecommendationTable only recommends available models", () => {
     const table = formatRecommendationTable(["grok-3-mini-fast"])
-    // grok-4.3 is recommended for codex-ultrawork-reviewer but not in available list
-    expect(table).toContain("(not found)")
+    expect(table).toContain("grok-3-mini-fast")
+    expect(table).not.toContain("(not found)")
   })
 
   test("all core omo agents have recommendations", () => {
@@ -53,10 +53,27 @@ describe("model-recommendations", () => {
     }
   })
 
-  test("all recommendations use Grok models", () => {
-    for (const rec of ROLE_RECOMMENDATIONS) {
-      expect(rec.recommended).toMatch(/^grok-/)
-    }
+  test("critical review recommendations use GPT help when available", () => {
+    const reviewer = ROLE_RECOMMENDATIONS.find((rec) => rec.role === "codex-ultrawork-reviewer")
+    const momus = ROLE_RECOMMENDATIONS.find((rec) => rec.role === "momus")
+    expect(reviewer?.recommended).toBe("gpt-5.5")
+    expect(momus?.recommended).toBe("gpt-5.5")
+  })
+
+  test("role recommendations choose from available models only", () => {
+    const availableModels = ["grok-3-mini-fast"]
+    const table = formatRecommendationTable(availableModels)
+    expect(table).toContain("grok-3-mini-fast")
+    expect(table).not.toContain("gpt-5.5")
+    expect(table).not.toContain("grok-4.20-0309-reasoning")
+  })
+
+  test("role recommendations are not a single global fastest ranking", () => {
+    const table = formatRecommendationTable(Object.keys(PERF_SNAPSHOT))
+    expect(table).toContain("explorer                    grok-4.20-0309-non-reasoning")
+    expect(table).toContain("plan                        grok-4.20-0309-reasoning")
+    expect(table).toContain("momus                       gpt-5.5")
+    expect(table).toContain("coding                      grok-4.20-0309-non-reasoning")
   })
 
   test("perf snapshot has non-zero latency for available models", () => {

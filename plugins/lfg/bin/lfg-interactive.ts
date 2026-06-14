@@ -14,7 +14,7 @@ import type { JsonObject } from "./lfg-json"
 import type { ResolveSetupDiscoveryResult } from "../grok-install/resolve-setup-discovery"
 import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery"
 import type { LazycodexAgentOverrideMap } from "../grok-install/lazycodex-agent-overrides"
-import { formatRecommendationTable, ROLE_RECOMMENDATIONS, PERF_SNAPSHOT } from "../grok-install/model-recommendations"
+import { buildRoleRecommendations, formatRecommendationTable, PERF_SNAPSHOT } from "../grok-install/model-recommendations"
 import { maybeRequestGitHubStars } from "./lfg-github-stars"
 import { printCancelled, printCompleted, printInstallIntro, printInstallPlan, printMagicWord, printStep } from "./lfg-interactive-ui"
 
@@ -26,7 +26,7 @@ export type InstallWizardOptions = {
   readonly reasoningSelector?: (spec: { agentName?: string; current: string }) => Promise<string>;
   // Internal for TUI path: skip the final plan review + "Install now?" gate so the TUI layer can own it with Clack.
   readonly skipFinalGate?: boolean;
-  // Internal for TUI path: skip the "Configure other LazyCodex agents (librarian, plan, …)?" long tail so it does not leak raw prompts.
+  // Internal for TUI path: skip the "Configure default / ULW target models and other LazyCodex agents?" long tail so it does not leak raw prompts.
   readonly skipOtherAgents?: boolean;
 };
 
@@ -38,7 +38,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
   // It must NEVER emit:
   //   Current / Default / Recommended / Alternatives lines
   //   "Configure LazyCodex role agents? [y/N]"
-  //   "Configure other LazyCodex agents (librarian, plan, …)? [y/N]"
+  //   "Configure default / ULW target models and other LazyCodex agents? [y/N]"
   //   [n/5] step headers after discovery, Install Summary box, Magic Word box
   //   "Install now? [y/N]", "Installation cancelled...", "oMoMoMoMo... Bye!"
   // The TUI layer owns the final framing + confirm + execution.
@@ -204,7 +204,7 @@ async function configureLazycodexAgentsFull(reader: LineReader, discovery: Model
   const hasTuiForLongTail = !!(options.modelSelector || options.tierSelector || options.reasoningSelector)
   if (options.skipOtherAgents || hasTuiForLongTail) {
     // TUI path (or explicit skip): do not invoke the long tail at all.
-    // This completely avoids the raw "Configure other LazyCodex agents (librarian, plan, …)?" prompt
+    // This completely avoids the raw "Configure default / ULW target models and other LazyCodex agents?" prompt
     // and any per-agent questions for the long tail when the Clack TUI is driving the three main roles.
     const bundled = await loadBundledDefaultOmoOverridesForInteractive()
     agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {})
@@ -277,7 +277,7 @@ async function readAgentSetting(
   ));
 
   if (!isTui) {
-    const rec = ROLE_RECOMMENDATIONS.find((r) => r.role === agentName);
+    const rec = buildRoleRecommendations(discovery.modelIds).find((r) => r.role === agentName);
     if (rec !== undefined) {
       const perf = PERF_SNAPSHOT[rec.recommended];
       const latency = perf ? `${perf.latencyMs}ms` : "";
@@ -292,16 +292,16 @@ async function readAgentSetting(
     output.write("  Default: keep the current LazyCodex/OMO value; press Enter to leave it unchanged.\n");
   }
 
-  const model = await readModelChoice(reader, discovery, `  ${agentName} model [${defaultModel}]: `, defaultModel, options.modelSelector);
+  const model = await readModelChoice(reader, discovery, `  ${agentName} model [${defaultModel}]: `, defaultModel, agentName, options.modelSelector);
   // Tier is only prompted when a tierSelector is provided (TUI path for LFP-style parity).
   // In classic readline we keep the previous minimal (model + reasoningLevel) question count so existing
   // canned-input tests continue to work. The TUI path supplies tierSelector and the captured transcript
   // will include the tier line inside the "Setup results" note.
   let tier: string | undefined
   if (typeof options.tierSelector === "function") {
-    tier = await readTierChoice(reader, `  ${agentName} service tier [default]: `, "default", options.tierSelector)
+    tier = await readTierChoice(reader, `  ${agentName} service tier [default]: `, "default", agentName, options.tierSelector)
   }
-  const reasoningLevel = await readReasoningLevel(reader, `  ${agentName} reasoning level [${defaultReasoningLevel}]: `, defaultReasoningLevel, options.reasoningSelector)
+  const reasoningLevel = await readReasoningLevel(reader, `  ${agentName} reasoning level [${defaultReasoningLevel}]: `, defaultReasoningLevel, agentName, options.reasoningSelector)
   output.write(`  ${agentName}: ${model} / ${reasoningLevel}${tier ? ` (tier: ${tier})` : ""}\n`)
   return { model, reasoningLevel }
 }
@@ -310,12 +310,11 @@ async function readTierChoice(
   reader: LineReader,
   prompt: string,
   fallback: string,
+  agentName: string,
   tierSelector?: (spec: { agentName?: string; current: string }) => Promise<string>,
 ): Promise<string> {
   if (typeof tierSelector === "function") {
-    // The selector is typically created with agentName context by the caller when needed.
-    // Here we call without agentName (the TUI selector factories accept optional agentName).
-    const selected = await tierSelector({ current: fallback })
+    const selected = await tierSelector({ agentName, current: fallback })
     return selected ?? fallback
   }
   output.write(prompt)
@@ -335,12 +334,14 @@ async function readModelChoice(
   discovery: ModelDiscovery,
   prompt: string,
   fallback: string,
+  agentName: string,
   modelSelector?: (spec: { agentName?: string; current: string; choices: Array<{ value: string; label: string; aliases: readonly string[]; key: string }> }) => Promise<string>,
 ): Promise<string> {
   if (typeof modelSelector === "function") {
     // Build choice list for the injected selector (LFP groupModelAliases style).
     const choices = buildModelChoices(discovery.modelIds)
     const selected = await modelSelector({
+      agentName,
       current: fallback,
       choices: choices.map((c) => ({ ...c, label: formatModelChoiceLabel(c) })),
     })
@@ -363,10 +364,11 @@ async function readReasoningLevel(
   reader: LineReader,
   prompt: string,
   fallback: ReasoningLevel,
+  agentName: string,
   reasoningSelector?: (spec: { agentName?: string; current: string }) => Promise<string>,
 ): Promise<ReasoningLevel> {
   if (typeof reasoningSelector === "function") {
-    const selected = await reasoningSelector({ current: fallback })
+    const selected = await reasoningSelector({ agentName, current: fallback })
     return (isReasoningLevel(selected) ? selected : fallback) as ReasoningLevel
   }
   output.write(prompt)

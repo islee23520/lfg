@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-06-11
-**Commit:** d7ae555
+**Generated:** 2026-06-14
+**Commit:** 169618c
 **Branch:** main
 
 ## OVERVIEW
@@ -18,6 +18,7 @@
 │   └── skills/       # user-facing skill copy shipped with the package
 ├── scripts/          # root build and publish/readiness helpers
 ├── docs/             # adapter ownership/parity/config/publish docs
+├── components/       # small MCP helper shims shipped as dist-only component CLIs
 ├── plans/            # planning history; do not treat as product surface
 └── tests/            # narrow repo-level test scope; own scoped instructions
 ```
@@ -36,6 +37,7 @@
 | Change publish/package shape | `package.json`, `plugins/lfg/package.json`, `scripts/`, `plugins/lfg/bin/*publish*`, `plugins/lfg/bin/*pack*` | Publish from repo root. |
 | Change user-facing skill copy | `plugins/lfg/skills/` | Keep Grok-first `lfg setup` wording aligned. |
 | Change docs | `docs/` | Docs are tested by `*-doc.test.ts` files under `plugins/lfg/bin`. |
+| Change MCP helper shims | `components/*/.mcp.json`, `components/*/dist/cli.js` | Dist-only helper surface; do not broaden product runtime. |
 
 ## CODE MAP
 
@@ -90,3 +92,4 @@ node plugins/lfg/dist/lfg.js --json setup --run
 - Existing stamped Grok setups are preserved unless `--force` is explicit.
 - `plugins/lfg/bin/` and `plugins/lfg/grok-install/` have local AGENTS files because they are the high-risk contract/install hotspots.
 - `docs/` and `plans/` inherit root rules; planning docs are evidence/history, not active product API.
+- `components/*` is intentionally tiny MCP helper packaging. Add scoped guidance only if it gains source, tests, or real ownership complexity.

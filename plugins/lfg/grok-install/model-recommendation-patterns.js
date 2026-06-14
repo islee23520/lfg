@@ -1,147 +1,229 @@
-const REASONING_AGENT_NAMES = /* @__PURE__ */ new Set([
-  "metis",
-  "momus",
-  "plan",
-  "ulw-plan",
-  "review-work",
-  "codex-ultrawork-reviewer",
-  "reasoning"
+/** Dynamic pattern-based model auto-assignment (ported from lfp's model-recommendations.mjs).
+ *
+ * Unlike the static ROLE_RECOMMENDATIONS which are hardcoded benchmark data,
+ * these functions scan the actually-discovered model IDs and pattern-match
+ * to assign the best available model per agent.
+ *
+ * Patterns are Grok-first: Grok model IDs are preferred over GPT/Gemini/Claude
+ * equivalents at the same tier.
+ */
+/** Agents that need deep reasoning models (ported from lfp + Grok additions). */
+export const REASONING_AGENT_NAMES = new Set([
+    "metis",
+    "momus",
+    "plan",
+    "ulw",
+    "ulw-plan",
+    "review-work",
+    "codex-ultrawork-reviewer",
+    "reasoning",
 ]);
-const REASONING_MODEL_PATTERNS = [
-  /grok-4\.[0-9]+.*reasoning/i,
-  /grok-4\.3/i,
-  /grok-4\.[0-9]+/i,
-  /grok.*reasoning/i,
-  /gpt-5\.5/i,
-  /gpt-5(?!.*mini)/i,
-  /gemini.*pro/i,
-  /claude.*opus/i,
-  /o[1-4]/i,
-  /reasoning/i,
-  /reason/i
+const CRITICAL_REVIEW_AGENT_NAMES = new Set([
+    "momus",
+    "review-work",
+    "codex-ultrawork-reviewer",
+]);
+const CODING_AGENT_NAMES = new Set([
+    "coding",
+    "builder",
+    "grok-build",
+]);
+/** Pattern arrays ordered by preference. Grok IDs first, then GPT/Gemini/Claude fallbacks. */
+// Reasoning-capable models: deep-chain-of-thought models for planning/analysis/review.
+export const REASONING_MODEL_PATTERNS = [
+    /grok-4\.[0-9]+.*reasoning/i,
+    /grok-4\.3/i,
+    /grok-4\.[0-9]+/i,
+    /grok.*reasoning/i,
+    /gpt-5\.5/i,
+    /gpt-5\.3.*codex/i,
+    /gpt-5(?!.*mini)/i,
+    /glm-5\.2/i,
+    /glm-5.*turbo/i,
+    /glm-5/i,
+    /gemini-3.*pro.*high/i,
+    /gemini.*pro/i,
+    /claude.*opus/i,
+    /o[1-4]/i,
+    /reasoning/i,
+    /reason/i,
 ];
-const UTILITY_MODEL_PATTERNS = [
-  /grok-3-mini-fast/i,
-  /grok-3-mini/i,
-  /grok-4\.[0-9]+.*non-reasoning/i,
-  /grok.*mini/i,
-  /grok.*fast/i,
-  /grok-build/i,
-  /gpt-5\.[0-9]+-mini/i,
-  /gpt-5\.[0-9]+.*mini/i,
-  /gpt.*mini/i,
-  /mini/i,
-  /fast/i,
-  /flash/i,
-  /gpt-5\.[0-9]+/i,
-  /gpt-5/i
+// Utility models: fast, cheap, high-volume agents (explorer, librarian, coding non-reasoning).
+export const UTILITY_MODEL_PATTERNS = [
+    /grok-4\.[0-9]+.*non-reasoning/i,
+    /grok-composer.*fast/i,
+    /grok-3-mini-fast/i,
+    /grok-3-mini/i,
+    /grok.*mini/i,
+    /grok.*fast/i,
+    /grok-build/i,
+    /gemini-3.*pro.*low/i,
+    /gemini-3.*pro.*high/i,
+    /gpt-5\.3.*codex/i,
+    /glm-5.*turbo/i,
+    /gemini-3\.1-flash-lite/i,
+    /gpt-5\.[0-9]+-mini/i,
+    /gpt-5\.[0-9]+.*mini/i,
+    /gpt.*mini/i,
+    /glm-5\.2/i,
+    /mini/i,
+    /fast/i,
+    /flash/i,
+    /gpt-5\.[0-9]+/i,
+    /gpt-5/i,
 ];
-const GPT_REASONING_MODEL_PATTERNS = [
-  /gpt-5\.5/i,
-  /gpt-5(?!.*mini)/i,
-  /grok-4\.[0-9]+.*reasoning/i,
-  /grok-4\.3/i,
-  /grok-4\.[0-9]+/i,
-  /gemini.*pro/i,
-  /claude.*opus/i,
-  /o[1-4]/i,
-  /reasoning/i
+export const CRITICAL_MODEL_PATTERNS = [
+    /gpt-5\.5/i,
+    /gpt-5\.3.*codex/i,
+    /grok-4\.3/i,
+    /grok-4\.[0-9]+.*reasoning/i,
+    /glm-5\.2/i,
+    /glm-5.*turbo/i,
+    /gemini-3.*pro.*high/i,
+    /gemini.*pro/i,
 ];
-const GPT_UTILITY_MODEL_PATTERNS = [
-  /gpt-5\.[0-9]+-mini/i,
-  /gpt-5\.[0-9]+.*mini/i,
-  /gpt.*mini/i,
-  /mini/i,
-  /fast/i,
-  /flash/i,
-  /grok-3-mini-fast/i,
-  /grok-3-mini/i,
-  /grok.*mini/i,
-  /grok.*fast/i,
-  /grok-build/i,
-  /gpt-5\.[0-9]+/i,
-  /gpt-5/i
+export const CODING_MODEL_PATTERNS = [
+    /grok-4\.[0-9]+.*non-reasoning/i,
+    /gpt-5\.3.*codex/i,
+    /grok-4\.[0-9]+.*reasoning/i,
+    /grok-build/i,
+    /glm-5.*turbo/i,
+    /gemini-3.*pro.*low/i,
+    /gemini-3.*pro.*high/i,
+];
+// GPT-first variant patterns (used when preset === "gpt").
+export const GPT_REASONING_MODEL_PATTERNS = [
+    /gpt-5\.5/i,
+    /gpt-5\.3.*codex/i,
+    /gpt-5(?!.*mini)/i,
+    /grok-4\.[0-9]+.*reasoning/i,
+    /grok-4\.3/i,
+    /grok-4\.[0-9]+/i,
+    /glm-5\.2/i,
+    /gemini.*pro/i,
+    /claude.*opus/i,
+    /o[1-4]/i,
+    /reasoning/i,
+];
+export const GPT_UTILITY_MODEL_PATTERNS = [
+    /gpt-5\.3.*codex/i,
+    /gpt-5\.[0-9]+-mini/i,
+    /gpt-5\.[0-9]+.*mini/i,
+    /gpt.*mini/i,
+    /grok-4\.[0-9]+.*non-reasoning/i,
+    /gemini-3.*pro.*low/i,
+    /glm-5.*turbo/i,
+    /mini/i,
+    /fast/i,
+    /flash/i,
+    /grok-3-mini-fast/i,
+    /grok-3-mini/i,
+    /grok.*mini/i,
+    /grok.*fast/i,
+    /grok-build/i,
+    /gpt-5\.[0-9]+/i,
+    /gpt-5/i,
 ];
 function patternsForKind(kind, preset) {
-  if (preset === "gpt") {
-    return kind === "reasoning" ? GPT_REASONING_MODEL_PATTERNS : GPT_UTILITY_MODEL_PATTERNS;
-  }
-  return kind === "reasoning" ? REASONING_MODEL_PATTERNS : UTILITY_MODEL_PATTERNS;
-}
-function selectModelForPatterns(models, kind, preset) {
-  const patterns = patternsForKind(kind, preset);
-  for (const pattern of patterns) {
-    const matches = models.filter((model) => pattern.test(model));
-    if (matches.length > 0) {
-      return matches.find((m) => m === m.toLowerCase()) ?? matches[0];
+    if (preset === "gpt") {
+        if (kind === "critical" || kind === "reasoning")
+            return GPT_REASONING_MODEL_PATTERNS;
+        if (kind === "coding")
+            return CODING_MODEL_PATTERNS;
+        return GPT_UTILITY_MODEL_PATTERNS;
     }
-  }
-  return models[0];
+    if (kind === "critical")
+        return CRITICAL_MODEL_PATTERNS;
+    if (kind === "coding")
+        return CODING_MODEL_PATTERNS;
+    return kind === "reasoning" ? REASONING_MODEL_PATTERNS : UTILITY_MODEL_PATTERNS;
 }
-function recommendAgentModelFields(agentName, models, preset) {
-  const isReasoning = REASONING_AGENT_NAMES.has(agentName);
-  const kind = isReasoning ? "reasoning" : "utility";
-  const model = selectModelForPatterns(models, kind, preset);
-  if (model === void 0) return void 0;
-  return {
-    model,
-    reasoningLevel: isReasoning ? "high" : "low",
-    serviceTier: isReasoning ? "default" : "fast"
-  };
-}
-function buildRecommendedModelOverrides(overrides, models, preset) {
-  const recommendations = /* @__PURE__ */ new Map();
-  for (const agentName of Object.keys(overrides)) {
-    const fields = recommendAgentModelFields(agentName, models, preset);
-    if (fields !== void 0) {
-      recommendations.set(agentName, fields);
+/** Select the best model from a list matching the given pattern kind. */
+export function selectModelForPatterns(models, kind, preset) {
+    const patterns = patternsForKind(kind, preset);
+    for (const pattern of patterns) {
+        const matches = models.filter((model) => pattern.test(model));
+        if (matches.length > 0) {
+            // Prefer lowercase canonical id when multiple aliases match the same pattern
+            return matches.find((m) => m === m.toLowerCase()) ?? matches[0];
+        }
     }
-  }
-  return recommendations;
+    return models[0];
 }
-function applyRecommendedModelOverrides(overrides, recommendations) {
-  for (const [agentName, fields] of recommendations) {
-    const existing = overrides[agentName] ?? {};
-    overrides[agentName] = {
-      ...existing,
-      model: fields.model,
-      reasoningLevel: fields.reasoningLevel,
-      serviceTier: fields.serviceTier
+/** Build recommended model fields for a single agent based on whether it needs reasoning. */
+export function recommendAgentModelFields(agentName, models, preset) {
+    const isCritical = CRITICAL_REVIEW_AGENT_NAMES.has(agentName);
+    const isReasoning = REASONING_AGENT_NAMES.has(agentName);
+    const isCoding = CODING_AGENT_NAMES.has(agentName);
+    const kind = isCritical ? "critical" : isCoding ? "coding" : isReasoning ? "reasoning" : "utility";
+    const model = selectModelForPatterns(models, kind, preset);
+    if (model === undefined)
+        return undefined;
+    return {
+        model,
+        reasoningLevel: isCritical || isReasoning ? "high" : "medium",
+        serviceTier: kind === "utility" ? "fast" : "default",
     };
-  }
 }
-const ROLE_AGENT_NAMES = /* @__PURE__ */ new Set(["explorer", "reasoning", "coding"]);
-function applyRecommendationsToOverrideMap(overrides, models, preset) {
-  if (models.length === 0) return overrides;
-  const out = {};
-  for (const [name, setting] of Object.entries(overrides)) {
-    if (ROLE_AGENT_NAMES.has(name)) {
-      out[name] = setting;
-      continue;
+/** Build recommendations for all agents in an override map from discovered models.
+ * Returns a Map keyed by agent name. Agents where no model can be selected are omitted.
+ */
+export function buildRecommendedModelOverrides(overrides, models, preset) {
+    const recommendations = new Map();
+    for (const agentName of Object.keys(overrides)) {
+        const fields = recommendAgentModelFields(agentName, models, preset);
+        if (fields !== undefined) {
+            recommendations.set(agentName, fields);
+        }
     }
-    const rec = recommendAgentModelFields(name, models, preset);
-    if (rec === void 0) {
-      out[name] = setting;
-      continue;
-    }
-    out[name] = {
-      ...setting,
-      model: rec.model,
-      reasoningLevel: rec.reasoningLevel,
-      serviceTier: rec.serviceTier
-    };
-  }
-  return out;
+    return recommendations;
 }
-export {
-  GPT_REASONING_MODEL_PATTERNS,
-  GPT_UTILITY_MODEL_PATTERNS,
-  REASONING_AGENT_NAMES,
-  REASONING_MODEL_PATTERNS,
-  UTILITY_MODEL_PATTERNS,
-  applyRecommendationsToOverrideMap,
-  applyRecommendedModelOverrides,
-  buildRecommendedModelOverrides,
-  recommendAgentModelFields,
-  selectModelForPatterns
-};
+/** Apply recommendations into an existing override map (mutable, lfp-style merge).
+ * Only model + reasoningLevel + serviceTier are set; fallback fields are preserved.
+ */
+export function applyRecommendedModelOverrides(overrides, recommendations) {
+    for (const [agentName, fields] of recommendations) {
+        const existing = overrides[agentName] ?? {};
+        overrides[agentName] = {
+            ...existing,
+            model: fields.model,
+            reasoningLevel: fields.reasoningLevel,
+            serviceTier: fields.serviceTier,
+        };
+    }
+}
+/** Agents whose model/reasoning/service_tier must not be overwritten by discovery pattern matching. */
+const CURATED_OVERRIDE_AGENT_NAMES = new Set(["explorer", "reasoning", "coding", "default", "ulw"]);
+/** Apply pattern-based recommendations to an override map, preserving fallback fields.
+ *
+ * For each non-role agent, if a recommended model is found among the discovered
+ * models, the agent's model + reasoningLevel + serviceTier are updated. Role
+ * agents (explorer, reasoning, coding) are left unchanged since they receive
+ * curated models from the discovery mapping layer. Fallback fields are always
+ * preserved.
+ *
+ * Returns a new map; does not mutate the input.
+ */
+export function applyRecommendationsToOverrideMap(overrides, models, preset) {
+    if (models.length === 0)
+        return overrides;
+    const out = {};
+    for (const [name, setting] of Object.entries(overrides)) {
+        if (CURATED_OVERRIDE_AGENT_NAMES.has(name)) {
+            out[name] = setting;
+            continue;
+        }
+        const rec = recommendAgentModelFields(name, models, preset);
+        if (rec === undefined) {
+            out[name] = setting;
+            continue;
+        }
+        out[name] = {
+            ...setting,
+            model: rec.model,
+            reasoningLevel: rec.reasoningLevel,
+            serviceTier: rec.serviceTier,
+        };
+    }
+    return out;
+}

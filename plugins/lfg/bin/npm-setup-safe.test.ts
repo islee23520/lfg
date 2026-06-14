@@ -84,12 +84,12 @@ describe("npm setup script safety", () => {
         expect(result.configUpdated).toBe(true)
         expect(result.agentOverridesPath).toBe(join(home, ".grok", "lazycodex-agent-overrides.json"))
         expect(result.agentPaths?.length).toBeGreaterThanOrEqual(1)
-        await expect(readFile(configPath, "utf8")).resolves.toContain('default = "gpt-5.4-mini"')
+        await expect(readFile(configPath, "utf8")).resolves.toContain('default = "grok-3-mini-fast"')
         await expect(readFile(agentPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
         await expect(readFile(join(home, ".grok", "agents-toml-backup-lfg", "explorer.toml"), "utf8")).resolves.toContain(
           'model = "user-kept-agent"',
         )
-        await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "gpt-5.4-mini"')
+        await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "grok-3-mini-fast"')
         await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")).resolves.toContain(
           "name: explorer",
         )
@@ -99,7 +99,7 @@ describe("npm setup script safety", () => {
     })
   })
 
-  test("root npm run setup -- --json exposes a gpt-centered preset plan", async () => {
+  test("root npm run setup -- --json exposes an explicit gpt-centered preset plan", async () => {
     await withModelServer(["grok-3-mini-fast", "gpt-5.4-mini", "gpt-5.5"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-npm-setup-preset-home."))
       try {
@@ -111,7 +111,7 @@ describe("npm setup script safety", () => {
           readonly modelDiscovery?: { readonly mapping?: { readonly default?: string; readonly reasoning?: string } }
         }
         expect(result.selectedPreset).toBe("gpt")
-        expect(result.modelDiscovery?.mapping).toMatchObject({ default: "gpt-5.4-mini", reasoning: "gpt-5.5" })
+        expect(result.modelDiscovery?.mapping).toMatchObject({ default: "gpt-5.5", reasoning: "gpt-5.5" })
       } finally {
         await rm(home, { recursive: true, force: true })
       }

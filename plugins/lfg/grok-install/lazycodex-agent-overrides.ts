@@ -21,6 +21,8 @@ export const LAZYCODEX_AGENT_OVERRIDES_FILENAME = "lazycodex-agent-overrides.jso
 
 /** OMO / ultrawork agents users can tune per agent (LFP-style). */
 export const CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
+  "default",
+  "ulw",
   "explorer",
   "reasoning",
   "coding",

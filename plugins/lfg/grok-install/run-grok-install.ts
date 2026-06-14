@@ -7,7 +7,7 @@ import { modelDiscoveryEnv } from "../bin/lfg-models"
 import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentModels } from "./grok-plugins-enable"
 import { ensureLfgConfigFiles } from "./lfg-config"
 import { mergePortedHooksIntoPlugin } from "./extension-hooks"
-import { ensureCuaDriverSkill } from "./ensure-cua-driver-skill"
+import { ensureCuaDriverSkill, ensureUlwWorkflowSkills } from "./ensure-cua-driver-skill"
 import { ensureHephaestusModelGate } from "./ensure-hephaestus-model-gate"
 import { normalizePluginHooksJson } from "./normalize-plugin-hooks"
 import {
@@ -21,6 +21,7 @@ import { runInternalGrokInstall } from "./run-internal"
 import { syncLazycodexAgentsToGrokLedger, type SyncLazycodexAgentsResult } from "./sync-lazycodex-agents-to-grok"
 import { componentInventoryPath } from "./component-inventory"
 import { applyRecommendationsToOverrideMap } from "./model-recommendation-patterns"
+import { resolveGrokApiKey } from "./grok-api-key"
 
 export const INTERNAL_GROK_INSTALL_PACKAGE = "lfg-grok-install" as const
 export const INTERNAL_GROK_INSTALL_COMMAND = "@islee23520/lfg internal grok-install" as const
@@ -53,6 +54,7 @@ export async function runGrokInstall(
   options: GrokInstallRunOptions = {},
 ): Promise<GrokInstallRunResult> {
   const home = env.HOME ?? homedir()
+  const apiKey = await resolveGrokApiKey(env)
   const existingSetup = options.force === true ? null : await resolveExistingStampedLfgSetup(home)
   if (existingSetup !== null) {
     const resolvedAgents = await resolveGlobalLazycodexAgentConfig(home, discovery)
@@ -68,7 +70,7 @@ export async function runGrokInstall(
     const configUpdate =
       discovery !== null
         ? await writeGrokModelConfig(discovery, {
-            apiKey: env.OPENAI_API_KEY,
+            apiKey,
             home,
             agentConfig: resolvedAgents,
             fullAgentModels,
@@ -88,6 +90,7 @@ export async function runGrokInstall(
     // lfg-config-loader, project omo ledger, and ultrawork component hooks are guaranteed loaded.
     const hooksNormalized = await normalizePluginHooksJson(existingSetup.pluginRoot)
     await ensureCuaDriverSkill(existingSetup.pluginRoot)
+    await ensureUlwWorkflowSkills(existingSetup.pluginRoot)
     await ensureHephaestusModelGate(existingSetup.pluginRoot)
 
     return {
@@ -140,7 +143,7 @@ export async function runGrokInstall(
   const configUpdate =
     discovery !== null
       ? await writeGrokModelConfig(discovery, {
-          apiKey: env.OPENAI_API_KEY,
+          apiKey,
           home,
           agentConfig: resolvedAgents,
           fullAgentModels,
@@ -167,6 +170,7 @@ export async function runGrokInstall(
   if (pluginRootAfterInstall) {
     const norm = await normalizePluginHooksJson(pluginRootAfterInstall)
     await ensureCuaDriverSkill(pluginRootAfterInstall)
+    await ensureUlwWorkflowSkills(pluginRootAfterInstall)
     await ensureHephaestusModelGate(pluginRootAfterInstall)
     hooksFresh = { path: norm.path, hookNames: norm.hookNames, changed: norm.changed }
   }

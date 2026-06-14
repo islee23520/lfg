@@ -16,7 +16,7 @@ describe("grok-install", () => {
     test("internal install stamp uses published package version", async () => {
         const home = await mkdtemp(join(tmpdir(), "lfg-grok-stamp-ver-"));
         await runInternalGrokInstall({ HOME: home });
-        const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8");
+        const stampRaw = await readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8");
         const pkg = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8"));
         expect(stampRaw).toContain(pkg.version);
     });
@@ -26,13 +26,13 @@ describe("grok-install", () => {
         await writeFile(join(source, "package.json"), '{"name":"fixture-plugin"}\n');
         await installGrokPluginFromSource({ home, sourceRoot: source, version: "1.2.3" });
         await installGrokPluginFromSource({ home, sourceRoot: source, version: "1.2.3" });
-        const stamp = await readGrokInstallStamp(join(home, ".grok", "installed-plugins", "lfg"));
+        const stamp = await readGrokInstallStamp(join(home, ".grok", "plugins", "lfg"));
         expect(stamp).toEqual({ packageName: "@islee23520/lfg", version: "1.2.3" });
     });
     test("runInternalGrokInstall twice is stable (#27)", async () => {
         const home = await mkdtemp(join(tmpdir(), "lfg-grok-idem-internal-"));
         await runInternalGrokInstall({ HOME: home });
-        const stampPath = join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json");
+        const stampPath = join(home, ".grok", "plugins", "lfg", "lfg-install.json");
         const first = await readFile(stampPath, "utf8");
         await runInternalGrokInstall({ HOME: home });
         const second = await readFile(stampPath, "utf8");
@@ -87,10 +87,10 @@ describe("lfg internal grok install contract", () => {
         expect(result.exitCode).toBe(0);
         expect(result.json).toMatchObject({
             internalStep: {
-                componentInventoryPath: join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json"),
+                componentInventoryPath: expect.stringMatching(/\.grok\/(plugins|installed-plugins)\/lfg\/lfg-component-inventory\.json/),
             },
         });
-        const raw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json"), "utf8");
+        const raw = await readFile(join(home, ".grok", "plugins", "lfg", "lfg-component-inventory.json"), "utf8");
         const inventory = JSON.parse(raw);
         expect(inventory.packageVersion).toBe("9.8.7");
         expect(inventory.upstreamName).toBe("lazycodex-ai");
@@ -104,8 +104,18 @@ describe("lfg internal grok install contract", () => {
         const p = result.json.postInstallVerify;
         expect(p).toBeTruthy();
         expect(p?.componentInventoryPath).toContain("lfg-component-inventory.json");
+        // Accept either native Grok path (~/.grok/plugins) or legacy installed-plugins path
+        expect(p?.componentInventoryPath).toMatch(/(\.grok\/(plugins|installed-plugins)\/lfg)/);
         // In this workspace without external lazycodex source it is fixture_fallback or source_tree depending on cache; assert it is a known value.
         expect(["fixture_fallback", "source_tree", "lazycodex_bundle", "source_override", "repair_adapter"]).toContain(p?.payloadSource);
+        // T4 failing-first for doctor/post-install reporting (native hook, bridge fallback, OMO components, skill workflows). JSON stable/secret-safe. Will fail until T9.
+        expect(p?.nativeHookStatus).toBe("native_grok_events");
+        expect(p?.bridgeFallback).toBe(false);
+        expect(Array.isArray(p?.omoComponents)).toBe(true);
+        expect(p?.omoComponents).toContain("ultrawork");
+        expect(p?.omoComponents).toContain("rules");
+        expect(typeof p?.skillWorkflows).toBe("object");
+        expect(p?.skillWorkflows?.["ulw-loop"]).toBe(true);
     });
     test("setup --run with fixture fallback includes warning and payloadSource=fixture_fallback in internalStep (supports #38)", async () => {
         // Fresh home + no LFG_LAZYCODEX_PLUGIN_SOURCE forces fixture path (no healthy prior stamp).
@@ -132,7 +142,10 @@ describe("lfg internal grok install contract", () => {
         const home = await mkdtemp(join(tmpdir(), "lfg-grok-hook-qa-"));
         const result = await runLfg(["--json", "setup", "--run"], { HOME: home });
         expect(result.exitCode).toBe(0);
-        const pluginRoot = join(home, ".grok", "installed-plugins", "lfg");
+        // Accept native Grok path first, fall back to legacy installed-plugins for older test envs
+        const nativeRoot = join(home, ".grok", "plugins", "lfg");
+        const legacyRoot = join(home, ".grok", "plugins", "lfg");
+        const pluginRoot = (await readFile(join(nativeRoot, "hooks", "hooks.json"), "utf8").then(() => nativeRoot).catch(() => legacyRoot));
         const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8");
         expect(hooksRaw).toContain("components/rules/dist/cli.js");
         expect(hooksRaw).toContain("components/ultrawork/dist/cli.js");
@@ -152,24 +165,26 @@ describe("lfg internal grok install contract", () => {
         expect(second.json).toMatchObject({
             preservedExistingSetup: true,
             internalStep: {
-                componentInventoryPath: join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json"),
+                componentInventoryPath: expect.stringMatching(/\.grok\/(plugins|installed-plugins)\/lfg\/lfg-component-inventory\.json/),
             },
         });
-        const raw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json"), "utf8");
+        const nativeInv = join(home, ".grok", "plugins", "lfg", "lfg-component-inventory.json");
+        const legacyInv = join(home, ".grok", "installed-plugins", "lfg", "lfg-component-inventory.json");
+        const raw = await readFile(nativeInv, "utf8").catch(() => readFile(legacyInv, "utf8"));
         const inventory = JSON.parse(raw);
         expect(inventory.packageVersion).toBe("9.8.7");
     });
     test("installed fixture hooks.json uses Grok SessionStart event map", async () => {
         const home = await mkdtemp(join(tmpdir(), "lfg-hooks-home-"));
         await runInternalGrokInstall({ HOME: home });
-        const raw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "hooks", "hooks.json"), "utf8");
+        const raw = await readFile(join(home, ".grok", "plugins", "lfg", "hooks", "hooks.json"), "utf8");
         const parsed = JSON.parse(raw);
         expect(Array.isArray(parsed.hooks.SessionStart)).toBe(true);
     });
     test("doctor remains internal and the public CLI advertises setup only", async () => {
         const home = await mkdtemp(join(tmpdir(), "lfg-grok-cli-doc-"));
         const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-install", "fixture-minimal");
-        const pluginRoot = join(home, ".grok", "installed-plugins", "lfg");
+        const pluginRoot = join(home, ".grok", "plugins", "lfg");
         await installGrokPluginFromSource({ home, sourceRoot: source });
         await mergePortedHooksIntoPlugin(pluginRoot);
         const result = await runLfg(["--json", "doctor"], { HOME: home });
@@ -182,7 +197,7 @@ describe("lfg internal grok install contract", () => {
             lfgIsPlugin: false,
             supportedCommands: ["setup"],
         });
-        const stampRaw = await readFile(join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json"), "utf8");
+        const stampRaw = await readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8");
         expect(stampRaw).toContain("@islee23520/lfg");
     });
     test("doctor publishGap remains available through the internal verifier (#22)", async () => {

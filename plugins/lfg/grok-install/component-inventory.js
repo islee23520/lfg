@@ -7,10 +7,11 @@ export const UPSTREAM_OMO_TAG = "v4.9.2";
 export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.9.2";
 const COMPONENTS = [
     { id: "comment-checker", status: "Deferred", evidence: "Codex PostToolUse hook behavior has no Grok-native equivalent wired by lfg yet." },
-    { id: "git-bash", status: "Unsupported", evidence: "Windows Git Bash MCP is Codex-host specific and outside Grok setup scope." },
+    { id: "git-bash", status: "Windows-only", evidence: "git_bash MCP emitted only on Windows per plan; disabled_mcp_servers on macOS/Linux." },
     { id: "rules", status: "Grok-adapted", evidence: "Component hooks are bridged through lfg-grok-hook-bridge.mjs when present in the installed payload." },
-    { id: "lsp", status: "Deferred", evidence: "LSP MCP tools are not exposed by the setup-only Grok adapter package yet." },
-    { id: "ultrawork", status: "Grok-adapted", evidence: "Ultrawork hook commands are bridged when present; role prompts are synced from component agents." },
+    { id: "lsp", status: "Grok-adapted", evidence: "lsp MCP wired via plugin .mcp.json pointing to ./components/lsp/dist/cli.js mcp (uses omo-lsp CLI that resolves to lsp-daemon)." },
+    { id: "ast_grep", status: "Grok-adapted", evidence: "ast_grep MCP wired via plugin .mcp.json pointing to node_modules/@code-yeongyu/ast-grep-mcp/dist/cli.js mcp (verified post-install)." },
+    { id: "ultrawork", status: "Grok-adapted", evidence: "Ultrawork OMO hook parity routed natively via component/runtime (dist/cli.js + bridge); implements `omo hook <event>` shape for Grok without new top-level commands." },
     { id: "ulw-loop", status: "Grok-adapted", evidence: "Project .omo awareness is installed fail-closed through lfg-config-loader.mjs." },
     { id: "start-work-continuation", status: "Deferred", evidence: "Boulder/start-work continuation is not yet driven as a Grok-native lifecycle workflow." },
     { id: "telemetry", status: "Unsupported", evidence: "lfg does not emit upstream anonymous telemetry." },

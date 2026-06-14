@@ -92,7 +92,10 @@ describe("lfg Grok config persistence", () => {
         const apiKey = "sk-agent-key";
         await withModelServer(["grok-3-mini", "grok-4.20-0309-reasoning", "codex-auto-review"], { requiredApiKey: apiKey }, async (baseUrl) => {
             const home = await mkdtemp(join(tmpdir(), "lfg-home."));
-            const input = ["y", "codex-auto-review", "high", "grok-4.20-0309-reasoning", "xhigh", "grok-3-mini", "low", "n", "y"].join("\n");
+            // LFP-style interactive now prints "Current:" + "Default: keep the current... press Enter to leave it unchanged."
+            // before each model/reasoning prompt, plus recommendations. The answers are still consumed in the same order.
+            // We add a trailing \n to ensure the final "Install now?" confirmation is delivered as a complete line to the readline iterator.
+            const input = ["y", "codex-auto-review", "high", "grok-4.20-0309-reasoning", "xhigh", "grok-3-mini", "low", "n", "y"].join("\n") + "\n";
             const result = await runLfgText(["setup", "--base-url", baseUrl], input, {
                 HOME: home,
                 OPENAI_API_KEY: apiKey,

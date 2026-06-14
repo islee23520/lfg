@@ -115,13 +115,21 @@ describe("lfg internal grok install contract", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-payload-src-"))
     const result = await runLfg(["--json", "setup", "--run"], { HOME: home })
     expect(result.exitCode).toBe(0)
-    const p = (result.json as any).postInstallVerify as { payloadSource?: string; componentInventoryPath?: string } | undefined
+    const p = (result.json as any).postInstallVerify as { payloadSource?: string; componentInventoryPath?: string; nativeHookStatus?: string; bridgeFallback?: boolean; omoComponents?: string[]; skillWorkflows?: Record<string, boolean> } | undefined
     expect(p).toBeTruthy()
     expect(p?.componentInventoryPath).toContain("lfg-component-inventory.json")
     // Accept either native Grok path (~/.grok/plugins) or legacy installed-plugins path
     expect(p?.componentInventoryPath).toMatch(/(\.grok\/(plugins|installed-plugins)\/lfg)/)
     // In this workspace without external lazycodex source it is fixture_fallback or source_tree depending on cache; assert it is a known value.
     expect(["fixture_fallback", "source_tree", "lazycodex_bundle", "source_override", "repair_adapter"]).toContain(p?.payloadSource)
+    // T9: doctor/post-install native parity reporting now stable (matches fixture with native_grok_events; no bridge fallback)
+    expect(p?.nativeHookStatus).toBe("native_grok_events")
+    expect(p?.bridgeFallback).toBe(false)
+    expect(Array.isArray(p?.omoComponents)).toBe(true)
+    expect(p?.omoComponents).toContain("ultrawork")
+    expect(p?.omoComponents).toContain("rules")
+    expect(typeof p?.skillWorkflows).toBe("object")
+    expect(p?.skillWorkflows?.["ulw-loop"]).toBe(true)
   })
 
   test("setup --run with fixture fallback includes warning and payloadSource=fixture_fallback in internalStep (supports #38)", async () => {
@@ -146,7 +154,7 @@ describe("lfg internal grok install contract", () => {
     })
   })
 
-  test("setup --run installs executable rules and ultrawork hook bridge targets", async () => {
+  test("setup --run installs executable first-party native hooks (T6 alignment for T9)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-hook-qa-"))
     const result = await runLfg(["--json", "setup", "--run"], { HOME: home })
     expect(result.exitCode).toBe(0)
@@ -156,10 +164,13 @@ describe("lfg internal grok install contract", () => {
     const legacyRoot = join(home, ".grok", "plugins", "lfg")
     const pluginRoot = (await readFile(join(nativeRoot, "hooks", "hooks.json"), "utf8").then(() => nativeRoot).catch(() => legacyRoot))
     const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
-    expect(hooksRaw).toContain("components/rules/dist/cli.js")
-    expect(hooksRaw).toContain("components/ultrawork/dist/cli.js")
+    expect(hooksRaw).toContain("lfg-native-rules.js")
+    expect(hooksRaw).toContain("lfg-native-ultrawork.js")
+    expect(hooksRaw).toContain("lfg-config-loader.mjs") // T6 native + config loader
 
     const bridgePath = join(pluginRoot, "hooks", "lfg-grok-hook-bridge.mjs")
+    // T9: native first-party (no bridge wrapper in primary hooks per T6; bridge test in other tests)
+    // T9/T6: test native first-party hooks (lfg-native-*.js in hooks.json); bridge is fallback only (tested in hook-bridge.integration.test.ts). Fixture components still present for CLI invocation.
     const rules = await runInstalledHook(
       [bridgePath, "node", join(pluginRoot, "components", "rules", "dist", "cli.js"), "hook", "session-start"],
       { hookEventName: "session_start", sessionId: "test-session", cwd: process.cwd(), source: "startup" },

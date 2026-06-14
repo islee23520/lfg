@@ -4,6 +4,8 @@ import { join } from "node:path"
 import { describe, expect, test } from "vitest"
 import { defaultLazycodexAgentConfig, type ModelDiscovery } from "../bin/lfg-models"
 import {
+  CONFIGURABLE_LAZYCODEX_AGENT_NAMES,
+  loadBundledDefaultOmoOverrides,
   mergeLazycodexAgentOverrides,
   readLazycodexAgentOverridesFile,
   writeLazycodexAgentOverridesFile,
@@ -40,7 +42,17 @@ describe("lazycodex-agent-overrides", () => {
     expect(merged.librarian?.model).toBe("bundled-lib")
     expect(merged.reasoning.model).toBe(role.reasoning.model)
   })
-})
+
+  test("bundled defaults include default and ulw agents", async () => {
+    const bundled = await loadBundledDefaultOmoOverrides()
+    expect(bundled.default?.model).toBe("grok-4.20-0309-reasoning")
+    expect(bundled.default?.reasoningLevel).toBe("high")
+    expect(bundled.ulw?.model).toBe("grok-4.3")
+    expect(bundled.ulw?.reasoningLevel).toBe("xhigh")
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("default")
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("ulw")
+  })
+
   test("writes and reads all 6 model fields including fallback (Wave 1A parity)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-override-6field-"))
     await writeLazycodexAgentOverridesFile(home, {
@@ -62,3 +74,4 @@ describe("lazycodex-agent-overrides", () => {
     expect(raw).toContain("service_tier")
     expect(raw).toContain("model_fallback")
   })
+})

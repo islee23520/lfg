@@ -1,8 +1,10 @@
 /** Model recommendation data and scoring for interactive setup.
  *
- * Recommendations are Grok-first: every role prefers the best Grok model,
- * with GPT/Gemini/Cloude equivalents shown as alternatives.
- * Performance data comes from live proxy benchmarking.
+ * Recommendations are availability-aware: setup only recommends models that
+ * the user's OpenAI-compatible /v1/models endpoint actually exposes. The
+ * preference order is benchmark-informed and Grok-centered, with GPT used for
+ * critical review help when available. GLM and Gemini are included as measured
+ * fallback/alternative families.
  */
 
 export type ModelPerf = {
@@ -22,110 +24,112 @@ export type RoleRecommendation = {
   readonly alternatives: readonly string[]
 }
 
-/** Performance snapshot from live benchmarking. */
-export const PERF_SNAPSHOT: Readonly<Record<string, ModelPerf>> = {
-  "grok-3-mini-fast":      { model: "grok-3-mini-fast",      latencyMs: 1960, tokensPerSec: 146, codingQuality: 2, reasoningQuality: 1, available: true },
-  "grok-3-mini":           { model: "grok-3-mini",           latencyMs: 3360, tokensPerSec: 147, codingQuality: 2, reasoningQuality: 1, available: true },
-  "grok-4.20-0309-non-reasoning": { model: "grok-4.20-0309-non-reasoning", latencyMs: 680, tokensPerSec: 63, codingQuality: 2, reasoningQuality: 2, available: true },
-  "grok-4.20-0309-reasoning":     { model: "grok-4.20-0309-reasoning",     latencyMs: 4420, tokensPerSec: 175, codingQuality: 2, reasoningQuality: 2, available: true },
-  "grok-4.3":              { model: "grok-4.3",              latencyMs: 8480, tokensPerSec: 160, codingQuality: 2, reasoningQuality: 2, available: true },
-  "grok-4.20-multi-agent-0309":   { model: "grok-4.20-multi-agent-0309",   latencyMs: 7010, tokensPerSec: 611, codingQuality: 2, reasoningQuality: 2, available: true },
-  "grok-build-0.1":        { model: "grok-build-0.1",        latencyMs: 3720, tokensPerSec: 150, codingQuality: 2, reasoningQuality: 2, available: true },
-  "gpt-5.4-mini":          { model: "gpt-5.4-mini",          latencyMs: 5540, tokensPerSec: 21,  codingQuality: 2, reasoningQuality: 1, available: true },
-  "gpt-5.5":               { model: "gpt-5.5",               latencyMs: 3470, tokensPerSec: 13,  codingQuality: 2, reasoningQuality: 2, available: true },
-  "gpt-5.3-codex-spark":   { model: "gpt-5.3-codex-spark",   latencyMs: 2100, tokensPerSec: 219, codingQuality: 2, reasoningQuality: 2, available: true },
-  "codex-auto-review":     { model: "codex-auto-review",     latencyMs: 3400, tokensPerSec: 13,  codingQuality: 2, reasoningQuality: 2, available: true },
-  "claude-opus-4-6-thinking": { model: "claude-opus-4-6-thinking", latencyMs: 18290, tokensPerSec: 34, codingQuality: 2, reasoningQuality: 2, available: true },
-  "claude-sonnet-4-6":     { model: "claude-sonnet-4-6",     latencyMs: 5190, tokensPerSec: 15,  codingQuality: 2, reasoningQuality: 2, available: true },
-  "gemini-3.5-flash-low":  { model: "gemini-3.5-flash-low",  latencyMs: 3920, tokensPerSec: 17,  codingQuality: 2, reasoningQuality: 1, available: true },
-  "gemini-3.1-pro-preview":{ model: "gemini-3.1-pro-preview", latencyMs: 12370, tokensPerSec: 6,  codingQuality: 2, reasoningQuality: 2, available: true },
-  "gemini-pro-agent":      { model: "gemini-pro-agent",       latencyMs: 11170, tokensPerSec: 5,  codingQuality: 2, reasoningQuality: 2, available: true },
+type RoleProfile = {
+  readonly role: string
+  readonly reasoningEffort: string
+  readonly rationale: string
+  readonly preferredModels: readonly string[]
 }
 
-/** Grok-first role recommendations. */
-export const ROLE_RECOMMENDATIONS: readonly RoleRecommendation[] = [
+/** Performance snapshot from local live benchmarking against the setup proxy. */
+export const PERF_SNAPSHOT: Readonly<Record<string, ModelPerf>> = {
+  "grok-4.3": { model: "grok-4.3", latencyMs: 3094, tokensPerSec: 119, codingQuality: 2, reasoningQuality: 2, available: true },
+  "grok-4.20-0309-non-reasoning": { model: "grok-4.20-0309-non-reasoning", latencyMs: 623, tokensPerSec: 61, codingQuality: 2, reasoningQuality: 2, available: true },
+  "grok-4.20-0309-reasoning": { model: "grok-4.20-0309-reasoning", latencyMs: 2331, tokensPerSec: 174, codingQuality: 2, reasoningQuality: 2, available: true },
+  "grok-3-mini-fast": { model: "grok-3-mini-fast", latencyMs: 4046, tokensPerSec: 129, codingQuality: 2, reasoningQuality: 1, available: true },
+  "grok-composer-2.5-fast": { model: "grok-composer-2.5-fast", latencyMs: 2389, tokensPerSec: 139, codingQuality: 2, reasoningQuality: 2, available: true },
+  "grok-build-0.1": { model: "grok-build-0.1", latencyMs: 4549, tokensPerSec: 121, codingQuality: 2, reasoningQuality: 2, available: true },
+  "gpt-5.5": { model: "gpt-5.5", latencyMs: 2440, tokensPerSec: 23, codingQuality: 2, reasoningQuality: 2, available: true },
+  "gpt-5.3-codex-spark": { model: "gpt-5.3-codex-spark", latencyMs: 1143, tokensPerSec: 236, codingQuality: 2, reasoningQuality: 2, available: true },
+  "gpt-5.4-mini": { model: "gpt-5.4-mini", latencyMs: 980, tokensPerSec: 85, codingQuality: 2, reasoningQuality: 1, available: true },
+  "gemini-3-pro-low": { model: "gemini-3-pro-low", latencyMs: 448, tokensPerSec: 73, codingQuality: 2, reasoningQuality: 2, available: true },
+  "gemini-3-pro-high": { model: "gemini-3-pro-high", latencyMs: 603, tokensPerSec: 49, codingQuality: 2, reasoningQuality: 2, available: true },
+  "glm-5-turbo": { model: "glm-5-turbo", latencyMs: 3745, tokensPerSec: 54, codingQuality: 2, reasoningQuality: 2, available: true },
+  "glm-5.2": { model: "glm-5.2", latencyMs: 6979, tokensPerSec: 30, codingQuality: 2, reasoningQuality: 2, available: true },
+  "gemini-3.1-flash-lite": { model: "gemini-3.1-flash-lite", latencyMs: 1681, tokensPerSec: 27, codingQuality: 2, reasoningQuality: 1, available: true },
+  "gemini-3.5-flash-low": { model: "gemini-3.5-flash-low", latencyMs: 2174, tokensPerSec: 17, codingQuality: 2, reasoningQuality: 1, available: true },
+}
+
+const ROLE_PROFILES: readonly RoleProfile[] = [
   {
     role: "explorer",
-    recommended: "grok-3-mini-fast",
-    reasoningEffort: "low",
-    rationale: "Fastest Grok model (1.96s). High-volume codebase search prioritizes speed over depth.",
-    alternatives: ["grok-3-mini", "gpt-5.4-mini"],
+    reasoningEffort: "medium",
+    rationale: "Fast Grok utility path for high-volume codebase search and exploration (LazyCodex 4.9.2 default). GPT/Gemini fallbacks when available.",
+    preferredModels: ["grok-4.20-0309-non-reasoning", "grok-3-mini-fast", "grok-composer-2.5-fast", "grok-build-0.1", "gpt-5.3-codex-spark", "gemini-3-pro-low", "glm-5-turbo"],
   },
   {
     role: "librarian",
-    recommended: "grok-3-mini",
     reasoningEffort: "low",
-    rationale: "Balanced speed/quality (3.36s). Reliable for web search and documentation research.",
-    alternatives: ["grok-3-mini-fast", "gpt-5.4-mini"],
+    rationale: "Grok-first research route (LazyCodex 4.9.2 librarian default). Fast utility models for external doc lookup.",
+    preferredModels: ["grok-3-mini-fast", "grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning", "gpt-5.4-mini", "glm-5-turbo", "gemini-3.1-flash-lite"],
   },
   {
     role: "plan",
-    recommended: "grok-4.20-0309-reasoning",
-    reasoningEffort: "xhigh",
-    rationale: "Deep reasoning model (6.3s). Strategic planning needs thorough analysis of ambiguities and dependencies.",
-    alternatives: ["grok-4.3", "gpt-5.5", "claude-opus-4-6-thinking"],
+    reasoningEffort: "high",
+    rationale: "Deep Grok reasoning for strategic planning (LazyCodex 4.9.2 plan default). GPT-5.5 as strong alternative when present.",
+    preferredModels: ["grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
   },
   {
     role: "metis",
-    recommended: "grok-4.20-0309-non-reasoning",
     reasoningEffort: "high",
-    rationale: "Fast analytical model (1.96s). Pre-planning analysis needs quick contradiction detection without deep chain-of-thought.",
-    alternatives: ["grok-3-mini-fast", "gpt-5.5"],
+    rationale: "Pre-planning analysis benefits from Grok frontier reasoning (LazyCodex 4.9.2 metis default).",
+    preferredModels: ["grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
   },
   {
     role: "momus",
-    recommended: "grok-4.20-0309-reasoning",
-    reasoningEffort: "xhigh",
-    rationale: "Deep reasoning for plan review (6.3s). Needs to catch edge cases and validate plan executability.",
-    alternatives: ["grok-4.3", "gpt-5.5"],
+    reasoningEffort: "high",
+    rationale: "Critical plan review uses Grok frontier models (LazyCodex 4.9.2 momus default). GPT-5.5 strong alternative.",
+    preferredModels: ["grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
   },
   {
     role: "codex-ultrawork-reviewer",
-    recommended: "grok-4.3",
     reasoningEffort: "high",
-    rationale: "Frontier Grok model (8.48s). Final verification benefits from deepest model for catching subtle bugs.",
-    alternatives: ["grok-4.20-0309-reasoning", "gpt-5.3-codex-spark", "claude-opus-4-6-thinking"],
+    rationale: "Final ultrawork review uses Grok frontier (LazyCodex 4.9.2 reviewer default). GPT as strong second opinion.",
+    preferredModels: ["grok-4.3", "gpt-5.5", "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
   },
   {
     role: "reasoning",
-    recommended: "grok-4.20-0309-reasoning",
-    reasoningEffort: "high",
-    rationale: "Purpose-built reasoning model (6.3s). Best for complex multi-step logic and analysis.",
-    alternatives: ["grok-4.3", "gpt-5.5"],
+    reasoningEffort: "medium",
+    rationale: "General reasoning role uses Grok frontier models (LazyCodex 4.9.2 alignment).",
+    preferredModels: ["grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
   },
   {
     role: "coding",
-    recommended: "grok-4.20-0309-non-reasoning",
     reasoningEffort: "medium",
-    rationale: "Fast and accurate (0.68s). Coding tasks need quick, correct output over deep reasoning.",
-    alternatives: ["grok-build-0.1", "gpt-5.3-codex-spark", "codex-auto-review"],
+    rationale: "Coding uses fast Grok non-reasoning or specialized coding path (LazyCodex 4.9.2 coding default).",
+    preferredModels: ["grok-4.20-0309-non-reasoning", "grok-build-0.1", "gpt-5.3-codex-spark", "grok-4.3", "glm-5-turbo", "gemini-3-pro-low"],
   },
 ]
+
+/** Availability-aware role recommendations for a representative full model set. */
+export const ROLE_RECOMMENDATIONS: readonly RoleRecommendation[] = buildRoleRecommendations(Object.keys(PERF_SNAPSHOT))
+
+export function buildRoleRecommendations(availableModels: readonly string[]): readonly RoleRecommendation[] {
+  return ROLE_PROFILES.map((profile) => resolveRoleRecommendation(profile, availableModels))
+}
 
 /** Format a recommendation table for terminal output. */
 export function formatRecommendationTable(
   availableModels: readonly string[],
 ): string {
+  const recs = buildRoleRecommendations(availableModels)
   const lines: string[] = []
-  lines.push("Agent Model Recommendations (Grok-first, benchmarked)")
-  lines.push("─".repeat(85))
-  lines.push(padCol("Agent", 28) + padCol("Recommended", 28) + padCol("Latency", 10) + padCol("t/s", 8) + "Rationale")
-  lines.push("─".repeat(85))
-  for (const rec of ROLE_RECOMMENDATIONS) {
+  lines.push("Agent Model Recommendations (available-model aware, benchmarked)")
+  lines.push("─".repeat(92))
+  lines.push(padCol("Agent", 28) + padCol("Recommended", 30) + padCol("Latency", 10) + padCol("t/s", 8) + "Rationale")
+  lines.push("─".repeat(92))
+  for (const rec of recs) {
     const perf = PERF_SNAPSHOT[rec.recommended]
     const latency = perf ? `${perf.latencyMs}ms` : "n/a"
     const tps = perf ? `${perf.tokensPerSec}` : "n/a"
-    const available = availableModels.includes(rec.recommended) ? "" : " (not found)"
-    const shortRationale = rec.rationale.split(".")[0] ?? ""
-    lines.push(padCol(rec.role, 28) + padCol(rec.recommended + available, 28) + padCol(latency, 10) + padCol(tps, 8) + shortRationale)
+    lines.push(padCol(rec.role, 28) + padCol(rec.recommended, 30) + padCol(latency, 10) + padCol(tps, 8) + rec.rationale)
   }
-  lines.push("─".repeat(85))
+  lines.push("─".repeat(92))
   lines.push("")
-  lines.push("Alternative models per agent (shown in interactive setup):")
-  for (const rec of ROLE_RECOMMENDATIONS) {
-    const alts = rec.alternatives.filter((a) => availableModels.includes(a))
-    if (alts.length > 0) {
-      lines.push(`  ${rec.role}: ${alts.join(", ")}`)
+  lines.push("Available alternatives per agent:")
+  for (const rec of recs) {
+    if (rec.alternatives.length > 0) {
+      lines.push(`  ${rec.role}: ${rec.alternatives.join(", ")}`)
     }
   }
   return lines.join("\n")
@@ -137,24 +141,37 @@ export function scoreModelForRole(
   role: string,
   perfData: Readonly<Record<string, ModelPerf>> = PERF_SNAPSHOT,
 ): number {
-  const rec = ROLE_RECOMMENDATIONS.find((r) => r.role === role)
-  if (rec === undefined) {
+  const profile = ROLE_PROFILES.find((r) => r.role === role)
+  if (profile === undefined) {
     return 50
   }
-  if (model === rec.recommended) {
-    return 100
-  }
-  if (rec.alternatives.includes(model)) {
-    return 80
+  const rank = profile.preferredModels.indexOf(model)
+  if (rank >= 0) {
+    return Math.max(100 - rank * 8, 60)
   }
   const perf = perfData[model]
   if (perf === undefined) {
     return 40
   }
-  // Heuristic: score by speed and quality
-  const speedScore = Math.max(0, 100 - perf.latencyMs / 200)
+  const speedScore = Math.max(0, 100 - perf.latencyMs / 120)
   const qualityScore = (perf.codingQuality + perf.reasoningQuality) * 20
   return Math.round((speedScore + qualityScore) / 2)
+}
+
+function resolveRoleRecommendation(profile: RoleProfile, availableModels: readonly string[]): RoleRecommendation {
+  const available = profile.preferredModels.filter((model) => availableModels.includes(model))
+  const recommended = available[0] ?? firstChatModel(availableModels) ?? profile.preferredModels[0] ?? "grok-4.20-0309-non-reasoning"
+  return {
+    role: profile.role,
+    recommended,
+    reasoningEffort: profile.reasoningEffort,
+    rationale: profile.rationale,
+    alternatives: available.filter((model) => model !== recommended).slice(0, 4),
+  }
+}
+
+function firstChatModel(models: readonly string[]): string | undefined {
+  return models.find((model) => !/(image|imagine|video|embedding)/i.test(model))
 }
 
 function padCol(text: string, width: number): string {

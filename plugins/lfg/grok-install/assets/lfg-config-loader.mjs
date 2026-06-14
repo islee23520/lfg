@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { inspectProjectOmoLedger } from "./lfg-project-omo-ledger.mjs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const input = parseJson(await readStdin());
 const event = normalizeHookEventName(input);
@@ -15,7 +18,18 @@ const ledger = await inspectProjectOmoLedger({ projectRoot, sessionId });
 const context = renderContext(configPath, config, ledger);
 
 if (context !== null) {
-  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: context } }));
+  // Emit both formats: statusMessage for Grok UI visibility during SessionStart,
+  // and hookSpecificOutput for internal LFG context that other hooks can consume.
+  const statusMessage = `LFG: ${event === "SessionStart" ? "Session initialized" : "Context loaded"} (${config ? "config+agents" : "no-config"})${ledger.status === "present" && ledger.work ? " + active work" : ""}`;
+  process.stdout.write(JSON.stringify({
+    statusMessage,
+    hookSpecificOutput: { hookEventName: event, additionalContext: context }
+  }) + "\n");
+} else {
+  // Still emit minimal status when there's no context to show
+  process.stdout.write(JSON.stringify({
+    statusMessage: `LFG: ${event} (no config or active work)`
+  }) + "\n");
 }
 
 async function readConfig(path) {

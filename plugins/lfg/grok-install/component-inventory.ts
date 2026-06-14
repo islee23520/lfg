@@ -13,8 +13,9 @@ const COMPONENTS = [
   { id: "rules", status: "Grok-adapted", evidence: "Component hooks are bridged through lfg-grok-hook-bridge.mjs when present in the installed payload." },
   { id: "lsp", status: "Grok-adapted", evidence: "lsp MCP wired via plugin .mcp.json pointing to ./components/lsp/dist/cli.js mcp (uses omo-lsp CLI that resolves to lsp-daemon)." },
   { id: "ast_grep", status: "Grok-adapted", evidence: "ast_grep MCP wired via plugin .mcp.json pointing to node_modules/@code-yeongyu/ast-grep-mcp/dist/cli.js mcp (verified post-install)." },
-  { id: "ultrawork", status: "Grok-adapted", evidence: "Ultrawork hook commands are bridged when present; role prompts are synced from component agents." },
-  { id: "ulw-loop", status: "Grok-adapted", evidence: "Project .omo awareness is installed fail-closed through lfg-config-loader.mjs." },
+  { id: "ultrawork", status: "Grok-adapted", evidence: "Ultrawork OMO hook parity routed natively via component/runtime (dist/cli.js + bridge); implements `omo hook <event>` shape for Grok without new top-level commands." },
+  { id: "ulw-loop", status: "Grok-adapted", evidence: "Project .omo awareness + self-contained SKILL.md workflow payloads (Bootstrap/Execution Loop/Manual-QA channels) installed via skills/ copy. No sibling guessing." },
+  { id: "ulw-plan", status: "Grok-adapted", evidence: "Self-contained ulw-plan SKILL.md with Phase 0/Approval gate/Phase 3 (source-of-truth generation avoids full-workflow.md drift)." },
   { id: "start-work-continuation", status: "Deferred", evidence: "Boulder/start-work continuation is not yet driven as a Grok-native lifecycle workflow." },
   { id: "telemetry", status: "Unsupported", evidence: "lfg does not emit upstream anonymous telemetry." },
 ] as const

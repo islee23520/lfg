@@ -8,6 +8,7 @@ import { applyModelPreset, modelDiscoveryPlan, type ModelDiscovery, type SetupPr
 import { resolveSetupDiscovery } from "../grok-install/resolve-setup-discovery"
 import { isRecord, type JsonObject } from "./lfg-json"
 import { grokConfigJson, refreshGrokModelConfig } from "./lfg-grok-config"
+import { resolveGrokApiKey } from "../grok-install/grok-api-key"
 
 type ParsedArgs = {
   readonly json: boolean
@@ -21,7 +22,7 @@ type ParsedArgs = {
   readonly positional: readonly string[]
 }
 
-const DEFAULT_SETUP_PRESET: SetupPreset = "gpt"
+const DEFAULT_SETUP_PRESET: SetupPreset = "grok"
 
 async function main(argv: readonly string[]): Promise<number> {
   const parsed = parseArgs(argv)
@@ -95,7 +96,7 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   if (args.refresh) {
     if (args.run) {
       // Execute the refresh (discovery + write only).
-      const apiKey = process.env.OPENAI_API_KEY
+      const apiKey = await resolveGrokApiKey(process.env)
       const refreshResult = await refreshGrokModelConfig(discovery, { home, apiKey })
       return buildRefreshExecutedJson(refreshResult, discovery, resolved)
     }
@@ -177,7 +178,7 @@ function setupPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>, 
     packageExecutors: ["npx @islee23520/lfg"],
     selectedPreset: preset,
     presets: [
-      { id: "grok", label: "Grok-centered", text: "Prefer Grok model ids for default, fast, reasoning, and coding aliases." },
+      { id: "grok", label: "Grok-centered hybrid", text: "Prefer Grok for default agents, with GPT help for critical review when available." },
       { id: "gpt", label: "GPT-centered", text: "Prefer GPT/Codex model ids for default, reasoning, and coding aliases." },
     ],
     executed: false,
@@ -222,7 +223,7 @@ function refreshPlan(resolved: Awaited<ReturnType<typeof resolveSetupDiscovery>>
     autoModelAliases: discovery !== null,
     steps: [
       { id: 1, status: discovery === null ? "pending" : "done", text: "Re-discover OpenAI-compatible models and context windows from CLI/env/config.toml/default proxy (public LiteLLM catalog enrichment attempted when proxy omits sizes)." },
-      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key if OPENAI_API_KEY present), and [lazycodex.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." },
+      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key from OPENAI_API_KEY/XAI_API_KEY or the active Codex provider), and [lazycodex.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." },
     ],
     note: "This is a config-only maintenance operation. Use --run to execute. No Grok plugin install or hook registration occurs.",
   }
@@ -282,7 +283,7 @@ async function runRefreshWizard(plan: JsonObject, resolved: Awaited<ReturnType<t
       output.write("Cancelled.\n")
       return { ok: true, status: "skipped", executed: false, command: "setup", subcommand: "refresh" }
     }
-    const apiKey = process.env.OPENAI_API_KEY
+    const apiKey = await resolveGrokApiKey(process.env)
     const home = process.env.HOME ?? homedir()
     const discovery = resolved.discovery
     const refreshResult = await refreshGrokModelConfig(discovery, { home, apiKey })
@@ -388,7 +389,8 @@ function help(): string {
     "  Re-discovers models from the current base URL (proxy + public LiteLLM catalog for context sizes),",
     "  then writes fresh [model.*] sections (including grok-build alias) and lazycodex.models into ~/.grok/config.toml.",
     "  Does not touch the Grok plugin tree, hooks, or agent TOMLs. Existing prior context_window values are preserved",
-    "  when the current discovery does not advertise a size for a model. OPENAI_API_KEY (if set) is written per model.",
+    "  when the current discovery does not advertise a size for a model. OPENAI_API_KEY/XAI_API_KEY, or the active",
+    "  Codex provider token when env is unset, is written per model.",
     "",
     "Setup runs:",
     `  ${LAZYCODEX_INSTALLER_COMMAND}`,

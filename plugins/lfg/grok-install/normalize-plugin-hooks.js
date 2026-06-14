@@ -1,6 +1,6 @@
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { isGrokEventHooksJson, validateGrokHooksJson } from "./hook-trust";
+import { createFirstPartyNativeGrokHooks, createNativeGrokHooksForLegacyFallback, isGrokEventHooksJson, isLegacyMetadataHooksJson, validateGrokHooksJson } from "./hook-trust";
 import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset";
 const BRIDGE_RELATIVE = join("hooks", "lfg-grok-hook-bridge.mjs");
 const CONFIG_LOADER_FILE = "lfg-config-loader.mjs";
@@ -18,13 +18,30 @@ export async function syncGrokHookBridgeIntoPlugin(pluginRoot) {
     await copyFile(assetPath, destPath);
     await copyFile(join(dirname(assetPath), CONFIG_LOADER_FILE), join(pluginRoot, CONFIG_LOADER_RELATIVE));
     await copyFile(join(dirname(assetPath), PROJECT_OMO_LEDGER_FILE), join(pluginRoot, "hooks", PROJECT_OMO_LEDGER_FILE));
+    // .mcp.json is written by materializeGrokMcpRuntimes() during installGrokPluginFromSource — do not overwrite here with dev-only absolute paths.
     return destPath;
+}
+async function exists(path) {
+    try {
+        await access(path);
+        return true;
+    }
+    catch {
+        return false;
+    }
 }
 export async function normalizePluginHooksJson(pluginRoot) {
     await syncGrokHookBridgeIntoPlugin(pluginRoot);
     const hooksPath = join(pluginRoot, "hooks", "hooks.json");
     const raw = await readFile(hooksPath, "utf8");
-    const parsed = JSON.parse(raw);
+    let parsed = JSON.parse(raw);
+    if (isLegacyMetadataHooksJson(parsed)) {
+        // T6: legacy/imported Codex-style hook JSON -> native Grok event-map *with* bridge fallback
+        parsed = createNativeGrokHooksForLegacyFallback();
+    } else if (!isGrokEventHooksJson(parsed)) {
+        // T6: non-legacy defaults to first-party native (no bridge wrapper)
+        parsed = createFirstPartyNativeGrokHooks();
+    }
     if (!isGrokEventHooksJson(parsed)) {
         const trust = validateGrokHooksJson(parsed);
         throw new Error(trust.error ?? "hooks.json is not Grok event format");
@@ -64,15 +81,23 @@ function addLfgConfigLoaderHooks(hooksBlock) {
 function appendConfigLoader(groups, eventName) {
     const current = Array.isArray(groups) ? groups : [];
     const command = `node "\${GROK_PLUGIN_ROOT}/hooks/${CONFIG_LOADER_FILE}"`;
-    if (current.some((group) => groupHasCommand(group, command))) {
-        return current;
-    }
-    return [
-        ...current,
+    const targetStatusMessage = `LFG: Loading global config and project context (${eventName})`;
+    // Filter out any existing (possibly stale) config loader entries, then add the current one.
+    // This ensures we never have duplicates and always have the latest statusMessage.
+    const withoutOldLoader = current.filter((group) => !groupHasConfigLoaderCommand(group, command));
+    const withUpdatedLoader = [
+        ...withoutOldLoader,
         {
-            hooks: [{ type: "command", command, timeout: 5, description: `lfg global config loader (${eventName})` }],
+            hooks: [{
+                    type: "command",
+                    command,
+                    timeout: 5,
+                    description: `lfg global config loader (${eventName})`,
+                    statusMessage: targetStatusMessage,
+                }],
         },
     ];
+    return withUpdatedLoader;
 }
 function groupHasCommand(group, command) {
     if (typeof group !== "object" || group === null)
@@ -84,6 +109,20 @@ function groupHasCommand(group, command) {
         if (typeof handler !== "object" || handler === null)
             return false;
         return handler.command === command;
+    });
+}
+/** Returns true if this group contains a config loader with the given command (regardless of statusMessage). Used to deduplicate. */
+function groupHasConfigLoaderCommand(group, command) {
+    if (typeof group !== "object" || group === null)
+        return false;
+    const hooks = group.hooks;
+    if (!Array.isArray(hooks))
+        return false;
+    return hooks.some((handler) => {
+        if (typeof handler !== "object" || handler === null)
+            return false;
+        const h = handler;
+        return h.command === command;
     });
 }
 function normalizeHookGroup(group, onChange) {

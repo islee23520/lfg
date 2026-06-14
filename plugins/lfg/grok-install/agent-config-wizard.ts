@@ -1,6 +1,6 @@
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
 import type { LazycodexAgentConfig, ModelDiscovery, ReasoningLevel } from "../bin/lfg-models"
-import { ROLE_RECOMMENDATIONS, PERF_SNAPSHOT } from "./model-recommendations"
+import { buildRoleRecommendations, PERF_SNAPSHOT } from "./model-recommendations"
 import {
   CONFIGURABLE_LAZYCODEX_AGENT_NAMES,
   type LazycodexAgentOverrideMap,
@@ -32,7 +32,7 @@ export async function configureOmoAgentOverridesInteractively(
   if ((options as any).skipOtherAgents === true) {
     return base
   }
-  const shouldConfigure = await confirm(reader, "Configure other LazyCodex agents (librarian, plan, …)? [y/N] ")
+  const shouldConfigure = await confirm(reader, "Configure default / ULW target models and other LazyCodex agents? [y/N] ")
   if (!shouldConfigure) {
     return base
   }
@@ -43,7 +43,7 @@ export async function configureOmoAgentOverridesInteractively(
     if (ROLE_AGENTS.has(agentName)) {
       continue
     }
-    const rec = ROLE_RECOMMENDATIONS.find((r) => r.role === agentName)
+    const rec = buildRoleRecommendations(discovery.modelIds).find((r) => r.role === agentName)
     if (rec !== undefined) {
       const perf = PERF_SNAPSHOT[rec.recommended]
       const latency = perf ? `${perf.latencyMs}ms` : ""
@@ -66,10 +66,10 @@ export async function configureOmoAgentOverridesInteractively(
     }
     const defaultModel = current?.model ?? discovery.mapping.default
     const defaultReasoning = current?.reasoningLevel ?? "medium"
-    const model = await readModelChoice(reader, discovery, writeLine, `  ${agentName} model [${defaultModel}]: `, defaultModel, options.modelSelector)
+    const model = await readModelChoice(reader, discovery, writeLine, `  ${agentName} model [${defaultModel}]: `, defaultModel, agentName, options.modelSelector)
     // Tier for UX parity (not stored in core Grok overrides, but shown in transcript)
-    const tier = await readTierChoice(reader, writeLine, `  ${agentName} service tier [default]: `, "default", options.tierSelector)
-    const reasoningLevel = await readReasoningLevel(reader, writeLine, `  ${agentName} reasoning [${defaultReasoning}]: `, defaultReasoning, options.reasoningSelector)
+    const tier = await readTierChoice(reader, writeLine, `  ${agentName} service tier [default]: `, "default", agentName, options.tierSelector)
+    const reasoningLevel = await readReasoningLevel(reader, writeLine, `  ${agentName} reasoning [${defaultReasoning}]: `, defaultReasoning, agentName, options.reasoningSelector)
     writeLine(`  ${agentName}: ${model} / ${reasoningLevel}${tier ? ` (tier: ${tier})` : ""}\n`)
     out[agentName] = { model, reasoningLevel }
   }
@@ -82,11 +82,13 @@ async function readModelChoice(
   writeLine: (text: string) => void,
   prompt: string,
   fallback: string,
+  agentName: string,
   modelSelector?: (spec: { agentName?: string; current: string; choices: Array<{ value: string; label: string; aliases: readonly string[]; key: string }> }) => Promise<string>,
 ): Promise<string> {
   if (typeof modelSelector === "function") {
     const choices = buildModelChoices(discovery.modelIds)
     const selected = await modelSelector({
+      agentName,
       current: fallback,
       choices: choices.map((c) => ({ ...c, label: formatModelChoiceLabel(c) })),
     })
@@ -110,10 +112,11 @@ async function readReasoningLevel(
   writeLine: (text: string) => void,
   prompt: string,
   fallback: ReasoningLevel,
+  agentName: string,
   reasoningSelector?: (spec: { agentName?: string; current: string }) => Promise<string>,
 ): Promise<ReasoningLevel> {
   if (typeof reasoningSelector === "function") {
-    const selected = await reasoningSelector({ current: fallback })
+    const selected = await reasoningSelector({ agentName, current: fallback })
     return (isReasoningLevel(selected) ? selected : fallback) as ReasoningLevel
   }
   writeLine(prompt)
@@ -133,10 +136,11 @@ async function readTierChoice(
   writeLine: (text: string) => void,
   prompt: string,
   fallback: string,
+  agentName: string,
   tierSelector?: (spec: { agentName?: string; current: string }) => Promise<string>,
 ): Promise<string> {
   if (typeof tierSelector === "function") {
-    const selected = await tierSelector({ current: fallback })
+    const selected = await tierSelector({ agentName, current: fallback })
     return selected ?? fallback
   }
   writeLine(prompt)

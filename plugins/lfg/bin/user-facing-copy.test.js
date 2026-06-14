@@ -14,7 +14,7 @@ describe("user-facing copy (#33)", () => {
     test("plugins/lfg README describes Grok-first install without Codex npx default", async () => {
         const readme = await readFile(join(ROOT, "plugins/lfg/README.md"), "utf8");
         expect(readme).toContain("~/.grok");
-        expect(readme).toContain("installed-plugins/lfg");
+        expect(readme).toContain("plugins/lfg");
         expect(readme).toContain("does **not** run `npx lazycodex-ai install`");
         expect(readme).toContain("언제 무엇을 실행하면 되나");
         expect(readme).not.toContain("npx @islee23520/lfp setup");

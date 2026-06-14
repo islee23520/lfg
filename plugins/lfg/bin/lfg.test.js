@@ -58,7 +58,7 @@ describe("lfg CLI", () => {
         expect(readme).toContain("What lfg does");
         expect(readme).toContain("npx @islee23520/lfg setup");
         expect(readme).toContain("~/.grok");
-        expect(readme).toContain("installed-plugins/lfg");
+        expect(readme).toContain("plugins/lfg");
         expect(readme).toContain("does **not** run `npx lazycodex-ai install`");
         expect(readme).not.toContain("npx @islee23520/lfp setup");
         expect(readme).toContain("OpenAI-compatible base URL");
@@ -170,8 +170,9 @@ describe("lfg CLI", () => {
         const installers = result.json.installers;
         expect(installers).toHaveLength(1);
         expect(installers?.[0]).toMatchObject({ packageName: "lfg-grok-install", exitCode: 0 });
-        const stampPath = join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json");
-        await expect(readFile(stampPath, "utf8")).resolves.toContain("@islee23520/lfg");
+        const nativeStamp = join(home, ".grok", "plugins", "lfg", "lfg-install.json");
+        const legacyStamp = join(home, ".grok", "installed-plugins", "lfg", "lfg-install.json");
+        await expect(readFile(nativeStamp, "utf8").catch(() => readFile(legacyStamp, "utf8"))).resolves.toContain("@islee23520/lfg");
         expect(result.json).toMatchObject({
             postInstallVerify: { ok: true, status: "verified" },
         });
@@ -210,6 +211,17 @@ describe("lfg CLI", () => {
             expect(result.stdout).toContain("Install now? [y/N]");
             expect(result.stdout).toContain("Skipped install");
             expect(result.stdout).not.toContain("Restore previous Grok settings");
+        });
+    });
+    test("interactive role recommendations only show available models", async () => {
+        await withModelServer(["grok-3-mini-fast"], async (baseUrl) => {
+            const home = await mkdtemp(join(tmpdir(), "lfg-interactive-model-rec."));
+            const input = `${baseUrl}\ny\n\n\n\n\n\n\nn\nn\n`;
+            const result = await runLfgText(["setup"], input, { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" });
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Recommended: grok-3-mini-fast");
+            expect(result.stdout).not.toContain("Recommended: gpt-5.5");
+            expect(result.stdout).not.toContain("Recommended: grok-4.20-0309-reasoning");
         });
     });
     test("unsupported commands advertise setup only", async () => {
@@ -258,7 +270,7 @@ describe("lfg CLI", () => {
         const json = JSON.parse(setup.stdout);
         expect(json.ok).toBe(true);
         expect(json.command).toBe("setup");
-        expect(json.selectedPreset).toBe("gpt");
+        expect(json.selectedPreset).toBe("grok");
         const scopedDoctor = await execFileResultEnv("npx", ["@islee23520/lfg", "--json", "setup", "--preset", "gpt"], installDir, { HOME: home });
         expect(scopedDoctor.exitCode).toBe(0);
         const scopedJson = JSON.parse(scopedDoctor.stdout);

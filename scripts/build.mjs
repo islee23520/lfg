@@ -57,11 +57,11 @@ const flavourSrc = "plugins/lfg/grok-install/flavour-pack-assets"
 const flavourDst = "plugins/lfg/dist/grok-install/flavour-pack-assets"
 await cp(flavourSrc, flavourDst, { recursive: true })
 
-// Copy LFG-bundled skills (e.g. cua-driver / Computer Use) so they are present
-// in the internal grok-install source tree and end up under
-// ~/.grok/installed-plugins/lfg/skills after setup. This guarantees that
-// after `npx @islee23520/lfg setup` the cua-driver skill is available for
-// agents and personas, exactly like the Codex computer-use skill.
+// Copy LFG-bundled skills (cua-driver + T8 ulw-plan/ulw-loop self-contained workflows)
+// so they are present in the internal grok-install source tree and end up under
+// ~/.grok/installed-plugins/lfg/skills after setup. Guarantees discoverable
+// Phase 0/Approval gate/Phase 3 + Bootstrap/Execution Loop/Manual-QA headings
+// without sibling-path guessing (source-of-truth to avoid drift).
 const skillsSrc = "plugins/lfg/grok-install/skills"
 const skillsDst = "plugins/lfg/dist/grok-install/skills"
 await cp(skillsSrc, skillsDst, { recursive: true })

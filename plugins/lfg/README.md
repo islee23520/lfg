@@ -6,9 +6,9 @@ omo / lazycodex **Grok Build** setup helper (oh-my-openagent spinoff — not Lin
 npx @islee23520/lfg setup
 ```
 
-`setup --run` installs the adapter under `~/.grok/installed-plugins/lfg` (plugin tree, hooks, agents, model config). It does **not** run `npx lazycodex-ai install` into `~/.codex`. The omo tree comes from `LFG_LAZYCODEX_PLUGIN_SOURCE`, the npm `_npx` cache, or a built-in minimal fixture until you set a source.
+`setup --run` installs the **omo / lazycodex Grok Build adapter** (core **codex adapter** feature + **opencode** from https://github.com/code-yeongyu/oh-my-openagent) under `~/.grok/installed-plugins/lfg`. It installs **native first-party OMO hooks** as Grok-native events and uses **bridge fallback only for legacy/imported hooks**. It does **not** run `npx lazycodex-ai install` into `~/.codex`. The omo tree comes from `LFG_LAZYCODEX_PLUGIN_SOURCE`, the npm `_npx` cache, or a built-in minimal fixture until you set a source.
 
-**What it is:** a CLI that materializes a real directory on `~/.grok`, not a Grok plugin or runtime and not a replacement for `lazycodex-ai`.
+**What it is:** a setup helper/adapter package (not a Grok plugin/runtime) that materializes a real directory on `~/.grok` with native first-party OMO hooks (bridge fallback only for legacy/imported). Not a replacement for `lazycodex-ai`.
 
 ## 언제 무엇을 실행하면 되나
 

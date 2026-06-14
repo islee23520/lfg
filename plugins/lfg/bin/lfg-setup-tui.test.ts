@@ -88,6 +88,8 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(/explorer:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
     expect(/reasoning:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
     expect(/coding:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
+    expect(/default:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
+    expect(/ulw:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
     expect(/librarian:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
     expect(/plan:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
     expect(/metis:.*\/.*\(tier:/.test(resultsBody)).toBe(true);

@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest"
 
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url))
 
-describe("docs/grok-adapter-parity.md (plan task 1)", () => {
+describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
   test("parity table has at least 10 capability rows", async () => {
     const text = await readFile(join(ROOT, "docs/grok-adapter-parity.md"), "utf8")
     const rows = text.split("\n").filter((line) => line.startsWith("|") && !line.includes("---") && !line.includes("omo-codex capability"))
@@ -51,6 +51,19 @@ describe("docs/grok-adapter-parity.md (plan task 1)", () => {
     expect(text).toContain("#34")
     expect(text).toMatch(/\| Model catalog \|.*\| Implemented/)
     expect(text).not.toMatch(/\| Plugin cache install \|.*\| partial/)
+  })
+
+  test("T5: forces mention of native Grok hooks, bridge fallback, and Grok-first OMO parity (failing-first contract)", async () => {
+    const text = await readFile(join(ROOT, "docs/grok-adapter-parity.md"), "utf8")
+    // These will fail until docs updated (verifier false-positive fix); tests pin exact new wording per T5
+    expect(text).toContain("native Grok hooks")
+    expect(text).toContain("bridge fallback")
+    expect(text).toContain("Grok-first OMO parity")
+    expect(text).toContain("native Grok hook")
+    // Also pin full OMO + hook surfaces for package mapping
+    expect(text).toContain("lfg-grok-hook-bridge.mjs")
+    expect(text).toContain("Grok-native lifecycle")
+    expect(text).toMatch(/native.*hook|hook.*native|bridge fallback|Grok-first.*OMO|OMO.*parity/i)
   })
 
   test("distinguishes core install parity from full OMO component parity for issue 36", async () => {

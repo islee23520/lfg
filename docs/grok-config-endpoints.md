@@ -16,9 +16,9 @@ Legacy BYOK flows wrote `api_key` under `[endpoints]`; Grok only recognizes keys
 
 - Sets **`endpoints.models_base_url`** only in `[endpoints]`.
 - **Removes** `endpoints.api_key` if present (including legacy files).
-- Puts provider credentials under **`[model.*]`** sections as `api_key` when `OPENAI_API_KEY` is set — not under `[endpoints]`.
+- Puts provider credentials under **`[model.*]`** sections as `api_key` from `OPENAI_API_KEY` / `XAI_API_KEY`, or from the active Codex provider token in `~/.codex/config.toml` when env is unset — not under `[endpoints]`.
 
-Prefer **`OPENAI_API_KEY`** in the environment for headless use; do not rely on storing secrets in `config.toml` when avoidable.
+Prefer **`OPENAI_API_KEY`** in the environment for headless use; the Codex config fallback is for local adapter installs where the proxy token already exists in `~/.codex/config.toml`.
 
 ## Related
 

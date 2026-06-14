@@ -5,15 +5,15 @@
 
 ## Product framing
 
-**`lfg` is a personal spinoff:** a **Grok Build adapter** for **oh-my-openagent / lazycodex (omo)** — analogous to `omo-codex` on Codex, not a **Linalab** product or brand. User-facing copy, package metadata, marketplace IDs, and vendored code must **not** present Linalab identity, `linalab.io`, or `linalab` Codex marketplaces. Workspace folder names on a dev machine are not part of the shipped story.
+**`lfg` is a personal spinoff:** a **Grok Build adapter** (core **codex adapter** feature + **opencode** from https://github.com/code-yeongyu/oh-my-openagent) for **oh-my-openagent / lazycodex (omo)** — analogous to `omo-codex` on Codex. It installs **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks). User-facing copy, package metadata, marketplace IDs, and vendored code must **not** present Linalab identity, `linalab.io`, or `linalab` Codex marketplaces. Workspace folder names on a dev machine are not part of the shipped story. It is a setup helper/adapter package only — not a Grok plugin/runtime.
 
 ## Decision
 
 **`@islee23520/lfg` is the single npm surface** for this **omo Grok adapter** (+ built-in extensions). Registry publish contract: [`docs/npm-publish.md`](npm-publish.md) (closes #22).
 
-1. **omo-style Grok adapter** — install/verify semantics comparable to `omo-codex` on `~/.grok` (adapter tree, config merge, agents, hooks, verification).
+1. **omo-style Grok adapter** — install/verify semantics comparable to `omo-codex` on `~/.grok` (adapter tree, config merge, agents, **native first-party OMO hooks**, verification). **Bridge fallback** only for legacy/imported hooks. Grok-first **OMO parity**.
 2. **LFP-equivalent extensions** — capabilities from legacy `@islee23520/lfp` (hooks, agent overrides, optional extra agents) are **re-implemented for Grok** inside lfg — **not** a copy-paste vendor of the LFP package. See `docs/lfp-capability-port.md`.
-3. **Project `.omo` hook context** — lfg owns the Grok hook-time bridge that reads project-local `.omo/boulder.json` and exposes only concise active-work metadata plus `.omo/start-work/ledger.jsonl` existence/line count. It never emits ledger contents, and missing/malformed `.omo` state fails closed.
+3. **Project `.omo` hook context** — lfg owns the Grok hook-time bridge (fallback) that reads project-local `.omo/boulder.json`...
 
 **`@islee23520/lfp`** remains a separate npm package only if needed for **Codex-only** or legacy consumers; **Grok Build path is `npx @islee23520/lfg setup` only.**
 

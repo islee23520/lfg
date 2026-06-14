@@ -15,6 +15,7 @@ describe("setup vs doctor install surface (#21)", () => {
         expect(setupJson.postInstallVerify).toMatchObject({ ok: true, status: "verified" });
         const doctor = await runGrokDoctor({ home });
         const installSurface = doctor.installSurface;
+        // Doctor may report native path; accept verified status regardless of legacy vs native
         expect(installSurface.ok).toBe(true);
         expect(installSurface.status).toBe("verified");
         expect(doctor.ok).toBe(true);

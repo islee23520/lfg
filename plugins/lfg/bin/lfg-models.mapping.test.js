@@ -10,17 +10,18 @@ describe("model mapping catalog", () => {
     test("presets switch model mapping between grok-centered and gpt-centered", async () => {
         const discovery = await fetchModelDiscoveryFromPayload([
             "grok-3-mini-fast",
+            "grok-4.20-0309-non-reasoning",
             "grok-4.20-0309-reasoning",
             "gpt-5.4-mini",
             "gpt-5.5",
             "gpt-5.3-codex-spark",
         ]);
         expect(applyModelPreset(discovery, "grok").mapping).toMatchObject({
-            default: "grok-3-mini-fast",
+            default: "grok-4.20-0309-non-reasoning",
             reasoning: "grok-4.20-0309-reasoning",
         });
         expect(applyModelPreset(discovery, "gpt").mapping).toMatchObject({
-            default: "gpt-5.4-mini",
+            default: "gpt-5.5",
             reasoning: "gpt-5.5",
             coding: "gpt-5.3-codex-spark",
         });

@@ -4,7 +4,7 @@ export type HookTrustResult = {
   readonly error: string | null
 }
 
-const GROK_HOOK_EVENTS = new Set([
+export const GROK_HOOK_EVENTS = new Set([
   "SessionStart",
   "UserPromptSubmit",
   "PreToolUse",
@@ -39,7 +39,7 @@ export function isGrokEventHooksJson(raw: unknown): boolean {
   return events.some((name) => GROK_HOOK_EVENTS.has(name))
 }
 
-function isLegacyMetadataHooksJson(raw: unknown): boolean {
+export function isLegacyMetadataHooksJson(raw: unknown): boolean {
   if (typeof raw !== "object" || raw === null) {
     return false
   }
@@ -107,4 +107,48 @@ export function validateGrokHooksJson(raw: unknown): HookTrustResult {
     return { ok: false, hookNames: [], error: "no recognized Grok hook events" }
   }
   return { ok: true, hookNames, error: null }
+}
+
+/** T6: First-party native lfg/OMO event-map (no bridge wrapper). Legacy/imported gets bridge fallback. Uses full allowlist. */
+export function createNativeGrokHooksForLegacyFallback(): unknown {
+  const hooks: Record<string, unknown[]> = {}
+  for (const eventName of GROK_HOOK_EVENTS) {
+    const lowerEvent = eventName
+      .replace(/([A-Z])/g, "-$1")
+      .toLowerCase()
+    const command = `node "\${GROK_PLUGIN_ROOT}/hooks/lfg-grok-hook-bridge.mjs" node "\${GROK_PLUGIN_ROOT}/components/ultrawork/dist/cli.js" hook ${lowerEvent}`
+    hooks[eventName] = [
+      {
+        hooks: [
+          {
+            type: "command",
+            command,
+            timeout: 5,
+            description: `lfg legacy/imported fallback ${eventName} hook`,
+          },
+        ],
+      },
+    ]
+  }
+  return { hooks }
+}
+
+export function createFirstPartyNativeGrokHooks(): unknown {
+  const hooks: Record<string, unknown[]> = {}
+  for (const eventName of GROK_HOOK_EVENTS) {
+    const command = `node "\${GROK_PLUGIN_ROOT}/hooks/lfg-native-${eventName.toLowerCase()}-handler.js"`
+    hooks[eventName] = [
+      {
+        hooks: [
+          {
+            type: "command",
+            command,
+            timeout: 5,
+            description: `lfg native first-party ${eventName} hook`,
+          },
+        ],
+      },
+    ]
+  }
+  return { hooks }
 }
