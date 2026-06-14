@@ -84,17 +84,21 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
 
     const resultsNote = calls.find((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])));
     const resultsBody = resultsNote ? String(resultsNote[2] || "") : "";
-    // Must contain the three terse summaries the TUI itself emitted
-    expect(/explorer:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
-    expect(/reasoning:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
-    expect(/coding:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
-    expect(/default:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
-    expect(/ulw:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
-    expect(/librarian:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
-    expect(/plan:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
-    expect(/metis:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
-    expect(/momus:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
-    expect(/codex-ultrawork-reviewer:.*\/.*\(tier:/.test(resultsBody)).toBe(true);
+    const expectedSummarizedAgents = [
+      "explorer",
+      "reasoning",
+      "coding",
+      "default",
+      "ulw",
+      "librarian",
+      "plan",
+      "metis",
+      "momus",
+      "codex-ultrawork-reviewer",
+    ] as const;
+    for (const agentName of expectedSummarizedAgents) {
+      expect(new RegExp(`${agentName}:.*\\/.*\\(tier:`).test(resultsBody)).toBe(true);
+    }
     // Must NOT contain classic readline pollution
     expect(/Current: .* \(reasoning:/.test(resultsBody)).toBe(false);
     expect(/Default: keep the current LazyCodex\/OMO value/.test(resultsBody)).toBe(false);

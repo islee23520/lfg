@@ -31,17 +31,7 @@ export type InstallWizardOptions = {
 };
 
 export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetupDiscoveryResult, options: InstallWizardOptions = {}): Promise<JsonObject> {
-  // === AGGRESSIVE TUI MODE GUARD (first thing) ===
-  // The Clack TUI (lfg-setup-tui) drives bare `lfg setup` on TTY.
-  // When any selector factory or skip flag is passed, this entire call must produce
-  // ONLY the three clean role summary lines (captured for "Setup results").
-  // It must NEVER emit:
-  //   Current / Default / Recommended / Alternatives lines
-  //   "Configure LazyCodex role agents? [y/N]"
-  //   "Configure default / ULW target models and other LazyCodex agents? [y/N]"
-  //   [n/5] step headers after discovery, Install Summary box, Magic Word box
-  //   "Install now? [y/N]", "Installation cancelled...", "oMoMoMoMo... Bye!"
-  // The TUI layer owns the final framing + confirm + execution.
+  // Clack TUI owns prompts and final install framing; this path only prepares configuredDiscovery.
   const isTuiMode = !!(options && (
     options.modelSelector || options.tierSelector || options.reasoningSelector ||
     options.skipFinalGate || options.skipOtherAgents
@@ -59,9 +49,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     }
 
     if (isTuiMode) {
-      // TUI fast path: directly execute only the three main role agents using the Clack selectors.
-      // This completely avoids every readline confirm, the long-tail wizard, and all later gates.
-      // readAgentSetting will also see isTui and suppress all guidance.
+      // TUI fast path: Clack selects the role agents and owns later gates.
       const roleConfig = discovery
         ? await readAgentConfig(reader, discovery, options)
         : defaultLazycodexAgentConfig({} as any);
@@ -203,9 +191,7 @@ async function configureLazycodexAgentsFull(reader: LineReader, discovery: Model
   let agentOverrideMap: LazycodexAgentOverrideMap | undefined
   const hasTuiForLongTail = !!(options.modelSelector || options.tierSelector || options.reasoningSelector)
   if (options.skipOtherAgents || hasTuiForLongTail) {
-    // TUI path (or explicit skip): do not invoke the long tail at all.
-    // This completely avoids the raw "Configure default / ULW target models and other LazyCodex agents?" prompt
-    // and any per-agent questions for the long tail when the Clack TUI is driving the three main roles.
+    // TUI path (or explicit skip): do not invoke readline long-tail prompts.
     const bundled = await loadBundledDefaultOmoOverridesForInteractive()
     agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {})
   } else if (shouldConfigure) {
@@ -264,13 +250,7 @@ async function readAgentSetting(
   defaultReasoningLevel: ReasoningLevel,
   options: InstallWizardOptions = {},
 ) {
-  // TUI SUPPRESSION - THIS IS THE VERY FIRST EXECUTABLE LINE IN THE FUNCTION.
-  // If the TUI (Clack) is driving, any of the selector factories or skip* flags will be present.
-  // In that case, emit ABSOLUTELY NOTHING before the selector call.
-  // No "Current:", no "Default: keep...", no "Recommended:", no "Alternatives:".
-  // Those would pollute the captured "Setup results" note.
-  // The Clack select UI itself shows the current value (initial + "current" hint).
-  // After the three selects for the agent we emit only the terse summary line.
+  // Keep TUI capture clean; Clack shows context in the select UI.
   const isTui = !!(options && (
     options.modelSelector || options.tierSelector || options.reasoningSelector ||
     options.skipFinalGate || options.skipOtherAgents
