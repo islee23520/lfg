@@ -2,8 +2,8 @@
 	"mcpServers": {
 		"lsp": {
 			"command": "node",
-			"args": ["/Users/ilseoblee/.grok/plugins/lfg/mcp-runtimes/lsp-daemon/dist/cli.js", "mcp"],
-			"cwd": "/Users/ilseoblee/.grok/plugins/lfg"
+			"args": ["/Users/ilseoblee/.grok/installed-plugins/lfg/node_modules/@code-yeongyu/lsp-daemon/dist/cli.js", "mcp"],
+			"cwd": "/Users/ilseoblee/.grok/installed-plugins/lfg"
 		}
 	}
 }
