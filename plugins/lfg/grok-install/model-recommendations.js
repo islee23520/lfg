@@ -41,7 +41,7 @@ const ROLE_PROFILES = [
         role: "plan",
         reasoningEffort: "high",
         rationale: "Deep Grok reasoning for strategic planning (LazyCodex 4.9.2 plan default). GPT-5.5 as strong alternative when present.",
-        preferredModels: ["grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
+        preferredModels: ["grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
     },
     {
         role: "metis",
@@ -53,13 +53,13 @@ const ROLE_PROFILES = [
         role: "momus",
         reasoningEffort: "high",
         rationale: "Critical plan review uses Grok frontier models (LazyCodex 4.9.2 momus default). GPT-5.5 strong alternative.",
-        preferredModels: ["grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
+        preferredModels: ["gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
     },
     {
         role: "codex-ultrawork-reviewer",
         reasoningEffort: "high",
         rationale: "Final ultrawork review uses Grok frontier (LazyCodex 4.9.2 reviewer default). GPT as strong second opinion.",
-        preferredModels: ["grok-4.3", "gpt-5.5", "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
+        preferredModels: ["gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"],
     },
     {
         role: "reasoning",

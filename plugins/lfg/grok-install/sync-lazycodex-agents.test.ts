@@ -33,7 +33,7 @@ describe("sync lazycodex agents to grok", () => {
     expect(explorerRole).not.toContain("model_reasoning_effort")
     expect(run.agentOverridesPath).toContain("lazycodex-agent-overrides.json")
     const pluginPackage = await readFile(join(home, ".grok", "plugins", "lfg", "package.json"), "utf8")
-    expect(JSON.parse(pluginPackage)).toMatchObject({ name: "LFG" })
+    expect(JSON.parse(pluginPackage)).toMatchObject({ name: "LFG", type: "module" })
     // LFG no longer writes bundled shadow agents for Grok builtins (general-purpose, explore, grok-build, builder, ulw).
     // Real agents (ulw, ultraresearch, feasible-goal, etc.) come from the lazycodex plugin tree + LFP-style overrides.
     await expect(readFile(join(home, ".grok", "agents", "general-purpose.md"), "utf8")).rejects.toThrow()

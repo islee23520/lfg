@@ -28,7 +28,7 @@ function pluginMcpJson(pluginRoot) {
         },
     };
 }
-/** Copy lazycodex MCP package dist trees into the plugin and write Grok-relative .mcp.json. */
+/** Copy lazycodex MCP package dist trees into the plugin and write .mcp.json with absolute runtime paths. */
 export async function materializeGrokMcpRuntimes(pluginRoot, sourceRoot) {
     const runtimesRoot = await resolveMcpPackagesRoot(sourceRoot);
     if (runtimesRoot === null) {

@@ -63,6 +63,7 @@ async function writeLfgPluginPackageManifest(pluginRoot: string, version: string
     version,
     description: "LFG Grok Build adapter payload.",
     private: true,
+    type: "module",
   }
   await writeFile(join(pluginRoot, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8")
 }

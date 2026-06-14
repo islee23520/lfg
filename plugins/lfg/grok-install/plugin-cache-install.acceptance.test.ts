@@ -61,8 +61,10 @@ describe("plugin cache install acceptance (#27)", () => {
       "git-bash",
       "rules",
       "lsp",
+      "ast_grep",
       "ultrawork",
       "ulw-loop",
+      "ulw-plan",
       "start-work-continuation",
       "telemetry",
     ])

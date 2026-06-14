@@ -21,10 +21,17 @@ const required = [
   "plugins/lfg/dist/npm-publish-bin.js",
   "plugins/lfg/dist/npm-registry-bin.js",
   "plugins/lfg/dist/grok-install/fixture-minimal/hooks/hooks.json",
+  // Grok-first OMO parity requires native Grok hook fixtures plus bridge fallback assets.
+  "plugins/lfg/dist/grok-install/assets/lfg-grok-hook-bridge.mjs",
+  "plugins/lfg/dist/grok-install/assets/lfg-config-loader.mjs",
 ]
+const requiredSkillFragments = ["ulw"]
 const missing = required.filter((p) => !paths.includes(p))
-if (missing.length > 0) {
-  console.error("assert-npm-pack-bin: missing paths:", missing.join(", "))
+const missingSkillFragments = requiredSkillFragments.filter(
+  (fragment) => !paths.some((path) => path.startsWith("plugins/lfg/skills/") && path.includes(fragment)),
+)
+if (missing.length > 0 || missingSkillFragments.length > 0) {
+  console.error("assert-npm-pack-bin: missing paths:", missing.concat(missingSkillFragments).join(", "))
   process.exit(1)
 }
 const staleBuildPaths = paths.filter((p) => p.includes("/fixture-minimal.build-"))
