@@ -2,8 +2,8 @@
 	"mcpServers": {
 		"ast_grep": {
 			"command": "node",
-			"args": ["/Users/ilseoblee/.grok/installed-plugins/lfg/node_modules/@code-yeongyu/ast-grep-mcp/dist/cli.js", "mcp"],
-			"cwd": "/Users/ilseoblee/.grok/installed-plugins/lfg"
+			"args": ["/Users/ilseoblee/.grok/plugins/lfg/mcp-runtimes/ast-grep-mcp/dist/cli.js", "mcp"],
+			"cwd": "/Users/ilseoblee/.grok/plugins/lfg"
 		},
 		"grep_app": {
 			"url": "https://mcp.grep.app"
@@ -13,13 +13,13 @@
 		},
 		"git_bash": {
 			"command": "node",
-			"args": ["/Users/ilseoblee/.grok/installed-plugins/lfg/components/git-bash/dist/cli.js", "mcp"],
-			"cwd": "/Users/ilseoblee/.grok/installed-plugins/lfg"
+			"args": ["/Users/ilseoblee/.grok/plugins/lfg/mcp-runtimes/git-bash-mcp/dist/cli.js", "mcp"],
+			"cwd": "/Users/ilseoblee/.grok/plugins/lfg"
 		},
 		"lsp": {
 			"command": "node",
-			"args": ["/Users/ilseoblee/.grok/installed-plugins/lfg/node_modules/@code-yeongyu/lsp-daemon/dist/cli.js", "mcp"],
-			"cwd": "/Users/ilseoblee/.grok/installed-plugins/lfg"
+			"args": ["/Users/ilseoblee/.grok/plugins/lfg/mcp-runtimes/lsp-daemon/dist/cli.js", "mcp"],
+			"cwd": "/Users/ilseoblee/.grok/plugins/lfg"
 		}
 	}
 }

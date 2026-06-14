@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, test } from "vitest"
@@ -28,7 +28,7 @@ describe("materializeGrokMcpRuntimes", () => {
     expect(root).toMatch(/lazycodex-ai\/packages$/)
   })
 
-  test("writes mcp-runtimes and plugin-relative .mcp.json", async () => {
+  test("writes mcp-runtimes and absolute plugin .mcp.json paths", async () => {
     const npxPlugin = join(
       process.env.HOME ?? "",
       ".npm",
@@ -44,9 +44,12 @@ describe("materializeGrokMcpRuntimes", () => {
     const result = await materializeGrokMcpRuntimes(pluginRoot, npxPlugin)
     expect(result.ok).toBe(true)
     const mcp = JSON.parse(
-      await (await import("node:fs/promises")).readFile(join(pluginRoot, ".mcp.json"), "utf8"),
-    ) as { mcpServers: Record<string, { args?: string[] }> }
-    expect(mcp.mcpServers.ast_grep?.args?.[0]).toBe("./mcp-runtimes/ast-grep-mcp/dist/cli.js")
-    expect(mcp.mcpServers.lsp?.args?.[0]).toBe("./mcp-runtimes/lsp-daemon/dist/cli.js")
+      await readFile(join(pluginRoot, ".mcp.json"), "utf8"),
+    ) as { mcpServers: Record<string, { args?: string[]; cwd?: string }> }
+    expect(mcp.mcpServers.ast_grep?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "ast-grep-mcp", "dist", "cli.js"))
+    expect(mcp.mcpServers.ast_grep?.cwd).toBe(pluginRoot)
+    expect(mcp.mcpServers.lsp?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "lsp-daemon", "dist", "cli.js"))
+    expect(mcp.mcpServers.lsp?.cwd).toBe(pluginRoot)
+    expect(JSON.stringify(mcp)).not.toContain("installed-plugins/lfg")
   })
 })

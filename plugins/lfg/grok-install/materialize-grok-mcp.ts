@@ -3,31 +3,33 @@ import { dirname, join } from "node:path"
 
 const MCP_RUNTIME_DIRS = ["ast-grep-mcp", "lsp-daemon", "git-bash-mcp"] as const
 
-const PLUGIN_MCP_JSON = {
-  mcpServers: {
-    ast_grep: {
-      command: "node",
-      args: ["./mcp-runtimes/ast-grep-mcp/dist/cli.js", "mcp"],
-      cwd: ".",
+function pluginMcpJson(pluginRoot: string): object {
+  return {
+    mcpServers: {
+      ast_grep: {
+        command: "node",
+        args: [join(pluginRoot, "mcp-runtimes", "ast-grep-mcp", "dist", "cli.js"), "mcp"],
+        cwd: pluginRoot,
+      },
+      grep_app: {
+        url: "https://mcp.grep.app",
+      },
+      context7: {
+        url: "https://mcp.context7.com/mcp",
+      },
+      git_bash: {
+        command: "node",
+        args: [join(pluginRoot, "mcp-runtimes", "git-bash-mcp", "dist", "cli.js"), "mcp"],
+        cwd: pluginRoot,
+      },
+      lsp: {
+        command: "node",
+        args: [join(pluginRoot, "mcp-runtimes", "lsp-daemon", "dist", "cli.js"), "mcp"],
+        cwd: pluginRoot,
+      },
     },
-    grep_app: {
-      url: "https://mcp.grep.app",
-    },
-    context7: {
-      url: "https://mcp.context7.com/mcp",
-    },
-    git_bash: {
-      command: "node",
-      args: ["./mcp-runtimes/git-bash-mcp/dist/cli.js", "mcp"],
-      cwd: ".",
-    },
-    lsp: {
-      command: "node",
-      args: ["./mcp-runtimes/lsp-daemon/dist/cli.js", "mcp"],
-      cwd: ".",
-    },
-  },
-} as const
+  }
+}
 
 /** Copy lazycodex MCP package dist trees into the plugin and write Grok-relative .mcp.json. */
 export async function materializeGrokMcpRuntimes(
@@ -55,7 +57,7 @@ export async function materializeGrokMcpRuntimes(
     return { ok: false, runtimesRoot }
   }
 
-  await writeFile(join(pluginRoot, ".mcp.json"), `${JSON.stringify(PLUGIN_MCP_JSON, null, "\t")}\n`, "utf8")
+  await writeFile(join(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot), null, "\t")}\n`, "utf8")
   return { ok: true, runtimesRoot }
 }
 
