@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ESM shim (the source tree is "type": "module").
-// Forwards "mcp" (and hooks) to the real working copies in ~/.grok/plugins/lfg.
+// Forwards "mcp" (and hooks) to the real working copies in ~/.grok/src.
 import { spawn } from 'node:child_process';
 import { argv, execPath, stderr } from 'node:process';
 
@@ -15,10 +15,10 @@ function forward(realCmd) {
 
 if (sub === 'mcp' || sub === '') {
   // The working lsp daemon (provides the real lsp.* tools)
-  forward(['/Users/ilseoblee/.grok/plugins/lfg/mcp-runtimes/lsp-daemon/dist/cli.js', 'mcp']);
+  forward(['/Users/ilseoblee/.grok/src/mcp-runtimes/lsp-daemon/dist/cli.js', 'mcp']);
 } else if (sub === 'hook') {
   // Delegate hooks to the installed component's cli
-  forward(['/Users/ilseoblee/.grok/plugins/lfg/components/lsp/dist/cli.js', ...args]);
+  forward(['/Users/ilseoblee/.grok/src/components/lsp/dist/cli.js', ...args]);
 } else {
   stderr.write('lfg lsp shim: unknown subcommand ' + sub + '\n');
   process.exit(2);

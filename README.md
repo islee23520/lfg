@@ -6,15 +6,15 @@ omo / lazycodex setup helper for **Grok Build**.
 npx @islee23520/lfg setup
 ```
 
-`lfg` installs the adapter into `~/.grok/installed-plugins/lfg` with hooks, agents, and model config. It does **not** run `npx lazycodex-ai install` into `~/.codex`.
+`lfg` installs the adapter into `~/.grok/plugins/lfg` (with legacy `~/.grok/installed-plugins/lfg` fallback) with native first-party OMO hooks, Grok-native OMO agents (including a Hephaestus-like default discipline), and model config. It does **not** run `npx lazycodex-ai install` into `~/.codex`.
 
 ## What it is
 
 A small npm CLI for installing the omo/lazycodex Grok adapter as a real directory under `~/.grok`.
 
-Not a Grok plugin. Not a runtime. Not a replacement for `lazycodex-ai`.
+Not a Grok plugin; `lfg` is not a plugin, not a runtime, and not a replacement for `lazycodex-ai`.
 
-## When to run what
+## When to run what / 언제 무엇을 실행하면 되나
 
 | Situation | Command |
 |---|---|
@@ -48,4 +48,4 @@ npm run typecheck
 npm run verify
 ```
 
-Publish from the repository root, not from `plugins/lfg`.
+Publish from the repository root, not from `src`.

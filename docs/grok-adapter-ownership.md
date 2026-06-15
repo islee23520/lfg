@@ -5,13 +5,13 @@
 
 ## Product framing
 
-**`lfg` is a personal spinoff:** a **Grok Build adapter** (core **codex adapter** feature + **opencode** from https://github.com/code-yeongyu/oh-my-openagent) for **oh-my-openagent / lazycodex (omo)** — analogous to `omo-codex` on Codex. It installs **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks). User-facing copy, package metadata, marketplace IDs, and vendored code must **not** present Linalab identity, `linalab.io`, or `linalab` Codex marketplaces. Workspace folder names on a dev machine are not part of the shipped story. It is a setup helper/adapter package only — not a Grok plugin/runtime.
+**`lfg` is a personal spinoff:** a **Grok Build adapter** (core **codex adapter** feature + **opencode** from https://github.com/code-yeongyu/oh-my-openagent) for **oh-my-openagent / lazycodex (omo)** — analogous to `omo-codex` on Codex. It installs **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks) and **Grok-native OMO agent surfaces**, including the Hephaestus-like default agent discipline. User-facing copy, package metadata, marketplace IDs, and vendored code must **not** present Linalab identity, `linalab.io`, or `linalab` Codex marketplaces. Workspace folder names on a dev machine are not part of the shipped story. It is a setup helper/adapter package only — not a Grok plugin/runtime.
 
 ## Decision
 
 **`@islee23520/lfg` is the single npm surface** for this **omo Grok adapter** (+ built-in extensions). Registry publish contract: [`docs/npm-publish.md`](npm-publish.md) (closes #22).
 
-1. **omo-style Grok adapter** — install/verify semantics comparable to `omo-codex` on `~/.grok` (adapter tree, config merge, agents, **native first-party OMO hooks**, verification). **Bridge fallback** only for legacy/imported hooks. Grok-first **OMO parity**.
+1. **omo-style Grok adapter** — install/verify semantics comparable to `omo-codex` on `~/.grok` (adapter tree, config merge, **native OMO agents**, **native first-party OMO hooks**, verification). **Bridge fallback** only for legacy/imported hooks. Grok-first **OMO parity**.
 2. **LFP-equivalent extensions** — capabilities from legacy `@islee23520/lfp` (hooks, agent overrides, optional extra agents) are **re-implemented for Grok** inside lfg — **not** a copy-paste vendor of the LFP package. See `docs/lfp-capability-port.md`.
 3. **Project `.omo` hook context** — lfg owns the Grok hook-time bridge (fallback) that reads project-local `.omo/boulder.json`...
 
@@ -38,8 +38,8 @@ Dual-home is allowed; Grok users are not required to run Codex.
 
 | Capability | Where it lives (target) |
 |------------|-------------------------|
-| Grok install + verification + cleanup | `plugins/lfg/bin/` + `plugins/lfg/grok-install/` |
-| Extension hooks / agent overrides | **Ported** per `docs/lfp-capability-port.md` into `plugins/lfg/extensions/` (or grok-install modules) — **new Grok-native code** |
+| Grok install + verification + cleanup | `src/cli/` + `src/grok-adapter/` |
+| Extension hooks / agent overrides | **Ported** per `docs/lfp-capability-port.md` into `src/extensions/` (or grok-install modules) — **new Grok-native code** |
 | omo component parity | Vendor or sync from `oh-my-openagent/packages/omo-codex/plugin` — not duplicate maintenance in lfg forever without sync script |
 | Model discovery | Existing `lfg-models.ts` + `lfg-grok-config.ts` until install owns full merge |
 

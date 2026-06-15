@@ -14,9 +14,9 @@ function forward(realCmd) {
 }
 
 if (sub === 'mcp' || sub === '') {
-  forward(['/Users/ilseoblee/.grok/plugins/lfg/mcp-runtimes/git-bash-mcp/dist/cli.js', 'mcp']);
+  forward(['/Users/ilseoblee/.grok/src/mcp-runtimes/git-bash-mcp/dist/cli.js', 'mcp']);
 } else if (sub === 'hook') {
-  forward(['/Users/ilseoblee/.grok/plugins/lfg/mcp-runtimes/git-bash-mcp/dist/cli.js', ...args]);
+  forward(['/Users/ilseoblee/.grok/src/mcp-runtimes/git-bash-mcp/dist/cli.js', ...args]);
 } else {
   stderr.write('lfg git-bash shim: unknown subcommand ' + sub + '\n');
   process.exit(2);

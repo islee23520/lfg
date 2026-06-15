@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process"
-import { evaluateNpmPublishAuth } from "../plugins/lfg/dist/npm-publish-auth.js"
+import { evaluateNpmPublishAuth } from "../dist/npm-publish-auth.js"
 
 let npmUser = resolveNpmWhoami()
 

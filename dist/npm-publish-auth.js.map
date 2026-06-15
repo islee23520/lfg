@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../src/cli/npm-publish-auth.ts"],
+  "sourcesContent": ["/** Whether the current environment can publish to npm (#22). */\nexport type NpmPublishAuth = {\n  readonly ok: boolean\n  readonly npmUser: string | null\n  readonly blockedReason: string | null\n}\n\nexport function evaluateNpmPublishAuth(npmUser: string | null): NpmPublishAuth {\n  if (npmUser === null || npmUser.length === 0) {\n    return { ok: false, npmUser: null, blockedReason: \"npm login required (npm whoami unauthorized)\" }\n  }\n  return { ok: true, npmUser, blockedReason: null }\n}"],
+  "mappings": ";AAOO,SAAS,uBAAuB,SAAwC;AAC7E,MAAI,YAAY,QAAQ,QAAQ,WAAW,GAAG;AAC5C,WAAO,EAAE,IAAI,OAAO,SAAS,MAAM,eAAe,+CAA+C;AAAA,EACnG;AACA,SAAO,EAAE,IAAI,MAAM,SAAS,eAAe,KAAK;AAClD;",
+  "names": []
+}

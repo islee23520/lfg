@@ -15,10 +15,11 @@
     "noEmit": true
   },
   "include": [
-    "plugins/lfg/bin/**/*.ts",
-    "plugins/lfg/test-utils/**/*.ts"
+    "src/cli/**/*.ts",
+    "src/grok-adapter/**/*.ts",
+    "src/test-utils/**/*.ts"
   ],
   "exclude": [
-    "plugins/lfg/dist"
+    "dist"
   ]
 }

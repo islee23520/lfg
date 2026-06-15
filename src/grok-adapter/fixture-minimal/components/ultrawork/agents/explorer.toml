@@ -1,0 +1,8 @@
+name = "explorer"
+description = "Fixture explorer for grok-install tests"
+model = "gpt-4.1-mini"
+model_reasoning_effort = "low"
+
+developer_instructions = """
+Fixture explorer instructions.
+"""

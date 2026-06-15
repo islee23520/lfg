@@ -36,5 +36,5 @@ Or merge manually: delete `api_key` from `[endpoints]`; keep `models_base_url`.
 
 ## Tests
 
-- `plugins/lfg/bin/lfg-grok-config.endpoints.test.ts`
-- `plugins/lfg/grok-install/config-single-writer.acceptance.test.ts`
+- `src/cli/lfg-grok-config.endpoints.test.ts`
+- `src/grok-adapter/config-single-writer.acceptance.test.ts`

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process"
-import { isPublishedLfgBinTarget, PUBLISHED_LFG_BIN_TARGET } from "../plugins/lfg/dist/npm-publish-bin.js"
+import { isPublishedLfgBinTarget, PUBLISHED_LFG_BIN_TARGET } from "../dist/npm-publish-bin.js"
 
 const raw = execFileSync("npm", ["pack", "--dry-run", "--json"], { encoding: "utf8" })
 const packs = JSON.parse(raw)
@@ -13,22 +13,22 @@ const paths = pack.files.map((f) => f.path)
 const required = [
   "package.json",
   PUBLISHED_LFG_BIN_TARGET,
-  "plugins/lfg/dist/lfg.js",
-  "plugins/lfg/dist/self-test.js",
-  "plugins/lfg/dist/publish-readiness.js",
-  "plugins/lfg/dist/npm-publish-auth.js",
-  "plugins/lfg/dist/npm-registry-version.js",
-  "plugins/lfg/dist/npm-publish-bin.js",
-  "plugins/lfg/dist/npm-registry-bin.js",
-  "plugins/lfg/dist/grok-install/fixture-minimal/hooks/hooks.json",
+  "dist/lfg.js",
+  "dist/self-test.js",
+  "dist/publish-readiness.js",
+  "dist/npm-publish-auth.js",
+  "dist/npm-registry-version.js",
+  "dist/npm-publish-bin.js",
+  "dist/npm-registry-bin.js",
+  "dist/grok-install/fixture-minimal/hooks/hooks.json",
   // Grok-first OMO parity requires native Grok hook fixtures plus bridge fallback assets.
-  "plugins/lfg/dist/grok-install/assets/lfg-grok-hook-bridge.mjs",
-  "plugins/lfg/dist/grok-install/assets/lfg-config-loader.mjs",
+  "dist/grok-install/assets/lfg-grok-hook-bridge.mjs",
+  "dist/grok-install/assets/lfg-config-loader.mjs",
 ]
 const requiredSkillFragments = ["ulw"]
 const missing = required.filter((p) => !paths.includes(p))
 const missingSkillFragments = requiredSkillFragments.filter(
-  (fragment) => !paths.some((path) => path.startsWith("plugins/lfg/skills/") && path.includes(fragment)),
+  (fragment) => !paths.some((path) => path.startsWith("skills/") && path.includes(fragment)),
 )
 if (missing.length > 0 || missingSkillFragments.length > 0) {
   console.error("assert-npm-pack-bin: missing paths:", missing.concat(missingSkillFragments).join(", "))

@@ -11,14 +11,15 @@
   },
   "type": "module",
   "bin": {
-    "lfg": "plugins/lfg/lfg"
+    "lfg": "bin/lfg.js"
   },
   "files": [
-    "plugins/lfg/AGENTS.md",
-    "plugins/lfg/lfg",
-    "plugins/lfg/README.md",
-    "plugins/lfg/dist",
-    "plugins/lfg/skills"
+    "bin",
+    "dist",
+    "skills",
+    "README.md",
+    "AGENTS.md",
+    "src/AGENTS.md"
   ],
   "repository": {
     "type": "git",
@@ -34,14 +35,11 @@
     "npx",
     "setup"
   ],
-  "workspaces": [
-    "plugins/lfg"
-  ],
   "scripts": {
-    "setup": "sh plugins/lfg/lfg setup",
-    "test": "npm run build && vitest run plugins/lfg/bin/*.test.ts plugins/lfg/grok-install/*.test.ts",
+    "setup": "sh bin/lfg.js setup",
+    "test": "npm run build && vitest run src/cli/*.test.ts src/grok-adapter/*.test.ts",
     "verify": "npm run assert-pack && npm test && npm run typecheck && npm run self-test",
-    "self-test": "npm run build && node plugins/lfg/dist/self-test.js",
+    "self-test": "npm run build && node dist/self-test.js",
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
     "prepack": "npm run build",

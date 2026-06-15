@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
-import { evaluateNpmPublishAuth } from "../plugins/lfg/dist/npm-publish-auth.js"
-import { isPublishedLfgBinTarget } from "../plugins/lfg/dist/npm-publish-bin.js"
-import { evaluatePublishGap } from "../plugins/lfg/dist/publish-readiness.js"
-import { parseNpmRegistryVersion } from "../plugins/lfg/dist/npm-registry-version.js"
-import { parseNpmRegistryBinLfg, registryBinPublishContract } from "../plugins/lfg/dist/npm-registry-bin.js"
+import { evaluateNpmPublishAuth } from "../dist/npm-publish-auth.js"
+import { isPublishedLfgBinTarget } from "../dist/npm-publish-bin.js"
+import { evaluatePublishGap } from "../dist/publish-readiness.js"
+import { parseNpmRegistryVersion } from "../dist/npm-registry-version.js"
+import { parseNpmRegistryBinLfg, registryBinPublishContract } from "../dist/npm-registry-bin.js"
 
 const root = new URL("..", import.meta.url).pathname
 const local = JSON.parse(readFileSync(`${root}/package.json`, "utf8"))

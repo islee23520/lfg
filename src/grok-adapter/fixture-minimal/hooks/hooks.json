@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/lfg-native-rules.js\" hook session-start",
+            "timeout": 5,
+            "description": "lfg native first-party rules session hook (no bridge)"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/lfg-native-ultrawork.js\" hook user-prompt-submit",
+            "timeout": 5,
+            "description": "lfg native first-party ultrawork prompt hook (no bridge)"
+          }
+        ]
+      }
+    ]
+  }
+}
