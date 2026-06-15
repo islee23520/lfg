@@ -111,13 +111,13 @@
       "role_rationale": "Ultrawork orchestrator for Grok-native OMO execution"
     },
     "sisyphus": {
-      "model": "grok-4.3",
-      "model_reasoning_effort": "xhigh",
+      "model": "glm-5.2",
+      "model_reasoning_effort": "medium",
       "service_tier": "default",
       "model_fallback": "gpt-5.5",
-      "model_fallback_reasoning_effort": "xhigh",
+      "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Grok-native Sisyphus planning conductor mapped to observed OMO ulw-plan and ultrawork workflow"
+      "role_rationale": "OMO Sisyphus main orchestrator: follows the upstream agent-model matching guide (Claude/Kimi/GLM/GPT family), not arbitrary Grok mapping"
     },
     "atlas": {
       "model": "grok-4.3",
@@ -127,6 +127,78 @@
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
       "role_rationale": "Grok-native Atlas research and verification conductor mapped to observed OMO ultraresearch/reviewer workflow"
+    },
+    "oracle": {
+      "model": "grok-4.20-0309-reasoning",
+      "model_reasoning_effort": "high",
+      "service_tier": "default",
+      "model_fallback": "gemini-3.1-pro-low",
+      "model_fallback_reasoning_effort": "high",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "OMO Oracle reasoning specialist kept distinct from Atlas research conductor; maps OMO gpt-5.5/high to Grok deep reasoning with Gemini low fallback from upstream config"
+    },
+    "sisyphus-junior": {
+      "model": "grok-4.20-0309-reasoning",
+      "model_reasoning_effort": "medium",
+      "service_tier": "default",
+      "model_fallback": "gpt-5.5",
+      "model_fallback_reasoning_effort": "medium",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "OMO Sisyphus Junior delegated execution agent; maps OMO gpt-5.5/medium to Grok reasoning while preserving GPT fallback"
+    },
+    "ultrabrain": {
+      "model": "grok-4.3",
+      "model_reasoning_effort": "xhigh",
+      "service_tier": "default",
+      "model_fallback": "gpt-5.5",
+      "model_fallback_reasoning_effort": "xhigh",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "OMO ultrabrain category for genuinely hard logic-heavy tasks; maps gpt-5.5/xhigh to Grok frontier reasoning"
+    },
+    "deep": {
+      "model": "grok-4.20-0309-reasoning",
+      "model_reasoning_effort": "high",
+      "service_tier": "default",
+      "model_fallback": "gpt-5.5",
+      "model_fallback_reasoning_effort": "high",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "OMO deep category for autonomous deep work; maps gpt-5.5/high to Grok deep reasoning with GPT fallback"
+    },
+    "quick": {
+      "model": "grok-3-mini-fast",
+      "model_reasoning_effort": "low",
+      "service_tier": "fast",
+      "model_fallback": "gpt-5.4-mini",
+      "model_fallback_reasoning_effort": "low",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "OMO quick category for trivial low-latency work; maps gpt-5.4-mini to fastest Grok mini"
+    },
+    "unspecified-low": {
+      "model": "grok-3-mini-fast",
+      "model_reasoning_effort": "low",
+      "service_tier": "fast",
+      "model_fallback": "gpt-5.4-mini",
+      "model_fallback_reasoning_effort": "low",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "OMO unspecified-low category for low-effort uncategorized work; maps gpt-5.4-mini to fastest Grok mini"
+    },
+    "unspecified-high": {
+      "model": "grok-4.20-0309-reasoning",
+      "model_reasoning_effort": "high",
+      "service_tier": "default",
+      "model_fallback": "gpt-5.5",
+      "model_fallback_reasoning_effort": "high",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "OMO unspecified-high category for high-effort uncategorized work; maps gpt-5.5/high to Grok deep reasoning with GPT fallback"
+    },
+    "writing": {
+      "model": "gemini-3.1-pro-low",
+      "model_reasoning_effort": "low",
+      "service_tier": "default",
+      "model_fallback": "gpt-5.5",
+      "model_fallback_reasoning_effort": "medium",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "OMO writing category for documentation and prose; preserves upstream Gemini low model with GPT fallback for availability"
     }
   }
 }

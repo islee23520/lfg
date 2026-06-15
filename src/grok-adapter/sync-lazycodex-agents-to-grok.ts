@@ -14,6 +14,8 @@ const GROK_AGENT_NAMES: Readonly<Record<string, string>> = {
   ulw: "ulw",
   sisyphus: "sisyphus",
   atlas: "atlas",
+  oracle: "oracle",
+  "sisyphus-junior": "sisyphus-junior",
   plan: "plan",
   explorer: "explorer",
   librarian: "librarian",
@@ -30,6 +32,7 @@ const RESERVED_USER_GROK_AGENT_NAMES = new Set(["ulw"])
 const READ_ONLY_AGENT_NAMES = new Set([
   "sisyphus",
   "atlas",
+  "oracle",
   "plan",
   "explorer",
   "librarian",

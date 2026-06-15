@@ -25,6 +25,8 @@ export const CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
   "ulw",
   "sisyphus",
   "atlas",
+  "oracle",
+  "sisyphus-junior",
   "explorer",
   "reasoning",
   "coding",
@@ -33,6 +35,12 @@ export const CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
   "metis",
   "momus",
   "codex-ultrawork-reviewer",
+  "ultrabrain",
+  "deep",
+  "quick",
+  "unspecified-low",
+  "unspecified-high",
+  "writing",
 ] as const
 
 type StoredOverrideFields = {

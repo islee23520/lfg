@@ -67,8 +67,8 @@ describe("runGrokInstall", () => {
     expect(ulwRole).toContain('reasoning_effort = "xhigh"')
 
     const sisyphusRole = await readFile(join(home, ".grok", "roles", "sisyphus.toml"), "utf8")
-    expect(sisyphusRole).toContain('model = "grok-4.3"')
-    expect(sisyphusRole).toContain('reasoning_effort = "xhigh"')
+    expect(sisyphusRole).toContain('model = "glm-5.2"')
+    expect(sisyphusRole).toContain('reasoning_effort = "medium"')
 
     const atlasRole = await readFile(join(home, ".grok", "roles", "atlas.toml"), "utf8")
     expect(atlasRole).toContain('model = "grok-4.3"')
@@ -94,6 +94,80 @@ describe("runGrokInstall", () => {
     await expect(readFile(join(home, ".grok", "prompts", "lazycodex", "ulw.md"), "utf8")).resolves.toContain("Grok-native OMO ultrawork")
     await expect(readFile(join(home, ".grok", "prompts", "lazycodex", "sisyphus.md"), "utf8")).resolves.toContain("Grok-native OMO Sisyphus")
     await expect(readFile(join(home, ".grok", "prompts", "lazycodex", "atlas.md"), "utf8")).resolves.toContain("Grok-native OMO Atlas")
+  })
+
+  test("null discovery writes oracle and sisyphus-junior as distinct agent surfaces (no alias collapse with atlas)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-oracle-junior-"))
+    const run = await runGrokInstall(null, { HOME: home })
+    expect(run.ok).toBe(true)
+
+    // Oracle is distinct from Atlas — both must exist as separate files
+    const oracleRole = await readFile(join(home, ".grok", "roles", "oracle.toml"), "utf8")
+    expect(oracleRole).toContain('model = "grok-4.20-0309-reasoning"')
+    expect(oracleRole).toContain('reasoning_effort = "high"')
+
+    const atlasRole = await readFile(join(home, ".grok", "roles", "atlas.toml"), "utf8")
+    expect(atlasRole).toContain('model = "grok-4.3"')
+
+    // Oracle and Atlas have distinct prompts (no alias collapse)
+    const oraclePrompt = await readFile(join(home, ".grok", "prompts", "lazycodex", "oracle.md"), "utf8")
+    expect(oraclePrompt).toContain("Grok-native OMO Oracle")
+    expect(oraclePrompt).not.toContain("Grok-native OMO Atlas")
+
+    const atlasPrompt = await readFile(join(home, ".grok", "prompts", "lazycodex", "atlas.md"), "utf8")
+    expect(atlasPrompt).toContain("Grok-native OMO Atlas")
+    expect(atlasPrompt).not.toContain("Grok-native OMO Oracle")
+
+    // Plugin agents exist as separate files
+    const oracleAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "oracle.md"), "utf8")
+    expect(oracleAgent).toContain("name: oracle")
+    const atlasAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "atlas.md"), "utf8")
+    expect(atlasAgent).toContain("name: atlas")
+
+    // Sisyphus-Junior exists as a distinct surface
+    const juniorRole = await readFile(join(home, ".grok", "roles", "sisyphus-junior.toml"), "utf8")
+    expect(juniorRole).toContain('model = "grok-4.20-0309-reasoning"')
+    expect(juniorRole).toContain('reasoning_effort = "medium"')
+
+    const juniorPrompt = await readFile(join(home, ".grok", "prompts", "lazycodex", "sisyphus-junior.md"), "utf8")
+    expect(juniorPrompt).toContain("Grok-native OMO Sisyphus-Junior")
+
+    const juniorAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "sisyphus-junior.md"), "utf8")
+    expect(juniorAgent).toContain("name: sisyphus-junior")
+
+    // Overrides include both oracle and sisyphus-junior
+    const overridesRaw = await readFile(join(home, ".grok", "lazycodex-agent-overrides.json"), "utf8")
+    expect(overridesRaw).toContain('"oracle"')
+    expect(overridesRaw).toContain('"sisyphus-junior"')
+  })
+
+  test("null discovery writes OMO category agents (ultrabrain, deep, quick, unspecified-low, unspecified-high, writing)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-categories-"))
+    const run = await runGrokInstall(null, { HOME: home })
+    expect(run.ok).toBe(true)
+
+    for (const name of ["ultrabrain", "deep", "quick", "unspecified-low", "unspecified-high", "writing"]) {
+      const role = await readFile(join(home, ".grok", "roles", `${name}.toml`), "utf8")
+      expect(role).toContain("model =")
+      expect(role).toContain("reasoning_effort")
+    }
+
+    // Spot-check specific models
+    const ultrabrainRole = await readFile(join(home, ".grok", "roles", "ultrabrain.toml"), "utf8")
+    expect(ultrabrainRole).toContain('model = "grok-4.3"')
+    expect(ultrabrainRole).toContain('reasoning_effort = "xhigh"')
+
+    const quickRole = await readFile(join(home, ".grok", "roles", "quick.toml"), "utf8")
+    expect(quickRole).toContain('model = "grok-3-mini-fast"')
+
+    // Overrides include all categories
+    const overridesRaw = await readFile(join(home, ".grok", "lazycodex-agent-overrides.json"), "utf8")
+    expect(overridesRaw).toContain('"ultrabrain"')
+    expect(overridesRaw).toContain('"deep"')
+    expect(overridesRaw).toContain('"quick"')
+    expect(overridesRaw).toContain('"unspecified-low"')
+    expect(overridesRaw).toContain('"unspecified-high"')
+    expect(overridesRaw).toContain('"writing"')
   })
 
   test("sync preserves user ~/.grok/agents/ulw.md byte-for-byte while writing plugin-owned ulw", async () => {
@@ -185,7 +259,7 @@ describe("runGrokInstall", () => {
     expect(config).toContain('"lfg"')
     expect(config).toContain('"lazycodex"')
     expect(config).toContain("[agents]")
-    expect(config).toContain('default = "ulw"')
+    expect(config).toContain('default = "sisyphus"')
     // LFG no longer forces Grok builtin shadows for general-purpose/explore/grok-build/builder.
     // It still enables LFG/lazycodex-provided agents (explorer from ultrawork, ulw when present, etc).
     expect(config).toContain("explorer = true")
