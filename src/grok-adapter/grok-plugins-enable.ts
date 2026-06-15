@@ -132,7 +132,7 @@ function upsertSubagentToggles(source: string): string {
 
 function upsertAgentPreference(source: string): string {
   const disabled = ["cursor", "browser-use"] as const
-  const block = `default = ${tomlString("ulw")}\ndisabled = [\n${disabled.map((id) => `    ${tomlString(id)},`).join("\n")}\n]`
+  const block = `default = ${tomlString("sisyphus")}\ndisabled = [\n${disabled.map((id) => `    ${tomlString(id)},`).join("\n")}\n]`
   return upsertTomlSection(source, "agents", block)
 }
 
@@ -155,7 +155,6 @@ export function upsertSubagentModels(
   const lfgOwned: Record<string, string> = {
     "general-purpose": fastRoute,
     "ulw": fastRoute,
-    "sisyphus": mapping.reasoning || "grok-4.20-0309-reasoning",
     "atlas": mapping.reasoning || "grok-4.20-0309-reasoning",
     "plan": mapping.reasoning || "grok-4.20-0309-reasoning",
     "metis": mapping.reasoning || "grok-4.20-0309-non-reasoning",
