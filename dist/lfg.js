@@ -4460,9 +4460,9 @@ var init_schemas = __esm({
         }
         const _out = def.transform(payload.value, payload);
         if (ctx.async) {
-          const output4 = _out instanceof Promise ? _out : Promise.resolve(_out);
-          return output4.then((output5) => {
-            payload.value = output5;
+          const output5 = _out instanceof Promise ? _out : Promise.resolve(_out);
+          return output5.then((output6) => {
+            payload.value = output6;
             payload.fallback = true;
             return payload;
           });
@@ -4822,12 +4822,12 @@ var init_schemas = __esm({
           output: inst._def.output
         });
       };
-      inst.output = (output4) => {
+      inst.output = (output5) => {
         const F = inst.constructor;
         return new F({
           type: "function",
           input: inst._def.input,
-          output: output4
+          output: output5
         });
       };
       return inst;
@@ -15102,15 +15102,15 @@ var init_schemas2 = __esm({
             payload.issues.push(util_exports.issue(_issue));
           }
         };
-        const output4 = def.transform(payload.value, payload);
-        if (output4 instanceof Promise) {
-          return output4.then((output5) => {
-            payload.value = output5;
+        const output5 = def.transform(payload.value, payload);
+        if (output5 instanceof Promise) {
+          return output5.then((output6) => {
+            payload.value = output6;
             payload.fallback = true;
             return payload;
           });
         }
-        payload.value = output4;
+        payload.value = output5;
         payload.fallback = true;
         return payload;
       };
@@ -16122,7 +16122,7 @@ function renderDefaultLfgConfig(seed) {
 `;
 }
 function stripJsonComments(text2) {
-  let output4 = "";
+  let output5 = "";
   let inString = false;
   let escaped = false;
   for (let index = 0; index < text2.length; index += 1) {
@@ -16130,7 +16130,7 @@ function stripJsonComments(text2) {
     const next = text2[index + 1];
     if (char === void 0) continue;
     if (inString) {
-      output4 += char;
+      output5 += char;
       if (escaped) {
         escaped = false;
       } else if (char === "\\") {
@@ -16142,12 +16142,12 @@ function stripJsonComments(text2) {
     }
     if (char === '"') {
       inString = true;
-      output4 += char;
+      output5 += char;
       continue;
     }
     if (char === "/" && next === "/") {
       while (index < text2.length && text2[index] !== "\n") index += 1;
-      output4 += "\n";
+      output5 += "\n";
       continue;
     }
     if (char === "/" && next === "*") {
@@ -16156,9 +16156,9 @@ function stripJsonComments(text2) {
       index += 1;
       continue;
     }
-    output4 += char;
+    output5 += char;
   }
-  return output4;
+  return output5;
 }
 var ReasoningLevelSchema, AgentConfigSchema, LfgConfigSchema, LFG_CONFIG_FILENAME, LFG_CONFIG_SCHEMA_FILENAME;
 var init_lfg_config = __esm({
@@ -17451,7 +17451,7 @@ var init_write_install_stamp = __esm({
 });
 
 // src/grok-adapter/grok-home.ts
-import { homedir as homedir4 } from "node:os";
+import { homedir as homedir4, userInfo } from "node:os";
 function resolveGrokSetupHome(env = process.env) {
   const testHomeAllowed = env.LFG_ALLOW_TEST_GROK_HOME === TEST_HOME_ENABLED || env.LFG_ALLOW_TEST_GROK_HOME !== "0" && process.env.LFG_ALLOW_TEST_GROK_HOME === TEST_HOME_ENABLED;
   if (testHomeAllowed) {
@@ -17462,6 +17462,16 @@ function resolveGrokSetupHome(env = process.env) {
     const isolatedHome = env.HOME?.trim();
     if (isolatedHome !== void 0 && isolatedHome.length > 0) {
       return isolatedHome;
+    }
+  }
+  try {
+    const realHome = userInfo().homedir.trim();
+    if (realHome.length > 0) {
+      return realHome;
+    }
+  } catch (error51) {
+    if (!(error51 instanceof Error)) {
+      throw error51;
     }
   }
   return homedir4();
@@ -22060,7 +22070,7 @@ function unsupportedCommand(positional) {
 init_lfg_installer();
 init_run_grok_install();
 import { createInterface } from "node:readline/promises";
-import { stdin as input, stdout as output3 } from "node:process";
+import { stdin as input, stdout as output4 } from "node:process";
 
 // src/grok-adapter/model-recommendations.ts
 var PERF_SNAPSHOT = {
@@ -22443,145 +22453,13 @@ function githubStarApiArgs(repository) {
 }
 
 // src/cli/lfg-interactive.ts
-init_resolve_tier_model();
 init_lfg_interactive_ui();
-async function runInstallWizard(plan, resolved, options = {}) {
-  const isTuiMode = !!(options && (options.modelSelector || options.tierSelector || options.reasoningSelector || options.skipFinalGate || options.skipOtherAgents));
-  printInstallHeader();
-  const reader = createLineReader();
-  try {
-    let discovery = resolved?.discovery ?? null;
-    printStep(1, "Discovering Grok model endpoint");
-    if (discovery === null) {
-      discovery = await discoverModelsInteractively(reader);
-    } else {
-      printAutoDiscovery(resolved ?? { discovery, baseUrlUsed: null, baseUrlSource: "none", autoDiscovered: false });
-    }
-    if (isTuiMode) {
-      const roleConfig = discovery ? await readAgentConfig(reader, discovery, options) : defaultLazycodexAgentConfig({});
-      const bundled = await loadBundledDefaultOmoOverridesForInteractive();
-      const agentOverrideMap = await mergeLazycodexAgentOverrides2(roleConfig, bundled, {});
-      const configuredDiscovery2 = {
-        ...discovery || {},
-        agentConfig: roleConfig,
-        agentOverrideMap
-      };
-      if (resolved && typeof resolved === "object") {
-        resolved.configuredDiscovery = configuredDiscovery2;
-      }
-      return { ok: true, status: "tui_configured", configuredDiscovery: configuredDiscovery2, executed: false };
-    }
-    printStep(2, "Configuring LazyCodex agents");
-    const configuredDiscovery = discovery === null ? null : await configureLazycodexAgentsFull(reader, discovery, options);
-    printStep(3, "Reviewing install plan");
-    printInstallPlan(plan, configuredDiscovery !== null);
-    printMagicWord();
-    const confirmed = await confirm(reader, "Install now? [y/N] ");
-    if (!confirmed) {
-      printCancelled();
-      return { ok: true, status: "skipped", executed: false };
-    }
-    printStep(4, "Installing Grok adapter");
-    output3.write("\nDirect Grok install: the adapter will be copied into a real directory at ~/.grok/plugins/lfg.\n");
-    output3.write("Any previous symlink or non-owned entry at that path will be replaced before applying hooks, agents, and config.\n\n");
-    output3.write(`
-Running Grok install: ${INTERNAL_GROK_INSTALL_COMMAND}
-`);
-    output3.write("(Codex npx lazycodex-ai install is not used on this path.)\n\n");
-    const result = await runLazycodexInstaller(configuredDiscovery);
-    writeOutput(result.stdout);
-    writeOutput(result.stderr);
-    if (result.configUpdated === true) {
-      output3.write("Updated ~/.grok/config.toml with discovered model settings.\n");
-    }
-    printStep(5, "Finalizing setup");
-    output3.write(
-      result.ok === true ? "Installed lazycodex/omo Grok adapter under ~/.grok for Grok Build.\n" : "Install failed. See installer output above.\n"
-    );
-    printCompleted(result.ok === true);
-    if (result.ok === true) {
-      await maybeRequestGitHubStars(reader, confirm);
-    }
-    return result;
-  } finally {
-    reader.close();
-  }
-}
-function printInstallHeader() {
-  printInstallIntro();
-}
-async function discoverModelsInteractively(reader) {
-  const home = process.env.HOME ?? "";
-  const auto = home.length > 0 ? await resolveSetupDiscovery({ home, cliBaseUrl: null }) : null;
-  if (auto && auto.discovery !== null && auto.discovery !== void 0) {
-    printAutoDiscovery(auto);
-    return auto.discovery;
-  }
-  output3.write("OpenAI-compatible base URL (Enter = skip model mapping): ");
-  const answer = await reader.next();
-  const baseUrl = answer.done === true ? "" : answer.value.trim();
-  if (baseUrl.length === 0) {
-    output3.write("Skipped model discovery. Installer will run without model mapping.\n\n");
-    return null;
-  }
-  const manual = await resolveSetupDiscovery({ home: home.length > 0 ? home : "/tmp", cliBaseUrl: baseUrl });
-  if (manual.discovery === null) {
-    output3.write(`Could not fetch models from ${baseUrl}. Installer will run without model mapping.
+init_grok_home();
 
-`);
-    return null;
-  }
-  printAutoDiscovery({ ...manual, baseUrlSource: "cli" });
-  return manual.discovery;
-}
-function printAutoDiscovery(resolved) {
-  const discovery = resolved.discovery;
-  if (discovery === null) {
-    return;
-  }
-  const sourceLabel = resolved.baseUrlSource === "config" ? "~/.grok/config.toml" : resolved.baseUrlSource === "default" ? "default proxy" : resolved.baseUrlSource;
-  output3.write(`Using models from ${resolved.baseUrlUsed ?? discovery.baseUrl} (${sourceLabel}).
-`);
-  output3.write(`Found ${discovery.modelIds.length} models; Grok [model.*] aliases will be written automatically.
-`);
-  output3.write("Model mapping:\n");
-  output3.write(`  default: ${discovery.mapping.default}
-`);
-  output3.write(`  fast: ${discovery.mapping.fast}
-`);
-  output3.write(`  reasoning: ${discovery.mapping.reasoning}
-`);
-  output3.write(`  coding: ${discovery.mapping.coding}
-
-`);
-  const recTable = formatRecommendationTable(discovery.modelIds);
-  output3.write(recTable + "\n");
-}
-async function configureLazycodexAgentsFull(reader, discovery, options = {}) {
-  const hasTuiSelectors = !!(options.modelSelector || options.tierSelector || options.reasoningSelector);
-  const shouldConfigure = hasTuiSelectors ? true : await confirm(reader, "Configure LazyCodex role agents (explorer / reasoning / coding)? [y/N] ");
-  const roleConfig = shouldConfigure ? await readAgentConfig(reader, discovery, options) : defaultLazycodexAgentConfig(discovery);
-  let agentOverrideMap;
-  const hasTuiForLongTail = !!(options.modelSelector || options.tierSelector || options.reasoningSelector);
-  if (options.skipOtherAgents || hasTuiForLongTail) {
-    const bundled = await loadBundledDefaultOmoOverridesForInteractive();
-    agentOverrideMap = await mergeLazycodexAgentOverrides2(roleConfig, bundled, {});
-  } else if (shouldConfigure) {
-    agentOverrideMap = await configureOmoAgentOverridesInteractively(
-      reader,
-      discovery,
-      roleConfig,
-      (text2) => output3.write(text2),
-      confirm,
-      options
-    );
-  } else {
-    const bundled = await loadBundledDefaultOmoOverridesForInteractive();
-    agentOverrideMap = await mergeLazycodexAgentOverrides2(roleConfig, bundled, {});
-  }
-  const effectiveMapping = discovery.mapping ? { ...discovery.mapping, default: roleConfig.explorer.model } : { default: roleConfig.explorer.model, fast: roleConfig.explorer.model, reasoning: roleConfig.reasoning.model, coding: roleConfig.coding.model };
-  return { ...discovery, mapping: effectiveMapping, agentConfig: roleConfig, agentOverrideMap };
-}
+// src/cli/lfg-interactive-agent-config.ts
+init_lfg_models();
+init_resolve_tier_model();
+import { stdout as output3 } from "node:process";
 async function loadBundledDefaultOmoOverridesForInteractive() {
   const mod = await Promise.resolve().then(() => (init_lazycodex_agent_overrides(), lazycodex_agent_overrides_exports));
   return mod.loadBundledDefaultOmoOverrides();
@@ -22589,6 +22467,20 @@ async function loadBundledDefaultOmoOverridesForInteractive() {
 async function mergeLazycodexAgentOverrides2(roleConfig, bundled, extra) {
   const mod = await Promise.resolve().then(() => (init_lazycodex_agent_overrides(), lazycodex_agent_overrides_exports));
   return mod.mergeLazycodexAgentOverrides(roleConfig, bundled, extra);
+}
+function fallbackModelDiscovery() {
+  const mapping = {
+    default: "grok-build",
+    fast: "grok-build",
+    reasoning: "grok-build",
+    coding: "grok-build"
+  };
+  return {
+    baseUrl: "",
+    modelsUrl: "",
+    modelIds: ["grok-build"],
+    mapping
+  };
 }
 async function readAgentConfig(reader, discovery, options = {}) {
   const defaults = defaultLazycodexAgentConfig(discovery);
@@ -22599,7 +22491,7 @@ async function readAgentConfig(reader, discovery, options = {}) {
   };
 }
 async function readAgentSetting(reader, discovery, agentName, defaultModel, defaultReasoningLevel, options = {}) {
-  const isTui = !!(options && (options.modelSelector || options.tierSelector || options.reasoningSelector || options.skipFinalGate || options.skipOtherAgents));
+  const isTui = options.modelSelector !== void 0 || options.tierSelector !== void 0 || options.reasoningSelector !== void 0 || options.skipFinalGate === true || options.skipOtherAgents === true;
   if (!isTui) {
     const rec = buildRoleRecommendations(discovery.modelIds).find((r2) => r2.role === agentName);
     if (rec !== void 0) {
@@ -22620,10 +22512,7 @@ async function readAgentSetting(reader, discovery, agentName, defaultModel, defa
   }
   const picked = await readModelChoice2(reader, discovery, `  ${agentName} model [${defaultModel}]: `, defaultModel, agentName, options.modelSelector);
   const tierDefault = defaultTierPromptForAgent(agentName);
-  let tier;
-  if (typeof options.tierSelector === "function") {
-    tier = await readTierChoice2(reader, `  ${agentName} service tier [${tierDefault}]: `, tierDefault, agentName, options.tierSelector);
-  }
+  const tier = typeof options.tierSelector === "function" ? await readTierChoice2(reader, `  ${agentName} service tier [${tierDefault}]: `, tierDefault, agentName, options.tierSelector) : void 0;
   const model = tier !== void 0 ? resolveModelForServiceTier(discovery.modelIds, picked, tier, {
     mappingFast: discovery.mapping.fast,
     mappingDefault: discovery.mapping.default
@@ -22695,15 +22584,15 @@ async function readReasoningLevel2(reader, prompt, fallback, agentName, reasonin
 }
 function buildModelChoices2(models) {
   const groups = /* @__PURE__ */ new Map();
-  for (const m2 of models) {
-    const key = m2.split("/").at(-1) ?? m2;
-    const arr = groups.get(key) ?? [];
-    arr.push(m2);
-    groups.set(key, arr);
+  for (const model of models) {
+    const key = model.split("/").at(-1) ?? model;
+    const aliases = groups.get(key) ?? [];
+    aliases.push(model);
+    groups.set(key, aliases);
   }
   return [...groups.entries()].map(([key, aliases]) => {
     const unique = [...new Set(aliases)].sort((a3, b3) => a3.localeCompare(b3));
-    const value = unique.find((a3) => a3 === key) ?? unique.find((a3) => a3 === `openai/${key}`) ?? unique[0];
+    const value = unique.find((alias) => alias === key) ?? unique.find((alias) => alias === `openai/${key}`) ?? unique[0] ?? key;
     return { key, aliases: unique, value };
   });
 }
@@ -22713,13 +22602,149 @@ function formatModelChoiceLabel2(choice) {
 function isReasoningLevel3(value) {
   return value === "low" || value === "medium" || value === "high" || value === "xhigh";
 }
+
+// src/cli/lfg-interactive.ts
+async function runInstallWizard(plan, resolved, options = {}) {
+  const isTuiMode = !!(options && (options.modelSelector || options.tierSelector || options.reasoningSelector || options.skipFinalGate || options.skipOtherAgents));
+  printInstallHeader();
+  const reader = createLineReader();
+  try {
+    let discovery = resolved?.discovery ?? null;
+    printStep(1, "Discovering Grok model endpoint");
+    if (discovery === null) {
+      discovery = await discoverModelsInteractively(reader);
+    } else {
+      printAutoDiscovery(resolved ?? { discovery, baseUrlUsed: null, baseUrlSource: "none", autoDiscovered: false });
+    }
+    if (isTuiMode) {
+      const roleConfig = await readAgentConfig(reader, discovery ?? fallbackModelDiscovery(), options);
+      const bundled = await loadBundledDefaultOmoOverridesForInteractive();
+      const agentOverrideMap = await mergeLazycodexAgentOverrides2(roleConfig, bundled, {});
+      const configuredDiscovery2 = {
+        ...discovery ?? fallbackModelDiscovery(),
+        agentConfig: roleConfig,
+        agentOverrideMap
+      };
+      return { ok: true, status: "tui_configured", configuredDiscovery: configuredDiscovery2, executed: false };
+    }
+    printStep(2, "Configuring LazyCodex agents");
+    const configuredDiscovery = discovery === null ? null : await configureLazycodexAgentsFull(reader, discovery, options);
+    printStep(3, "Reviewing install plan");
+    printInstallPlan(plan, configuredDiscovery !== null);
+    printMagicWord();
+    const confirmed = await confirm(reader, "Install now? [y/N] ");
+    if (!confirmed) {
+      printCancelled();
+      return { ok: true, status: "skipped", executed: false };
+    }
+    printStep(4, "Installing Grok adapter");
+    output4.write("\nDirect Grok install: the adapter will be copied into a real directory at ~/.grok/plugins/lfg.\n");
+    output4.write("Any previous symlink or non-owned entry at that path will be replaced before applying hooks, agents, and config.\n\n");
+    output4.write(`
+Running Grok install: ${INTERNAL_GROK_INSTALL_COMMAND}
+`);
+    output4.write("(Codex npx lazycodex-ai install is not used on this path.)\n\n");
+    const result = await runLazycodexInstaller(configuredDiscovery);
+    writeOutput(result.stdout);
+    writeOutput(result.stderr);
+    if (result.configUpdated === true) {
+      output4.write("Updated ~/.grok/config.toml with discovered model settings.\n");
+    }
+    printStep(5, "Finalizing setup");
+    output4.write(
+      result.ok === true ? "Installed lazycodex/omo Grok adapter under ~/.grok for Grok Build.\n" : "Install failed. See installer output above.\n"
+    );
+    printCompleted(result.ok === true);
+    if (result.ok === true) {
+      await maybeRequestGitHubStars(reader, confirm);
+    }
+    return result;
+  } finally {
+    reader.close();
+  }
+}
+function printInstallHeader() {
+  printInstallIntro();
+}
+async function discoverModelsInteractively(reader) {
+  const home = resolveGrokSetupHome(process.env);
+  const auto = await resolveSetupDiscovery({ home, cliBaseUrl: null });
+  if (auto && auto.discovery !== null && auto.discovery !== void 0) {
+    printAutoDiscovery(auto);
+    return auto.discovery;
+  }
+  output4.write("OpenAI-compatible base URL (Enter = skip model mapping): ");
+  const answer = await reader.next();
+  const baseUrl = answer.done === true ? "" : answer.value.trim();
+  if (baseUrl.length === 0) {
+    output4.write("Skipped model discovery. Installer will run without model mapping.\n\n");
+    return null;
+  }
+  const manual = await resolveSetupDiscovery({ home, cliBaseUrl: baseUrl });
+  if (manual.discovery === null) {
+    output4.write(`Could not fetch models from ${baseUrl}. Installer will run without model mapping.
+
+`);
+    return null;
+  }
+  printAutoDiscovery({ ...manual, baseUrlSource: "cli" });
+  return manual.discovery;
+}
+function printAutoDiscovery(resolved) {
+  const discovery = resolved.discovery;
+  if (discovery === null) {
+    return;
+  }
+  const sourceLabel = resolved.baseUrlSource === "config" ? "~/.grok/config.toml" : resolved.baseUrlSource === "default" ? "default proxy" : resolved.baseUrlSource;
+  output4.write(`Using models from ${resolved.baseUrlUsed ?? discovery.baseUrl} (${sourceLabel}).
+`);
+  output4.write(`Found ${discovery.modelIds.length} models; Grok [model.*] aliases will be written automatically.
+`);
+  output4.write("Model mapping:\n");
+  output4.write(`  default: ${discovery.mapping.default}
+`);
+  output4.write(`  fast: ${discovery.mapping.fast}
+`);
+  output4.write(`  reasoning: ${discovery.mapping.reasoning}
+`);
+  output4.write(`  coding: ${discovery.mapping.coding}
+
+`);
+  const recTable = formatRecommendationTable(discovery.modelIds);
+  output4.write(recTable + "\n");
+}
+async function configureLazycodexAgentsFull(reader, discovery, options = {}) {
+  const hasTuiSelectors = !!(options.modelSelector || options.tierSelector || options.reasoningSelector);
+  const shouldConfigure = hasTuiSelectors ? true : await confirm(reader, "Configure LazyCodex role agents (explorer / reasoning / coding)? [y/N] ");
+  const roleConfig = shouldConfigure ? await readAgentConfig(reader, discovery, options) : defaultLazycodexAgentConfig(discovery);
+  let agentOverrideMap;
+  const hasTuiForLongTail = !!(options.modelSelector || options.tierSelector || options.reasoningSelector);
+  if (options.skipOtherAgents || hasTuiForLongTail) {
+    const bundled = await loadBundledDefaultOmoOverridesForInteractive();
+    agentOverrideMap = await mergeLazycodexAgentOverrides2(roleConfig, bundled, {});
+  } else if (shouldConfigure) {
+    agentOverrideMap = await configureOmoAgentOverridesInteractively(
+      reader,
+      discovery,
+      roleConfig,
+      (text2) => output4.write(text2),
+      confirm,
+      options
+    );
+  } else {
+    const bundled = await loadBundledDefaultOmoOverridesForInteractive();
+    agentOverrideMap = await mergeLazycodexAgentOverrides2(roleConfig, bundled, {});
+  }
+  const effectiveMapping = discovery.mapping ? { ...discovery.mapping, default: roleConfig.explorer.model } : { default: roleConfig.explorer.model, fast: roleConfig.explorer.model, reasoning: roleConfig.reasoning.model, coding: roleConfig.coding.model };
+  return { ...discovery, mapping: effectiveMapping, agentConfig: roleConfig, agentOverrideMap };
+}
 async function confirm(reader, prompt) {
-  output3.write(prompt);
+  output4.write(prompt);
   const answer = await reader.next();
   return ["y", "yes"].includes(answer.done === true ? "" : answer.value.trim().toLowerCase());
 }
 function createLineReader() {
-  const reader = createInterface({ input, output: output3, terminal: false });
+  const reader = createInterface({ input, output: output4, terminal: false });
   const iterator = reader[Symbol.asyncIterator]();
   return { next: () => iterator.next(), close: () => reader.close() };
 }
@@ -22727,7 +22752,7 @@ function writeOutput(value) {
   if (typeof value !== "string" || value.length === 0) {
     return;
   }
-  output3.write(value.endsWith("\n") ? value : `${value}
+  output4.write(value.endsWith("\n") ? value : `${value}
 `);
 }
 
@@ -22739,6 +22764,137 @@ init_lfg_json();
 init_lfg_grok_config();
 init_grok_api_key();
 init_grok_home();
+
+// src/cli/setup-plan.ts
+init_lfg_installer();
+init_lfg_grok_config();
+init_lfg_models();
+init_lfg_json();
+init_grok_api_key();
+init_grok_home();
+init_run_grok_install();
+function setupPlan(resolved, preset) {
+  const discovery = resolved.discovery;
+  return {
+    ok: true,
+    status: "planned",
+    command: "setup",
+    role: "lazycodex_adapter_installer",
+    adapterPackage: "lfg-grok-install",
+    companionPackage: "lfg-grok-install",
+    installerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+    grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+    lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+    legacyCodexInstallerCommand: LAZYCODEX_INSTALLER_COMMAND,
+    packageExecutors: ["npx @islee23520/lfg"],
+    selectedPreset: preset,
+    presets: [
+      { id: "grok", label: "Grok-centered hybrid", text: "Prefer Grok for default agents, with GPT help for critical review when available." },
+      { id: "gpt", label: "GPT-centered", text: "Prefer GPT/Codex model ids for default, reasoning, and coding aliases." }
+    ],
+    executed: false,
+    dryRun: false,
+    lfgIsPlugin: false,
+    skippedCodexInstaller: true,
+    installPath: "grok",
+    purpose: "Grok-first direct install of the omo/lazycodex adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). `npx lazycodex-ai install` (Codex path) is NOT executed on the default path.",
+    modelDiscovery: discovery ?? modelDiscoveryPlan(),
+    modelDiscoverySource: resolved.baseUrlSource,
+    modelsBaseUrlUsed: resolved.baseUrlUsed,
+    autoModelAliases: discovery !== null,
+    steps: [
+      { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) that will be used for Grok [model.*] aliases and the explorer/reasoning/coding agents." },
+      { id: 2, status: discovery === null ? "pending" : "done", text: "Build the Grok agent role configs and LFP-style per-agent overrides from the discovered models + bundled omo defaults." },
+      { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_LAZYCODEX_PLUGIN_SOURCE, npm _npx cache of lazycodex-ai, or the built-in fixture.` },
+      { id: 4, status: "pending", text: "Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, install plugin-owned LFG agents, sync roles/personas/prompts, write lazycodex-agent-overrides.json, and ensure the adapter is enabled for Grok Build." }
+    ],
+    note: "Grok-first. Default `lfg setup` (and --json setup) does not execute `npx lazycodex-ai install`. The legacyCodexInstallerCommand is kept only for reference (optional separate Codex bootstrap). Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit."
+  };
+}
+function refreshPlan(resolved, preset) {
+  const discovery = resolved.discovery;
+  return {
+    ok: true,
+    status: "planned",
+    command: "setup",
+    subcommand: "refresh",
+    role: "lazycodex_adapter_model_refresh",
+    adapterPackage: "lfg-grok-install",
+    companionPackage: "lfg-grok-install",
+    executed: false,
+    dryRun: false,
+    lfgIsPlugin: false,
+    selectedPreset: preset,
+    purpose: "Refresh only the model list, per-model context_window sizes, and auth (api_key) in ~/.grok/config.toml. Discovery uses the current base URL (proxy first, public LiteLLM catalog for context sizes as secondary source). Local/proxy-advertised values always win. Does not touch the Grok plugin tree, hooks, agents, or TOMLs.",
+    modelDiscovery: discovery ?? modelDiscoveryPlan(),
+    modelDiscoverySource: resolved.baseUrlSource,
+    modelsBaseUrlUsed: resolved.baseUrlUsed,
+    autoModelAliases: discovery !== null,
+    steps: [
+      { id: 1, status: discovery === null ? "pending" : "done", text: "Re-discover OpenAI-compatible models and context windows from CLI/env/config.toml/default proxy (public LiteLLM catalog enrichment attempted when proxy omits sizes)." },
+      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key from OPENAI_API_KEY/XAI_API_KEY or the active Codex provider), and [lazycodex.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." }
+    ],
+    note: "This is a config-only maintenance operation. Use --run to execute. No Grok plugin install or hook registration occurs."
+  };
+}
+function buildRefreshExecutedJson(refreshResult, discovery, resolved) {
+  return {
+    ok: refreshResult.ok,
+    status: refreshResult.status === "refreshed" ? "refreshed" : "refresh_no_discovery",
+    command: "setup",
+    subcommand: "refresh",
+    executed: true,
+    role: "lazycodex_adapter_model_refresh",
+    adapterPackage: "lfg-grok-install",
+    companionPackage: "lfg-grok-install",
+    lfgIsPlugin: false,
+    modelDiscoverySource: resolved.baseUrlSource,
+    modelsBaseUrlUsed: resolved.baseUrlUsed,
+    ...refreshResult.configUpdate ? {
+      configUpdated: true,
+      configPath: refreshResult.configUpdate.path,
+      modelsBaseUrl: refreshResult.configUpdate.modelsBaseUrl,
+      grokConfig: grokConfigJson(refreshResult.configUpdate)
+    } : {},
+    ...refreshResult.discovery ? { modelDiscovery: refreshResult.discovery } : discovery ? { modelDiscovery: discovery } : {},
+    ...!refreshResult.ok ? {
+      error: "No model discovery available; provide --base-url, set LFG_GROK_BASE_URL/LAZYCODEX_OPENAI_BASE_URL, ensure ~/.grok/config.toml has [endpoints].models_base_url, or ensure the default proxy is reachable."
+    } : {}
+  };
+}
+async function runRefreshWizard(plan, resolved) {
+  const { printInstallIntro: printInstallIntro2, printStep: printStep2 } = await Promise.resolve().then(() => (init_lfg_interactive_ui(), lfg_interactive_ui_exports));
+  const { createInterface: createInterface3 } = await import("node:readline/promises");
+  const { stdin: input2, stdout: output5 } = await import("node:process");
+  printInstallIntro2();
+  printStep2(1, "Model / auth refresh");
+  output5.write("This will re-discover models and context windows (proxy + public LiteLLM catalog) and update ~/.grok/config.toml model sections.\n");
+  output5.write("It does not reinstall or modify the Grok adapter plugin tree, hooks, or agent TOMLs.\n\n");
+  const reader = createInterface3({ input: input2, output: output5 });
+  try {
+    output5.write("Proceed with refresh? [y/N] ");
+    const answer = await reader.question("");
+    const yes = answer.trim().toLowerCase().startsWith("y");
+    if (!yes) {
+      output5.write("Cancelled.\n");
+      return { ok: true, status: "skipped", executed: false, command: "setup", subcommand: "refresh" };
+    }
+    const apiKey = await resolveGrokApiKey(process.env);
+    const home = resolveGrokSetupHome(process.env);
+    const discovery = resolved.discovery;
+    const refreshResult = await refreshGrokModelConfig(discovery, { home, apiKey });
+    if (refreshResult.configUpdate) {
+      output5.write(`Updated ~/.grok/config.toml at ${refreshResult.configUpdate.path}
+`);
+    }
+    output5.write(refreshResult.ok ? "Model config refreshed.\n" : "No discovery available; nothing written.\n");
+    return buildRefreshExecutedJson(refreshResult, discovery, resolved);
+  } finally {
+    reader.close();
+  }
+}
+
+// src/cli/lfg.ts
 var DEFAULT_SETUP_PRESET = "grok";
 async function main(argv) {
   const parsed = parseArgs(argv);
@@ -22808,10 +22964,7 @@ async function dispatch(args) {
     }
     const { shouldUseSetupTui: shouldUseSetupTui2, runSetupTui: runSetupTui2 } = await Promise.resolve().then(() => (init_lfg_setup_tui(), lfg_setup_tui_exports));
     if (shouldUseSetupTui2(args, { check: false, input: process.stdin, output: process.stdout })) {
-      const tuiResult = await runSetupTui2(args, { plan, resolved: presetResolved }, {
-        // No runLineSetup delegation for the main TUI experience. The runner is self-contained.
-        runLineSetup: void 0
-      });
+      const tuiResult = await runSetupTui2(args, { plan, resolved: presetResolved });
       return tuiResult ?? { ok: true, status: "tui_completed", executed: true };
     }
   }
@@ -22823,135 +22976,6 @@ function isInteractiveInstall(args) {
 }
 function isSetupForceShortcut(args) {
   return !args.json && !args.run && args.positional[0] === "setup" && (args.positional[1] === "--force" || args.positional[1] === "force");
-}
-function setupPlan(resolved, preset) {
-  const discovery = resolved.discovery;
-  return {
-    ok: true,
-    status: "planned",
-    command: "setup",
-    role: "lazycodex_adapter_installer",
-    adapterPackage: "lfg-grok-install",
-    companionPackage: "lfg-grok-install",
-    installerCommand: INTERNAL_GROK_INSTALL_COMMAND,
-    grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
-    lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
-    legacyCodexInstallerCommand: LAZYCODEX_INSTALLER_COMMAND,
-    packageExecutors: ["npx @islee23520/lfg"],
-    selectedPreset: preset,
-    presets: [
-      { id: "grok", label: "Grok-centered hybrid", text: "Prefer Grok for default agents, with GPT help for critical review when available." },
-      { id: "gpt", label: "GPT-centered", text: "Prefer GPT/Codex model ids for default, reasoning, and coding aliases." }
-    ],
-    executed: false,
-    dryRun: false,
-    lfgIsPlugin: false,
-    skippedCodexInstaller: true,
-    installPath: "grok",
-    purpose: "Grok-first direct install of the omo/lazycodex adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). `npx lazycodex-ai install` (Codex path) is NOT executed on the default path.",
-    modelDiscovery: discovery ?? modelDiscoveryPlan(),
-    modelDiscoverySource: resolved.baseUrlSource,
-    modelsBaseUrlUsed: resolved.baseUrlUsed,
-    autoModelAliases: discovery !== null,
-    steps: [
-      { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) that will be used for Grok [model.*] aliases and the explorer/reasoning/coding agents." },
-      { id: 2, status: discovery === null ? "pending" : "done", text: "Build the Grok agent role configs and LFP-style per-agent overrides from the discovered models + bundled omo defaults." },
-      { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_LAZYCODEX_PLUGIN_SOURCE, npm _npx cache of lazycodex-ai, or the built-in fixture.` },
-      { id: 4, status: "pending", text: `Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, install plugin-owned LFG agents, sync roles/personas/prompts, write lazycodex-agent-overrides.json, and ensure the adapter is enabled for Grok Build.` }
-    ],
-    note: "Grok-first. Default `lfg setup` (and --json setup) does not execute `npx lazycodex-ai install`. The legacyCodexInstallerCommand is kept only for reference (optional separate Codex bootstrap). Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit."
-  };
-}
-function refreshPlan(resolved, preset) {
-  const discovery = resolved.discovery;
-  return {
-    ok: true,
-    status: "planned",
-    command: "setup",
-    subcommand: "refresh",
-    role: "lazycodex_adapter_model_refresh",
-    adapterPackage: "lfg-grok-install",
-    companionPackage: "lfg-grok-install",
-    executed: false,
-    dryRun: false,
-    lfgIsPlugin: false,
-    selectedPreset: preset,
-    purpose: "Refresh only the model list, per-model context_window sizes, and auth (api_key) in ~/.grok/config.toml. Discovery uses the current base URL (proxy first, public LiteLLM catalog for context sizes as secondary source). Local/proxy-advertised values always win. Does not touch the Grok plugin tree, hooks, agents, or TOMLs.",
-    modelDiscovery: discovery ?? modelDiscoveryPlan(),
-    modelDiscoverySource: resolved.baseUrlSource,
-    modelsBaseUrlUsed: resolved.baseUrlUsed,
-    autoModelAliases: discovery !== null,
-    steps: [
-      { id: 1, status: discovery === null ? "pending" : "done", text: "Re-discover OpenAI-compatible models and context windows from CLI/env/config.toml/default proxy (public LiteLLM catalog enrichment attempted when proxy omits sizes)." },
-      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key from OPENAI_API_KEY/XAI_API_KEY or the active Codex provider), and [lazycodex.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." }
-    ],
-    note: "This is a config-only maintenance operation. Use --run to execute. No Grok plugin install or hook registration occurs."
-  };
-}
-function buildRefreshExecutedJson(refreshResult, discovery, resolved) {
-  const base = {
-    ok: refreshResult.ok,
-    status: refreshResult.status === "refreshed" ? "refreshed" : "refresh_no_discovery",
-    command: "setup",
-    subcommand: "refresh",
-    executed: true,
-    role: "lazycodex_adapter_model_refresh",
-    adapterPackage: "lfg-grok-install",
-    companionPackage: "lfg-grok-install",
-    lfgIsPlugin: false,
-    modelDiscoverySource: resolved.baseUrlSource,
-    modelsBaseUrlUsed: resolved.baseUrlUsed
-  };
-  if (refreshResult.configUpdate) {
-    ;
-    base.configUpdated = true;
-    base.configPath = refreshResult.configUpdate.path;
-    base.modelsBaseUrl = refreshResult.configUpdate.modelsBaseUrl;
-    base.grokConfig = grokConfigJson(refreshResult.configUpdate);
-  }
-  if (refreshResult.discovery) {
-    ;
-    base.modelDiscovery = refreshResult.discovery;
-  } else if (discovery) {
-    ;
-    base.modelDiscovery = discovery;
-  }
-  if (!refreshResult.ok) {
-    ;
-    base.error = "No model discovery available; provide --base-url, set LFG_GROK_BASE_URL/LAZYCODEX_OPENAI_BASE_URL, ensure ~/.grok/config.toml has [endpoints].models_base_url, or ensure the default proxy is reachable.";
-  }
-  return base;
-}
-async function runRefreshWizard(plan, resolved) {
-  const { printInstallIntro: printInstallIntro2, printStep: printStep2 } = await Promise.resolve().then(() => (init_lfg_interactive_ui(), lfg_interactive_ui_exports));
-  const { createInterface: createInterface3 } = await import("node:readline/promises");
-  const { stdin: input2, stdout: output4 } = await import("node:process");
-  printInstallIntro2();
-  printStep2(1, "Model / auth refresh");
-  output4.write("This will re-discover models and context windows (proxy + public LiteLLM catalog) and update ~/.grok/config.toml model sections.\n");
-  output4.write("It does not reinstall or modify the Grok adapter plugin tree, hooks, or agent TOMLs.\n\n");
-  const reader = createInterface3({ input: input2, output: output4 });
-  try {
-    output4.write("Proceed with refresh? [y/N] ");
-    const answer = await reader.question("");
-    const yes = answer.trim().toLowerCase().startsWith("y");
-    if (!yes) {
-      output4.write("Cancelled.\n");
-      return { ok: true, status: "skipped", executed: false, command: "setup", subcommand: "refresh" };
-    }
-    const apiKey = await resolveGrokApiKey(process.env);
-    const home = resolveGrokSetupHome(process.env);
-    const discovery = resolved.discovery;
-    const refreshResult = await refreshGrokModelConfig(discovery, { home, apiKey });
-    if (refreshResult.configUpdate) {
-      output4.write(`Updated ~/.grok/config.toml at ${refreshResult.configUpdate.path}
-`);
-    }
-    output4.write(refreshResult.ok ? "Model config refreshed.\n" : "No discovery available; nothing written.\n");
-    return buildRefreshExecutedJson(refreshResult, discovery, resolved);
-  } finally {
-    reader.close();
-  }
 }
 function parseArgs(argv) {
   const positional = [];

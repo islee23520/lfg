@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectProjectOmoLedger } from "./lfg-project-omo-ledger.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const TEST_HOME_ENABLED = "1";
 
 const input = parseJson(await readStdin());
 const event = normalizeHookEventName(input);
-const home = process.env.HOME ?? homedir();
+const home = resolveGrokHome(process.env);
 const configPath = join(home, ".grok", "lfg-config.jsonc");
 const config = await readConfig(configPath);
 const projectRoot = projectRootFromInput(input);
@@ -40,6 +41,22 @@ async function readConfig(path) {
   } catch {
     return null;
   }
+}
+
+function resolveGrokHome(env) {
+  if (env.LFG_ALLOW_TEST_GROK_HOME === TEST_HOME_ENABLED) {
+    const explicitTestHome = env.LFG_TEST_GROK_HOME?.trim();
+    if (explicitTestHome) return explicitTestHome;
+    const isolatedHome = env.HOME?.trim();
+    if (isolatedHome) return isolatedHome;
+  }
+  try {
+    const home = userInfo().homedir.trim();
+    if (home.length > 0) return home;
+  } catch (error) {
+    if (!(error instanceof Error)) throw error;
+  }
+  return homedir();
 }
 
 function renderContext(path, config, ledger) {

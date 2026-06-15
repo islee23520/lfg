@@ -21,7 +21,7 @@ Internal Grok installer engine: materializes the adapter payload, merges hooks, 
 ## CONVENTIONS
 
 - Only write to Grok home from explicit `setup --run` or confirmed interactive setup.
-- Production setup must resolve Grok home from `os.homedir()` through `grok-home.ts`; never use inherited `HOME`, temp homes, or custom Grok-home env vars for real installs.
+- Production setup must resolve Grok home from the real account home through `grok-home.ts` (`os.userInfo().homedir` first); never use inherited `HOME`, temp homes, or custom Grok-home env vars for real installs.
 - Keep installer operations scoped to lfg-owned paths and config sections.
 - Preserve healthy stamped installs by default; `--force` is the explicit replacement path.
 - Make hook normalization repeat-safe. Multiple setup runs must not stack bridge wrappers.

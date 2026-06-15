@@ -3,25 +3,21 @@ import { stdin as input, stdout as output } from "node:process"
 import { runLazycodexInstaller } from "./lfg-installer"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-adapter/run-grok-install"
 import { configureOmoAgentOverridesInteractively } from "../grok-adapter/agent-config-wizard"
-import {
-  defaultLazycodexAgentConfig,
-  type LazycodexAgentConfig,
-  type LazycodexAgentName,
-  type ModelDiscovery,
-  type ReasoningLevel,
-} from "./lfg-models"
+import { defaultLazycodexAgentConfig, type ModelDiscovery } from "./lfg-models"
 import type { JsonObject } from "./lfg-json"
 import type { ResolveSetupDiscoveryResult } from "../grok-adapter/resolve-setup-discovery"
 import { resolveSetupDiscovery } from "../grok-adapter/resolve-setup-discovery"
 import type { LazycodexAgentOverrideMap } from "../grok-adapter/lazycodex-agent-overrides"
-import { buildRoleRecommendations, formatRecommendationTable, PERF_SNAPSHOT } from "../grok-adapter/model-recommendations"
+import { formatRecommendationTable } from "../grok-adapter/model-recommendations"
 import { maybeRequestGitHubStars } from "./lfg-github-stars"
-import {
-  defaultTierPromptForAgent,
-  resolveModelForServiceTier,
-  serviceTierFromChoice,
-} from "./resolve-tier-model"
 import { printCancelled, printCompleted, printInstallIntro, printInstallPlan, printMagicWord, printStep } from "./lfg-interactive-ui"
+import { resolveGrokSetupHome } from "../grok-adapter/grok-home"
+import {
+  fallbackModelDiscovery,
+  loadBundledDefaultOmoOverridesForInteractive,
+  mergeLazycodexAgentOverrides,
+  readAgentConfig,
+} from "./lfg-interactive-agent-config"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
 
@@ -55,22 +51,16 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
 
     if (isTuiMode) {
       // TUI fast path: Clack selects the role agents and owns later gates.
-      const roleConfig = discovery
-        ? await readAgentConfig(reader, discovery, options)
-        : defaultLazycodexAgentConfig({} as any);
+      const roleConfig = await readAgentConfig(reader, discovery ?? fallbackModelDiscovery(), options);
 
       // Always take bundled defaults for the rest of the agents; never ask about "other" agents.
       const bundled = await loadBundledDefaultOmoOverridesForInteractive();
       const agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {});
 
-      const configuredDiscovery = {
-        ...(discovery || {}),
+      const configuredDiscovery: ModelDiscovery = {
+        ...(discovery ?? fallbackModelDiscovery()),
         agentConfig: roleConfig,
         agentOverrideMap,
-      } as any;
-
-      if (resolved && typeof resolved === 'object') {
-        (resolved as any).configuredDiscovery = configuredDiscovery;
       }
       return { ok: true, status: "tui_configured", configuredDiscovery, executed: false };
     }
@@ -125,8 +115,8 @@ function printInstallHeader(): void {
 }
 
 async function discoverModelsInteractively(reader: LineReader): Promise<ModelDiscovery | null> {
-  const home = process.env.HOME ?? ""
-  const auto = home.length > 0 ? await resolveSetupDiscovery({ home, cliBaseUrl: null }) : null
+  const home = resolveGrokSetupHome(process.env)
+  const auto = await resolveSetupDiscovery({ home, cliBaseUrl: null })
   if (auto && auto.discovery !== null && auto.discovery !== undefined) {
     printAutoDiscovery(auto)
     return auto.discovery
@@ -138,7 +128,7 @@ async function discoverModelsInteractively(reader: LineReader): Promise<ModelDis
     output.write("Skipped model discovery. Installer will run without model mapping.\n\n")
     return null
   }
-  const manual = await resolveSetupDiscovery({ home: home.length > 0 ? home : "/tmp", cliBaseUrl: baseUrl })
+  const manual = await resolveSetupDiscovery({ home, cliBaseUrl: baseUrl })
   if (manual.discovery === null) {
     output.write(`Could not fetch models from ${baseUrl}. Installer will run without model mapping.\n\n`)
     return null
@@ -221,182 +211,6 @@ async function configureLazycodexAgentsFull(reader: LineReader, discovery: Model
     : { default: roleConfig.explorer.model, fast: roleConfig.explorer.model, reasoning: roleConfig.reasoning.model, coding: roleConfig.coding.model }
 
   return { ...discovery, mapping: effectiveMapping, agentConfig: roleConfig, agentOverrideMap }
-}
-
-// Small helpers to avoid importing the whole overrides module at top level just for the default path.
-async function loadBundledDefaultOmoOverridesForInteractive() {
-  const mod = await import("../grok-adapter/lazycodex-agent-overrides.js")
-  return mod.loadBundledDefaultOmoOverrides()
-}
-
-async function mergeLazycodexAgentOverrides(
-  roleConfig: LazycodexAgentConfig,
-  bundled: any,
-  extra: any,
-) {
-  const mod = await import("../grok-adapter/lazycodex-agent-overrides.js")
-  return mod.mergeLazycodexAgentOverrides(roleConfig, bundled, extra)
-}
-
-async function readAgentConfig(reader: LineReader, discovery: ModelDiscovery, options: InstallWizardOptions = {}): Promise<LazycodexAgentConfig> {
-  const defaults = defaultLazycodexAgentConfig(discovery)
-  return {
-    explorer: await readAgentSetting(reader, discovery, "explorer", defaults.explorer.model, defaults.explorer.reasoningLevel, options),
-    reasoning: await readAgentSetting(reader, discovery, "reasoning", defaults.reasoning.model, defaults.reasoning.reasoningLevel, options),
-    coding: await readAgentSetting(reader, discovery, "coding", defaults.coding.model, defaults.coding.reasoningLevel, options),
-  }
-}
-
-async function readAgentSetting(
-  reader: LineReader,
-  discovery: ModelDiscovery,
-  agentName: LazycodexAgentName,
-  defaultModel: string,
-  defaultReasoningLevel: ReasoningLevel,
-  options: InstallWizardOptions = {},
-) {
-  // Keep TUI capture clean; Clack shows context in the select UI.
-  const isTui = !!(options && (
-    options.modelSelector || options.tierSelector || options.reasoningSelector ||
-    options.skipFinalGate || options.skipOtherAgents
-  ));
-
-  if (!isTui) {
-    const rec = buildRoleRecommendations(discovery.modelIds).find((r) => r.role === agentName);
-    if (rec !== undefined) {
-      const perf = PERF_SNAPSHOT[rec.recommended];
-      const latency = perf ? `${perf.latencyMs}ms` : "";
-      const tps = perf ? `${perf.tokensPerSec}t/s` : "";
-      output.write(`  Recommended: ${rec.recommended} (${latency}, ${tps}) - ${rec.rationale.split(".")[0]}\n`);
-      const alts = rec.alternatives.filter((a) => discovery.modelIds.includes(a));
-      if (alts.length > 0) {
-        output.write(`  Alternatives: ${alts.join(", ")}\n`);
-      }
-    }
-    output.write(`  Current: ${defaultModel} (reasoning: ${defaultReasoningLevel})\n`);
-    output.write("  Default: keep the current LazyCodex/OMO value; press Enter to leave it unchanged.\n");
-  }
-
-  const picked = await readModelChoice(reader, discovery, `  ${agentName} model [${defaultModel}]: `, defaultModel, agentName, options.modelSelector);
-  const tierDefault = defaultTierPromptForAgent(agentName)
-  let tier: string | undefined
-  if (typeof options.tierSelector === "function") {
-    tier = await readTierChoice(reader, `  ${agentName} service tier [${tierDefault}]: `, tierDefault, agentName, options.tierSelector)
-  }
-  const model =
-    tier !== undefined
-      ? resolveModelForServiceTier(discovery.modelIds, picked, tier, {
-          mappingFast: discovery.mapping.fast,
-          mappingDefault: discovery.mapping.default,
-        })
-      : picked
-  const reasoningLevel = await readReasoningLevel(reader, `  ${agentName} reasoning level [${defaultReasoningLevel}]: `, defaultReasoningLevel, agentName, options.reasoningSelector)
-  output.write(`  ${agentName}: ${model} / ${reasoningLevel}${tier ? ` (tier: ${tier})` : ""}\n`)
-  return {
-    model,
-    reasoningLevel,
-    ...(tier !== undefined ? { serviceTier: serviceTierFromChoice(tier) } : {}),
-  }
-}
-
-async function readTierChoice(
-  reader: LineReader,
-  prompt: string,
-  fallback: string,
-  agentName: string,
-  tierSelector?: (spec: { agentName?: string; current: string }) => Promise<string>,
-): Promise<string> {
-  if (typeof tierSelector === "function") {
-    const selected = await tierSelector({ agentName, current: fallback })
-    return selected ?? fallback
-  }
-  output.write(prompt)
-  const answer = await reader.next()
-  const value = answer.done === true ? "" : answer.value.trim().toLowerCase()
-  if (value.length === 0) return fallback
-  // Accept the small set we surface for parity.
-  if (["default", "fast"].includes(value)) return value
-  if (value === "1") return "default"
-  if (value === "2") return "fast"
-  output.write(`  Unknown tier "${value}". Using ${fallback}.\n`)
-  return fallback
-}
-
-async function readModelChoice(
-  reader: LineReader,
-  discovery: ModelDiscovery,
-  prompt: string,
-  fallback: string,
-  agentName: string,
-  modelSelector?: (spec: { agentName?: string; current: string; choices: Array<{ value: string; label: string; aliases: readonly string[]; key: string }> }) => Promise<string>,
-): Promise<string> {
-  if (typeof modelSelector === "function") {
-    // Build choice list for the injected selector (LFP groupModelAliases style).
-    const choices = buildModelChoices(discovery.modelIds)
-    const selected = await modelSelector({
-      agentName,
-      current: fallback,
-      choices: choices.map((c) => ({ ...c, label: formatModelChoiceLabel(c) })),
-    })
-    return selected ?? fallback
-  }
-  output.write(prompt)
-  const answer = await reader.next()
-  const value = answer.done === true ? "" : answer.value.trim()
-  if (value.length === 0) {
-    return fallback
-  }
-  if (discovery.modelIds.includes(value)) {
-    return value
-  }
-  output.write(`  Unknown model "${value}". Using ${fallback}.\n`)
-  return fallback
-}
-
-async function readReasoningLevel(
-  reader: LineReader,
-  prompt: string,
-  fallback: ReasoningLevel,
-  agentName: string,
-  reasoningSelector?: (spec: { agentName?: string; current: string }) => Promise<string>,
-): Promise<ReasoningLevel> {
-  if (typeof reasoningSelector === "function") {
-    const selected = await reasoningSelector({ agentName, current: fallback })
-    return (isReasoningLevel(selected) ? selected : fallback) as ReasoningLevel
-  }
-  output.write(prompt)
-  const answer = await reader.next()
-  const value = answer.done === true ? "" : answer.value.trim().toLowerCase()
-  if (isReasoningLevel(value)) {
-    return value
-  }
-  if (value.length > 0) {
-    output.write(`  Unknown reasoning level "${value}". Using ${fallback}.\n`)
-  }
-  return fallback
-}
-
-function buildModelChoices(models: readonly string[]) {
-  const groups = new Map<string, string[]>()
-  for (const m of models) {
-    const key = m.split("/").at(-1) ?? m
-    const arr = groups.get(key) ?? []
-    arr.push(m)
-    groups.set(key, arr)
-  }
-  return [...groups.entries()].map(([key, aliases]) => {
-    const unique = [...new Set(aliases)].sort((a, b) => a.localeCompare(b))
-    const value = unique.find((a) => a === key) ?? unique.find((a) => a === `openai/${key}`) ?? unique[0]
-    return { key, aliases: unique, value }
-  })
-}
-
-function formatModelChoiceLabel(choice: { key: string; aliases: readonly string[] }) {
-  return choice.aliases.length === 1 ? choice.aliases[0] : `${choice.key} (aliases: ${choice.aliases.join(", ")})`
-}
-
-function isReasoningLevel(value: string): value is ReasoningLevel {
-  return value === "low" || value === "medium" || value === "high" || value === "xhigh"
 }
 
 async function confirm(reader: LineReader, prompt: string): Promise<boolean> {

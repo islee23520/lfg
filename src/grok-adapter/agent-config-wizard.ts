@@ -20,6 +20,7 @@ export type AgentWizardOptions = {
   readonly modelSelector?: (spec: { agentName?: string; current: string; choices: Array<{ value: string; label: string; aliases: readonly string[]; key: string }> }) => Promise<string>;
   readonly tierSelector?: (spec: { agentName?: string; current: string }) => Promise<string>;
   readonly reasoningSelector?: (spec: { agentName?: string; current: string }) => Promise<string>;
+  readonly skipOtherAgents?: boolean;
 };
 
 /** LFP-style per-agent model prompts for OMO agents beyond the three role defaults. */
@@ -34,7 +35,7 @@ export async function configureOmoAgentOverridesInteractively(
   const bundled = await loadBundledDefaultOmoOverrides()
   const base = mergeLazycodexAgentOverrides(roleConfig, bundled, {})
   // TUI path (or explicit skip) must never ask the long-tail "other agents" question.
-  if ((options as any).skipOtherAgents === true) {
+  if (options.skipOtherAgents === true) {
     return base
   }
   const shouldConfigure = await confirm(reader, "Configure default / ULW target models and other LazyCodex agents? [y/N] ")

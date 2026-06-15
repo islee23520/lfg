@@ -73,7 +73,7 @@ node dist/lfg.js --json setup --run
 - Keep npm/npx as the project toolchain; do not add Bun scripts or runtime dependencies.
 - Keep root `package.json` as the only publish target; there is no nested package manifest.
 - Keep CLI, package metadata, docs, and skill copy consistent about Grok-first `setup --run`.
-- Public setup/refresh/install paths must target the real OS Grok home from `os.homedir()`; do not route production installs through an alternate `HOME`, temp home, or custom Grok home. Test isolation may use only the explicit `LFG_ALLOW_TEST_GROK_HOME=1` gate.
+- Public setup/refresh/install paths must target the real account Grok home from `os.userInfo().homedir`; do not route production installs through an alternate `HOME`, temp home, or custom Grok home. Test isolation may use only the explicit `LFG_ALLOW_TEST_GROK_HOME=1` gate.
 - Keep product framing and user-facing references anchored to `https://github.com/code-yeongyu/oh-my-openagent`, explicitly calling out both the **codex adapter** core feature and the **opencode** feature when describing lfg’s lineage or purpose.
 - Keep `lfgIsPlugin: false`; this repo is a setup helper/adapter package, not the Grok plugin/runtime itself.
 - JSON CLI output is a contract. Update matching tests when fields or wording change.

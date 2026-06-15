@@ -17082,7 +17082,7 @@ var init_write_install_stamp = __esm({
 });
 
 // src/grok-adapter/grok-home.ts
-import { homedir as homedir4 } from "node:os";
+import { homedir as homedir4, userInfo } from "node:os";
 function resolveGrokSetupHome(env = process.env) {
   const testHomeAllowed = env.LFG_ALLOW_TEST_GROK_HOME === TEST_HOME_ENABLED || env.LFG_ALLOW_TEST_GROK_HOME !== "0" && process.env.LFG_ALLOW_TEST_GROK_HOME === TEST_HOME_ENABLED;
   if (testHomeAllowed) {
@@ -17093,6 +17093,16 @@ function resolveGrokSetupHome(env = process.env) {
     const isolatedHome = env.HOME?.trim();
     if (isolatedHome !== void 0 && isolatedHome.length > 0) {
       return isolatedHome;
+    }
+  }
+  try {
+    const realHome = userInfo().homedir.trim();
+    if (realHome.length > 0) {
+      return realHome;
+    }
+  } catch (error51) {
+    if (!(error51 instanceof Error)) {
+      throw error51;
     }
   }
   return homedir4();

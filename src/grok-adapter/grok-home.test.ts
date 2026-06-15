@@ -1,4 +1,4 @@
-import { homedir } from "node:os"
+import { userInfo } from "node:os"
 import { describe, expect, test } from "vitest"
 import { resolveGrokSetupHome } from "./grok-home"
 
@@ -9,7 +9,7 @@ describe("resolveGrokSetupHome", () => {
       LFG_ALLOW_TEST_GROK_HOME: "0",
     })
 
-    expect(result).toBe(homedir())
+    expect(result).toBe(userInfo().homedir)
   })
 
   test("allows isolated test homes only behind the explicit test gate", () => {

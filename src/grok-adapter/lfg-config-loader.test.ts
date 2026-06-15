@@ -132,7 +132,7 @@ function isHookOutput(value: unknown): value is ParsedHookOutput {
 function runLoader(options: { readonly home: string; readonly payload: Record<string, string> }): Promise<LoaderResult> {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [loaderPath], {
-      env: { ...process.env, HOME: options.home },
+      env: { ...process.env, HOME: options.home, LFG_ALLOW_TEST_GROK_HOME: "1" },
       stdio: ["pipe", "pipe", "pipe"],
     })
     let stdout = ""
