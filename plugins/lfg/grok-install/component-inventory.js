@@ -2,9 +2,9 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 export const COMPONENT_INVENTORY_FILE = "lfg-component-inventory.json";
 export const UPSTREAM_OMO_NAME = "lazycodex-ai";
-export const UPSTREAM_OMO_VERSION = "4.9.2";
-export const UPSTREAM_OMO_TAG = "v4.9.2";
-export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.9.2";
+export const UPSTREAM_OMO_VERSION = "4.10.0";
+export const UPSTREAM_OMO_TAG = "v4.10.0";
+export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0";
 const COMPONENTS = [
     { id: "comment-checker", status: "Deferred", evidence: "Codex PostToolUse hook behavior has no Grok-native equivalent wired by lfg yet." },
     { id: "git-bash", status: "Windows-only", evidence: "git_bash MCP emitted only on Windows per plan; disabled_mcp_servers on macOS/Linux." },

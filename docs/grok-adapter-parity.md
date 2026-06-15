@@ -4,7 +4,7 @@ Status column updated during `.omo/plans/grok-native-omo-hooks.md` execution (T1
 
 `lfg` is the npm entry for an **omo / lazycodex Grok Build adapter** (core **codex adapter** feature + **opencode** lineage from https://github.com/code-yeongyu/oh-my-openagent). It is a setup helper/adapter package only — not a Grok plugin or runtime.
 
-`setup --run` installs **native Grok hooks** (first-party OMO/lfg hook payloads as native Grok lifecycle events). It uses **bridge fallback** only for legacy/imported hooks. **Grok-first OMO parity** is achieved via native hooks + `~/.grok` payload under `installed-plugins/lfg` (with `lfg-install.json` and `lfg-component-inventory.json` for verification).
+`setup --run` installs **native Grok hooks** (first-party OMO/lfg hook payloads as native Grok lifecycle events). It uses **bridge fallback** only for legacy/imported hooks. **Grok-first OMO parity** is achieved via native hooks + `~/.grok` payload under `plugins/lfg` (with legacy `installed-plugins/lfg` as migration/fallback, and `lfg-install.json` plus `lfg-component-inventory.json` for verification).
 
 Issue #36 separates already-shipped core install parity from full OMO component parity.
 
@@ -30,17 +30,24 @@ Issue #36 separates already-shipped core install parity from full OMO component 
 
 ## Full OMO Component Parity
 
-Current upstream baseline: `lazycodex-ai` / OMO `v4.9.2`
-(https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.9.2), latest
-as of 2026-06-12. `lfg-component-inventory.json` records this baseline in each
+Current upstream baseline: `lazycodex-ai` / OMO `v4.10.0`
+(https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0), latest
+as of 2026-06-15. `lfg-component-inventory.json` records this baseline in each
 fresh Grok setup so installed support can be audited against the tracked OMO
 release without expanding lfg beyond its setup-helper contract.
 
 Upstream component inventory is from
 `oh-my-openagent/packages/omo-codex/MARKETPLACE.md` at
-`96ad1974c5102e962c67d11d59852e4d9b2a174d`. Each row cites the upstream source
+`0764d4a399d1b189677b70020fc57c2b3cbc0e13`. Each row cites the upstream source
 plus the local owner/test surface. The status vocabulary for this table is:
 `Implemented`, `Grok-adapted`, `Unsupported`, or `Deferred`.
+
+The `v4.10.0` refresh brings forward upstream release metadata and confirms that
+the Grok adapter should keep its existing scope: runtime/bootstrap provisioning,
+Windows ARM publishing, Kimi K2.7 prompt/model routing, atomic Codex config
+writes, and OMO auto-update hardening remain Codex/OpenCode-owned upstream
+behaviors. lfg continues to track the release baseline and install the
+Grok-adapted payload under `~/.grok`.
 
 | upstream component | upstream source | local owner / tests | Grok/lfg support | Status |
 |--------------------|-----------------|---------------------|------------------|--------|

@@ -27,7 +27,7 @@
       "model_fallback": "gpt-5.4-mini",
       "model_fallback_reasoning_effort": "low",
       "model_fallback_service_tier": "default",
-      "role_rationale": "High-volume codebase search needs speed (LazyCodex 4.9.2)"
+      "role_rationale": "High-volume codebase search needs speed (LazyCodex 4.10.0)"
     },
     "librarian": {
       "model": "grok-3-mini-fast",
@@ -36,7 +36,7 @@
       "model_fallback": "gpt-5.4-mini",
       "model_fallback_reasoning_effort": "low",
       "model_fallback_service_tier": "default",
-      "role_rationale": "External research needs fast reliable model (LazyCodex 4.9.2)"
+      "role_rationale": "External research needs fast reliable model (LazyCodex 4.10.0)"
     },
     "plan": {
       "model": "grok-4.3",
@@ -45,7 +45,7 @@
       "model_fallback": "gpt-5.5",
       "model_fallback_reasoning_effort": "xhigh",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Strategic planning needs deep frontier reasoning (LazyCodex 4.9.2)"
+      "role_rationale": "Strategic planning needs deep frontier reasoning (LazyCodex 4.10.0)"
     },
     "metis": {
       "model": "grok-4.3",
@@ -54,7 +54,7 @@
       "model_fallback": "gpt-5.5",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Pre-planning contradiction detection with frontier model (LazyCodex 4.9.2)"
+      "role_rationale": "Pre-planning contradiction detection with frontier model (LazyCodex 4.10.0)"
     },
     "momus": {
       "model": "grok-4.3",
@@ -63,7 +63,7 @@
       "model_fallback": "gpt-5.5",
       "model_fallback_reasoning_effort": "xhigh",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Plan review needs frontier reasoning and edge-case detection (LazyCodex 4.9.2)"
+      "role_rationale": "Plan review needs frontier reasoning and edge-case detection (LazyCodex 4.10.0)"
     },
     "codex-ultrawork-reviewer": {
       "model": "grok-4.3",
@@ -72,7 +72,7 @@
       "model_fallback": "gpt-5.5",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Final verification needs frontier model depth (LazyCodex 4.9.2)"
+      "role_rationale": "Final verification needs frontier model depth (LazyCodex 4.10.0)"
     },
     "reasoning": {
       "model": "grok-4.3",
@@ -81,7 +81,7 @@
       "model_fallback": "gpt-5.5",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "General reasoning role (LazyCodex 4.9.2)"
+      "role_rationale": "General reasoning role (LazyCodex 4.10.0)"
     },
     "coding": {
       "model": "grok-4.20-0309-non-reasoning",
@@ -90,7 +90,7 @@
       "model_fallback": "gpt-5.3-codex-spark",
       "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Coding role: fast Grok non-reasoning path (LazyCodex 4.9.2)"
+      "role_rationale": "Coding role: fast Grok non-reasoning path (LazyCodex 4.10.0)"
     },
     "default": {
       "model": "grok-4.20-0309-reasoning",

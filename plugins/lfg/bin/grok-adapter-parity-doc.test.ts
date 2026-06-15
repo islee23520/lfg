@@ -71,8 +71,8 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("## Core Install Parity")
     expect(text).toContain("## Full OMO Component Parity")
     expect(text).toContain("`lfg-component-inventory.json`")
-    expect(text).toContain("`lazycodex-ai` / OMO `v4.9.2`")
-    expect(text).toContain("https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.9.2")
+    expect(text).toContain("`lazycodex-ai` / OMO `v4.10.0`")
+    expect(text).toContain("https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0")
     for (const component of [
       "comment-checker",
       "git-bash",

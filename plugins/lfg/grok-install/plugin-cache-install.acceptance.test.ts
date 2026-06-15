@@ -52,9 +52,9 @@ describe("plugin cache install acceptance (#27)", () => {
       packageVersion: "5.5.5",
       platform: "grok",
       upstreamName: "lazycodex-ai",
-      upstreamVersion: "4.9.2",
-      upstreamTag: "v4.9.2",
-      upstreamReleaseUrl: "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.9.2",
+      upstreamVersion: "4.10.0",
+      upstreamTag: "v4.10.0",
+      upstreamReleaseUrl: "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0",
     })
     expect(inventory.components.map((component) => component.id)).toEqual([
       "comment-checker",

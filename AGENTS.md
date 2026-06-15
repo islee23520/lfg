@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-`lfg` is the npm entry for an **omo / lazycodex Grok Build adapter**. The default install path is Grok-first: `setup --run` materializes the internal grok-install payload under `~/.grok/installed-plugins/lfg` and does not require `npx lazycodex-ai install` into `~/.codex`.
+`lfg` is the npm entry for an **omo / lazycodex Grok Build adapter**. The default install path is Grok-first: `setup --run` materializes the internal grok-install payload under native `~/.grok/plugins/lfg` (with legacy `~/.grok/installed-plugins/lfg` treated as a migration/fallback location) and does not require `npx lazycodex-ai install` into `~/.codex`.
 
 ## STRUCTURE
 

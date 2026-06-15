@@ -1,6 +1,6 @@
 {
   "name": "@islee23520/lfg",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "omo / lazycodex Grok Build adapter: npx @islee23520/lfg setup --run installs ~/.grok via internal grok-install (not a Grok plugin).",
   "publishConfig": {
     "access": "public"

@@ -1,6 +1,6 @@
 {
   "name": "@islee23520/lfg",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "publishConfig": {
     "access": "public"
   },

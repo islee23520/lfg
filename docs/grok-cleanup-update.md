@@ -4,7 +4,7 @@
 
 ## omo-codex reference
 
-Codex exposes passthrough cleanup/update on `~/.codex`. Grok Build uses `~/.grok` with plugin installs under `installed-plugins/`.
+Codex exposes passthrough cleanup/update on `~/.codex`. Grok Build uses `~/.grok` with the lfg adapter installed under native `plugins/lfg`; older `installed-plugins/` entries are treated as legacy migration/fallback state.
 
 ## lfg today
 

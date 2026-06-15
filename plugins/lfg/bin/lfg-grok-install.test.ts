@@ -107,8 +107,8 @@ describe("lfg internal grok install contract", () => {
     }
     expect(inventory.packageVersion).toBe("9.8.7")
     expect(inventory.upstreamName).toBe("lazycodex-ai")
-    expect(inventory.upstreamVersion).toBe("4.9.2")
-    expect(inventory.upstreamTag).toBe("v4.9.2")
+    expect(inventory.upstreamVersion).toBe("4.10.0")
+    expect(inventory.upstreamTag).toBe("v4.10.0")
   })
 
   test("setup --run surfaces payloadSource and component inventory in postInstallVerify (supports #38/#42)", async () => {

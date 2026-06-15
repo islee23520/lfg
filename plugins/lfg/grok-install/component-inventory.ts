@@ -3,9 +3,9 @@ import { join } from "node:path"
 
 export const COMPONENT_INVENTORY_FILE = "lfg-component-inventory.json" as const
 export const UPSTREAM_OMO_NAME = "lazycodex-ai" as const
-export const UPSTREAM_OMO_VERSION = "4.9.2" as const
-export const UPSTREAM_OMO_TAG = "v4.9.2" as const
-export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.9.2" as const
+export const UPSTREAM_OMO_VERSION = "4.10.0" as const
+export const UPSTREAM_OMO_TAG = "v4.10.0" as const
+export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0" as const
 
 const COMPONENTS = [
   { id: "comment-checker", status: "Deferred", evidence: "Codex PostToolUse hook behavior has no Grok-native equivalent wired by lfg yet." },

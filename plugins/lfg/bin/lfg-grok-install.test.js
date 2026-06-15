@@ -94,8 +94,8 @@ describe("lfg internal grok install contract", () => {
         const inventory = JSON.parse(raw);
         expect(inventory.packageVersion).toBe("9.8.7");
         expect(inventory.upstreamName).toBe("lazycodex-ai");
-        expect(inventory.upstreamVersion).toBe("4.9.2");
-        expect(inventory.upstreamTag).toBe("v4.9.2");
+        expect(inventory.upstreamVersion).toBe("4.10.0");
+        expect(inventory.upstreamTag).toBe("v4.10.0");
     });
     test("setup --run surfaces payloadSource and component inventory in postInstallVerify (supports #38/#42)", async () => {
         const home = await mkdtemp(join(tmpdir(), "lfg-grok-payload-src-"));
@@ -147,8 +147,9 @@ describe("lfg internal grok install contract", () => {
         const legacyRoot = join(home, ".grok", "plugins", "lfg");
         const pluginRoot = (await readFile(join(nativeRoot, "hooks", "hooks.json"), "utf8").then(() => nativeRoot).catch(() => legacyRoot));
         const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8");
-        expect(hooksRaw).toContain("components/rules/dist/cli.js");
-        expect(hooksRaw).toContain("components/ultrawork/dist/cli.js");
+        expect(hooksRaw).toContain("lfg-native-rules.js");
+        expect(hooksRaw).toContain("lfg-native-ultrawork.js");
+        expect(hooksRaw).toContain("lfg-config-loader.mjs");
         const bridgePath = join(pluginRoot, "hooks", "lfg-grok-hook-bridge.mjs");
         const rules = await runInstalledHook([bridgePath, "node", join(pluginRoot, "components", "rules", "dist", "cli.js"), "hook", "session-start"], { hookEventName: "session_start", sessionId: "test-session", cwd: process.cwd(), source: "startup" }, { GROK_PLUGIN_ROOT: pluginRoot, GROK_HOOK_EVENT: "session_start" });
         expect(rules).toMatchObject({ exitCode: 0, stderr: "" });
