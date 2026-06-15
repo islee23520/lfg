@@ -9,7 +9,7 @@ Internal Grok installer engine: materializes the adapter payload, merges hooks, 
 | Task | Location | Notes |
 |------|----------|-------|
 | Top-level install transaction | `run-grok-install.ts` | Preserve stamped installs unless `--force`. |
-| Payload materialization | `run-internal.ts`, `resolve-lazycodex-plugin-source.ts`, `install.ts` | Writes under `~/.grok/installed-plugins/lfg`. |
+| Payload materialization | `run-internal.ts`, `resolve-lazycodex-plugin-source.ts`, `install.ts` | Writes under `~/.grok/plugins/lfg`; legacy `installed-plugins` is migration/fallback only. |
 | Setup discovery | `resolve-setup-discovery.ts`, `resolve-global-agent-config.ts` | Reads CLI/env/config defaults. |
 | Hook merge/trust | `extension-hooks.ts`, `normalize-plugin-hooks.ts`, `hook-trust.ts`, `assets/lfg-grok-hook-bridge.mjs` | Bridge wrapping must be idempotent. |
 | Agent sync | `sync-lazycodex-agents-to-grok.ts`, `codex-agent-toml-to-grok.ts`, `apply-agent-tomls.ts` | Writes Grok role TOMLs and prompt files. |
@@ -32,7 +32,7 @@ Internal Grok installer engine: materializes the adapter payload, merges hooks, 
 ## ANTI-PATTERNS
 
 - Writing to `~/.codex` from this installer path.
-- Silently wiping or replacing an existing healthy `~/.grok/installed-plugins/lfg` tree.
+- Silently wiping or replacing an existing healthy `~/.grok/plugins/lfg` tree.
 - Broadening install into unrelated Grok/Codex environment management.
 - Letting generated TOML/JSON drift from tests or package assets.
 - Adding fixture complexity that hides the install behavior under test.

@@ -39,7 +39,7 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
       : await resolveFixedPlugin(options.home, options.pluginDirName)
   if (resolved === null) {
     const pluginDirName = options.pluginDirName ?? "lfg"
-    const pluginRoot = join(options.home, ".grok", "installed-plugins", pluginDirName)
+    const pluginRoot = nativeGrokPluginRoot(options.home, pluginDirName)
     return {
       ok: false,
       status: "missing_adapter",

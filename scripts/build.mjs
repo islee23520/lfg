@@ -65,7 +65,7 @@ try {
 
   // Copy LFG-bundled skills (cua-driver + T8 ulw-plan/ulw-loop self-contained workflows)
   // so they are present in the internal grok-install source tree and end up under
-  // ~/.grok/installed-plugins/lfg/skills after setup. Guarantees discoverable
+  // ~/.grok/plugins/lfg/skills after setup. Guarantees discoverable
   // Phase 0/Approval gate/Phase 3 + Bootstrap/Execution Loop/Manual-QA headings
   // without sibling-path guessing (source-of-truth to avoid drift).
   const skillsSrc = "src/grok-adapter/skills"
