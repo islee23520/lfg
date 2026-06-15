@@ -51,7 +51,7 @@ async function writeShadowAgentSurfaces(shadowAgentsDir: string, agentOverrides:
     {
       name: "ulw",
       description:
-        "LFG LazyCodex Sisyphus-style default orchestrator (ulw). Decomposes work into minimal concrete steps, delegates to specialized LFG workers (explorer/reasoning/coding/reviewer), preserves user intent, and closes the loop with verification evidence.",
+        "LFG LazyCodex ultrawork orchestrator (ulw). Decomposes work into minimal concrete steps, delegates to specialized LFG workers (explorer/reasoning/coding/reviewer), preserves user intent, and closes the loop with verification evidence.",
       model: reasoningModel,
       permission: "default",
       body: renderUlwBody("ulw"),
@@ -77,7 +77,7 @@ function renderShadowAgentMarkdown(definition: {
 }
 
 function renderUlwBody(name: string): string {
-  return `You are ${name}, the **LFG LazyCodex Sisyphus-style default orchestrator**.
+  return `You are ${name}, the **LFG LazyCodex ultrawork orchestrator**.
 
 Core principles:
 - Keep **one concrete goal** in focus at all times

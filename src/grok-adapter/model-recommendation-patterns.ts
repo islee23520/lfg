@@ -234,15 +234,15 @@ export function applyRecommendedModelOverrides(
 
 /** Agents whose model/reasoning/service_tier must not be overwritten by discovery pattern matching.
  * - explorer/reasoning/coding: curated from discovery.mapping
- * - default/ulw: bundled LFP-style Grok-first defaults (Hephaestus / Sisyphus analogues)
+ * - default/ulw/sisyphus/atlas: bundled Grok-first OMO defaults
  */
-const CURATED_OVERRIDE_AGENT_NAMES = new Set(["explorer", "reasoning", "coding", "default", "ulw"])
+const CURATED_OVERRIDE_AGENT_NAMES = new Set(["explorer", "reasoning", "coding", "default", "ulw", "sisyphus", "atlas"])
 
 /** Apply pattern-based recommendations to an override map, preserving fallback fields.
  *
  * For each non-role agent, if a recommended model is found among the discovered
  * models, the agent's model + reasoningLevel + serviceTier are updated. Role
- * curated agents (explorer, reasoning, coding, default, ulw) are left unchanged.
+ * curated agents (explorer, reasoning, coding, default, ulw, sisyphus, atlas) are left unchanged.
  * Fallback fields are always preserved.
  *
  * Returns a new map; does not mutate the input.

@@ -12,6 +12,8 @@ const ULTRAWORK_AGENTS_DIR = join("components", "ultrawork", "agents")
 const GROK_AGENT_NAMES: Readonly<Record<string, string>> = {
   default: "default",
   ulw: "ulw",
+  sisyphus: "sisyphus",
+  atlas: "atlas",
   plan: "plan",
   explorer: "explorer",
   librarian: "librarian",
@@ -25,7 +27,16 @@ const GROK_AGENT_NAMES: Readonly<Record<string, string>> = {
 /** Grok builtin ~/.grok/agents names LFG must not claim or back up (plugin-owned surfaces only). */
 const RESERVED_USER_GROK_AGENT_NAMES = new Set(["ulw"])
 
-const READ_ONLY_AGENT_NAMES = new Set(["plan", "explorer", "librarian", "metis", "momus", "codex-ultrawork-reviewer"])
+const READ_ONLY_AGENT_NAMES = new Set([
+  "sisyphus",
+  "atlas",
+  "plan",
+  "explorer",
+  "librarian",
+  "metis",
+  "momus",
+  "codex-ultrawork-reviewer",
+])
 
 export type SyncLazycodexAgentsResult = {
   readonly ok: true
@@ -115,7 +126,17 @@ async function writeMappedAgentSurfaces(args: {
   const personaPath = join(args.personasDir, `${args.grokName}.toml`)
   await writeFile(promptPath, prompt, "utf8")
   await writeFile(rolePath, role.toml.replace(`${args.promptsDir}/${args.grokName}.md`, promptPath), "utf8")
-  await writeFile(agentPath, renderAgentMarkdown(args.grokName, meta, args.sourceName, args.override), "utf8")
+  await writeFile(
+    agentPath,
+    renderAgentMarkdown(
+      args.grokName,
+      meta,
+      args.sourceName,
+      args.override,
+      `omo/lazycodex components/ultrawork/agents/${args.sourceName}.toml`,
+    ),
+    "utf8",
+  )
   await writeFile(personaPath, renderPersonaToml(meta, promptPath, args.override), "utf8")
   return [agentPath, rolePath, personaPath, promptPath]
 }
@@ -140,7 +161,7 @@ async function writeMinimalAgentSurfaces(args: {
   }
   await writeFile(promptPath, prompt, "utf8")
   await writeFile(rolePath, renderMinimalGrokRoleToml(args.grokName, args.override), "utf8")
-  await writeFile(agentPath, renderAgentMarkdown(args.grokName, meta, args.sourceName, args.override), "utf8")
+  await writeFile(agentPath, renderAgentMarkdown(args.grokName, meta, args.sourceName, args.override, "lfg-owned fallback prompt"), "utf8")
   return [agentPath, rolePath, promptPath]
 }
 
@@ -149,10 +170,11 @@ function renderAgentMarkdown(
   meta: AgentMeta,
   sourceName: string,
   override: ReturnType<typeof overrideForAgent>,
+  sourceLabel: string,
 ): string {
   const model = override?.model ?? meta.model
   const permission = READ_ONLY_AGENT_NAMES.has(sourceName) ? "plan" : "default"
-  return `---\nname: ${grokName}\ndescription: >\n  ${meta.description}\nprompt_mode: full\nmodel: ${model}\npermission_mode: ${permission}\nagents_md: true\n---\n\n<!-- Source: omo/lazycodex components/ultrawork/agents/${sourceName}.toml; reasoning_effort=${override?.reasoningLevel ?? meta.reasoning} -->\n\n${meta.instructions.trim()}\n`
+  return `---\nname: ${grokName}\ndescription: >\n  ${meta.description}\nprompt_mode: full\nmodel: ${model}\npermission_mode: ${permission}\nagents_md: true\n---\n\n<!-- Source: ${sourceLabel}; reasoning_effort=${override?.reasoningLevel ?? meta.reasoning} -->\n\n${meta.instructions.trim()}\n`
 }
 
 function renderPersonaToml(meta: AgentMeta, promptPath: string, override: ReturnType<typeof overrideForAgent>): string {

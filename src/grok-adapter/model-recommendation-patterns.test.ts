@@ -12,7 +12,7 @@ const C001_MODEL_IDS = [
 ] as const
 
 describe("applyRecommendationsToOverrideMap", () => {
-  test("preserves bundled default and ulw while recommending other agents", () => {
+  test("preserves bundled default, ulw, sisyphus, and atlas while recommending other agents", () => {
     const bundled: LazycodexAgentOverrideMap = {
       default: {
         model: "grok-4.20-0309-reasoning",
@@ -30,6 +30,16 @@ describe("applyRecommendationsToOverrideMap", () => {
         modelFallbackReasoningLevel: "xhigh",
         modelFallbackServiceTier: "default",
       },
+      sisyphus: {
+        model: "grok-4.3",
+        reasoningLevel: "xhigh",
+        serviceTier: "default",
+      },
+      atlas: {
+        model: "grok-4.3",
+        reasoningLevel: "high",
+        serviceTier: "default",
+      },
       plan: {
         model: "grok-4.3",
         reasoningLevel: "xhigh",
@@ -46,6 +56,8 @@ describe("applyRecommendationsToOverrideMap", () => {
 
     expect(out.default).toEqual(bundled.default)
     expect(out.ulw).toEqual(bundled.ulw)
+    expect(out.sisyphus).toEqual(bundled.sisyphus)
+    expect(out.atlas).toEqual(bundled.atlas)
     expect(out.plan?.model).toBe("grok-4.20-0309-reasoning")
     expect(out.librarian?.model).toBe("grok-4.20-0309-non-reasoning")
   })

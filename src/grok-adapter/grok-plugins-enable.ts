@@ -115,6 +115,8 @@ function upsertSubagentToggles(source: string): string {
     ["grok-build", false],
     ["builder", false],
     ["ulw", true],
+    ["sisyphus", true],
+    ["atlas", true],
     ["reasoning", true],
     ["coding", true],
     ["explorer", true],
@@ -136,7 +138,7 @@ function upsertAgentPreference(source: string): string {
 
 /** LFG-owned [subagents.models] routing. Matches model-recommendations.ts + setup choices:
  * - explorer / librarian / general-purpose / explore / ulw → fast/default model
- * - plan / metis / momus / reasoning → reasoning model
+ * - sisyphus / atlas / plan / metis / momus / reasoning → reasoning model
  * - coding / grok-build / builder / reviewer → coding / non-reasoning model
  *
  * Note: LFG no longer bundles/writes shadow agents for Grok builtins (general-purpose, explore,
@@ -153,6 +155,8 @@ export function upsertSubagentModels(
   const lfgOwned: Record<string, string> = {
     "general-purpose": fastRoute,
     "ulw": fastRoute,
+    "sisyphus": mapping.reasoning || "grok-4.20-0309-reasoning",
+    "atlas": mapping.reasoning || "grok-4.20-0309-reasoning",
     "plan": mapping.reasoning || "grok-4.20-0309-reasoning",
     "metis": mapping.reasoning || "grok-4.20-0309-non-reasoning",
     "momus": mapping.reasoning || "grok-4.20-0309-reasoning",

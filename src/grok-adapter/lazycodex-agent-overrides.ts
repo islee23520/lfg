@@ -23,6 +23,8 @@ export const LAZYCODEX_AGENT_OVERRIDES_FILENAME = "lazycodex-agent-overrides.jso
 export const CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
   "default",
   "ulw",
+  "sisyphus",
+  "atlas",
   "explorer",
   "reasoning",
   "coding",

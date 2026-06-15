@@ -108,7 +108,25 @@
       "model_fallback": "gpt-5.5",
       "model_fallback_reasoning_effort": "xhigh",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Ultrawork orchestrator (LFP Sisyphus analogue on Grok)"
+      "role_rationale": "Ultrawork orchestrator for Grok-native OMO execution"
+    },
+    "sisyphus": {
+      "model": "grok-4.3",
+      "model_reasoning_effort": "xhigh",
+      "service_tier": "default",
+      "model_fallback": "gpt-5.5",
+      "model_fallback_reasoning_effort": "xhigh",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "Grok-native Sisyphus planning conductor mapped to observed OMO ulw-plan and ultrawork workflow"
+    },
+    "atlas": {
+      "model": "grok-4.3",
+      "model_reasoning_effort": "high",
+      "service_tier": "default",
+      "model_fallback": "gpt-5.5",
+      "model_fallback_reasoning_effort": "high",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "Grok-native Atlas research and verification conductor mapped to observed OMO ultraresearch/reviewer workflow"
     }
   }
 }

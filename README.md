@@ -6,7 +6,7 @@ omo / lazycodex setup helper for **Grok Build**.
 npx @islee23520/lfg setup
 ```
 
-`lfg` installs the adapter into `~/.grok/plugins/lfg` (with legacy `~/.grok/installed-plugins/lfg` fallback) with native first-party OMO hooks, Grok-native OMO agents (including a Hephaestus-like default discipline), and model config. It does **not** run `npx lazycodex-ai install` into `~/.codex`.
+`lfg` installs the adapter into `~/.grok/plugins/lfg` (with legacy `~/.grok/installed-plugins/lfg` fallback) with native first-party OMO hooks, Grok-native OMO agents (including Hephaestus-like default discipline plus lfg-owned Sisyphus and Atlas planning/research surfaces), and model config. It does **not** run `npx lazycodex-ai install` into `~/.codex`.
 
 ## What it is
 

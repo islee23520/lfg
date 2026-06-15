@@ -43,14 +43,20 @@ describe("lazycodex-agent-overrides", () => {
     expect(merged.reasoning.model).toBe(role.reasoning.model)
   })
 
-  test("bundled defaults include default and ulw agents", async () => {
+  test("bundled defaults include default, ulw, sisyphus, and atlas agents", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()
     expect(bundled.default?.model).toBe("grok-4.20-0309-reasoning")
     expect(bundled.default?.reasoningLevel).toBe("high")
     expect(bundled.ulw?.model).toBe("grok-4.3")
     expect(bundled.ulw?.reasoningLevel).toBe("xhigh")
+    expect(bundled.sisyphus?.model).toBe("grok-4.3")
+    expect(bundled.sisyphus?.reasoningLevel).toBe("xhigh")
+    expect(bundled.atlas?.model).toBe("grok-4.3")
+    expect(bundled.atlas?.reasoningLevel).toBe("high")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("default")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("ulw")
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("sisyphus")
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("atlas")
   })
 
   test("writes and reads all 6 model fields including fallback (Wave 1A parity)", async () => {

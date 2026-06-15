@@ -47,7 +47,7 @@ describe("runGrokInstall", () => {
     expect(stamp).toContain("@islee23520/lfg")
   })
 
-  test("null discovery writes default and ulw overrides and plugin-owned agent surfaces", async () => {
+  test("null discovery writes default, ulw, sisyphus, and atlas overrides and plugin-owned agent surfaces", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-default-ulw-null-"))
     const run = await runGrokInstall(null, { HOME: home })
     expect(run.ok).toBe(true)
@@ -55,6 +55,8 @@ describe("runGrokInstall", () => {
     const overridesRaw = await readFile(join(home, ".grok", "lazycodex-agent-overrides.json"), "utf8")
     expect(overridesRaw).toContain('"default"')
     expect(overridesRaw).toContain('"ulw"')
+    expect(overridesRaw).toContain('"sisyphus"')
+    expect(overridesRaw).toContain('"atlas"')
 
     const defaultRole = await readFile(join(home, ".grok", "roles", "default.toml"), "utf8")
     expect(defaultRole).toContain('model = "grok-4.20-0309-reasoning"')
@@ -64,14 +66,34 @@ describe("runGrokInstall", () => {
     expect(ulwRole).toContain('model = "grok-4.3"')
     expect(ulwRole).toContain('reasoning_effort = "xhigh"')
 
+    const sisyphusRole = await readFile(join(home, ".grok", "roles", "sisyphus.toml"), "utf8")
+    expect(sisyphusRole).toContain('model = "grok-4.3"')
+    expect(sisyphusRole).toContain('reasoning_effort = "xhigh"')
+
+    const atlasRole = await readFile(join(home, ".grok", "roles", "atlas.toml"), "utf8")
+    expect(atlasRole).toContain('model = "grok-4.3"')
+    expect(atlasRole).toContain('reasoning_effort = "high"')
+
     const defaultAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "default.md"), "utf8")
     expect(defaultAgent).toContain("name: default")
 
     const ulwPluginAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "ulw.md"), "utf8")
     expect(ulwPluginAgent).toContain("name: ulw")
 
+    const sisyphusPluginAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "sisyphus.md"), "utf8")
+    expect(sisyphusPluginAgent).toContain("name: sisyphus")
+    expect(sisyphusPluginAgent).toContain("Source: lfg-owned fallback prompt")
+    expect(sisyphusPluginAgent).not.toContain("sisyphus.toml")
+
+    const atlasPluginAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "atlas.md"), "utf8")
+    expect(atlasPluginAgent).toContain("name: atlas")
+    expect(atlasPluginAgent).toContain("Source: lfg-owned fallback prompt")
+    expect(atlasPluginAgent).not.toContain("atlas.toml")
+
     await expect(readFile(join(home, ".grok", "prompts", "lazycodex", "default.md"), "utf8")).resolves.toContain("Grok-native OMO Hephaestus")
     await expect(readFile(join(home, ".grok", "prompts", "lazycodex", "ulw.md"), "utf8")).resolves.toContain("Grok-native OMO ultrawork")
+    await expect(readFile(join(home, ".grok", "prompts", "lazycodex", "sisyphus.md"), "utf8")).resolves.toContain("Grok-native OMO Sisyphus")
+    await expect(readFile(join(home, ".grok", "prompts", "lazycodex", "atlas.md"), "utf8")).resolves.toContain("Grok-native OMO Atlas")
   })
 
   test("sync preserves user ~/.grok/agents/ulw.md byte-for-byte while writing plugin-owned ulw", async () => {

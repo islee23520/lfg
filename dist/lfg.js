@@ -888,6 +888,8 @@ function upsertSubagentToggles(source) {
     ["grok-build", false],
     ["builder", false],
     ["ulw", true],
+    ["sisyphus", true],
+    ["atlas", true],
     ["reasoning", true],
     ["coding", true],
     ["explorer", true],
@@ -913,6 +915,8 @@ function upsertSubagentModels(source, mapping = {}) {
   const lfgOwned = {
     "general-purpose": fastRoute,
     "ulw": fastRoute,
+    "sisyphus": mapping.reasoning || "grok-4.20-0309-reasoning",
+    "atlas": mapping.reasoning || "grok-4.20-0309-reasoning",
     "plan": mapping.reasoning || "grok-4.20-0309-reasoning",
     "metis": mapping.reasoning || "grok-4.20-0309-non-reasoning",
     "momus": mapping.reasoning || "grok-4.20-0309-reasoning",
@@ -16882,6 +16886,8 @@ var init_lazycodex_agent_overrides = __esm({
     CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
       "default",
       "ulw",
+      "sisyphus",
+      "atlas",
       "explorer",
       "reasoning",
       "coding",
@@ -17772,6 +17778,8 @@ var init_codex_agent_toml_to_grok = __esm({
 function nativeOmoFallbackPrompt(sourceName) {
   if (sourceName === "default") return nativeHephaestusDefaultPrompt();
   if (sourceName === "ulw") return nativeUlwPrompt();
+  if (sourceName === "sisyphus") return nativeSisyphusPrompt();
+  if (sourceName === "atlas") return nativeAtlasPrompt();
   return `You are the LFG LazyCodex ${sourceName} agent. Complete the assigned task directly, keep scope tight, and verify before final response.
 `;
 }
@@ -17792,13 +17800,33 @@ function nativeUlwPrompt() {
     ""
   ].join("\n");
 }
-var NATIVE_OMO_AGENT_NAMES, NATIVE_HEPHAESTUS_MARKER;
+function nativeSisyphusPrompt() {
+  return [
+    `You are the ${NATIVE_SISYPHUS_MARKER} planning conductor for lfg.`,
+    "Carry OMO ulw-plan discipline into Grok Build: gather context first, surface unresolved ambiguity, and produce one executable plan before implementation begins.",
+    "Do not claim an upstream Sisyphus definition exists. This is an lfg-owned Grok-native surface mapped to OMO's observed planning and ultrawork workflow.",
+    "Keep plans evidence-bound, dependency-ordered, and scoped to the user's requested outcome.",
+    ""
+  ].join("\n");
+}
+function nativeAtlasPrompt() {
+  return [
+    `You are the ${NATIVE_ATLAS_MARKER} research and verification conductor for lfg.`,
+    "Carry OMO ultraresearch-style depth into Grok Build: inventory primary sources, fan out independent questions, synthesize evidence, and call out unsupported claims.",
+    "Do not claim an upstream Atlas definition exists. This is an lfg-owned Grok-native surface mapped to OMO's observed research, oracle, and final-review workflows.",
+    "Prefer concrete artifacts, citations, command output, and installed-state inspection over summaries or assumptions.",
+    ""
+  ].join("\n");
+}
+var NATIVE_OMO_AGENT_NAMES, NATIVE_HEPHAESTUS_MARKER, NATIVE_SISYPHUS_MARKER, NATIVE_ATLAS_MARKER;
 var init_native_omo_agents = __esm({
   "src/grok-adapter/native-omo-agents.ts"() {
     "use strict";
     NATIVE_OMO_AGENT_NAMES = [
       "default",
       "ulw",
+      "sisyphus",
+      "atlas",
       "explorer",
       "reasoning",
       "coding",
@@ -17809,6 +17837,8 @@ var init_native_omo_agents = __esm({
       "reviewer"
     ];
     NATIVE_HEPHAESTUS_MARKER = "Grok-native OMO Hephaestus";
+    NATIVE_SISYPHUS_MARKER = "Grok-native OMO Sisyphus";
+    NATIVE_ATLAS_MARKER = "Grok-native OMO Atlas";
   }
 });
 
@@ -17869,7 +17899,17 @@ async function writeMappedAgentSurfaces(args) {
   const personaPath = join19(args.personasDir, `${args.grokName}.toml`);
   await writeFile11(promptPath, prompt, "utf8");
   await writeFile11(rolePath, role.toml.replace(`${args.promptsDir}/${args.grokName}.md`, promptPath), "utf8");
-  await writeFile11(agentPath, renderAgentMarkdown(args.grokName, meta3, args.sourceName, args.override), "utf8");
+  await writeFile11(
+    agentPath,
+    renderAgentMarkdown(
+      args.grokName,
+      meta3,
+      args.sourceName,
+      args.override,
+      `omo/lazycodex components/ultrawork/agents/${args.sourceName}.toml`
+    ),
+    "utf8"
+  );
   await writeFile11(personaPath, renderPersonaToml(meta3, promptPath, args.override), "utf8");
   return [agentPath, rolePath, personaPath, promptPath];
 }
@@ -17886,10 +17926,10 @@ async function writeMinimalAgentSurfaces(args) {
   };
   await writeFile11(promptPath, prompt, "utf8");
   await writeFile11(rolePath, renderMinimalGrokRoleToml(args.grokName, args.override), "utf8");
-  await writeFile11(agentPath, renderAgentMarkdown(args.grokName, meta3, args.sourceName, args.override), "utf8");
+  await writeFile11(agentPath, renderAgentMarkdown(args.grokName, meta3, args.sourceName, args.override, "lfg-owned fallback prompt"), "utf8");
   return [agentPath, rolePath, promptPath];
 }
-function renderAgentMarkdown(grokName, meta3, sourceName, override) {
+function renderAgentMarkdown(grokName, meta3, sourceName, override, sourceLabel) {
   const model = override?.model ?? meta3.model;
   const permission = READ_ONLY_AGENT_NAMES2.has(sourceName) ? "plan" : "default";
   return `---
@@ -17902,7 +17942,7 @@ permission_mode: ${permission}
 agents_md: true
 ---
 
-<!-- Source: omo/lazycodex components/ultrawork/agents/${sourceName}.toml; reasoning_effort=${override?.reasoningLevel ?? meta3.reasoning} -->
+<!-- Source: ${sourceLabel}; reasoning_effort=${override?.reasoningLevel ?? meta3.reasoning} -->
 
 ${meta3.instructions.trim()}
 `;
@@ -17991,6 +18031,8 @@ var init_sync_lazycodex_agents_to_grok = __esm({
     GROK_AGENT_NAMES = {
       default: "default",
       ulw: "ulw",
+      sisyphus: "sisyphus",
+      atlas: "atlas",
       plan: "plan",
       explorer: "explorer",
       librarian: "librarian",
@@ -18001,7 +18043,16 @@ var init_sync_lazycodex_agents_to_grok = __esm({
       coding: "coding"
     };
     RESERVED_USER_GROK_AGENT_NAMES = /* @__PURE__ */ new Set(["ulw"]);
-    READ_ONLY_AGENT_NAMES2 = /* @__PURE__ */ new Set(["plan", "explorer", "librarian", "metis", "momus", "codex-ultrawork-reviewer"]);
+    READ_ONLY_AGENT_NAMES2 = /* @__PURE__ */ new Set([
+      "sisyphus",
+      "atlas",
+      "plan",
+      "explorer",
+      "librarian",
+      "metis",
+      "momus",
+      "codex-ultrawork-reviewer"
+    ]);
   }
 });
 
@@ -18177,7 +18228,7 @@ var init_model_recommendation_patterns = __esm({
       /gpt-5\.[0-9]+/i,
       /gpt-5/i
     ];
-    CURATED_OVERRIDE_AGENT_NAMES = /* @__PURE__ */ new Set(["explorer", "reasoning", "coding", "default", "ulw"]);
+    CURATED_OVERRIDE_AGENT_NAMES = /* @__PURE__ */ new Set(["explorer", "reasoning", "coding", "default", "ulw", "sisyphus", "atlas"]);
   }
 });
 
