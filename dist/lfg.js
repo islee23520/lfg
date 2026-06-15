@@ -904,7 +904,7 @@ function upsertSubagentToggles(source) {
 }
 function upsertAgentPreference(source) {
   const disabled = ["cursor", "browser-use"];
-  const block2 = `default = ${tomlString3("ulw")}
+  const block2 = `default = ${tomlString3("sisyphus")}
 disabled = [
 ${disabled.map((id) => `    ${tomlString3(id)},`).join("\n")}
 ]`;
@@ -915,7 +915,6 @@ function upsertSubagentModels(source, mapping = {}) {
   const lfgOwned = {
     "general-purpose": fastRoute,
     "ulw": fastRoute,
-    "sisyphus": mapping.reasoning || "grok-4.20-0309-reasoning",
     "atlas": mapping.reasoning || "grok-4.20-0309-reasoning",
     "plan": mapping.reasoning || "grok-4.20-0309-reasoning",
     "metis": mapping.reasoning || "grok-4.20-0309-non-reasoning",
@@ -16395,6 +16394,7 @@ async function syncGrokHookBridgeIntoPlugin(pluginRoot) {
   await copyFile(assetPath, destPath);
   await copyFile(join5(dirname4(assetPath), CONFIG_LOADER_FILE), join5(pluginRoot, CONFIG_LOADER_RELATIVE));
   await copyFile(join5(dirname4(assetPath), PROJECT_OMO_LEDGER_FILE), join5(pluginRoot, "hooks", PROJECT_OMO_LEDGER_FILE));
+  await copyFile(join5(dirname4(assetPath), SISYPHUS_HOOKS_FILE), join5(pluginRoot, "hooks", SISYPHUS_HOOKS_FILE));
   return destPath;
 }
 async function normalizePluginHooksJson(pluginRoot) {
@@ -16426,7 +16426,7 @@ async function normalizePluginHooksJson(pluginRoot) {
       })
     );
   }
-  const nextPayload = { hooks: addLfgConfigLoaderHooks(nextBlock) };
+  const nextPayload = { hooks: addSisyphusHooks(addLfgConfigLoaderHooks(nextBlock)) };
   const trust = validateGrokHooksJson(nextPayload);
   if (!trust.ok) {
     throw new Error(trust.error ?? "invalid hooks after normalize");
@@ -16445,6 +16445,42 @@ function addLfgConfigLoaderHooks(hooksBlock) {
     SessionStart: appendConfigLoader(hooksBlock.SessionStart, "SessionStart"),
     UserPromptSubmit: appendConfigLoader(hooksBlock.UserPromptSubmit, "UserPromptSubmit")
   };
+}
+function addSisyphusHooks(hooksBlock) {
+  const next = { ...hooksBlock };
+  for (const eventName of SISYPHUS_HOOK_EVENTS) {
+    next[eventName] = appendSisyphusHook(next[eventName], eventName);
+  }
+  return next;
+}
+function appendSisyphusHook(groups, eventName) {
+  const current = Array.isArray(groups) ? groups : [];
+  const command = `node "\${GROK_PLUGIN_ROOT}/hooks/${SISYPHUS_HOOKS_FILE}"`;
+  const withoutOld = current.filter((group2) => !groupHasSisyphusCommand(group2, command));
+  return [
+    ...withoutOld,
+    {
+      hooks: [
+        {
+          type: "command",
+          command,
+          timeout: 5,
+          description: `lfg sisyphus orchestration (${eventName})`,
+          statusMessage: `Sisyphus: ${eventName} orchestration context`
+        }
+      ]
+    }
+  ];
+}
+function groupHasSisyphusCommand(group2, command) {
+  if (typeof group2 !== "object" || group2 === null) return false;
+  const hooks = group2.hooks;
+  if (!Array.isArray(hooks)) return false;
+  return hooks.some((handler) => {
+    if (typeof handler !== "object" || handler === null) return false;
+    const h2 = handler;
+    return h2.command === command;
+  });
 }
 function appendConfigLoader(groups, eventName) {
   const current = Array.isArray(groups) ? groups : [];
@@ -16534,7 +16570,7 @@ function wrapLazyCodexHookCommand(command) {
   const rebuilt = `node ${bridge} node ${nodeTarget}${rest.length > 0 ? ` ${rest}` : ""}`;
   return rebuilt;
 }
-var BRIDGE_RELATIVE, CONFIG_LOADER_FILE, PROJECT_OMO_LEDGER_FILE, CONFIG_LOADER_RELATIVE, PLUGIN_ROOT_PLACEHOLDER;
+var BRIDGE_RELATIVE, CONFIG_LOADER_FILE, PROJECT_OMO_LEDGER_FILE, SISYPHUS_HOOKS_FILE, CONFIG_LOADER_RELATIVE, PLUGIN_ROOT_PLACEHOLDER, SISYPHUS_HOOK_EVENTS;
 var init_normalize_plugin_hooks = __esm({
   "src/grok-adapter/normalize-plugin-hooks.ts"() {
     "use strict";
@@ -16543,8 +16579,20 @@ var init_normalize_plugin_hooks = __esm({
     BRIDGE_RELATIVE = join5("hooks", "lfg-grok-hook-bridge.mjs");
     CONFIG_LOADER_FILE = "lfg-config-loader.mjs";
     PROJECT_OMO_LEDGER_FILE = "lfg-project-omo-ledger.mjs";
+    SISYPHUS_HOOKS_FILE = "lfg-sisyphus-hooks.mjs";
     CONFIG_LOADER_RELATIVE = join5("hooks", CONFIG_LOADER_FILE);
     PLUGIN_ROOT_PLACEHOLDER = /\$\{PLUGIN_ROOT\}/g;
+    SISYPHUS_HOOK_EVENTS = [
+      "SessionStart",
+      "UserPromptSubmit",
+      "PreToolUse",
+      "PostToolUse",
+      "SubagentStart",
+      "SubagentStop",
+      "Stop",
+      "PreCompact",
+      "Notification"
+    ];
   }
 });
 
@@ -16888,6 +16936,8 @@ var init_lazycodex_agent_overrides = __esm({
       "ulw",
       "sisyphus",
       "atlas",
+      "oracle",
+      "sisyphus-junior",
       "explorer",
       "reasoning",
       "coding",
@@ -16895,7 +16945,13 @@ var init_lazycodex_agent_overrides = __esm({
       "plan",
       "metis",
       "momus",
-      "codex-ultrawork-reviewer"
+      "codex-ultrawork-reviewer",
+      "ultrabrain",
+      "deep",
+      "quick",
+      "unspecified-low",
+      "unspecified-high",
+      "writing"
     ];
   }
 });
@@ -17780,6 +17836,8 @@ function nativeOmoFallbackPrompt(sourceName) {
   if (sourceName === "ulw") return nativeUlwPrompt();
   if (sourceName === "sisyphus") return nativeSisyphusPrompt();
   if (sourceName === "atlas") return nativeAtlasPrompt();
+  if (sourceName === "oracle") return nativeOraclePrompt();
+  if (sourceName === "sisyphus-junior") return nativeSisyphusJuniorPrompt();
   return `You are the LFG LazyCodex ${sourceName} agent. Complete the assigned task directly, keep scope tight, and verify before final response.
 `;
 }
@@ -17818,7 +17876,26 @@ function nativeAtlasPrompt() {
     ""
   ].join("\n");
 }
-var NATIVE_OMO_AGENT_NAMES, NATIVE_HEPHAESTUS_MARKER, NATIVE_SISYPHUS_MARKER, NATIVE_ATLAS_MARKER;
+function nativeOraclePrompt() {
+  return [
+    `You are the ${NATIVE_ORACLE_MARKER} reasoning specialist for lfg.`,
+    "Carry OMO Oracle's high-IQ reasoning into Grok Build: architecture decisions, debugging hard problems, multi-system tradeoffs, and security/performance analysis.",
+    "You are distinct from Atlas: Atlas is a research/verification conductor (inventory sources, synthesize evidence), while you are a reasoning specialist (evaluate tradeoffs, design architectures, diagnose root causes).",
+    "Provide read-only consultation: analyze, evaluate, recommend. Do not implement code directly unless explicitly asked.",
+    "Keep reasoning evidence-bound: cite concrete code paths, configuration values, and observable behavior over assumptions.",
+    ""
+  ].join("\n");
+}
+function nativeSisyphusJuniorPrompt() {
+  return [
+    `You are the ${NATIVE_SISYPHUS_JUNIOR_MARKER} focused task executor for lfg.`,
+    "Carry OMO Sisyphus-Junior's disciplined execution into Grok Build: receive a well-scoped task, complete it directly, verify before reporting.",
+    "You are the delegated executor \u2014 not an orchestrator. Follow the instructions you receive, keep scope tight, and surface blockers immediately.",
+    "Match existing codebase patterns, run verification (build/test/typecheck) on changes, and report concrete evidence of completion.",
+    ""
+  ].join("\n");
+}
+var NATIVE_OMO_AGENT_NAMES, NATIVE_HEPHAESTUS_MARKER, NATIVE_SISYPHUS_MARKER, NATIVE_ATLAS_MARKER, NATIVE_ORACLE_MARKER, NATIVE_SISYPHUS_JUNIOR_MARKER;
 var init_native_omo_agents = __esm({
   "src/grok-adapter/native-omo-agents.ts"() {
     "use strict";
@@ -17827,6 +17904,8 @@ var init_native_omo_agents = __esm({
       "ulw",
       "sisyphus",
       "atlas",
+      "oracle",
+      "sisyphus-junior",
       "explorer",
       "reasoning",
       "coding",
@@ -17839,6 +17918,8 @@ var init_native_omo_agents = __esm({
     NATIVE_HEPHAESTUS_MARKER = "Grok-native OMO Hephaestus";
     NATIVE_SISYPHUS_MARKER = "Grok-native OMO Sisyphus";
     NATIVE_ATLAS_MARKER = "Grok-native OMO Atlas";
+    NATIVE_ORACLE_MARKER = "Grok-native OMO Oracle";
+    NATIVE_SISYPHUS_JUNIOR_MARKER = "Grok-native OMO Sisyphus-Junior";
   }
 });
 
@@ -18033,6 +18114,8 @@ var init_sync_lazycodex_agents_to_grok = __esm({
       ulw: "ulw",
       sisyphus: "sisyphus",
       atlas: "atlas",
+      oracle: "oracle",
+      "sisyphus-junior": "sisyphus-junior",
       plan: "plan",
       explorer: "explorer",
       librarian: "librarian",
@@ -18046,6 +18129,7 @@ var init_sync_lazycodex_agents_to_grok = __esm({
     READ_ONLY_AGENT_NAMES2 = /* @__PURE__ */ new Set([
       "sisyphus",
       "atlas",
+      "oracle",
       "plan",
       "explorer",
       "librarian",
