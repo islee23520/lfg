@@ -16435,9 +16435,74 @@ async function normalizePluginHooksJson(pluginRoot) {
 `;
   if (changed || nextText !== raw) {
     await writeFile4(hooksPath, nextText, "utf8");
-    return { path: hooksPath, changed: true, hookNames: trust.hookNames };
   }
-  return { path: hooksPath, changed: false, hookNames: trust.hookNames };
+  const active = await materializeActiveGrokHooksJson(pluginRoot, nextPayload);
+  return { path: hooksPath, changed: changed || nextText !== raw || active.changed, hookNames: trust.hookNames };
+}
+async function materializeActiveGrokHooksJson(pluginRoot, payload) {
+  const activePath = join5(dirname4(dirname4(pluginRoot)), "hooks", ACTIVE_GROK_HOOKS_FILE);
+  const activePayload = toActiveGrokHooksPayload(payload, pluginRoot);
+  const nextText = `${JSON.stringify(activePayload, null, 2)}
+`;
+  const current = await readTextIfExists3(activePath);
+  if (current !== nextText) {
+    await mkdir4(dirname4(activePath), { recursive: true });
+    await writeFile4(activePath, nextText, "utf8");
+    return { path: activePath, changed: true };
+  }
+  return { path: activePath, changed: false };
+}
+function toActiveGrokHooksPayload(payload, pluginRoot) {
+  const replaced = replacePluginRootPlaceholders(payload, pluginRoot);
+  if (typeof replaced !== "object" || replaced === null) {
+    return replaced;
+  }
+  const hooks = replaced.hooks;
+  if (typeof hooks !== "object" || hooks === null || Array.isArray(hooks)) {
+    return replaced;
+  }
+  return {
+    ...replaced,
+    hooks: Object.fromEntries(
+      Object.entries(hooks).map(([eventName, groups]) => [eventName, stripLifecycleMatchers(eventName, groups)])
+    )
+  };
+}
+function stripLifecycleMatchers(eventName, groups) {
+  if (!LIFECYCLE_EVENTS_WITHOUT_MATCHERS.has(eventName) || !Array.isArray(groups)) {
+    return groups;
+  }
+  return groups.map((group2) => {
+    if (typeof group2 !== "object" || group2 === null || !("matcher" in group2)) {
+      return group2;
+    }
+    const { matcher: _matcher, ...rest } = group2;
+    return rest;
+  });
+}
+function replacePluginRootPlaceholders(value, pluginRoot) {
+  if (typeof value === "string") {
+    return value.replace(/\$\{GROK_PLUGIN_ROOT\}|\$\{PLUGIN_ROOT\}/g, pluginRoot);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => replacePluginRootPlaceholders(item, pluginRoot));
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, replacePluginRootPlaceholders(entry, pluginRoot)])
+    );
+  }
+  return value;
+}
+async function readTextIfExists3(path2) {
+  try {
+    return await readFile4(path2, "utf8");
+  } catch (error51) {
+    if (typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT") {
+      return "";
+    }
+    throw error51;
+  }
 }
 function addLfgConfigLoaderHooks(hooksBlock) {
   return {
@@ -16570,7 +16635,7 @@ function wrapLazyCodexHookCommand(command) {
   const rebuilt = `node ${bridge} node ${nodeTarget}${rest.length > 0 ? ` ${rest}` : ""}`;
   return rebuilt;
 }
-var BRIDGE_RELATIVE, CONFIG_LOADER_FILE, PROJECT_OMO_LEDGER_FILE, SISYPHUS_HOOKS_FILE, CONFIG_LOADER_RELATIVE, PLUGIN_ROOT_PLACEHOLDER, SISYPHUS_HOOK_EVENTS;
+var BRIDGE_RELATIVE, CONFIG_LOADER_FILE, PROJECT_OMO_LEDGER_FILE, SISYPHUS_HOOKS_FILE, CONFIG_LOADER_RELATIVE, ACTIVE_GROK_HOOKS_FILE, PLUGIN_ROOT_PLACEHOLDER, LIFECYCLE_EVENTS_WITHOUT_MATCHERS, SISYPHUS_HOOK_EVENTS;
 var init_normalize_plugin_hooks = __esm({
   "src/grok-adapter/normalize-plugin-hooks.ts"() {
     "use strict";
@@ -16581,7 +16646,9 @@ var init_normalize_plugin_hooks = __esm({
     PROJECT_OMO_LEDGER_FILE = "lfg-project-omo-ledger.mjs";
     SISYPHUS_HOOKS_FILE = "lfg-sisyphus-hooks.mjs";
     CONFIG_LOADER_RELATIVE = join5("hooks", CONFIG_LOADER_FILE);
+    ACTIVE_GROK_HOOKS_FILE = "lfg-hooks.json";
     PLUGIN_ROOT_PLACEHOLDER = /\$\{PLUGIN_ROOT\}/g;
+    LIFECYCLE_EVENTS_WITHOUT_MATCHERS = /* @__PURE__ */ new Set(["SessionStart", "Stop", "Notification", "SubagentStart", "SubagentStop"]);
     SISYPHUS_HOOK_EVENTS = [
       "SessionStart",
       "UserPromptSubmit",
