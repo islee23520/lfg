@@ -42,7 +42,17 @@ describe("post-install ported hooks (#32)", () => {
     )
     await runInternalGrokInstall({ HOME: home })
     const json = await verifyGrokInstallSurface({ home })
-    expect(json.hookNames).toEqual(["SessionStart", "UserPromptSubmit"])
+    expect(json.hookNames).toEqual([
+      "Notification",
+      "PostToolUse",
+      "PreCompact",
+      "PreToolUse",
+      "SessionStart",
+      "Stop",
+      "SubagentStart",
+      "SubagentStop",
+      "UserPromptSubmit",
+    ])
     expect(json.hooksRegistered).toBe(true)
     const raw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
     expect(raw).toContain("GROK_PLUGIN_ROOT")

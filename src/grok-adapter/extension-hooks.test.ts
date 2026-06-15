@@ -45,4 +45,36 @@ describe("extension-hooks", () => {
     const second = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
     expect(second).toBe(first)
   })
+
+  test("sisyphus orchestration hooks are injected on key events", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-ext-hooks-sisyphus-"))
+    const source = join(import.meta.dirname, "fixture-minimal")
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
+    await mergePortedHooksIntoPlugin(pluginRoot)
+    const raw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    const parsed = JSON.parse(raw) as { hooks: Record<string, unknown[]> }
+    expect(raw).toContain("lfg-sisyphus-hooks.mjs")
+    expect(parsed.hooks.PreToolUse).toBeDefined()
+    expect(parsed.hooks.PostToolUse).toBeDefined()
+    expect(parsed.hooks.SubagentStop).toBeDefined()
+    expect(parsed.hooks.Stop).toBeDefined()
+    expect(parsed.hooks.PreCompact).toBeDefined()
+    expect(parsed.hooks.Notification).toBeDefined()
+    expect(parsed.hooks.SubagentStart).toBeDefined()
+  })
+
+  test("sisyphus hooks are idempotent across multiple merges", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-ext-hooks-sisyphus-idem-"))
+    const source = join(import.meta.dirname, "fixture-minimal")
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
+    await mergePortedHooksIntoPlugin(pluginRoot)
+    const first = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    const firstSisyphusCount = (first.match(/lfg-sisyphus-hooks\.mjs/g) ?? []).length
+    await mergePortedHooksIntoPlugin(pluginRoot)
+    await mergePortedHooksIntoPlugin(pluginRoot)
+    const third = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    const thirdSisyphusCount = (third.match(/lfg-sisyphus-hooks\.mjs/g) ?? []).length
+    expect(thirdSisyphusCount).toBe(firstSisyphusCount)
+    expect(thirdSisyphusCount).toBe(9)
+  })
 })

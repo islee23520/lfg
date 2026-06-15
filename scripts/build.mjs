@@ -54,11 +54,13 @@ try {
   const bridgeSrc = "src/grok-adapter/assets/lfg-grok-hook-bridge.mjs"
   const configLoaderSrc = "src/grok-adapter/assets/lfg-config-loader.mjs"
   const projectOmoLedgerSrc = "src/grok-adapter/assets/lfg-project-omo-ledger.mjs"
+  const sisyphusHooksSrc = "src/grok-adapter/assets/lfg-sisyphus-hooks.mjs"
   const bridgeDstDir = "dist/grok-install/assets"
   await mkdir(bridgeDstDir, { recursive: true })
   await cp(bridgeSrc, `${bridgeDstDir}/lfg-grok-hook-bridge.mjs`)
   await cp(configLoaderSrc, `${bridgeDstDir}/lfg-config-loader.mjs`)
   await cp(projectOmoLedgerSrc, `${bridgeDstDir}/lfg-project-omo-ledger.mjs`)
+  await cp(sisyphusHooksSrc, `${bridgeDstDir}/lfg-sisyphus-hooks.mjs`)
   const flavourSrc = "src/grok-adapter/flavour-pack-assets"
   const flavourDst = "dist/grok-install/flavour-pack-assets"
   await cp(flavourSrc, flavourDst, { recursive: true })

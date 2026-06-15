@@ -6,6 +6,7 @@ import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset"
 const BRIDGE_RELATIVE = join("hooks", "lfg-grok-hook-bridge.mjs")
 const CONFIG_LOADER_FILE = "lfg-config-loader.mjs" as const
 const PROJECT_OMO_LEDGER_FILE = "lfg-project-omo-ledger.mjs" as const
+const SISYPHUS_HOOKS_FILE = "lfg-sisyphus-hooks.mjs" as const
 const CONFIG_LOADER_RELATIVE = join("hooks", CONFIG_LOADER_FILE)
 
 const PLUGIN_ROOT_PLACEHOLDER = /\$\{PLUGIN_ROOT\}/g
@@ -24,6 +25,7 @@ export async function syncGrokHookBridgeIntoPlugin(pluginRoot: string): Promise<
   await copyFile(assetPath, destPath)
   await copyFile(join(dirname(assetPath), CONFIG_LOADER_FILE), join(pluginRoot, CONFIG_LOADER_RELATIVE))
   await copyFile(join(dirname(assetPath), PROJECT_OMO_LEDGER_FILE), join(pluginRoot, "hooks", PROJECT_OMO_LEDGER_FILE))
+  await copyFile(join(dirname(assetPath), SISYPHUS_HOOKS_FILE), join(pluginRoot, "hooks", SISYPHUS_HOOKS_FILE))
   // .mcp.json is written by materializeGrokMcpRuntimes() during installGrokPluginFromSource — do not overwrite here with dev-only absolute paths.
   return destPath
 }
@@ -74,7 +76,7 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
       }),
     )
   }
-  const nextPayload = { hooks: addLfgConfigLoaderHooks(nextBlock) }
+  const nextPayload = { hooks: addSisyphusHooks(addLfgConfigLoaderHooks(nextBlock)) }
   const trust = validateGrokHooksJson(nextPayload)
   if (!trust.ok) {
     throw new Error(trust.error ?? "invalid hooks after normalize")
@@ -93,6 +95,57 @@ function addLfgConfigLoaderHooks(hooksBlock: JsonRecord): JsonRecord {
     SessionStart: appendConfigLoader(hooksBlock.SessionStart, "SessionStart"),
     UserPromptSubmit: appendConfigLoader(hooksBlock.UserPromptSubmit, "UserPromptSubmit"),
   }
+}
+
+const SISYPHUS_HOOK_EVENTS = [
+  "SessionStart",
+  "UserPromptSubmit",
+  "PreToolUse",
+  "PostToolUse",
+  "SubagentStart",
+  "SubagentStop",
+  "Stop",
+  "PreCompact",
+  "Notification",
+] as const
+
+function addSisyphusHooks(hooksBlock: JsonRecord): JsonRecord {
+  const next = { ...hooksBlock }
+  for (const eventName of SISYPHUS_HOOK_EVENTS) {
+    next[eventName] = appendSisyphusHook(next[eventName], eventName)
+  }
+  return next
+}
+
+function appendSisyphusHook(groups: unknown, eventName: string): readonly unknown[] {
+  const current = Array.isArray(groups) ? groups : []
+  const command = `node "\${GROK_PLUGIN_ROOT}/hooks/${SISYPHUS_HOOKS_FILE}"`
+  const withoutOld = current.filter((group) => !groupHasSisyphusCommand(group, command))
+  return [
+    ...withoutOld,
+    {
+      hooks: [
+        {
+          type: "command",
+          command,
+          timeout: 5,
+          description: `lfg sisyphus orchestration (${eventName})`,
+          statusMessage: `Sisyphus: ${eventName} orchestration context`,
+        },
+      ],
+    },
+  ]
+}
+
+function groupHasSisyphusCommand(group: unknown, command: string): boolean {
+  if (typeof group !== "object" || group === null) return false
+  const hooks = (group as JsonRecord).hooks
+  if (!Array.isArray(hooks)) return false
+  return hooks.some((handler) => {
+    if (typeof handler !== "object" || handler === null) return false
+    const h = handler as JsonRecord
+    return h.command === command
+  })
 }
 
 function appendConfigLoader(groups: unknown, eventName: string): readonly unknown[] {
