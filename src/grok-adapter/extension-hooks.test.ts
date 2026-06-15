@@ -41,9 +41,29 @@ describe("extension-hooks", () => {
     const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
     await mergePortedHooksIntoPlugin(pluginRoot)
     const first = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    const firstActive = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
     await mergePortedHooksIntoPlugin(pluginRoot)
     const second = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    const secondActive = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
     expect(second).toBe(first)
+    expect(secondActive).toBe(firstActive)
+  })
+
+  test("materializes active global hooks with absolute plugin paths for Grok runtime discovery", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-ext-hooks-active-"))
+    const source = join(import.meta.dirname, "fixture-minimal")
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
+    await mergePortedHooksIntoPlugin(pluginRoot)
+
+    const activeRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
+    const active = JSON.parse(activeRaw) as { hooks: Record<string, readonly unknown[]> }
+    expect(active.hooks.SessionStart).toBeDefined()
+    expect(active.hooks.UserPromptSubmit).toBeDefined()
+    expect(activeRaw).toContain(pluginRoot)
+    expect(activeRaw).toContain("lfg-sisyphus-hooks.mjs")
+    expect(activeRaw).not.toContain("${GROK_PLUGIN_ROOT}")
+    expect(activeRaw).not.toContain("${PLUGIN_ROOT}")
+    expect(activeRaw).not.toContain('"matcher": "^startup$"')
   })
 
   test("sisyphus orchestration hooks are injected on key events", async () => {
