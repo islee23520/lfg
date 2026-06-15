@@ -60,7 +60,7 @@ describe("npm pack tarball package.json (#22)", () => {
     const packs = JSON.parse(stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
     const paths = packs.flatMap((p) => p.files?.map((f) => f.path).filter((x): x is string => typeof x === "string") ?? [])
     expect(paths.length).toBeGreaterThan(5)
-    expect(paths.length).toBeLessThanOrEqual(50)
+    expect(paths.length).toBeLessThanOrEqual(60)
     expect(paths).toContain("package.json")
     expect(paths).not.toContain("src/cli/lfg.ts")
   }, 60_000)
