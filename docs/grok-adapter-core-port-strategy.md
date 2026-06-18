@@ -57,15 +57,15 @@ GrokBuild provides `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUs
 
 Each row classifies port effort per the consumed core's host coupling: **CORE** (vendor verbatim), **GLUE** (thin Grok wrapper over a core), **HOST-BOUND** (significant Grok rework).
 
-| Phase | Capability | Upstream source | Classification | Effort | Dependency |
-|---|---|---|---|---|---|
-| 0 | **codegraph** MCP + provisioning | `packages/utils/src/codegraph/` + `omo-opencode/mcp/codegraph.ts` + `omo-codex/components/codegraph` | CORE + GLUE | Low | None (self-contained) |
-| 1 | Rules / AGENTS.md context engine | `packages/rules-engine` (verbatim) + Grok `PostToolUse` glue | CORE + GLUE | Low–Med | None |
-| 2 | Model resolution / fallback | `packages/model-core` (verbatim) + Grok model-catalog adapter + `xai/grok-*` family mapping | CORE + HOST-BOUND | Med | None |
-| 3 | Prompt variants + routing | `packages/prompts-core/prompts/*` (markdown) + variant resolver + Grok variant table | CORE + GLUE | Med | Phase 2 |
-| 4 | Sisyphus / Hephaestus agent prompt builders | `omo-opencode/src/agents/*` (TS builders) | GLUE + HOST-BOUND | High | Phase 2, 3 |
-| 5 | Delegation / background orchestration | `delegate-core`, `boulder-state` + Grok subagent mapping | Mixed | High | Phase 2 |
-| 6 | Skills loading | `skills-loader-core`, `shared-skills` | Mixed | Med | None |
+| Phase | Capability | Upstream source | Classification | Effort | Dependency | Status |
+|---|---|---|---|---|---|---|
+| 0 | **codegraph** MCP + provisioning | `packages/utils/src/codegraph/` + `omo-opencode/mcp/codegraph.ts` + `omo-codex/components/codegraph` | CORE + GLUE | Low | None (self-contained) | Shipped |
+| 1 | Rules / AGENTS.md context engine | `packages/rules-engine` (verbatim) + Grok `PostToolUse` glue | CORE + GLUE | Low–Med | None | Shipped |
+| 2 | Model resolution / fallback | `packages/model-core` (verbatim) + Grok model-catalog adapter + `xai/grok-*` family mapping | CORE + HOST-BOUND | Med | None | Pending |
+| 3 | Prompt variants + routing | `packages/prompts-core/prompts/*` (markdown) + variant resolver + Grok variant table | CORE + GLUE | Med | Phase 2 | Pending |
+| 4 | Sisyphus / Hephaestus agent prompt builders | `omo-opencode/src/agents/*` (TS builders) | GLUE + HOST-BOUND | High | Phase 2, 3 | Pending |
+| 5 | Delegation / background orchestration | `delegate-core`, `boulder-state` + Grok subagent mapping | Mixed | High | Phase 2 | Pending |
+| 6 | Skills loading | `skills-loader-core`, `shared-skills` | Mixed | Med | None | Pending |
 
 ### Why codegraph is Phase 0 (parallel-safe, self-contained)
 

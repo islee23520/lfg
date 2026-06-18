@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-06-17
-**Commit:** 9879626
+**Generated:** 2026-06-18
+**Commit:** 39280d1
 **Branch:** main
 
 ## OVERVIEW
@@ -97,5 +97,5 @@ node dist/lfg.js --json setup --run
 
 - Existing stamped Grok setups are preserved unless `--force` is explicit.
 - `src/cli/` and `src/grok-adapter/` have local AGENTS files because they are the high-risk contract/install hotspots.
-- `docs/` and `plans/` inherit root rules; planning docs are evidence/history, not active product API.
+- `docs/` and `scripts/` have local AGENTS files (tested-contract docs and build/release gates). `plans/` inherits root rules; planning docs are evidence/history, not active product API.
 - `components/*` is intentionally tiny MCP helper packaging. Add scoped guidance only if it gains source, tests, or real ownership complexity.
