@@ -17415,6 +17415,7 @@ var init_component_inventory = __esm({
       { id: "bootstrap", status: "Deferred", evidence: "Upstream bootstrap provisioning is a SessionStart component for Codex runtime dependencies; lfg does not run provisioning hooks during Grok setup." },
       { id: "auto-update", status: "Unsupported", evidence: "Upstream auto-update is a SessionStart script that can run `npx lazycodex-ai@latest install`; lfg keeps updates user-controlled and does not enable this hook." },
       { id: "start-work-continuation", status: "Deferred", evidence: "Boulder/start-work continuation is not yet driven as a Grok-native lifecycle workflow." },
+      { id: "prompts-core", status: "Grok-adapted", evidence: "Phase 3 of the core/adapter port strategy: prompts-core source (types, loader, variant-resolver, prompt tables for atlas/prometheus/ultrawork/mode) vendored under src/grok-adapter/prompts-core-vendored/; Grok glue in grok-prompt-adapter.ts resolves the default variant for Grok models via the fallback chain (docs/grok-adapter-core-port-strategy.md)." },
       { id: "telemetry", status: "Unsupported", evidence: "lfg does not emit upstream anonymous telemetry." }
     ];
   }

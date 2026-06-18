@@ -101,6 +101,7 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
       ["ultrawork", "Grok-adapted"],
       ["ulw-loop", "Grok-adapted"],
       ["start-work-continuation", "Deferred"],
+      ["prompts-core", "Grok-adapted"],
       ["telemetry", "Unsupported"],
     ] as const) {
       expect(text).toMatch(new RegExp(`\\| \`${component}\` \\|.*\\| .*\\| .*\\| ${status} \\|`))

@@ -34,6 +34,7 @@ try {
         format: "esm",
         sourcemap: true,
         target: "node20",
+        loader: { ".md": "text" },
         ...(isTui ? { external: ["@clack/prompts", "picocolors"] } : {}),
       })
     }),
