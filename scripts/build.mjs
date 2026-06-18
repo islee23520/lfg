@@ -77,6 +77,7 @@ try {
   const sisyphusHooksSrc = "src/grok-adapter/assets/lfg-sisyphus-hooks.mjs"
   const nativeRulesSrc = "src/grok-adapter/assets/lfg-native-rules.js"
   const nativeUltraworkSrc = "src/grok-adapter/assets/lfg-native-ultrawork.js"
+  const devLoggerSrc = "src/grok-adapter/assets/lfg-dev-logger.mjs"
   const bridgeDstDir = "dist/grok-install/assets"
   await mkdir(bridgeDstDir, { recursive: true })
   await cp(bridgeSrc, `${bridgeDstDir}/lfg-grok-hook-bridge.mjs`)
@@ -85,6 +86,7 @@ try {
   await cp(sisyphusHooksSrc, `${bridgeDstDir}/lfg-sisyphus-hooks.mjs`)
   await cp(nativeRulesSrc, `${bridgeDstDir}/lfg-native-rules.js`)
   await cp(nativeUltraworkSrc, `${bridgeDstDir}/lfg-native-ultrawork.js`)
+  await cp(devLoggerSrc, `${bridgeDstDir}/lfg-dev-logger.mjs`)
   const flavourSrc = "src/grok-adapter/flavour-pack-assets"
   const flavourDst = "dist/grok-install/flavour-pack-assets"
   await cp(flavourSrc, flavourDst, { recursive: true })

@@ -7,9 +7,24 @@
  * Optimized for Grok Build: reads Grok env vars directly, emits hookSpecificOutput.
  */
 
+import { devLog } from "./lfg-dev-logger.mjs";
+
 const input = parseJson(await readStdin());
 const event = normalizeHookEventName(input);
 const context = renderSisyphusContext(event, input);
+
+await devLog({
+  event,
+  hook: "sisyphus",
+  agent: "sisyphus",
+  cwd: stringField(input ?? {}, ["cwd", "workspaceRoot"]),
+  detail: {
+    contextInjected: context !== null,
+    statusLabel: context?.statusLabel ?? null,
+    prompt: event === "UserPromptSubmit" ? (stringField(input ?? {}, ["prompt"])?.slice(0, 200) ?? null) : null,
+    toolName: stringField(input ?? {}, ["toolName", "tool_name"]),
+  },
+});
 
 if (context !== null) {
   const statusMessage = `Sisyphus: ${context.statusLabel}`;

@@ -4,6 +4,7 @@ import { homedir, userInfo } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectProjectOmoLedger } from "./lfg-project-omo-ledger.mjs";
+import { devLog } from "./lfg-dev-logger.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEST_HOME_ENABLED = "1";
@@ -17,10 +18,26 @@ const projectRoot = projectRootFromInput(input);
 const sessionId = sessionIdFromInput(input);
 const ledger = await inspectProjectOmoLedger({ projectRoot, sessionId });
 if (ledger.status === "malformed") {
+  await devLog({ event, hook: "config-loader", level: "error", detail: "malformed .omo ledger", boulderPath: ledger.boulderPath });
   process.stderr.write(`LFG-OMO-LEDGER-ERROR: malformed project .omo state at ${ledger.boulderPath}\n`);
   process.exit(1);
 }
 const context = renderContext(configPath, config, ledger);
+
+await devLog({
+  event,
+  hook: "config-loader",
+  cwd: projectRoot,
+  detail: {
+    hasConfig: config !== null,
+    configPath: config !== null ? configPath : null,
+    agentCount: config?.agents ? Object.keys(config.agents).length : 0,
+    agents: config?.agents ? Object.fromEntries(
+      Object.entries(config.agents).map(([name, a]) => [name, { model: a?.model, reasoning: a?.reasoning_level, enabled: a?.enabled }])
+    ) : null,
+    ledgerStatus: ledger.status,
+  },
+});
 
 if (context !== null) {
   // Emit both formats: statusMessage for Grok UI visibility during SessionStart,

@@ -6,6 +6,7 @@
  */
 import { spawn } from "node:child_process";
 import { stdin as processStdin } from "node:process";
+import { devLog } from "./lfg-dev-logger.mjs";
 
 const args = process.argv.slice(2);
 if (args.length < 1) {
@@ -38,15 +39,16 @@ if (pluginData.length > 0) {
 }
 
 const [executable, ...childArgs] = args;
+const bridgeStartMs = Date.now();
+let bridgeStdout = "";
+let bridgeStderr = "";
 const exitCode = await new Promise((resolve) => {
   const child = spawn(executable, childArgs, {
     env: childEnv,
     stdio: ["pipe", "pipe", "pipe"],
   });
-  let childStdout = "";
-  let childStderr = "";
-  child.stdout?.on("data", (chunk) => { childStdout += chunk.toString(); });
-  child.stderr?.on("data", (chunk) => { childStderr += chunk.toString(); });
+  child.stdout?.on("data", (chunk) => { bridgeStdout += chunk.toString(); });
+  child.stderr?.on("data", (chunk) => { bridgeStderr += chunk.toString(); });
   child.stdin.on("error", () => {});
   child.stdin.write(`${JSON.stringify(codexPayload)}\n`);
   child.stdin.end();
@@ -54,11 +56,25 @@ const exitCode = await new Promise((resolve) => {
   child.on("close", (code) => {
     // Capture child output for test assertions on malformed (stderr from fixture CLI)
     // Note: test helper already captures its own stdout/stderr; this pipes to test process
-    if (childStdout) process.stdout.write(childStdout);
-    if (childStderr) process.stderr.write(childStderr);
+    if (bridgeStdout) process.stdout.write(bridgeStdout);
+    if (bridgeStderr) process.stderr.write(bridgeStderr);
     resolve(code ?? 1);
   });
 });
+
+await devLog({
+  event: codexPayload?.hook_event_name ?? "Unknown",
+  hook: "bridge",
+  source: "lfg-grok-hook-bridge",
+  detail: {
+    command: `${executable} ${childArgs.join(" ")}`,
+    exitCode,
+    durationMs: Date.now() - bridgeStartMs,
+    stderrSnippet: bridgeStderr.length > 0 ? bridgeStderr.slice(0, 500) : null,
+    stdoutSize: bridgeStdout.length,
+  },
+});
+
 process.exit(exitCode);
 
 function mapGrokHookInputToCodex(grok) {

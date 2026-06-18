@@ -11,6 +11,7 @@ const PROJECT_OMO_LEDGER_FILE = "lfg-project-omo-ledger.mjs" as const
 const SISYPHUS_HOOKS_FILE = "lfg-sisyphus-hooks.mjs" as const
 const NATIVE_RULES_FILE = "lfg-native-rules.js" as const
 const NATIVE_ULTRAWORK_FILE = "lfg-native-ultrawork.js" as const
+const DEV_LOGGER_FILE = "lfg-dev-logger.mjs" as const
 const CONFIG_LOADER_RELATIVE = join("hooks", CONFIG_LOADER_FILE)
 
 type JsonRecord = Record<string, unknown>
@@ -25,6 +26,7 @@ export async function syncGrokHookBridgeIntoPlugin(pluginRoot: string): Promise<
   await copyFile(join(dirname(assetPath), SISYPHUS_HOOKS_FILE), join(pluginRoot, "hooks", SISYPHUS_HOOKS_FILE))
   await copyFile(join(dirname(assetPath), NATIVE_RULES_FILE), join(pluginRoot, "hooks", NATIVE_RULES_FILE))
   await copyFile(join(dirname(assetPath), NATIVE_ULTRAWORK_FILE), join(pluginRoot, "hooks", NATIVE_ULTRAWORK_FILE))
+  await copyFile(join(dirname(assetPath), DEV_LOGGER_FILE), join(pluginRoot, "hooks", DEV_LOGGER_FILE))
   // .mcp.json is written by materializeGrokMcpRuntimes() during installGrokPluginFromSource — do not overwrite here with dev-only absolute paths.
   return destPath
 }

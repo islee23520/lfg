@@ -16636,6 +16636,7 @@ async function syncGrokHookBridgeIntoPlugin(pluginRoot) {
   await copyFile(join10(dirname7(assetPath), SISYPHUS_HOOKS_FILE), join10(pluginRoot, "hooks", SISYPHUS_HOOKS_FILE));
   await copyFile(join10(dirname7(assetPath), NATIVE_RULES_FILE), join10(pluginRoot, "hooks", NATIVE_RULES_FILE));
   await copyFile(join10(dirname7(assetPath), NATIVE_ULTRAWORK_FILE), join10(pluginRoot, "hooks", NATIVE_ULTRAWORK_FILE));
+  await copyFile(join10(dirname7(assetPath), DEV_LOGGER_FILE), join10(pluginRoot, "hooks", DEV_LOGGER_FILE));
   return destPath;
 }
 async function normalizePluginHooksJson(pluginRoot) {
@@ -16792,7 +16793,7 @@ function hookEventArg(command) {
   const match = command.match(/\bhook\s+([a-z0-9-]+)\b/i);
   return match?.[1] ?? null;
 }
-var BRIDGE_RELATIVE, CONFIG_LOADER_FILE, PROJECT_OMO_LEDGER_FILE, SISYPHUS_HOOKS_FILE, NATIVE_RULES_FILE, NATIVE_ULTRAWORK_FILE, CONFIG_LOADER_RELATIVE, SISYPHUS_HOOK_EVENTS;
+var BRIDGE_RELATIVE, CONFIG_LOADER_FILE, PROJECT_OMO_LEDGER_FILE, SISYPHUS_HOOKS_FILE, NATIVE_RULES_FILE, NATIVE_ULTRAWORK_FILE, DEV_LOGGER_FILE, CONFIG_LOADER_RELATIVE, SISYPHUS_HOOK_EVENTS;
 var init_normalize_plugin_hooks = __esm({
   "src/grok-adapter/normalize-plugin-hooks.ts"() {
     "use strict";
@@ -16806,6 +16807,7 @@ var init_normalize_plugin_hooks = __esm({
     SISYPHUS_HOOKS_FILE = "lfg-sisyphus-hooks.mjs";
     NATIVE_RULES_FILE = "lfg-native-rules.js";
     NATIVE_ULTRAWORK_FILE = "lfg-native-ultrawork.js";
+    DEV_LOGGER_FILE = "lfg-dev-logger.mjs";
     CONFIG_LOADER_RELATIVE = join10("hooks", CONFIG_LOADER_FILE);
     SISYPHUS_HOOK_EVENTS = [
       "SessionStart",
