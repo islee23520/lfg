@@ -71,3 +71,14 @@ export {
   buildToolCallFormatSection,
   buildUltraworkSection,
 } from "./dynamic-agent-policy-sections"
+export {
+  BUILTIN_AGENT_NAMES,
+  BUILTIN_AGENTS,
+} from "./builtin-agents"
+export type {
+  BuiltinAgentDefinition,
+  BuiltinAgentPortStatus,
+  BuiltinAgentPromptMode,
+  BuiltinAgentToolRestrictions,
+  CuratedBuiltinAgentName,
+} from "./builtin-agents"
