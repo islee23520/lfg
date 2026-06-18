@@ -42,7 +42,7 @@ describe("lfg-config-loader project .omo context", () => {
     expect(output.hookSpecificOutput?.additionalContext).toContain("ulw-loop: none")
   })
 
-  test("normalizes UserPromptSubmit and fails closed for malformed project .omo", async () => {
+  test("fails closed for malformed project .omo", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-loader-malformed-home-"))
     const projectRoot = await mkdtemp(join(tmpdir(), "lfg-loader-malformed-project-"))
     await mkdir(join(projectRoot, ".omo"), { recursive: true })
@@ -57,8 +57,10 @@ describe("lfg-config-loader project .omo context", () => {
       },
     })
 
-    expect(result).toMatchObject({ exitCode: 0, stderr: "" })
-    expect(result.stdout).toContain("LFG: UserPromptSubmit (no config or active work)")
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain("LFG-OMO-LEDGER-ERROR")
+    expect(result.stderr).toContain(join(projectRoot, ".omo", "boulder.json"))
+    expect(result.stdout).toBe("")
   })
 })
 
@@ -122,10 +124,12 @@ function parseHookOutput(stdout: string): ParsedHookOutput {
 
 function isHookOutput(value: unknown): value is ParsedHookOutput {
   if (typeof value !== "object" || value === null) return false
-  const hasStatus = "statusMessage" in value && typeof (value as any).statusMessage === "string"
+  const record = value as { readonly [key: string]: unknown }
+  const hasStatus = typeof record.statusMessage === "string"
+  const hookSpecificOutput = record.hookSpecificOutput
   const hasHookOutput = "hookSpecificOutput" in value &&
-    typeof (value as any).hookSpecificOutput === "object" &&
-    (value as any).hookSpecificOutput !== null
+    typeof hookSpecificOutput === "object" &&
+    hookSpecificOutput !== null
   return hasStatus || hasHookOutput
 }
 

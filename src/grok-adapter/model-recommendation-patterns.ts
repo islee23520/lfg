@@ -8,7 +8,7 @@
  * equivalents at the same tier.
  */
 
-import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap, ServiceTier } from "./lazycodex-agent-overrides"
+import type { LazycodexAgentOverrideMap, ServiceTier } from "./lazycodex-agent-overrides"
 import type { ReasoningLevel } from "../cli/lfg-models"
 
 export type PatternKind = "reasoning" | "utility" | "critical" | "coding"
@@ -24,7 +24,7 @@ export const REASONING_AGENT_NAMES: ReadonlySet<string> = new Set([
   "metis",
   "momus",
   "plan",
-  "ulw",
+  "prometheus",
   "ulw-plan",
   "review-work",
   "codex-ultrawork-reviewer",
@@ -229,47 +229,4 @@ export function applyRecommendedModelOverrides(
       serviceTier: fields.serviceTier,
     }
   }
-}
-
-
-/** Agents whose model/reasoning/service_tier must not be overwritten by discovery pattern matching.
- * - explorer/reasoning/coding: curated from discovery.mapping
- * - default/ulw/sisyphus/atlas: bundled Grok-first OMO defaults
- */
-const CURATED_OVERRIDE_AGENT_NAMES = new Set(["explorer", "reasoning", "coding", "default", "ulw", "sisyphus", "atlas"])
-
-/** Apply pattern-based recommendations to an override map, preserving fallback fields.
- *
- * For each non-role agent, if a recommended model is found among the discovered
- * models, the agent's model + reasoningLevel + serviceTier are updated. Role
- * curated agents (explorer, reasoning, coding, default, ulw, sisyphus, atlas) are left unchanged.
- * Fallback fields are always preserved.
- *
- * Returns a new map; does not mutate the input.
- */
-export function applyRecommendationsToOverrideMap(
-  overrides: LazycodexAgentOverrideMap,
-  models: readonly string[],
-  preset?: RecommendationPreset,
-): LazycodexAgentOverrideMap {
-  if (models.length === 0) return overrides
-  const out: Record<string, LazycodexAgentModelOverride> = {}
-  for (const [name, setting] of Object.entries(overrides)) {
-    if (CURATED_OVERRIDE_AGENT_NAMES.has(name)) {
-      out[name] = setting
-      continue
-    }
-    const rec = recommendAgentModelFields(name, models, preset)
-    if (rec === undefined) {
-      out[name] = setting
-      continue
-    }
-    out[name] = {
-      ...setting,
-      model: rec.model,
-      reasoningLevel: rec.reasoningLevel,
-      serviceTier: rec.serviceTier,
-    }
-  }
-  return out
 }

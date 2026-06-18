@@ -11,12 +11,14 @@ describe("setup plan JSON (ownership)", () => {
       ok: true,
       status: "planned",
       executed: false,
-      lfgIsPlugin: false,
       grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
+      lfgIsPlugin: false,
     })
     expect(JSON.stringify(result.json)).not.toContain("@islee23520/lfp")
     const steps = (result.json as { steps?: readonly { text: string }[] }).steps ?? []
     expect(steps.some((s) => s.text.includes(INTERNAL_GROK_INSTALL_COMMAND))).toBe(true)
+    expect(JSON.stringify(result.json)).not.toContain("full OMO plugin surface")
+    expect(JSON.stringify(result.json)).toContain("manifest-only MCP entries")
     expect(findDeprecatedSetupJsonKeys(result.json as Record<string, unknown>)).toEqual([])
   })
 })

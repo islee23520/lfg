@@ -18,9 +18,9 @@ describe("doctor JSON contract (#31)", () => {
       ok: true,
       status: "pass",
       command: "doctor",
-      lfgIsPlugin: false,
       failedRequired: [],
     })
+    expect(json).not.toHaveProperty("lfgIsPlugin")
     expect(json.distribution).toEqual({ packageName: "@islee23520/lfg", version: "7.7.7" })
     const installSurface = json.installSurface as { ok?: boolean; hooksRegistered?: boolean; nativeHookStatus?: string; bridgeFallback?: boolean }
     expect(installSurface.ok).toBe(true)

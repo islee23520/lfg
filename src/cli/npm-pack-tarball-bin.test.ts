@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process"
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -44,7 +44,8 @@ describe("npm pack tarball package.json (#22)", () => {
       expect(pkg.files).toContain("bin")
       expect(pkgJson).not.toContain('"lfg": "dist/lfg.js"')
       const desc = (pkg as { description?: string }).description ?? ""
-      expect(desc).toContain("grok-install")
+      expect(desc).toContain("GrokBuild port")
+      expect(desc).toContain("Grok Build plugin payload")
       expect(desc).not.toContain("@islee23520/lfp setup")
       expect(pkg.bin).toBeDefined()
       expect((pkg as { workspaces?: unknown }).workspaces).toBeUndefined()
@@ -60,7 +61,7 @@ describe("npm pack tarball package.json (#22)", () => {
     const packs = JSON.parse(stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
     const paths = packs.flatMap((p) => p.files?.map((f) => f.path).filter((x): x is string => typeof x === "string") ?? [])
     expect(paths.length).toBeGreaterThan(5)
-    expect(paths.length).toBeLessThanOrEqual(60)
+    expect(paths.length).toBeLessThanOrEqual(75)
     expect(paths).toContain("package.json")
     expect(paths).not.toContain("src/cli/lfg.ts")
   }, 60_000)

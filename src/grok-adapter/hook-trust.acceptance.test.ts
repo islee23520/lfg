@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -73,7 +73,6 @@ describe("native grok hook json contract (T1)", () => {
     expect(fullTrust.ok).toBe(true)
     expect([...((fullTrust as HookTrustResult).hookNames)].sort()).toEqual([...allowed].sort())
 
-    // Rejects unknown event (T1 pins current validate behavior; unknown events are filtered but test passes)
     const badHooks: any = {
       hooks: {
         SessionStart: [{ hooks: [{ type: "command", command: "ok" }] }],
@@ -81,8 +80,8 @@ describe("native grok hook json contract (T1)", () => {
       },
     }
     const badTrust = validateGrokHooksJson(badHooks)
-    expect(badTrust.ok).toBe(true)
-    expect(badTrust.hookNames).toContain("SessionStart")
+    expect(badTrust.ok).toBe(false)
+    expect(badTrust.error).toContain("unknown Grok hook event: UnknownEventFoo")
   })
 
   test("idempotency: repeated setup does not duplicate hook groups or stack bridge wrappers (T1 contract)", async () => {

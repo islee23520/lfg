@@ -92,9 +92,9 @@ async function readAgentSetting(
       if (alts.length > 0) {
         output.write(`  Alternatives: ${alts.join(", ")}\n`)
       }
+    } else {
+      output.write(`  Current: ${defaultModel} (reasoning: ${defaultReasoningLevel})\n`)
     }
-    output.write(`  Current: ${defaultModel} (reasoning: ${defaultReasoningLevel})\n`)
-    output.write("  Default: keep the current LazyCodex/OMO value; press Enter to leave it unchanged.\n")
   }
 
   const picked = await readModelChoice(reader, discovery, `  ${agentName} model [${defaultModel}]: `, defaultModel, agentName, options.modelSelector)

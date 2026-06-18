@@ -1,4 +1,3 @@
-import { LAZYCODEX_INSTALLER_COMMAND } from "./lfg-installer"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-adapter/run-grok-install"
 import type { JsonObject } from "./lfg-json"
 
@@ -10,7 +9,7 @@ export function unsupportedCommand(positional: readonly string[]): JsonObject {
     code: "unsupported_command",
     command,
     message: `lfg does not run ${command}. Use "setup --run" (or "setup --run --force" to overwrite existing adapter).`,
-    role: "lazycodex_adapter_installer",
+    role: "omo_grok_installer",
     adapterPackage: "lfg-grok-install",
     installerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     companionPackage: "lfg-grok-install",

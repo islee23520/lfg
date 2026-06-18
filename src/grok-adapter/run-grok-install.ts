@@ -5,13 +5,12 @@ import type { ModelDiscovery } from "../cli/lfg-models"
 import { modelDiscoveryEnv } from "../cli/lfg-models"
 import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentModels } from "./grok-plugins-enable"
 import { ensureLfgConfigFiles } from "./lfg-config"
-import { mergePortedHooksIntoPlugin } from "./extension-hooks"
 import { ensureCuaDriverSkill, ensureUlwWorkflowSkills } from "./ensure-cua-driver-skill"
 import { ensureHephaestusModelGate } from "./ensure-hephaestus-model-gate"
 import { normalizePluginHooksJson } from "./normalize-plugin-hooks"
 import {
   resolveLazycodexAgentOverrides,
-  writeLazycodexAgentOverridesFile,
+  writeOmoAgentOverridesFile,
 } from "./lazycodex-agent-overrides"
 import { resolveGlobalLazycodexAgentConfig } from "./resolve-global-agent-config"
 import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
@@ -19,7 +18,7 @@ import { readGrokInstallStamp } from "./install"
 import { runInternalGrokInstall } from "./run-internal"
 import { syncLazycodexAgentsToGrokLedger, type SyncLazycodexAgentsResult } from "./sync-lazycodex-agents-to-grok"
 import { componentInventoryPath } from "./component-inventory"
-import { applyRecommendationsToOverrideMap } from "./model-recommendation-patterns"
+import { applyRecommendationsToOverrideMap } from "./model-recommendation-availability"
 import { resolveGrokApiKey } from "./grok-api-key"
 import { resolveGrokSetupHome } from "./grok-home"
 
@@ -30,6 +29,7 @@ export type GrokInstallRunResult = {
   readonly ok: boolean
   readonly configUpdate: Awaited<ReturnType<typeof writeGrokModelConfig>> | null
   readonly internalStep: JsonObject
+  readonly omoAgents: SyncLazycodexAgentsResult | null
   readonly lazycodexAgents: SyncLazycodexAgentsResult | null
   readonly agentOverridesPath: string | null
   readonly lfgConfigPath: string | null
@@ -41,7 +41,6 @@ export type GrokInstallRunResult = {
 
 export type GrokInstallRunOptions = {
   readonly force?: boolean
-  /** Full per-agent model+reasoning map (all agents) to write into [lazycodex.agents.*] on setup. */
   readonly fullAgentModels?: Readonly<Record<string, { model: string; reasoningLevel: string }>>
 }
 
@@ -77,9 +76,9 @@ export async function runGrokInstall(
             fullAgentModels,
           })
         : null
-    const overridesPath = await writeLazycodexAgentOverridesFile(home, overrideMap)
+    const overridesPath = await writeOmoAgentOverridesFile(home, overrideMap)
     const configFiles = await ensureLfgConfigFiles(home, overrideMap)
-    const lazycodexAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
+    const omoAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
     const pluginsEnabled = await ensureLfgPluginsEnabled(home)
     await ensureLfgAgentsPreferred(home)
     const subagentModels = await ensureLfgSubagentModels(
@@ -112,7 +111,8 @@ export async function runGrokInstall(
             : "existing Grok lfg setup preserved; synced model config from discovered CLI proxy models",
         stderr: "",
       },
-      lazycodexAgents,
+      omoAgents,
+      lazycodexAgents: omoAgents,
       agentOverridesPath: overridesPath,
       lfgConfigPath: configFiles.configPath,
       pluginsEnabled,
@@ -150,9 +150,9 @@ export async function runGrokInstall(
           fullAgentModels,
         })
       : null
-  const overridesPath = await writeLazycodexAgentOverridesFile(home, overrideMap)
+  const overridesPath = await writeOmoAgentOverridesFile(home, overrideMap)
   const configFiles = await ensureLfgConfigFiles(home, overrideMap)
-  const lazycodexAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
+  const omoAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
   const pluginsEnabled = await ensureLfgPluginsEnabled(home)
   await ensureLfgAgentsPreferred(home)
   const subagentModels = await ensureLfgSubagentModels(
@@ -176,7 +176,8 @@ export async function runGrokInstall(
     ok: internalStep.ok === true,
     configUpdate,
     internalStep,
-    lazycodexAgents,
+    omoAgents,
+    lazycodexAgents: omoAgents,
     agentOverridesPath: overridesPath,
     lfgConfigPath: configFiles.configPath,
     pluginsEnabled,

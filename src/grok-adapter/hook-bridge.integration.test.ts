@@ -61,7 +61,8 @@ process.stdin.on('end',()=>{
     await runInternalGrokInstall({ HOME: home })
 
     const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
-    expect(hooksRaw).toContain("lfg-grok-hook-bridge.mjs")
+    expect(hooksRaw).toContain("lfg-native-rules.js")
+    expect(hooksRaw).not.toContain("lfg-grok-hook-bridge.mjs")
     expect(hooksRaw).toContain("GROK_PLUGIN_ROOT")
 
     const bridgePath = join(pluginRoot, "hooks", "lfg-grok-hook-bridge.mjs")
@@ -149,7 +150,8 @@ process.stdin.on('end',()=>{
     await runInternalGrokInstall({ HOME: home })
 
     const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
-    expect(hooksRaw).toContain("lfg-grok-hook-bridge.mjs")
+    expect(hooksRaw).toContain("lfg-native-ultrawork.js")
+    expect(hooksRaw).not.toContain("lfg-grok-hook-bridge.mjs")
 
     const bridgePath = join(pluginRoot, "hooks", "lfg-grok-hook-bridge.mjs")
     const grokPayload = JSON.stringify({

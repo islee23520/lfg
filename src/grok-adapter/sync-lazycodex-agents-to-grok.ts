@@ -5,16 +5,26 @@ import { overrideForAgent } from "./lazycodex-agent-overrides"
 import { renderGrokRoleTomlFromCodex, renderMinimalGrokRoleToml } from "./codex-agent-toml-to-grok"
 import { nativeOmoFallbackPrompt } from "./native-omo-agents"
 import { resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
+import { renderYamlDoubleQuotedScalar } from "./model-id-safety"
 import { resolveFlavourPackAssetsRoot } from "./resolve-flavour-pack-asset"
 
 const ULTRAWORK_AGENTS_DIR = join("components", "ultrawork", "agents")
 
+/**
+ * Maps codex component/ultrawork agent TOML names to Grok agent names.
+ * Agents without a codex TOML (default, sisyphus, hephaestus, prometheus,
+ * atlas, oracle, multimodal-looker, sisyphus-junior) receive Grok-native
+ * fallback prompts from nativeOmoFallbackPrompt(), adapted from the
+ * upstream OMO opencode agent tree.
+ */
 const GROK_AGENT_NAMES: Readonly<Record<string, string>> = {
   default: "default",
-  ulw: "ulw",
   sisyphus: "sisyphus",
+  hephaestus: "hephaestus",
+  prometheus: "prometheus",
   atlas: "atlas",
   oracle: "oracle",
+  "multimodal-looker": "multimodal-looker",
   "sisyphus-junior": "sisyphus-junior",
   plan: "plan",
   explorer: "explorer",
@@ -25,9 +35,6 @@ const GROK_AGENT_NAMES: Readonly<Record<string, string>> = {
   reasoning: "reasoning",
   coding: "coding",
 }
-
-/** Grok builtin ~/.grok/agents names LFG must not claim or back up (plugin-owned surfaces only). */
-const RESERVED_USER_GROK_AGENT_NAMES = new Set(["ulw"])
 
 const READ_ONLY_AGENT_NAMES = new Set([
   "sisyphus",
@@ -65,7 +72,7 @@ export async function syncLazycodexAgentsToGrokLedger(
   const agentsDir = join(resolved.pluginRoot, "agents")
   const rolesDir = join(home, ".grok", "roles")
   const personasDir = join(home, ".grok", "personas")
-  const promptsDir = join(home, ".grok", "prompts", "lazycodex")
+  const promptsDir = join(home, ".grok", "prompts", "omo")
   await mkdir(agentsDir, { recursive: true })
   await mkdir(rolesDir, { recursive: true })
   await mkdir(personasDir, { recursive: true })
@@ -102,10 +109,10 @@ export async function syncLazycodexAgentsToGrokLedger(
     written.push(...(await writeMinimalAgentSurfaces({ sourceName, grokName, override, agentsDir, rolesDir, promptsDir })))
   }
 
-  // Bundle (LFG-shadowed Grok builtin) agents are intentionally disabled.
-  // Real agents (ulw, ultraresearch, feasible-goal, etc.) come from the lazycodex plugin tree
-  // (components/ultrawork/agents) and LFP-style overrides, so Grok builtins remain available
-  // unless the upstream lazycodex tree itself provides same-named agents.
+  // Agents adapted from the OMO opencode tree (default/sisyphus, hephaestus, prometheus, atlas, oracle,
+  // multimodal-looker, sisyphus-junior) use Grok-native fallback prompts.
+  // Codex-origin agents (explorer, librarian, metis, momus, plan, reviewer) use TOML definitions
+  // from components/ultrawork/agents. Grok builtins remain available unless overridden.
 
   return { ok: true, agentsDir, rolesDir, personasDir, promptsDir, written, sourcePluginRoot: resolved.pluginRoot }
 }
@@ -177,7 +184,7 @@ function renderAgentMarkdown(
 ): string {
   const model = override?.model ?? meta.model
   const permission = READ_ONLY_AGENT_NAMES.has(sourceName) ? "plan" : "default"
-  return `---\nname: ${grokName}\ndescription: >\n  ${meta.description}\nprompt_mode: full\nmodel: ${model}\npermission_mode: ${permission}\nagents_md: true\n---\n\n<!-- Source: ${sourceLabel}; reasoning_effort=${override?.reasoningLevel ?? meta.reasoning} -->\n\n${meta.instructions.trim()}\n`
+  return `---\nname: ${grokName}\ndescription: >\n  ${meta.description}\nprompt_mode: full\nmodel: ${renderYamlDoubleQuotedScalar(model)}\npermission_mode: ${permission}\nagents_md: true\n---\n\n<!-- Source: ${sourceLabel}; reasoning_effort=${override?.reasoningLevel ?? meta.reasoning} -->\n\n${meta.instructions.trim()}\n`
 }
 
 function renderPersonaToml(meta: AgentMeta, promptPath: string, override: ReturnType<typeof overrideForAgent>): string {
@@ -235,7 +242,7 @@ async function moveConflictingUserAgentsAside(home: string, names: readonly stri
 }
 
 function conflictingUserAgentNames(): string[] {
-  return [...Object.values(GROK_AGENT_NAMES)].filter((name) => !RESERVED_USER_GROK_AGENT_NAMES.has(name))
+  return [...Object.values(GROK_AGENT_NAMES)]
 }
 
 async function moveConflictingMarkdownAgentsAside(home: string, names: readonly string[]): Promise<void> {

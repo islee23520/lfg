@@ -3,6 +3,7 @@ import {
   ROLE_RECOMMENDATIONS,
   PERF_SNAPSHOT,
   formatRecommendationTable,
+  getAgentRecommendation,
   scoreModelForRole,
 } from "./model-recommendations"
 
@@ -74,6 +75,63 @@ describe("model-recommendations", () => {
     expect(table).toContain("plan                        grok-4.20-0309-reasoning")
     expect(table).toContain("momus                       gpt-5.5")
     expect(table).toContain("coding                      grok-4.20-0309-non-reasoning")
+  })
+
+  test("override-backed agent recommendations expose fallback chain for non-role agents", () => {
+    const overrides = {
+      sisyphus: {
+        model: "gpt-5.5",
+        model_reasoning_effort: "medium",
+        model_fallback: "glm-5",
+        role_rationale: "OMO Sisyphus orchestrator",
+      },
+      atlas: {
+        model: "claude-sonnet-4-6",
+        model_reasoning_effort: "high",
+        model_fallback: "gpt-5.5",
+        role_rationale: "OMO Atlas todo-list orchestrator",
+      },
+      oracle: {
+        model: "gpt-5.5",
+        model_reasoning_effort: "high",
+        model_fallback: "gemini-3-pro-high",
+        role_rationale: "OMO Oracle reasoning consultant",
+      },
+    }
+
+    expect(getAgentRecommendation("sisyphus", ["glm-5"], overrides)).toMatchObject({
+      recommended: "glm-5",
+      variant: "medium",
+      alternatives: [],
+      fullChain: ["gpt-5.5", "glm-5"],
+    })
+
+    const table = formatRecommendationTable(["gpt-5.5", "gemini-3-pro-high"], overrides)
+    expect(table).toContain("sisyphus")
+    expect(table).toContain("atlas")
+    expect(table).toContain("oracle")
+  })
+
+  test("bundled overrides take precedence over role profiles and never recommend unavailable models", () => {
+    const overrides = {
+      explorer: {
+        model: "gpt-5.4-mini",
+        model_reasoning_effort: "low",
+        model_fallback: "grok-3-mini-fast",
+        role_rationale: "OMO explore agent",
+      },
+    }
+
+    expect(getAgentRecommendation("explorer", ["grok-3-mini-fast"], overrides)).toMatchObject({
+      recommended: "grok-3-mini-fast",
+      variant: "low",
+      alternatives: [],
+      fullChain: ["gpt-5.4-mini", "grok-3-mini-fast"],
+    })
+
+    const table = formatRecommendationTable(["grok-3-mini-fast"], overrides)
+    expect(table).toContain("explorer                    grok-3-mini-fast")
+    expect(table).not.toContain("explorer                    gpt-5.4-mini")
   })
 
   test("perf snapshot has non-zero latency for available models", () => {

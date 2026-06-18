@@ -1,3 +1,5 @@
+import { createHookParityNativeGrokHooks } from "./hook-parity"
+
 export type HookTrustResult = {
   readonly ok: boolean
   readonly hookNames: readonly string[]
@@ -36,7 +38,7 @@ export function isGrokEventHooksJson(raw: unknown): boolean {
   if (events.length === 0) {
     return false
   }
-  return events.some((name) => GROK_HOOK_EVENTS.has(name))
+  return true
 }
 
 export function isLegacyMetadataHooksJson(raw: unknown): boolean {
@@ -72,7 +74,7 @@ export function validateGrokHooksJson(raw: unknown): HookTrustResult {
   const hookNames: string[] = []
   for (const [eventName, groups] of Object.entries(record.hooks)) {
     if (!GROK_HOOK_EVENTS.has(eventName)) {
-      continue
+      return { ok: false, hookNames: [], error: `unknown Grok hook event: ${eventName}` }
     }
     if (!Array.isArray(groups)) {
       return { ok: false, hookNames: [], error: `hooks.${eventName} must be an array` }
@@ -134,21 +136,5 @@ export function createNativeGrokHooksForLegacyFallback(): unknown {
 }
 
 export function createFirstPartyNativeGrokHooks(): unknown {
-  const hooks: Record<string, unknown[]> = {}
-  for (const eventName of GROK_HOOK_EVENTS) {
-    const command = `node "\${GROK_PLUGIN_ROOT}/hooks/lfg-native-${eventName.toLowerCase()}-handler.js"`
-    hooks[eventName] = [
-      {
-        hooks: [
-          {
-            type: "command",
-            command,
-            timeout: 5,
-            description: `lfg native first-party ${eventName} hook`,
-          },
-        ],
-      },
-    ]
-  }
-  return { hooks }
+  return createHookParityNativeGrokHooks()
 }

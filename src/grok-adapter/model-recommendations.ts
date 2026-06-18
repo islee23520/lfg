@@ -24,6 +24,22 @@ export type RoleRecommendation = {
   readonly alternatives: readonly string[]
 }
 
+export type AgentRecommendationOverride = {
+  readonly model: string
+  readonly model_reasoning_effort?: string
+  readonly model_fallback?: string
+  readonly model_fallback_reasoning_effort?: string
+  readonly role_rationale?: string
+}
+
+export type AgentRecommendation = {
+  readonly recommended: string
+  readonly variant?: string
+  readonly rationale: string
+  readonly alternatives: readonly string[]
+  readonly fullChain: readonly string[]
+}
+
 type RoleProfile = {
   readonly role: string
   readonly reasoningEffort: string
@@ -108,17 +124,63 @@ export function buildRoleRecommendations(availableModels: readonly string[]): re
   return ROLE_PROFILES.map((profile) => resolveRoleRecommendation(profile, availableModels))
 }
 
+/** Get recommendation for a single agent from bundled overrides + role profiles. */
+export function getAgentRecommendation(
+  agentName: string,
+  availableModels: readonly string[],
+  bundledOverrides?: Readonly<Record<string, AgentRecommendationOverride>>,
+): AgentRecommendation | null {
+  const override = bundledOverrides?.[agentName]
+  if (override) {
+    const candidates = [override.model, override.model_fallback].filter(isPresentString)
+    if (candidates.length === 0) return null
+
+    const available = candidates.filter((m) => modelIsAvailable(m, availableModels))
+    const recommended = available[0] ?? (availableModels.length === 0 ? candidates[0] : firstChatModel(availableModels)) ?? candidates[0]
+
+    return {
+      recommended,
+      ...(override.model_reasoning_effort !== undefined ? { variant: override.model_reasoning_effort } : {}),
+      rationale: override.role_rationale ?? `OMO recommendation for ${agentName}`,
+      alternatives: available.filter((model) => model !== recommended),
+      fullChain: candidates,
+    }
+  }
+
+  const profile = ROLE_PROFILES.find((r) => r.role === agentName)
+  if (profile) {
+    const available = profile.preferredModels.filter((m) => modelIsAvailable(m, availableModels))
+    const recommended = available[0] ?? (availableModels.length === 0 ? profile.preferredModels[0] : firstChatModel(availableModels)) ?? profile.preferredModels[0] ?? "grok-4.20-0309-non-reasoning"
+    return {
+      recommended,
+      variant: profile.reasoningEffort,
+      rationale: profile.rationale,
+      alternatives: available.filter((m) => m !== recommended).slice(0, 4),
+      fullChain: profile.preferredModels,
+    }
+  }
+
+  return null
+}
+
 /** Format a recommendation table for terminal output. */
 export function formatRecommendationTable(
   availableModels: readonly string[],
+  bundledOverrides?: Readonly<Record<string, AgentRecommendationOverride>>,
 ): string {
-  const recs = buildRoleRecommendations(availableModels)
+  const names = bundledOverrides
+    ? [...new Set([...Object.keys(bundledOverrides), ...ROLE_PROFILES.map((r) => r.role)])]
+    : ROLE_PROFILES.map((r) => r.role)
+  const allRecs = names.flatMap((name) => {
+    const rec = getAgentRecommendation(name, availableModels, bundledOverrides)
+    return rec === null ? [] : [{ role: name, ...rec }]
+  })
   const lines: string[] = []
   lines.push("Agent Model Recommendations (available-model aware, benchmarked)")
   lines.push("─".repeat(92))
   lines.push(padCol("Agent", 28) + padCol("Recommended", 30) + padCol("Latency", 10) + padCol("t/s", 8) + "Rationale")
   lines.push("─".repeat(92))
-  for (const rec of recs) {
+  for (const rec of allRecs) {
     const perf = PERF_SNAPSHOT[rec.recommended]
     const latency = perf ? `${perf.latencyMs}ms` : "n/a"
     const tps = perf ? `${perf.tokensPerSec}` : "n/a"
@@ -127,7 +189,7 @@ export function formatRecommendationTable(
   lines.push("─".repeat(92))
   lines.push("")
   lines.push("Available alternatives per agent:")
-  for (const rec of recs) {
+  for (const rec of allRecs) {
     if (rec.alternatives.length > 0) {
       lines.push(`  ${rec.role}: ${rec.alternatives.join(", ")}`)
     }
@@ -172,6 +234,20 @@ function resolveRoleRecommendation(profile: RoleProfile, availableModels: readon
 
 function firstChatModel(models: readonly string[]): string | undefined {
   return models.find((model) => !/(image|imagine|video|embedding)/i.test(model))
+}
+
+function modelIsAvailable(model: string, availableModels: readonly string[]): boolean {
+  if (availableModels.length === 0) return true
+  return availableModels.includes(model) || availableModels.some((available) => tailId(available) === model || tailId(model) === available)
+}
+
+function tailId(model: string): string {
+  const slash = model.lastIndexOf("/")
+  return slash >= 0 ? model.slice(slash + 1) : model
+}
+
+function isPresentString(value: string | undefined): value is string {
+  return typeof value === "string" && value.length > 0
 }
 
 function padCol(text: string, width: number): string {

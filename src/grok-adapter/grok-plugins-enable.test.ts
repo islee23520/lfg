@@ -22,7 +22,7 @@ describe("ensureLfgPluginsEnabled", () => {
     expect(text).toContain('"user/old"')
   })
 
-  test("disables Grok built-in subagents but keeps LFG/ulw agents enabled", async () => {
+  test("disables Grok built-in subagents but keeps LFG agents enabled", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-agents-preferred-"))
     const configPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok"), { recursive: true })
@@ -39,8 +39,9 @@ describe("ensureLfgPluginsEnabled", () => {
     expect(text).toContain("explore = false")
     expect(text).toContain("grok-build = false")
     expect(text).toContain("builder = false")
-    // LFG-managed agents stay enabled (ulw + ultrawork family)
-    expect(text).toContain("ulw = true")
+    // LFG-managed agents stay enabled (OMO agent family)
+    expect(text).toContain("sisyphus = true")
+    expect(text).toContain("prometheus = true")
     expect(text).toContain("reasoning = true")
     expect(text).toContain("coding = true")
     expect(text).toContain("explorer = true")

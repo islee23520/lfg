@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile } from "node:fs/promises"
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -8,6 +8,21 @@ import { runGrokInstall } from "./run-grok-install"
 import { verifyGrokInstallSurface } from "./post-install-verify"
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), "fixture-minimal")
+const T2_COMPONENT_IDS = [
+  "rules",
+  "lsp",
+  "comment-checker",
+  "git-bash",
+  "ultrawork",
+  "ulw-loop",
+  "start-work-continuation",
+  "telemetry",
+  "bootstrap",
+  "auto-update",
+  "ast_grep",
+  "grep_app",
+  "context7",
+] as const
 
 /** Epic #27 / plan task 3 — fixture-only, no network. */
 describe("plugin cache install acceptance (#27)", () => {
@@ -44,31 +59,30 @@ describe("plugin cache install acceptance (#27)", () => {
       readonly upstreamVersion: string
       readonly upstreamTag: string
       readonly upstreamReleaseUrl: string
-      readonly components: readonly { readonly id: string; readonly status: string }[]
+      readonly components: readonly { readonly id: string; readonly status: string; readonly evidence: string }[]
     }
     expect(inventory).toMatchObject({
       inventoryVersion: 1,
       packageName: "@islee23520/lfg",
       packageVersion: "5.5.5",
       platform: "grok",
-      upstreamName: "lazycodex-ai",
+      upstreamName: "oh-my-openagent",
       upstreamVersion: "4.10.0",
       upstreamTag: "v4.10.0",
       upstreamReleaseUrl: "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0",
     })
-    expect(inventory.components.map((component) => component.id)).toEqual([
-      "comment-checker",
-      "git-bash",
-      "rules",
-      "lsp",
-      "ast_grep",
-      "ultrawork",
-      "ulw-loop",
-      "ulw-plan",
-      "start-work-continuation",
-      "telemetry",
-    ])
+    expect(inventory.components.map((component) => component.id)).toEqual(expect.arrayContaining([...T2_COMPONENT_IDS]))
     expect(inventory.components.every((component) => component.status.length > 0)).toBe(true)
+    expect(inventory.components).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "ast_grep", status: "Manifest-only" }),
+        expect.objectContaining({ id: "lsp", status: "Manifest-only" }),
+        expect.objectContaining({ id: "git-bash", status: "Manifest-only" }),
+        expect.objectContaining({ id: "grep_app", status: "Remote URL manifest-only" }),
+        expect.objectContaining({ id: "context7", status: "Remote URL manifest-only" }),
+      ]),
+    )
+    expect(inventory.components.find((component) => component.id === "git-bash")?.evidence).toContain("Windows-unverified")
   })
 
   test("second runGrokInstall is idempotent for stamp and verify", async () => {
@@ -91,4 +105,54 @@ describe("plugin cache install acceptance (#27)", () => {
     expect(secondVerify).toEqual(firstVerify)
     expect(firstVerify.ok).toBe(true)
   })
+
+  test("repeated runGrokInstall preserves user config overrides and does not duplicate hooks", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-accept-overrides-idem-"))
+    const discovery = {
+      baseUrl: "http://127.0.0.1:11434/v1",
+      modelsUrl: "http://127.0.0.1:11434/v1/models",
+      modelIds: ["gpt-4.1-mini"],
+      mapping: { default: "gpt-4.1-mini", fast: "gpt-4.1-mini", reasoning: "gpt-4.1-mini", coding: "gpt-4.1-mini" },
+    }
+    const env = { HOME: home, OPENAI_API_KEY: "sk-test" }
+    await runGrokInstall(discovery, env)
+    const configPath = join(home, ".grok", "lfg-config.jsonc")
+    const customConfig = '{\n  "version": 1,\n  "agents": { "reviewer": { "model": "user-model", "enabled": true } }\n}\n'
+    await writeFile(configPath, customConfig, "utf8")
+
+    await runGrokInstall(discovery, env)
+    await runGrokInstall(discovery, env)
+
+    expect(await readFile(configPath, "utf8")).toBe(customConfig)
+    const hooksRaw = await readFile(join(home, ".grok", "plugins", "lfg", "hooks", "hooks.json"), "utf8")
+    const hooks = parseHooksCommands(hooksRaw)
+    expect(countCommand(hooks, "lfg-config-loader.mjs")).toBe(2)
+    expect(countCommand(hooks, "lfg-sisyphus-hooks.mjs")).toBe(9)
+  })
 })
+
+function parseHooksCommands(raw: string): readonly string[] {
+  const parsed: unknown = JSON.parse(raw)
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return []
+  const hooks = (parsed as { readonly hooks?: unknown }).hooks
+  if (typeof hooks !== "object" || hooks === null || Array.isArray(hooks)) return []
+  const commands: string[] = []
+  for (const groups of Object.values(hooks as Record<string, unknown>)) {
+    if (!Array.isArray(groups)) continue
+    for (const group of groups) {
+      if (typeof group !== "object" || group === null || Array.isArray(group)) continue
+      const handlers = (group as { readonly hooks?: unknown }).hooks
+      if (!Array.isArray(handlers)) continue
+      for (const handler of handlers) {
+        if (typeof handler !== "object" || handler === null || Array.isArray(handler)) continue
+        const command = (handler as { readonly command?: unknown }).command
+        if (typeof command === "string") commands.push(command)
+      }
+    }
+  }
+  return commands
+}
+
+function countCommand(commands: readonly string[], needle: string): number {
+  return commands.filter((command) => command.includes(needle)).length
+}

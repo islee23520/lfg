@@ -3,6 +3,9 @@ import { join } from "node:path"
 import { z } from "zod"
 import type { LazycodexAgentConfig, ReasoningLevel } from "../cli/lfg-models"
 import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap } from "./lazycodex-agent-overrides"
+import { stripJsonComments } from "./json-comments"
+import { lfgRuntimeConfigPath, renderDefaultLfgRuntimeConfig } from "./lfg-runtime-config"
+export { applyLfgRuntimeConfigToAgentOverrides, lfgRuntimeConfigPath, readLfgRuntimeConfigFile } from "./lfg-runtime-config"
 
 const ReasoningLevelSchema = z.union([z.literal("low"), z.literal("medium"), z.literal("high"), z.literal("xhigh")])
 
@@ -60,17 +63,22 @@ export async function readLfgConfigFile(home: string): Promise<LfgConfig | null>
   }
 }
 
-export async function ensureLfgConfigFiles(home: string, seed: LazycodexAgentOverrideMap): Promise<{ readonly configPath: string; readonly schemaPath: string }> {
+export async function ensureLfgConfigFiles(
+  home: string,
+  seed: LazycodexAgentOverrideMap,
+): Promise<{ readonly configPath: string; readonly schemaPath: string; readonly runtimeConfigPath: string }> {
   const configPath = lfgConfigPath(home)
+  const runtimeConfigPath = lfgRuntimeConfigPath(home)
   const schemaPath = lfgConfigSchemaPath(home)
   await mkdir(join(home, ".grok"), { recursive: true })
   await writeFile(schemaPath, `${JSON.stringify(z.toJSONSchema(LfgConfigSchema), null, 2)}\n`, "utf8")
+  await writeFile(runtimeConfigPath, renderDefaultLfgRuntimeConfig(seed), "utf8")
   try {
     await readFile(configPath, "utf8")
   } catch {
     await writeFile(configPath, renderDefaultLfgConfig(seed), "utf8")
   }
-  return { configPath, schemaPath }
+  return { configPath, schemaPath, runtimeConfigPath }
 }
 
 export function applyLfgConfigToAgentOverrides(
@@ -118,44 +126,4 @@ function renderDefaultLfgConfig(seed: LazycodexAgentOverrideMap): string {
     ]),
   )
   return `${JSON.stringify({ $schema: `./${LFG_CONFIG_SCHEMA_FILENAME}`, version: 1, agents, subagents: { disableBuiltins: true } }, null, 2)}\n`
-}
-
-function stripJsonComments(text: string): string {
-  let output = ""
-  let inString = false
-  let escaped = false
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index]
-    const next = text[index + 1]
-    if (char === undefined) continue
-    if (inString) {
-      output += char
-      if (escaped) {
-        escaped = false
-      } else if (char === "\\") {
-        escaped = true
-      } else if (char === '"') {
-        inString = false
-      }
-      continue
-    }
-    if (char === '"') {
-      inString = true
-      output += char
-      continue
-    }
-    if (char === "/" && next === "/") {
-      while (index < text.length && text[index] !== "\n") index += 1
-      output += "\n"
-      continue
-    }
-    if (char === "/" && next === "*") {
-      index += 2
-      while (index < text.length && !(text[index] === "*" && text[index + 1] === "/")) index += 1
-      index += 1
-      continue
-    }
-    output += char
-  }
-  return output
 }

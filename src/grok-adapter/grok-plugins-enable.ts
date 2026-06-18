@@ -114,8 +114,8 @@ function upsertSubagentToggles(source: string): string {
     ["browser-use", false],
     ["grok-build", false],
     ["builder", false],
-    ["ulw", true],
     ["sisyphus", true],
+    ["prometheus", true],
     ["atlas", true],
     ["reasoning", true],
     ["coding", true],
@@ -125,6 +125,7 @@ function upsertSubagentToggles(source: string): string {
     ["metis", true],
     ["momus", true],
     ["reviewer", true],
+    ["multimodal-looker", true],
   ])
   const block = [...toggles.entries()].map(([name, enabled]) => `${name} = ${enabled ? "true" : "false"}`).join("\n")
   return upsertTomlSection(source, "subagents.toggle", block)
@@ -137,15 +138,13 @@ function upsertAgentPreference(source: string): string {
 }
 
 /** LFG-owned [subagents.models] routing. Matches model-recommendations.ts + setup choices:
- * - explorer / librarian / general-purpose / explore / ulw → fast/default model
- * - sisyphus / atlas / plan / metis / momus / reasoning → reasoning model
+ * - explorer / librarian / general-purpose / explore / multimodal-looker → fast/default model
+ * - sisyphus / prometheus / atlas / plan / metis / momus / reasoning → reasoning model
  * - coding / grok-build / builder / reviewer → coding / non-reasoning model
  *
- * Note: LFG no longer bundles/writes shadow agents for Grok builtins (general-purpose, explore,
- * grok-build, builder, ulw). Real ultrawork agents (ulw, ultraresearch, feasible-goal, etc.)
- * come from the lazycodex plugin tree (components/ultrawork/agents via lfg internal install)
- * plus LFP-style per-agent overrides. The toggles and models routing below still apply to
- * whatever agents actually exist (from lazycodex/LFP or user).
+ * Agents are adapted from the OMO opencode tree (sisyphus, prometheus, atlas, oracle,
+ * hephaestus/default, multimodal-looker, sisyphus-junior, explore, librarian, metis, momus)
+ * plus Grok-native convenience agents (reasoning, coding, plan, reviewer).
  */
 export function upsertSubagentModels(
   source: string,
@@ -154,12 +153,13 @@ export function upsertSubagentModels(
   const fastRoute = mapping.fast || mapping.default || "grok-3-mini-fast"
   const lfgOwned: Record<string, string> = {
     "general-purpose": fastRoute,
-    "ulw": fastRoute,
+    "prometheus": mapping.reasoning || "grok-4.20-0309-reasoning",
     "atlas": mapping.reasoning || "grok-4.20-0309-reasoning",
     "plan": mapping.reasoning || "grok-4.20-0309-reasoning",
     "metis": mapping.reasoning || "grok-4.20-0309-non-reasoning",
     "momus": mapping.reasoning || "grok-4.20-0309-reasoning",
     "reasoning": mapping.reasoning || "grok-4.20-0309-reasoning",
+    "multimodal-looker": fastRoute,
     "explore": fastRoute,
     "explorer": fastRoute,
     "librarian": fastRoute,

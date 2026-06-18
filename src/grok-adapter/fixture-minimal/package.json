@@ -1,5 +1,6 @@
 {
   "name": "lfg-grok-fixture-plugin",
   "private": true,
+  "type": "module",
   "description": "Minimal Grok plugin tree for lfg tests and default internal install."
 }

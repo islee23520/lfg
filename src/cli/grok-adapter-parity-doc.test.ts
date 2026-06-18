@@ -4,6 +4,13 @@ import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
+const DEPRECATED_IDENTITY_COPY = new RegExp(
+  [
+    "not a Grok " + "plugin",
+    "not a Grok " + "plugin/runtime",
+    "setup helper/adapter " + "package only",
+  ].join("|"),
+)
 
 describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
   test("parity table has at least 10 capability rows", async () => {
@@ -11,6 +18,13 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     const rows = text.split("\n").filter((line) => line.startsWith("|") && !line.includes("---") && !line.includes("omo-codex capability"))
     expect(rows.length).toBeGreaterThanOrEqual(10)
     expect(text).toContain("src/grok-adapter/")
+    expect(text).toContain("GrokBuild port")
+    expect(text).toContain("Grok Build plugin payload")
+    expect(text).toContain("lfgIsPlugin: false")
+    expect(text).toContain("not reported as a Grok plugin object")
+    expect(text).toContain("setup --run")
+    expect(text).toContain("~/.grok/plugins/lfg")
+    expect(text).not.toMatch(DEPRECATED_IDENTITY_COPY)
     expect(text).toContain("grok-install/doctor.ts")
     expect(text).toContain("publishGap")
     expect(text).toContain("#22")
@@ -73,19 +87,27 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("`lfg-component-inventory.json`")
     expect(text).toContain("`lazycodex-ai` / OMO `v4.10.0`")
     expect(text).toContain("https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0")
-    for (const component of [
-      "comment-checker",
-      "git-bash",
-      "rules",
-      "lsp",
-      "ast_grep",
-      "ultrawork",
-      "ulw-loop",
-      "start-work-continuation",
-      "telemetry",
+    for (const [component, status] of [
+      ["bootstrap", "Deferred"],
+      ["auto-update", "Unsupported"],
+      ["comment-checker", "Deferred"],
+      ["git-bash", "Manifest-only"],
+      ["rules", "Grok-adapted"],
+      ["lsp", "Manifest-only"],
+      ["ast_grep", "Manifest-only"],
+      ["grep_app", "Remote URL manifest-only"],
+      ["context7", "Remote URL manifest-only"],
+      ["ultrawork", "Grok-adapted"],
+      ["ulw-loop", "Grok-adapted"],
+      ["start-work-continuation", "Deferred"],
+      ["telemetry", "Unsupported"],
     ] as const) {
-      expect(text).toMatch(new RegExp(`\\| \`${component}\` \\|.*\\| .*\\| .*\\| (Implemented|Grok-adapted|Unsupported|Deferred|Windows-only) \\|`))
+      expect(text).toMatch(new RegExp(`\\| \`${component}\` \\|.*\\| .*\\| .*\\| ${status} \\|`))
     }
+    expect(text).toContain("`Implemented`, `Grok-adapted`, `Manifest-only`, `Remote URL manifest-only`, `Unsupported`, or `Deferred`")
+    expect(text).toContain("macOS/non-Windows")
+    expect(text).toContain("disabled_mcp_servers")
+    expect(text).toContain("Windows-unverified")
     expect(text).toContain("src/grok-adapter/component-inventory.ts")
     expect(text).toContain("hook-bridge.integration.test.ts")
     expect(text).toContain("sync-lazycodex-agents-to-grok.ts")

@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
+import { isBareKey, removeTomlKey, tomlString, upsertSection, upsertTomlKey } from "./lfg-grok-config-toml"
 import { upsertModelSections } from "./lfg-grok-model-sections"
 import type { JsonObject } from "./lfg-json"
 import { defaultLazycodexAgentConfig, type LazycodexAgentConfig, type ModelDiscovery } from "./lfg-models"
@@ -24,8 +25,8 @@ export const LFG_OWNED_GROK_CONFIG_SECTIONS = [
   "endpoints.models_base_url",
   "models.default",
   "model.*",
-  "lazycodex.models",
-  "lazycodex.agents",
+  "omo.models",
+  "omo.agents",
 ] as const
 
 export async function writeGrokModelConfig(discovery: ModelDiscovery, options: GrokConfigOptions = {}): Promise<GrokConfigUpdate> {
@@ -36,14 +37,13 @@ export async function writeGrokModelConfig(discovery: ModelDiscovery, options: G
   const endpoints = removeTomlKey(upsertTomlKey(current, "endpoints", "models_base_url", baseUrl), "endpoints", "api_key")
   const agentConfig = options.agentConfig ?? discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
   const modelConfig = upsertModelSections(upsertSection(endpoints, "models", [`default = ${tomlString(discovery.mapping.default)}`]), discovery, baseUrl, options.apiKey, current)
-  // Write [lazycodex.agents.*] for the core three roles first, then any additional agents from fullAgentModels (LFP/omo imported + flavour-pack).
-  let withAgents = upsertLazycodexAgentSections(modelConfig, agentConfig)
+  let withAgents = upsertOmoAgentSections(modelConfig, agentConfig)
   if (options.fullAgentModels && Object.keys(options.fullAgentModels).length > 0) {
-    withAgents = upsertAllLazycodexAgentSections(withAgents, options.fullAgentModels)
+    withAgents = upsertAllOmoAgentSections(withAgents, options.fullAgentModels)
   }
   const next = upsertSection(
     withAgents,
-    "lazycodex.models",
+    "omo.models",
     [
       `default = ${tomlString(discovery.mapping.default)}`,
       `fast = ${tomlString(discovery.mapping.fast)}`,
@@ -74,7 +74,7 @@ export type ModelConfigRefreshResult = {
 
 /**
  * Lightweight refresh of model info + per-model auth into ~/.grok/config.toml.
- * Performs discovery (if provided) and writes lfg-owned sections (endpoints, model.*, lazycodex.models/agents).
+ * Performs discovery (if provided) and writes lfg-owned sections (endpoints, model.*, omo.models/agents).
  * Does NOT touch the Grok plugin tree, hooks, or agents TOMLs.
  * Context windows are sourced from the discovery (proxy first, then public LiteLLM catalog enrichment, local wins).
  * Per-model api_key lines are written from the provided apiKey (typically OPENAI_API_KEY) when present.
@@ -123,67 +123,10 @@ async function readTextIfExists(path: string): Promise<string> {
   }
 }
 
-function isBareKey(key: string): boolean {
-  return /^[A-Za-z0-9_-]+$/.test(key)
-}
-
-function parseKeyPath(section: string): string[] {
-  const parts: string[] = []
-  let current = ""
-  let inQuotes = false
-  for (let i = 0; i < section.length; i++) {
-    const char = section[i]
-    if (char === '"') {
-      inQuotes = !inQuotes
-    } else if (char === "." && !inQuotes) {
-      parts.push(current)
-      current = ""
-    } else {
-      current += char
-    }
-  }
-  if (current.length > 0 || parts.length === 0) {
-    parts.push(current)
-  }
-  return parts
-}
-
-function makeKeyPattern(part: string): string {
-  const escaped = escapeRegExp(part)
-  if (isBareKey(part)) {
-    return `(?:"${escaped}"|'${escaped}'|${escaped})`
-  }
-  return `(?:"${escaped}"|'${escaped}')`
-}
-
-function makeSectionRegex(section: string, flags = ""): RegExp {
-  const parts = parseKeyPath(section)
-  const partPatterns = parts.map(makeKeyPattern)
-  const patternStr = `(^|\\n)\\[\\s*${partPatterns.join("\\s*\\.\\s*")}\\s*\\]\\n[\\s\\S]*?(?=\\n\\[[^\\n]+\\]|$)`
-  return new RegExp(patternStr, flags)
-}
-
-function upsertSection(source: string, section: string, lines: readonly string[]): string {
-  const block = `[${section}]\n${lines.join("\n")}\n`
-  if (makeSectionRegex(section).test(source)) {
-    let replaced = false
-    return source.replace(makeSectionRegex(section, "g"), (match: string) => {
-      const prefix = match.startsWith("\n") ? "\n" : ""
-      if (replaced) {
-        return prefix
-      }
-      replaced = true
-      return `${prefix}${block}`
-    })
-  }
-  const trimmed = source.trimEnd()
-  return trimmed.length === 0 ? block : `${trimmed}\n\n${block}`
-}
-
-function upsertLazycodexAgentSections(source: string, agentConfig: LazycodexAgentConfig): string {
+function upsertOmoAgentSections(source: string, agentConfig: LazycodexAgentConfig): string {
   return Object.entries(agentConfig).reduce(
     (next, [agentName, setting]) =>
-      upsertSection(next, `lazycodex.agents.${agentName}`, [
+      upsertSection(next, `omo.agents.${agentName}`, [
         `model = ${tomlString(setting.model)}`,
         `reasoning_level = ${tomlString(setting.reasoningLevel)}`,
       ]),
@@ -191,15 +134,14 @@ function upsertLazycodexAgentSections(source: string, agentConfig: LazycodexAgen
   )
 }
 
-/** Write [lazycodex.agents.*] for ALL agents (roles + LFP/omo imported + flavour-pack extras). */
-function upsertAllLazycodexAgentSections(
+function upsertAllOmoAgentSections(
   source: string,
   full: Readonly<Record<string, { readonly model: string; readonly reasoningLevel: string; readonly serviceTier?: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string; readonly modelFallbackServiceTier?: string }>>,
 ): string {
   return Object.entries(full).reduce(
     (next, [agentName, setting]) =>
       isBareKey(agentName)
-        ? upsertSection(next, `lazycodex.agents.${agentName}`, agentOverrideTomlLines(setting))
+        ? upsertSection(next, `omo.agents.${agentName}`, agentOverrideTomlLines(setting))
         : next,
     source,
   )
@@ -223,60 +165,6 @@ function agentOverrideTomlLines(setting: { readonly model: string; readonly reas
     lines.push(`model_fallback_service_tier = ${tomlString(setting.modelFallbackServiceTier)}`)
   }
   return lines
-}
-
-function removeTomlKey(source: string, section: string, key: string): string {
-  const header = `[${section}]`
-  const start = source.indexOf(header)
-  if (start === -1) {
-    return source
-  }
-  const end = nextSectionStart(source, start + header.length)
-  const before = source.slice(0, start)
-  const body = source.slice(start, end)
-  const after = source.slice(end)
-  const pattern = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=`, "m")
-  const lines = body.split("\n").filter((line) => !pattern.test(line))
-  return `${before}${lines.join("\n")}${after}`
-}
-
-function upsertTomlKey(source: string, section: string, key: string, value: string): string {
-  const header = `[${section}]`
-  const start = source.indexOf(header)
-  if (start === -1) {
-    return upsertSection(source, section, [`${key} = ${tomlString(value)}`])
-  }
-  const end = nextSectionStart(source, start + header.length)
-  const before = source.slice(0, start)
-  const body = source.slice(start, end)
-  const after = source.slice(end)
-  return `${before}${upsertSectionBody(body, key, value)}${after}`
-}
-
-function nextSectionStart(source: string, from: number): number {
-  const match = /\n\[[^\n]+]/.exec(source.slice(from))
-  return match?.index === undefined ? source.length : from + match.index + 1
-}
-
-function upsertSectionBody(body: string, key: string, value: string): string {
-  const replacement = `${key} = ${tomlString(value)}`
-  const pattern = new RegExp(`^${escapeRegExp(key)}\\s*=`)
-  const lines = body.split("\n")
-  const replaced = lines.map((line) => (pattern.test(line.trimStart()) ? replacement : line))
-  if (replaced.includes(replacement)) {
-    return replaced.join("\n")
-  }
-  const insertAt = replaced.length > 0 && replaced[replaced.length - 1] === "" ? replaced.length - 1 : replaced.length
-  replaced.splice(insertAt, 0, replacement)
-  return replaced.join("\n")
-}
-
-function tomlString(value: string): string {
-  return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

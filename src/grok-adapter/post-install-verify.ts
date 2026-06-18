@@ -1,10 +1,11 @@
-import { readFile } from "node:fs/promises"
+import { access, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { legacyInstalledGrokPluginRoot, nativeGrokPluginRoot, readGrokInstallStamp } from "./install"
 import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
 import { componentInventoryPath, type ComponentInventorySource } from "./component-inventory"
 import { isGrokEventHooksJson } from "./hook-trust"
 import { verifyNativeOmoAgents, type NativeAgentsVerifyResult } from "./native-agent-verify"
+import { verifyPluginMcpManifest, type McpVerificationResult } from "./materialize-grok-mcp"
 
 export type PostInstallVerifyOptions = {
   readonly home: string
@@ -29,6 +30,7 @@ export type PostInstallVerifyResult = {
   readonly omoComponents: readonly string[]
   readonly skillWorkflows: Record<string, boolean>  // T8: computed from real installed SKILL.md (inspects headings; no hardcode)
   readonly nativeAgents: NativeAgentsVerifyResult
+  readonly mcpVerification: McpVerificationResult
 }
 
 /** Same resolution as doctor: adapter under ~/.grok/plugins/lfg or lazycodex. */
@@ -57,27 +59,29 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
       bridgeFallback: true,
       omoComponents: [],
       skillWorkflows: { "ulw-plan": false, "ulw-loop": false },
-      nativeAgents: { status: "missing", pluginAgents: [], roles: [], prompts: [], hephaestusNativeDefault: false },
+      nativeAgents: { status: "missing", pluginAgents: [], roles: [], prompts: [], sisyphusDefaultAgent: false, hephaestusPromptPresent: false },
+      mcpVerification: missingMcpVerification(pluginRoot, "adapter plugin tree not found"),
     }
   }
   const { pluginRoot, pluginDirName } = resolved
   const stamp = await readGrokInstallStamp(pluginRoot)
   const hooksPath = join(pluginRoot, "hooks", "hooks.json")
   const hookTrust = await readAdapterHooksTrust(pluginRoot)
-  const hooksOk = hookTrust.ok
-  const ok = stamp !== null && hooksOk
+  const hooksRaw = await readHooksJsonSafe(hooksPath)
+  const hookTargetErrors = hookTrust.ok ? await verifyHookCommandTargets(pluginRoot, hooksRaw) : []
+  const hooksOk = hookTrust.ok && hookTargetErrors.length === 0
+  const mcpVerification = await verifyPluginMcpManifest(pluginRoot)
+  const ok = stamp !== null && hooksOk && mcpVerification.ok
   const invPath = componentInventoryPath(pluginRoot)
-  const payloadSource = await readPayloadSource(invPath)
+  const inventory = await readInventorySummary(invPath)
 
   // T8 reviewer fix: skillWorkflows now derives from *real* installed SKILL.md content (inspects headings).
   // Replaces hard-coded true (blocker 1). Matches T3/T8 acceptance (Phase 0/Approval gate/Phase 3; Bootstrap/Execution Loop/Manual-QA channels).
   // Uses isolated temp HOME in QA only (blockers 3/4). No real ~/.grok mutation.
-  const hooksRaw = await readHooksJsonSafe(hooksPath)
   const isNative = isGrokEventHooksJson(hooksRaw)
   const nativeHookStatus = isNative ? "native_grok_events" : (hooksOk ? "bridge_fallback" : "missing")
   const bridgeFallback = !isNative && hooksOk
-  // T9 minimal stable values (doctor-json-contract.test.ts expectations preserved)
-  const omoComponents = ["ultrawork", "rules"] as const
+  const omoComponents = inventory.componentIds
   const skillWorkflows = await computeSkillWorkflows(pluginRoot)
   const nativeAgents = await verifyNativeOmoAgents(pluginRoot, options.home)
 
@@ -90,29 +94,83 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
     hooksPath,
     hooksRegistered: hooksOk,
     hookNames: hookTrust.hookNames,
-    hookTrustError: hookTrust.error,
+    hookTrustError: hookTrust.error ?? (hookTargetErrors.length > 0 ? hookTargetErrors.join("; ") : null),
     componentInventoryPath: invPath,
-    payloadSource,
+    payloadSource: inventory.payloadSource,
     nativeHookStatus,
     bridgeFallback,
     omoComponents,
     skillWorkflows,
     nativeAgents,
+    mcpVerification,
   }
 }
 
-async function readPayloadSource(path: string): Promise<ComponentInventorySource | null> {
+function missingMcpVerification(pluginRoot: string, error: string): McpVerificationResult {
+  return {
+    ok: false,
+    manifestPath: join(pluginRoot, ".mcp.json"),
+    expectedServers: ["ast_grep", "grep_app", "context7", "git_bash", "lsp"],
+    localServers: ["ast_grep", "git_bash", "lsp"],
+    remoteServers: ["grep_app", "context7"],
+    disabledServers: [],
+    remoteLiveCalls: false,
+    gitBash: "misconfigured",
+    windowsExecution: "unverified_no_windows_runner",
+    errors: [error],
+  }
+}
+
+type InventorySummary = {
+  readonly payloadSource: ComponentInventorySource | null
+  readonly componentIds: readonly string[]
+}
+
+async function readInventorySummary(path: string): Promise<InventorySummary> {
   try {
     const raw = await readFile(path, "utf8")
-    const parsed = JSON.parse(raw) as { source?: unknown }
-    const s = parsed?.source
-    if (typeof s === "string" && (s === "source_tree" || s === "source_override" || s === "lazycodex_bundle" || s === "fixture_fallback" || s === "repair_adapter")) {
-      return s as ComponentInventorySource
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return { payloadSource: null, componentIds: [] }
     }
-    return null
+    const record = parsed as { readonly source?: unknown; readonly components?: unknown }
+    const source = parsePayloadSource(record.source)
+    const componentIds = parseInventoryComponentIds(record.components)
+    return { payloadSource: source, componentIds }
   } catch {
-    return null
+    return { payloadSource: null, componentIds: [] }
   }
+}
+
+function parsePayloadSource(source: unknown): ComponentInventorySource | null {
+  if (
+    source === "source_tree" ||
+    source === "source_override" ||
+    source === "omo_native_bundle" ||
+    source === "lazycodex_bundle" ||
+    source === "fixture_fallback" ||
+    source === "repair_adapter"
+  ) {
+    return source
+  }
+  return null
+}
+
+function parseInventoryComponentIds(components: unknown): readonly string[] {
+  if (!Array.isArray(components)) {
+    return []
+  }
+  const ids: string[] = []
+  for (const component of components) {
+    if (typeof component !== "object" || component === null || Array.isArray(component)) {
+      continue
+    }
+    const id = (component as { readonly id?: unknown }).id
+    if (typeof id === "string" && id.length > 0) {
+      ids.push(id)
+    }
+  }
+  return ids
 }
 
 /** Safe read for T9 nativeHookStatus determination (avoids throwing on missing hooks.json). */
@@ -123,6 +181,47 @@ async function readHooksJsonSafe(path: string): Promise<unknown> {
   } catch {
     return null
   }
+}
+
+async function verifyHookCommandTargets(pluginRoot: string, hooksRaw: unknown): Promise<readonly string[]> {
+  if (typeof hooksRaw !== "object" || hooksRaw === null || Array.isArray(hooksRaw)) return []
+  const hooks = (hooksRaw as { readonly hooks?: unknown }).hooks
+  if (typeof hooks !== "object" || hooks === null || Array.isArray(hooks)) return []
+  const errors: string[] = []
+  for (const groups of Object.values(hooks as Record<string, unknown>)) {
+    if (!Array.isArray(groups)) continue
+    for (const group of groups) {
+      if (typeof group !== "object" || group === null) continue
+      const handlers = (group as { readonly hooks?: unknown }).hooks
+      if (!Array.isArray(handlers)) continue
+      for (const handler of handlers) {
+        if (typeof handler !== "object" || handler === null) continue
+        const record = handler as { readonly type?: unknown; readonly command?: unknown }
+        if (record.type !== "command" || typeof record.command !== "string") continue
+        for (const target of hookCommandTargets(pluginRoot, record.command)) {
+          try {
+            await access(target)
+          } catch (error) {
+            if (!(error instanceof Error)) throw error
+            errors.push(`missing hook command target: ${target}`)
+          }
+        }
+      }
+    }
+  }
+  return errors
+}
+
+function hookCommandTargets(pluginRoot: string, command: string): readonly string[] {
+  const targets: string[] = []
+  for (const match of command.matchAll(/"([^"]+)"|(\S+)/g)) {
+    const token = match[1] ?? match[2] ?? ""
+    const path = token.replace(/\$\{GROK_PLUGIN_ROOT\}|\$\{PLUGIN_ROOT\}/g, pluginRoot)
+    if (path.startsWith(`${pluginRoot}/`) || path === pluginRoot) {
+      targets.push(path)
+    }
+  }
+  return targets
 }
 
 /** T8: Inspect real installed SKILL.md content for workflow headings (no hard-coded booleans). */

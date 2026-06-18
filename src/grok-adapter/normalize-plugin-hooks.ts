@@ -1,21 +1,17 @@
-import { access, copyFile, mkdir, readFile, writeFile } from "node:fs/promises"
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { createFirstPartyNativeGrokHooks, createNativeGrokHooksForLegacyFallback, isGrokEventHooksJson, isLegacyMetadataHooksJson, validateGrokHooksJson } from "./hook-trust"
+import { createNativeGrokHooksForLegacyFallback, isGrokEventHooksJson, isLegacyMetadataHooksJson, validateGrokHooksJson } from "./hook-trust"
+import { normalizeHookCommandPaths, wrapLazyCodexHookCommand } from "./hook-command-normalization"
+import { materializeActiveGrokHooksJson } from "./normalize-plugin-hooks-active"
 import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset"
 
 const BRIDGE_RELATIVE = join("hooks", "lfg-grok-hook-bridge.mjs")
 const CONFIG_LOADER_FILE = "lfg-config-loader.mjs" as const
 const PROJECT_OMO_LEDGER_FILE = "lfg-project-omo-ledger.mjs" as const
 const SISYPHUS_HOOKS_FILE = "lfg-sisyphus-hooks.mjs" as const
+const NATIVE_RULES_FILE = "lfg-native-rules.js" as const
+const NATIVE_ULTRAWORK_FILE = "lfg-native-ultrawork.js" as const
 const CONFIG_LOADER_RELATIVE = join("hooks", CONFIG_LOADER_FILE)
-const ACTIVE_GROK_HOOKS_FILE = "lfg-hooks.json" as const
-
-const PLUGIN_ROOT_PLACEHOLDER = /\$\{PLUGIN_ROOT\}/g
-
-/** Grok expands GROK_PLUGIN_ROOT; lazycodex hooks still use ${PLUGIN_ROOT} in commands. */
-export function normalizeHookCommandPaths(command: string): string {
-  return command.replace(PLUGIN_ROOT_PLACEHOLDER, "${GROK_PLUGIN_ROOT}")
-}
 
 type JsonRecord = Record<string, unknown>
 
@@ -27,17 +23,10 @@ export async function syncGrokHookBridgeIntoPlugin(pluginRoot: string): Promise<
   await copyFile(join(dirname(assetPath), CONFIG_LOADER_FILE), join(pluginRoot, CONFIG_LOADER_RELATIVE))
   await copyFile(join(dirname(assetPath), PROJECT_OMO_LEDGER_FILE), join(pluginRoot, "hooks", PROJECT_OMO_LEDGER_FILE))
   await copyFile(join(dirname(assetPath), SISYPHUS_HOOKS_FILE), join(pluginRoot, "hooks", SISYPHUS_HOOKS_FILE))
+  await copyFile(join(dirname(assetPath), NATIVE_RULES_FILE), join(pluginRoot, "hooks", NATIVE_RULES_FILE))
+  await copyFile(join(dirname(assetPath), NATIVE_ULTRAWORK_FILE), join(pluginRoot, "hooks", NATIVE_ULTRAWORK_FILE))
   // .mcp.json is written by materializeGrokMcpRuntimes() during installGrokPluginFromSource — do not overwrite here with dev-only absolute paths.
   return destPath
-}
-
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path)
-    return true
-  } catch {
-    return false
-  }
 }
 
 export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
@@ -52,13 +41,8 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
   const raw = await readFile(hooksPath, "utf8")
   let parsed: unknown = JSON.parse(raw)
   if (isLegacyMetadataHooksJson(parsed)) {
-    // T6: legacy/imported Codex-style hook JSON -> native Grok event-map *with* bridge fallback
     parsed = createNativeGrokHooksForLegacyFallback()
   } else if (!isGrokEventHooksJson(parsed)) {
-    // T6: non-legacy defaults to first-party native (no bridge wrapper)
-    parsed = createFirstPartyNativeGrokHooks()
-  }
-  if (!isGrokEventHooksJson(parsed)) {
     const trust = validateGrokHooksJson(parsed)
     throw new Error(trust.error ?? "hooks.json is not Grok event format")
   }
@@ -88,77 +72,6 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
   }
   const active = await materializeActiveGrokHooksJson(pluginRoot, nextPayload)
   return { path: hooksPath, changed: changed || nextText !== raw || active.changed, hookNames: trust.hookNames }
-}
-
-async function materializeActiveGrokHooksJson(pluginRoot: string, payload: unknown): Promise<{ readonly path: string; readonly changed: boolean }> {
-  const activePath = join(dirname(dirname(pluginRoot)), "hooks", ACTIVE_GROK_HOOKS_FILE)
-  const activePayload = toActiveGrokHooksPayload(payload, pluginRoot)
-  const nextText = `${JSON.stringify(activePayload, null, 2)}\n`
-  const current = await readTextIfExists(activePath)
-  if (current !== nextText) {
-    await mkdir(dirname(activePath), { recursive: true })
-    await writeFile(activePath, nextText, "utf8")
-    return { path: activePath, changed: true }
-  }
-  return { path: activePath, changed: false }
-}
-
-function toActiveGrokHooksPayload(payload: unknown, pluginRoot: string): unknown {
-  const replaced = replacePluginRootPlaceholders(payload, pluginRoot)
-  if (typeof replaced !== "object" || replaced === null) {
-    return replaced
-  }
-  const hooks = (replaced as JsonRecord).hooks
-  if (typeof hooks !== "object" || hooks === null || Array.isArray(hooks)) {
-    return replaced
-  }
-  return {
-    ...(replaced as JsonRecord),
-    hooks: Object.fromEntries(
-      Object.entries(hooks as JsonRecord).map(([eventName, groups]) => [eventName, stripLifecycleMatchers(eventName, groups)]),
-    ),
-  }
-}
-
-function stripLifecycleMatchers(eventName: string, groups: unknown): unknown {
-  if (!LIFECYCLE_EVENTS_WITHOUT_MATCHERS.has(eventName) || !Array.isArray(groups)) {
-    return groups
-  }
-  return groups.map((group) => {
-    if (typeof group !== "object" || group === null || !("matcher" in group)) {
-      return group
-    }
-    const { matcher: _matcher, ...rest } = group as JsonRecord
-    return rest
-  })
-}
-
-const LIFECYCLE_EVENTS_WITHOUT_MATCHERS = new Set(["SessionStart", "Stop", "Notification", "SubagentStart", "SubagentStop"])
-
-function replacePluginRootPlaceholders(value: unknown, pluginRoot: string): unknown {
-  if (typeof value === "string") {
-    return value.replace(/\$\{GROK_PLUGIN_ROOT\}|\$\{PLUGIN_ROOT\}/g, pluginRoot)
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => replacePluginRootPlaceholders(item, pluginRoot))
-  }
-  if (typeof value === "object" && value !== null) {
-    return Object.fromEntries(
-      Object.entries(value as JsonRecord).map(([key, entry]) => [key, replacePluginRootPlaceholders(entry, pluginRoot)]),
-    )
-  }
-  return value
-}
-
-async function readTextIfExists(path: string): Promise<string> {
-  try {
-    return await readFile(path, "utf8")
-  } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-      return ""
-    }
-    throw error
-  }
 }
 
 function addLfgConfigLoaderHooks(hooksBlock: JsonRecord): JsonRecord {
@@ -243,16 +156,6 @@ function appendConfigLoader(groups: unknown, eventName: string): readonly unknow
   return withUpdatedLoader
 }
 
-function groupHasCommand(group: unknown, command: string): boolean {
-  if (typeof group !== "object" || group === null) return false
-  const hooks = (group as JsonRecord).hooks
-  if (!Array.isArray(hooks)) return false
-  return hooks.some((handler) => {
-    if (typeof handler !== "object" || handler === null) return false
-    return (handler as JsonRecord).command === command
-  })
-}
-
 /** Returns true if this group contains a config loader with the given command (regardless of statusMessage). Used to deduplicate. */
 function groupHasConfigLoaderCommand(group: unknown, command: string): boolean {
   if (typeof group !== "object" || group === null) return false
@@ -285,7 +188,7 @@ function normalizeHandler(handler: unknown, onChange: () => void): unknown {
   if (h.type !== "command" || typeof h.command !== "string") {
     return handler
   }
-  const next = wrapLazyCodexHookCommand(normalizeHookCommandPaths(h.command))
+  const next = normalizeFirstPartyHookCommand(wrapLazyCodexHookCommand(normalizeHookCommandPaths(h.command)))
   if (next === h.command) {
     return handler
   }
@@ -293,50 +196,23 @@ function normalizeHandler(handler: unknown, onChange: () => void): unknown {
   return { ...h, command: next }
 }
 
-/** Route component CLIs through Codex↔Grok stdin/env bridge.
- * Idempotent: repeatedly peel any existing outer bridge wrappers, then apply exactly one clean layer.
- */
-export function wrapLazyCodexHookCommand(command: string): string {
-  let trimmed = command.trim()
-  if (!/^node\s+/i.test(trimmed)) {
+function normalizeFirstPartyHookCommand(command: string): string {
+  const event = hookEventArg(command)
+  if (event === null) {
     return command
   }
-
-  const BRIDGE_MARKER = "lfg-grok-hook-bridge.mjs"
-
-  // Peel outer bridge wrappers until we reach a non-bridge target.
-  // A wrapped form is: node "<bridge>" node "<real>" [args...]
-  // or without quotes.
-  while (true) {
-    const m = trimmed.match(/^node\s+("(?:[^"\\]|\\.)*"|[^\s]+)\s*(.*)$/i)
-    if (!m) break
-    const first = m[1]!
-    const rest = (m[2] ?? "").trim()
-    if (first.toLowerCase().includes(BRIDGE_MARKER)) {
-      // strip this bridge layer; the real command starts after it
-      if (rest.length === 0) {
-        // nothing left; bail to avoid infinite
-        break
-      }
-      trimmed = rest.startsWith("node ") ? rest : `node ${rest}`
-      continue
-    }
-    // first target is not the bridge
-    break
+  if (command.includes("/components/rules/dist/cli.js")) {
+    return `node "\${GROK_PLUGIN_ROOT}/hooks/${NATIVE_RULES_FILE}" ${event}`
   }
-
-  // If after peeling there is still no component/script, leave original untouched.
-  if (!trimmed.includes("/components/") && !trimmed.includes("/scripts/")) {
-    return command
+  if (command.includes("/components/ultrawork/dist/cli.js")) {
+    return `node "\${GROK_PLUGIN_ROOT}/hooks/${NATIVE_ULTRAWORK_FILE}" ${event}`
   }
-
-  const m2 = trimmed.match(/^node\s+("(?:[^"\\]|\\.)*"|[^\s]+)\s*(.*)$/i)
-  if (!m2) {
-    return command
-  }
-  const nodeTarget = m2[1]!
-  const rest = m2[2] ?? ""
-  const bridge = '"${GROK_PLUGIN_ROOT}/hooks/lfg-grok-hook-bridge.mjs"'
-  const rebuilt = `node ${bridge} node ${nodeTarget}${rest.length > 0 ? ` ${rest}` : ""}`
-  return rebuilt
+  return command
 }
+
+function hookEventArg(command: string): string | null {
+  const match = command.match(/\bhook\s+([a-z0-9-]+)\b/i)
+  return match?.[1] ?? null
+}
+
+export { normalizeHookCommandPaths, wrapLazyCodexHookCommand }

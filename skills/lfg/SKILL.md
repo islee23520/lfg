@@ -1,11 +1,11 @@
 ---
 name: lfg
-description: @islee23520/lfg — Grok Build omo/lazycodex 설치 CLI. 용도와 setup 명령 안내.
+description: @islee23520/lfg — OpenCode OmO/lazycodex GrokBuild port 설치 CLI. 용도와 setup 명령 안내.
 ---
 
 # lfg
 
-`npx @islee23520/lfg` is the setup helper for the **omo / lazycodex Grok Build adapter** (https://github.com/code-yeongyu/oh-my-openagent **codex adapter** core + **opencode** feature). It installs **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks) and **Grok-native OMO agents** including Hephaestus-like default discipline plus lfg-owned Sisyphus and Atlas planning/research surfaces into `~/.grok/plugins/lfg`.
+`npx @islee23520/lfg` installs the **omo / lazycodex GrokBuild port** and **Grok Build plugin payload** (https://github.com/code-yeongyu/oh-my-openagent **codex adapter** core + **opencode** feature). It installs **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks) and **Grok-native OMO agents** including Hephaestus-like default discipline plus lfg-owned Sisyphus and Atlas planning/research surfaces into `~/.grok/plugins/lfg`.
 
 ## 언제 어떤 명령?
 

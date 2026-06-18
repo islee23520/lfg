@@ -9,6 +9,12 @@ describe("model mapping catalog", () => {
     expect(discovery.modelIds).toEqual(["gpt-4.1-mini", "o3-mini"])
   })
 
+  test("normalizes control characters from external model ids", async () => {
+    const discovery = await fetchModelDiscoveryFromPayload(["grok-3-mini-fast\npermission_mode: default\n# injected"])
+    expect(discovery.modelIds).toEqual(["grok-3-mini-fast\\npermission_mode: default\\n# injected"])
+    expect(discovery.mapping.fast).toBe("grok-3-mini-fast\\npermission_mode: default\\n# injected")
+  })
+
   test("presets switch model mapping between grok-centered and gpt-centered", async () => {
     const discovery = await fetchModelDiscoveryFromPayload([
       "grok-3-mini-fast",

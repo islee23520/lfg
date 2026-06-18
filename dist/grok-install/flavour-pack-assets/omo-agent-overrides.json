@@ -1,14 +1,22 @@
 {
   "source": {
     "agentsDir": "${CODEX_HOME}/agents",
-    "description": "Grok-first defaults. Each agent maps to the best Grok model for its role, with GPT equivalent as fallback."
+    "description": "Upstream OMO agent-model matching guide aligned defaults. Primary models follow the OMO agent-model-requirements.ts fallback chains (GPT/Claude/GLM primary); Grok models serve as availability fallback for the Grok Build adapter environment."
   },
   "equivalents": {
-    "_comment": "GPT -> Grok equivalent mapping for reference",
-    "gpt-5.4-mini": "grok-3-mini-fast",
-    "gpt-5.5": "grok-4.20-0309-reasoning",
-    "gpt-5.3-codex-spark": "grok-4.20-0309-non-reasoning",
-    "gpt-5.3-codex": "grok-4.3"
+    "_comment": "Upstream OMO model family -> cliproxy available equivalent",
+    "gpt-5.5": "gpt-5.5",
+    "gpt-5.4-mini": "gpt-5.4-mini",
+    "gpt-5.3-codex-spark": "gpt-5.3-codex-spark",
+    "claude-sonnet-4-6": "claude-sonnet-4-6",
+    "claude-haiku-4-5": "claude-haiku-4-5",
+    "glm-5": "glm-5",
+    "glm-5.1": "glm-5.1",
+    "gemini-3-pro-high": "gemini-3-pro-high",
+    "gemini-3.1-pro-low": "gemini-3.1-pro-low",
+    "grok-4.3": "grok-4.3",
+    "grok-4.20-0309-reasoning": "grok-4.20-0309-reasoning",
+    "grok-3-mini-fast": "grok-3-mini-fast"
   },
   "perf_notes": {
     "grok-3-mini-fast": "Fastest Grok: 1.96s coding, 146t/s. Best for high-volume read-only agents (explorer).",
@@ -21,184 +29,202 @@
   },
   "overrides": {
     "explorer": {
-      "model": "grok-3-mini-fast",
+      "model": "gpt-5.4-mini",
       "model_reasoning_effort": "low",
       "service_tier": "fast",
-      "model_fallback": "gpt-5.4-mini",
+      "model_fallback": "grok-3-mini-fast",
       "model_fallback_reasoning_effort": "low",
       "model_fallback_service_tier": "default",
-      "role_rationale": "High-volume codebase search needs speed (LazyCodex 4.10.0)"
+      "role_rationale": "OMO explore agent: gpt-5.4-mini is #1 in upstream chain (agent-model-requirements.ts); Grok mini as availability fallback"
     },
     "librarian": {
-      "model": "grok-3-mini-fast",
+      "model": "gpt-5.4-mini",
       "model_reasoning_effort": "low",
       "service_tier": "fast",
-      "model_fallback": "gpt-5.4-mini",
+      "model_fallback": "grok-3-mini-fast",
       "model_fallback_reasoning_effort": "low",
       "model_fallback_service_tier": "default",
-      "role_rationale": "External research needs fast reliable model (LazyCodex 4.10.0)"
+      "role_rationale": "OMO librarian agent: gpt-5.4-mini is #1 in upstream chain; Grok mini as availability fallback"
     },
     "plan": {
-      "model": "grok-4.3",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "xhigh",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
-      "model_fallback_reasoning_effort": "xhigh",
+      "model_fallback": "glm-5.1",
+      "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Strategic planning needs deep frontier reasoning (LazyCodex 4.10.0)"
+      "role_rationale": "Strategic planning maps to OMO Prometheus chain: GPT-5.5 high > glm-5.1 (upstream agent-model-requirements.ts)"
     },
     "metis": {
-      "model": "grok-4.3",
+      "model": "claude-sonnet-4-6",
       "model_reasoning_effort": "high",
       "service_tier": "default",
       "model_fallback": "gpt-5.5",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Pre-planning contradiction detection with frontier model (LazyCodex 4.10.0)"
+      "role_rationale": "OMO Metis pre-planning: Claude Sonnet 4.6 is #1 in upstream chain; GPT-5.5 high is #3"
     },
     "momus": {
-      "model": "grok-4.3",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "xhigh",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
-      "model_fallback_reasoning_effort": "xhigh",
+      "model_fallback": "gemini-3-pro-high",
+      "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Plan review needs frontier reasoning and edge-case detection (LazyCodex 4.10.0)"
+      "role_rationale": "OMO Momus plan review: GPT-5.5 xhigh is #1 in upstream chain; Gemini 3.1 Pro high is #3"
     },
     "codex-ultrawork-reviewer": {
-      "model": "grok-4.3",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
+      "model_fallback": "grok-4.3",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Final verification needs frontier model depth (LazyCodex 4.10.0)"
+      "role_rationale": "Final verification follows OMO deep/review chain: GPT-5.5 high primary, Grok frontier as availability fallback"
     },
     "reasoning": {
-      "model": "grok-4.3",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
+      "model_fallback": "grok-4.20-0309-reasoning",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "General reasoning role (LazyCodex 4.10.0)"
+      "role_rationale": "General reasoning role aligned with OMO deep chain: GPT-5.5 high primary, Grok deep reasoning fallback"
     },
     "coding": {
-      "model": "grok-4.20-0309-non-reasoning",
+      "model": "gpt-5.3-codex-spark",
       "model_reasoning_effort": "medium",
       "service_tier": "default",
-      "model_fallback": "gpt-5.3-codex-spark",
+      "model_fallback": "grok-4.20-0309-non-reasoning",
       "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Coding role: fast Grok non-reasoning path (LazyCodex 4.10.0)"
+      "role_rationale": "Coding role: GPT codex-spark primary, Grok non-reasoning as fast availability fallback"
     },
     "default": {
-      "model": "grok-4.20-0309-reasoning",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
+      "model_fallback": "grok-4.20-0309-reasoning",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Default execution agent (LFP Hephaestus analogue on Grok)"
+      "role_rationale": "OMO Sisyphus default orchestrator: GPT-5.5 is the preferred Grok-native default; Grok deep reasoning as availability fallback"
     },
-    "ulw": {
-      "model": "grok-4.3",
+    "hephaestus": {
+      "model": "gpt-5.5",
+      "model_reasoning_effort": "high",
+      "service_tier": "default",
+      "model_fallback": "grok-4.20-0309-reasoning",
+      "model_fallback_reasoning_effort": "high",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "OMO Hephaestus explicit deep worker: GPT-5.5 is the ONLY model in upstream chain (agent-model-requirements.ts); Grok deep reasoning as availability fallback"
+    },
+    "prometheus": {
+      "model": "gpt-5.5",
       "model_reasoning_effort": "xhigh",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
-      "model_fallback_reasoning_effort": "xhigh",
+      "model_fallback": "glm-5.1",
+      "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Ultrawork orchestrator for Grok-native OMO execution"
+      "role_rationale": "OMO Prometheus strategic planner: Claude Opus #1 (unavailable), GPT-5.5 high #2, glm-5.1 #3 in upstream chain"
+    },
+    "multimodal-looker": {
+      "model": "gpt-5.5",
+      "model_reasoning_effort": "medium",
+      "service_tier": "default",
+      "model_fallback": "gemini-3.1-pro-preview",
+      "model_fallback_reasoning_effort": "medium",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "OMO Multimodal-Looker: GPT-5.5 medium is #1 in upstream chain; Gemini for vision-capable fallback"
     },
     "sisyphus": {
-      "model": "glm-5.2",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "medium",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
+      "model_fallback": "glm-5",
       "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO Sisyphus main orchestrator: follows the upstream agent-model matching guide (Claude/Kimi/GLM/GPT family), not arbitrary Grok mapping"
+      "role_rationale": "OMO Sisyphus orchestrator: Claude Opus #1 and Kimi #2-3 unavailable; GPT-5.5 medium #4, glm-5 #5 in upstream chain"
     },
     "atlas": {
-      "model": "grok-4.3",
+      "model": "claude-sonnet-4-6",
       "model_reasoning_effort": "high",
       "service_tier": "default",
       "model_fallback": "gpt-5.5",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Grok-native Atlas research and verification conductor mapped to observed OMO ultraresearch/reviewer workflow"
+      "role_rationale": "OMO Atlas todo-list orchestrator: Claude Sonnet 4.6 is #1 in upstream chain; GPT-5.5 medium #3 (Kimi #2 unavailable)"
     },
     "oracle": {
-      "model": "grok-4.20-0309-reasoning",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
-      "model_fallback": "gemini-3.1-pro-low",
+      "model_fallback": "gemini-3-pro-high",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO Oracle reasoning specialist kept distinct from Atlas research conductor; maps OMO gpt-5.5/high to Grok deep reasoning with Gemini low fallback from upstream config"
+      "role_rationale": "OMO Oracle reasoning consultant: GPT-5.5 high is #1 in upstream chain; Gemini 3.1 Pro high is #2"
     },
     "sisyphus-junior": {
-      "model": "grok-4.20-0309-reasoning",
+      "model": "claude-sonnet-4-6",
       "model_reasoning_effort": "medium",
       "service_tier": "default",
       "model_fallback": "gpt-5.5",
       "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO Sisyphus Junior delegated execution agent; maps OMO gpt-5.5/medium to Grok reasoning while preserving GPT fallback"
+      "role_rationale": "OMO Sisyphus-Junior: Claude Sonnet 4.6 is #1 in upstream chain; GPT-5.5 medium #3 (Kimi #2 unavailable)"
     },
     "ultrabrain": {
-      "model": "grok-4.3",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "xhigh",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
-      "model_fallback_reasoning_effort": "xhigh",
+      "model_fallback": "gemini-3-pro-high",
+      "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO ultrabrain category for genuinely hard logic-heavy tasks; maps gpt-5.5/xhigh to Grok frontier reasoning"
+      "role_rationale": "OMO ultrabrain category: GPT-5.5 xhigh is #1 in upstream chain; Gemini 3.1 Pro high is #2"
     },
     "deep": {
-      "model": "grok-4.20-0309-reasoning",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
+      "model_fallback": "gemini-3-pro-high",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO deep category for autonomous deep work; maps gpt-5.5/high to Grok deep reasoning with GPT fallback"
+      "role_rationale": "OMO deep category: GPT-5.5 medium is #1 in upstream chain; Gemini 3.1 Pro high is #3 (Claude Opus #2 unavailable)"
     },
     "quick": {
-      "model": "grok-3-mini-fast",
+      "model": "gpt-5.4-mini",
       "model_reasoning_effort": "low",
       "service_tier": "fast",
-      "model_fallback": "gpt-5.4-mini",
+      "model_fallback": "grok-3-mini-fast",
       "model_fallback_reasoning_effort": "low",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO quick category for trivial low-latency work; maps gpt-5.4-mini to fastest Grok mini"
+      "role_rationale": "OMO quick category: gpt-5.4-mini is #1 in upstream chain; Grok mini-fast as availability fallback"
     },
     "unspecified-low": {
-      "model": "grok-3-mini-fast",
+      "model": "claude-sonnet-4-6",
       "model_reasoning_effort": "low",
       "service_tier": "fast",
-      "model_fallback": "gpt-5.4-mini",
-      "model_fallback_reasoning_effort": "low",
+      "model_fallback": "gpt-5.5",
+      "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO unspecified-low category for low-effort uncategorized work; maps gpt-5.4-mini to fastest Grok mini"
+      "role_rationale": "OMO unspecified-low: Claude Sonnet 4.6 is #1 in upstream chain; GPT-5.5 medium is #2"
     },
     "unspecified-high": {
-      "model": "grok-4.20-0309-reasoning",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
+      "model_fallback": "glm-5",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO unspecified-high category for high-effort uncategorized work; maps gpt-5.5/high to Grok deep reasoning with GPT fallback"
+      "role_rationale": "OMO unspecified-high: Claude Opus #1 unavailable; GPT-5.5 high #2, glm-5 #3 in upstream chain"
     },
     "writing": {
       "model": "gemini-3.1-pro-low",
       "model_reasoning_effort": "low",
       "service_tier": "default",
-      "model_fallback": "gpt-5.5",
+      "model_fallback": "claude-sonnet-4-6",
       "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO writing category for documentation and prose; preserves upstream Gemini low model with GPT fallback for availability"
+      "role_rationale": "OMO writing category: gemini-3-flash #1 (closest available: gemini-3.1-pro-low); Claude Sonnet 4.6 #3 (Kimi #2 unavailable)"
     }
   }
 }

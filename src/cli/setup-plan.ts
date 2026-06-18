@@ -1,4 +1,3 @@
-import { LAZYCODEX_INSTALLER_COMMAND } from "./lfg-installer"
 import { grokConfigJson, refreshGrokModelConfig } from "./lfg-grok-config"
 import { modelDiscoveryPlan, type ModelDiscovery, type SetupPreset } from "./lfg-models"
 import { type JsonObject } from "./lfg-json"
@@ -13,13 +12,12 @@ export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPr
     ok: true,
     status: "planned",
     command: "setup",
-    role: "lazycodex_adapter_installer",
+    role: "omo_grok_installer",
     adapterPackage: "lfg-grok-install",
     companionPackage: "lfg-grok-install",
     installerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
-    legacyCodexInstallerCommand: LAZYCODEX_INSTALLER_COMMAND,
     packageExecutors: ["npx @islee23520/lfg"],
     selectedPreset: preset,
     presets: [
@@ -29,9 +27,8 @@ export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPr
     executed: false,
     dryRun: false,
     lfgIsPlugin: false,
-    skippedCodexInstaller: true,
     installPath: "grok",
-    purpose: "Grok-first direct install of the omo/lazycodex adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). `npx lazycodex-ai install` (Codex path) is NOT executed on the default path.",
+    purpose: "Grok-first direct install of the OMO adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). Supported hooks, Sisyphus, ultrawork context, ulw skills, agents, and manifest-only MCP entries are materialized under ~/.grok/plugins/lfg; deferred OMO components stay documented as deferred or unsupported.",
     modelDiscovery: discovery ?? modelDiscoveryPlan(),
     modelDiscoverySource: resolved.baseUrlSource,
     modelsBaseUrlUsed: resolved.baseUrlUsed,
@@ -39,10 +36,10 @@ export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPr
     steps: [
       { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) that will be used for Grok [model.*] aliases and the explorer/reasoning/coding agents." },
       { id: 2, status: discovery === null ? "pending" : "done", text: "Build the Grok agent role configs and LFP-style per-agent overrides from the discovered models + bundled omo defaults." },
-      { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_LAZYCODEX_PLUGIN_SOURCE, npm _npx cache of lazycodex-ai, or the built-in fixture.` },
-      { id: 4, status: "pending", text: "Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, install plugin-owned LFG agents, sync roles/personas/prompts, write lazycodex-agent-overrides.json, and ensure the adapter is enabled for Grok Build." },
+      { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_OMO_PLUGIN_SOURCE, the built-in native payload, or legacy fallback.` },
+      { id: 4, status: "pending", text: "Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, install plugin-owned LFG agents, sync roles/personas/prompts, write omo-agent-overrides.json, and ensure the adapter is enabled for Grok Build." },
     ],
-    note: "Grok-first. Default `lfg setup` (and --json setup) does not execute `npx lazycodex-ai install`. The legacyCodexInstallerCommand is kept only for reference (optional separate Codex bootstrap). Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit.",
+    note: "Grok-first. Default `lfg setup` (and --json setup) plans the supported lfg-owned OMO port under ~/.grok/plugins/lfg, including manifest-only MCP entries rather than behavior-adapted local MCP tools. Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit.",
   }
 }
 
@@ -53,7 +50,7 @@ export function refreshPlan(resolved: ResolveSetupDiscoveryResult, preset: Setup
     status: "planned",
     command: "setup",
     subcommand: "refresh",
-    role: "lazycodex_adapter_model_refresh",
+    role: "omo_grok_model_refresh",
     adapterPackage: "lfg-grok-install",
     companionPackage: "lfg-grok-install",
     executed: false,
@@ -67,7 +64,7 @@ export function refreshPlan(resolved: ResolveSetupDiscoveryResult, preset: Setup
     autoModelAliases: discovery !== null,
     steps: [
       { id: 1, status: discovery === null ? "pending" : "done", text: "Re-discover OpenAI-compatible models and context windows from CLI/env/config.toml/default proxy (public LiteLLM catalog enrichment attempted when proxy omits sizes)." },
-      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key from OPENAI_API_KEY/XAI_API_KEY or the active Codex provider), and [lazycodex.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." },
+      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key from OPENAI_API_KEY/XAI_API_KEY or the active Codex provider), and [omo.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." },
     ],
     note: "This is a config-only maintenance operation. Use --run to execute. No Grok plugin install or hook registration occurs.",
   }
@@ -84,7 +81,7 @@ export function buildRefreshExecutedJson(
     command: "setup",
     subcommand: "refresh",
     executed: true,
-    role: "lazycodex_adapter_model_refresh",
+    role: "omo_grok_model_refresh",
     adapterPackage: "lfg-grok-install",
     companionPackage: "lfg-grok-install",
     lfgIsPlugin: false,
@@ -112,7 +109,7 @@ export function buildRefreshExecutedJson(
   }
 }
 
-export async function runRefreshWizard(plan: JsonObject, resolved: ResolveSetupDiscoveryResult): Promise<JsonObject> {
+export async function runRefreshWizard(resolved: ResolveSetupDiscoveryResult): Promise<JsonObject> {
   const { printInstallIntro, printStep } = await import("./lfg-interactive-ui.js")
   const { createInterface } = await import("node:readline/promises")
   const { stdin: input, stdout: output } = await import("node:process")

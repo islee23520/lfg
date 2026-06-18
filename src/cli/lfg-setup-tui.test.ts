@@ -16,6 +16,10 @@ vi.mock("@clack/prompts", () => {
       calls.push(["select", opts?.message, opts?.options?.length, opts?.initialValue]);
       return opts?.options?.[0]?.value ?? "grok-3-mini-fast";
     },
+    autocomplete: async (opts: any) => {
+      calls.push(["autocomplete", opts?.message, opts?.options?.length, opts?.initialValue, opts?.options]);
+      return opts?.initialValue ?? opts?.options?.[0]?.value ?? "grok-3-mini-fast";
+    },
     isCancel: (v: any) => v === Symbol.for("clack-cancel"),
     cancel: (m: string) => calls.push(["cancel", m]),
     outro: (m: string) => calls.push(["outro", m]),
@@ -33,6 +37,12 @@ vi.mock("picocolors", () => ({
     green: (s: string) => s,
   },
 }));
+
+const installerMock = vi.hoisted(() => ({
+  runLazycodexInstaller: vi.fn(async () => ({ ok: true, stdout: "", stderr: "" })),
+}));
+
+vi.mock("./lfg-installer.js", () => installerMock);
 
 import * as tui from "./lfg-setup-tui";
 
@@ -58,7 +68,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
       lineLogs.push("legacy-runLineSetup-called-with-noTui=" + String(args?.noTui));
     };
 
-    await tui.runSetupTui({}, { plan: {}, resolved: { discovery: { modelIds: ["grok-3-mini-fast", "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark"], mapping: { fast: "grok-3-mini-fast", reasoning: "grok-4.20-0309-reasoning", coding: "gpt-5.3-codex-spark" } } } }, {
+    await tui.runSetupTui({}, { plan: {}, resolved: { discovery: { baseUrl: "http://127.0.0.1:8317/v1", modelsUrl: "http://127.0.0.1:8317/v1/models", modelIds: ["grok-3-mini-fast", "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark"], mapping: { default: "grok-3-mini-fast", fast: "grok-3-mini-fast", reasoning: "grok-4.20-0309-reasoning", coding: "gpt-5.3-codex-spark" } } } }, {
       prompts: prompts as any,
       colors: { inverse: (s: string) => s, green: (s: string) => s },
       runLineSetup,
@@ -72,15 +82,21 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     const confirmCalls = calls.filter((c: any[]) => c[0] === "confirm");
     expect(confirmCalls.length).toBeGreaterThanOrEqual(2);
 
-    // Three role agents × 3 selects (model + tier + reasoning) = at least 9 selects
     const selectCalls = calls.filter((c: any[]) => c[0] === "select");
-    expect(selectCalls.length).toBeGreaterThanOrEqual(9);
+    const autocompleteCalls = calls.filter((c: any[]) => c[0] === "autocomplete");
+    expect(selectCalls.length + autocompleteCalls.length).toBeGreaterThanOrEqual(9);
 
     // The self-contained TUI produces a "Setup results" note containing only the clean role summaries
     // (e.g. "  explorer: grok-3-mini-fast / low (tier: default)").
     // No "Current:", "Default: keep...", "Recommended:", "Alternatives:", long-tail "Configure other...",
     // plan review, magic word, "Install now? [y/N]", cancelled text, or oMo bye may appear in it.
     expect(calls.some((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])))).toBe(true);
+    expect(calls.some((c: any[]) => c[0] === "note" && /Model recommendations/.test(String(c[1])) && /Agent Model Recommendations/.test(String(c[2])))).toBe(true);
+    expect(calls.some((c: any[]) => c[0] === "note" && /explorer model recommendation/.test(String(c[1])) && /Recommended:/.test(String(c[2])) && /Fallback chain:/.test(String(c[2])))).toBe(true);
+    expect(calls.some((c: any[]) => c[0] === "note" && /coding model recommendation/.test(String(c[1])) && /Recommended:/.test(String(c[2])))).toBe(true);
+    expect(calls.some((c: any[]) => c[0] === "note" && /sisyphus model recommendation/.test(String(c[1])) && /Fallback chain:/.test(String(c[2])))).toBe(true);
+    expect(calls.some((c: any[]) => c[0] === "note" && /atlas model recommendation/.test(String(c[1])) && /Fallback chain:/.test(String(c[2])))).toBe(true);
+    expect(calls.some((c: any[]) => c[0] === "note" && /oracle model recommendation/.test(String(c[1])) && /Fallback chain:/.test(String(c[2])))).toBe(true);
 
     const resultsNote = calls.find((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])));
     const resultsBody = resultsNote ? String(resultsNote[2] || "") : "";
@@ -89,7 +105,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
       "reasoning",
       "coding",
       "default",
-      "ulw",
+      "prometheus",
       "librarian",
       "plan",
       "metis",
@@ -105,13 +121,18 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(/^\s*Recommended:/m.test(resultsBody)).toBe(false);
     expect(/^\s*Alternatives:/m.test(resultsBody)).toBe(false);
     expect(/Configure other LazyCodex agents/i.test(resultsBody)).toBe(false);
-    expect(calls.some((c: any[]) => c[0] === "confirm" && /Core \+ ULW/.test(String(c[1])))).toBe(true);
+    expect(calls.some((c: any[]) => c[0] === "note" && /Why two model steps/.test(String(c[1])) && /first 3 prompts/.test(String(c[2])) && /named OMO\/ultrawork agents/.test(String(c[2])))).toBe(true);
+    expect(calls.some((c: any[]) => c[0] === "confirm" && /Customize Core \+ ULW named agent overrides/.test(String(c[1])))).toBe(true);
+    expect(autocompleteCalls.some((c: any[]) => Array.isArray(c[4]) && c[4].some((option: any) => /recommended/.test(String(option?.hint ?? ""))))).toBe(true);
 
     // The TUI shows its own clean "Install Summary" (not the classic printInstallPlan + Magic Word)
     expect(calls.some((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])))).toBe(true);
 
     // Final outro from the TUI
     expect(calls.some((c: any[]) => c[0] === "outro")).toBe(true);
+    const outroText = calls.filter((c: any[]) => c[0] === "outro").map((c: any[]) => String(c[1])).join("\n");
+    expect(outroText).toContain("lfg --json setup --run");
+    expect(outroText).not.toContain("lfg doctor");
 
     // If a legacy runLineSetup was supplied it may have been called (for compatibility),
     // but it is not the source of the "Setup results" content for the primary TUI path.
@@ -145,65 +166,4 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(runLineSetup).not.toHaveBeenCalled();
   });
 
-  test("fast tier maps to *-fast model id for Grok routing (not service_tier alone)", async () => {
-    const prompts = await import("@clack/prompts") as any;
-    const calls: any[] = prompts.__calls;
-    calls.length = 0;
-
-    const origSelect = prompts.select;
-    prompts.select = async (opts: any) => {
-      calls.push(["select", opts?.message]);
-      const msg = String(opts?.message ?? "");
-      if (/service tier/i.test(msg) && /explorer/i.test(msg)) {
-        return "fast";
-      }
-      if (/model/i.test(msg) && /explorer/i.test(msg)) {
-        return "grok-3-mini";
-      }
-      return opts?.options?.[0]?.value ?? "grok-3-mini-fast";
-    };
-
-    const origConfirm = prompts.confirm;
-    prompts.confirm = async (opts: any) => {
-      const message = String(opts?.message ?? "");
-      if (/Install now\?/i.test(message)) {
-        return false;
-      }
-      if (/Core \+ ULW/i.test(message)) {
-        return false;
-      }
-      return true;
-    };
-
-    await tui.runSetupTui(
-      {},
-      {
-        plan: {},
-        resolved: {
-          discovery: {
-            baseUrl: "http://127.0.0.1:8317/v1",
-            modelsUrl: "http://127.0.0.1:8317/v1/models",
-            modelIds: ["grok-3-mini", "grok-3-mini-fast", "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark"],
-            mapping: {
-              default: "grok-3-mini",
-              fast: "grok-3-mini-fast",
-              reasoning: "grok-4.20-0309-reasoning",
-              coding: "gpt-5.3-codex-spark",
-            },
-          },
-        },
-      },
-      {
-        prompts: prompts as any,
-        colors: { inverse: (s: string) => s, green: (s: string) => s },
-      },
-    );
-
-    prompts.select = origSelect;
-    prompts.confirm = origConfirm;
-
-    const resultsNote = calls.find((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])));
-    const resultsBody = resultsNote ? String(resultsNote[2] || "") : "";
-    expect(resultsBody).toMatch(/explorer:\s+grok-3-mini-fast\s+\/\s+low\s+\(tier:\s+fast\)/);
-  });
 });

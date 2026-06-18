@@ -60,7 +60,7 @@ describe("fast tier → Grok-visible explorer model (live harness)", () => {
           expect(roleToml).toContain('model = "grok-3-mini-fast"')
           expect(roleToml).toContain('service_tier = "fast"')
 
-          const overridesRaw = await readFile(join(home, ".grok", "lazycodex-agent-overrides.json"), "utf8")
+          const overridesRaw = await readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")
           expect(overridesRaw).toContain("grok-3-mini-fast")
           expect(overridesRaw).toContain('"service_tier": "fast"')
 

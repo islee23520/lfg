@@ -5,7 +5,7 @@
 
 ## Product framing
 
-**`lfg` is a personal spinoff:** a **Grok Build adapter** (core **codex adapter** feature + **opencode** from https://github.com/code-yeongyu/oh-my-openagent) for **oh-my-openagent / lazycodex (omo)** — analogous to `omo-codex` on Codex. It installs **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks) and **Grok-native OMO agent surfaces**, including the Hephaestus-like default agent discipline. User-facing copy, package metadata, marketplace IDs, and vendored code must **not** present Linalab identity, `linalab.io`, or `linalab` Codex marketplaces. Workspace folder names on a dev machine are not part of the shipped story. It is a setup helper/adapter package only — not a Grok plugin/runtime.
+**`lfg` is a personal spinoff:** the **GrokBuild port** and **Grok Build plugin payload** (core **codex adapter** feature + **opencode** from https://github.com/code-yeongyu/oh-my-openagent) for **oh-my-openagent / lazycodex (omo)** — analogous to `omo-codex` on Codex. It installs **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks) and **Grok-native OMO agent surfaces**, including the Hephaestus-like default agent discipline. User-facing copy, package metadata, marketplace IDs, and vendored code must **not** present Linalab identity, `linalab.io`, or `linalab` Codex marketplaces. Workspace folder names on a dev machine are not part of the shipped story. The npm package/JSON contract keeps `lfgIsPlugin: false` because the package object itself is not reported as a Grok plugin object; `setup --run` still installs the lfg-owned Grok plugin payload under `~/.grok/plugins/lfg`.
 
 ## Decision
 
@@ -21,7 +21,8 @@
 
 | Term | Meaning |
 |------|---------|
-| **`lfgIsPlugin: false`** (JSON) | The **npm CLI** `@islee23520/lfg` is not registered as a Grok plugin name. |
+| **lfg as Grok plugin** | `lfg` **is** the omo/lazycodex Grok Build plugin. The npm CLI installs the plugin payload under `~/.grok/plugins/lfg`. |
+| **`lfgIsPlugin: false` JSON contract** | The package object is not reported as a Grok plugin object in JSON output; this does not change the installed Grok Build plugin payload under `~/.grok/plugins/lfg`. |
 | **Grok adapter payload** | What `setup --run` installs under `~/.grok` — **omo core + ported extension features**, shipped **by** lfg. |
 | **LFP (legacy name)** | Reference for **which features to port**; not a subtree copied into this repo. |
 
@@ -46,7 +47,7 @@ Dual-home is allowed; Grok users are not required to run Codex.
 ## What lfg must not do
 
 - Ship or document **Linalab** company/product identity (this repo is an **omo Grok adapter spinoff** only).
-- Claim the **CLI** is a Grok plugin (`lfgIsPlugin: false` stays).
+- The CLI is the installer entrypoint; the installed payload under `~/.grok/plugins/lfg` is the Grok plugin.
 - Require users to run **`npx @islee23520/lfp setup`** after lfg for the default Grok story (deprecated path; may log migration notice).
 - Bypass **`npx lazycodex-ai install`** silently if product still needs Codex bootstrap — document in `setup` plan steps.
 

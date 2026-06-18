@@ -2,20 +2,24 @@ import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 
 export const COMPONENT_INVENTORY_FILE = "lfg-component-inventory.json" as const
-export const UPSTREAM_OMO_NAME = "lazycodex-ai" as const
+export const UPSTREAM_OMO_NAME = "oh-my-openagent" as const
 export const UPSTREAM_OMO_VERSION = "4.10.0" as const
 export const UPSTREAM_OMO_TAG = "v4.10.0" as const
 export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0" as const
 
 const COMPONENTS = [
   { id: "comment-checker", status: "Deferred", evidence: "Codex PostToolUse hook behavior has no Grok-native equivalent wired by lfg yet." },
-  { id: "git-bash", status: "Windows-only", evidence: "git_bash MCP emitted only on Windows per plan; disabled_mcp_servers on macOS/Linux." },
+  { id: "git-bash", status: "Manifest-only", evidence: "git_bash MCP is disabled on macOS/Linux and Windows-unverified: the bundled runtime is a manifest-only local MCP stub with empty tools/list until behavior-level Windows support is packaged and tested." },
   { id: "rules", status: "Grok-adapted", evidence: "Component hooks are bridged through lfg-grok-hook-bridge.mjs when present in the installed payload." },
-  { id: "lsp", status: "Grok-adapted", evidence: "lsp MCP wired via plugin .mcp.json pointing to ./components/lsp/dist/cli.js mcp (uses omo-lsp CLI that resolves to lsp-daemon)." },
-  { id: "ast_grep", status: "Grok-adapted", evidence: "ast_grep MCP wired via plugin .mcp.json pointing to node_modules/@code-yeongyu/ast-grep-mcp/dist/cli.js mcp (verified post-install)." },
-  { id: "ultrawork", status: "Grok-adapted", evidence: "Ultrawork OMO hook parity routed natively via component/runtime and Grok-native OMO agent surfaces (default/ulw/role agents); implements `omo hook <event>` shape for Grok without new top-level commands." },
+  { id: "lsp", status: "Manifest-only", evidence: "lsp MCP is present in plugin .mcp.json with an lfg-owned local runtime stub; behavior-level LSP tools are deferred until a real Grok-adapted runtime is packaged." },
+  { id: "ast_grep", status: "Manifest-only", evidence: "ast_grep MCP is present in plugin .mcp.json with an lfg-owned local runtime stub; tools/list intentionally remains empty until a real Grok-adapted runtime is packaged." },
+  { id: "grep_app", status: "Remote URL manifest-only", evidence: "grep_app MCP is represented as the upstream remote URL server https://mcp.grep.app; lfg validates manifest shape and does not live-call it by default." },
+  { id: "context7", status: "Remote URL manifest-only", evidence: "context7 MCP is represented as the upstream remote URL server https://mcp.context7.com/mcp; lfg validates manifest shape and does not live-call it by default." },
+  { id: "ultrawork", status: "Grok-adapted", evidence: "Ultrawork OMO hook parity routed natively via component/runtime and Grok-native OMO agent surfaces (default/sisyphus/role agents); implements `omo hook <event>` shape for Grok without new top-level commands." },
   { id: "ulw-loop", status: "Grok-adapted", evidence: "Project .omo awareness + self-contained SKILL.md workflow payloads (Bootstrap/Execution Loop/Manual-QA channels) installed via skills/ copy. No sibling guessing." },
   { id: "ulw-plan", status: "Grok-adapted", evidence: "Self-contained ulw-plan SKILL.md with Phase 0/Approval gate/Phase 3 (source-of-truth generation avoids full-workflow.md drift)." },
+  { id: "bootstrap", status: "Deferred", evidence: "Upstream bootstrap provisioning is a SessionStart component for Codex runtime dependencies; lfg does not run provisioning hooks during Grok setup." },
+  { id: "auto-update", status: "Unsupported", evidence: "Upstream auto-update is a SessionStart script that can run `npx lazycodex-ai@latest install`; lfg keeps updates user-controlled and does not enable this hook." },
   { id: "start-work-continuation", status: "Deferred", evidence: "Boulder/start-work continuation is not yet driven as a Grok-native lifecycle workflow." },
   { id: "telemetry", status: "Unsupported", evidence: "lfg does not emit upstream anonymous telemetry." },
 ] as const
@@ -23,6 +27,7 @@ const COMPONENTS = [
 export type ComponentInventorySource =
   | "source_tree"
   | "source_override"
+  | "omo_native_bundle"
   | "lazycodex_bundle"
   | "fixture_fallback"
   | "repair_adapter"

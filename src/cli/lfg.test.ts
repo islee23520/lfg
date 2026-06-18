@@ -1,91 +1,12 @@
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile } from "node:fs/promises"
 import { execFile } from "node:child_process"
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
-import { withNpmPackLock } from "./npm-pack-mutex"
+import { withModelServer } from "./test-model-server"
 import { runLfg, runLfgText } from "./test-process"
 
 describe("lfg CLI", () => {
-  test("package metadata stays publishable to npm public registry", async () => {
-    const root = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")) as Record<string, unknown>
-
-    expect(root).not.toHaveProperty("private")
-    expect(root.publishConfig).toEqual({ access: "public" })
-    expect(root.bin).toEqual({ lfg: "bin/lfg.js" })
-    expect(root.files).toEqual(["bin", "dist", "skills", "README.md", "AGENTS.md", "src/AGENTS.md"])
-    expect(root.scripts).toMatchObject({
-      setup: "sh bin/lfg.js setup",
-      test: "npm run build && vitest run src/cli/*.test.ts src/grok-adapter/*.test.ts",
-      "self-test": "npm run build && node dist/self-test.js",
-      typecheck: "tsc --noEmit",
-      build: "node scripts/build.mjs",
-      prepublishOnly: "npm test",
-      prepack: "npm run build",
-      "assert-pack": "node scripts/assert-npm-pack-bin.mjs",
-      verify: "npm run assert-pack && npm test && npm run typecheck && npm run self-test",
-      "pre-publish-check": "npm run build && node scripts/pre-publish-check.mjs",
-      "record-publish-gap": "npm run build && node scripts/record-publish-gap.mjs",
-      "assert-publish-auth": "npm run build && node scripts/assert-npm-publish-auth.mjs",
-    })
-    expect((root as { name?: string }).name).toBe("@islee23520/lfg")
-    expect(String(root.description)).toContain("grok-install")
-    expect(root.scripts).not.toHaveProperty("postinstall")
-    expect(root).not.toHaveProperty("workspaces")
-  })
-
-  test("package metadata exposes a single npx runnable lfg bin", async () => {
-    const parsed = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")) as Record<string, unknown>
-
-    expect(parsed.name).toBe("@islee23520/lfg")
-    const root = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")) as { version?: string }
-    expect(parsed.version).toBe(root.version)
-    expect(parsed.description).toContain("Grok Build adapter")
-    expect(parsed.description).not.toContain("@islee23520/lfp setup")
-    expect(parsed.bin).toEqual({ lfg: "bin/lfg.js" })
-    expect(parsed).not.toHaveProperty("exports")
-    expect(JSON.stringify(parsed)).not.toContain("plugin runtime")
-    expect(JSON.stringify(parsed)).not.toContain("bunx")
-  })
-
-  test("README explains the single install-helper purpose in English", async () => {
-    const readme = await readFile(new URL("../../README.md", import.meta.url), "utf8")
-
-    expect(readme).toContain("omo / lazycodex setup helper")
-    expect(readme).toContain("npx @islee23520/lfg setup")
-    expect(readme).toContain("~/.grok")
-    expect(readme).toContain(".")
-    expect(readme).toContain("does **not** run `npx lazycodex-ai install`")
-    expect(readme).not.toContain("npx @islee23520/lfp setup")
-    expect(readme).toContain("OpenAI-compatible base URL")
-    expect(readme).toContain("/v1/models")
-    expect(readme).toContain("not a plugin")
-    expect(readme).toContain("When to run what")
-    expect(readme).not.toContain("UltraWork Loop")
-    expect(readme).not.toContain("doctor")
-    expect(readme).not.toContain("dry-setup")
-    expect(readme).not.toContain("bunx")
-  })
-
-  test("packed package excludes source files and ships only runnable assets", async () => {
-    const files = await packDryRunFilePaths()
-
-    expect(files).toContain("package.json")
-    expect(files).toContain("bin/lfg.js")
-    expect(files).toContain("README.md")
-    expect(files).toContain("dist/lfg.js")
-    expect(files).toContain("dist/self-test.js")
-    expect(files).toContain("skills/lazycodex/SKILL.md")
-    expect(files).toContain("skills/lfp/SKILL.md")
-    expect(files).not.toContain("src/cli/lfg")
-    expect(files).not.toContain("src/cli/lfg.ts")
-    expect(files).not.toContain("src/cli/lfg-installer.ts")
-    expect(files).not.toContain(".npmignore")
-    expect(files).not.toContain(".omo/artifacts/ulw-qa-main-setup-only.txt")
-    expect(files).not.toContain(".lfg")
-  })
-
   test("setup returns a non-mutating install plan by default", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-plan-home-"))
     const result = await runLfg(["--json", "setup"], { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
@@ -101,7 +22,6 @@ describe("lfg CLI", () => {
       lfpInstallerCommand: "@islee23520/lfg internal grok-install",
       companionPackage: "lfg-grok-install",
       packageExecutors: ["npx @islee23520/lfg"],
-      lfgIsPlugin: false,
       modelDiscovery: {
         required: false,
         endpoint: "OpenAI-compatible /v1/models",
@@ -172,10 +92,9 @@ describe("lfg CLI", () => {
       executed: true,
       installerCommand: "@islee23520/lfg internal grok-install",
       installerArgs: [],
-      skippedCodexInstaller: true,
       installPath: "grok",
     })
-    expect(JSON.stringify(result.json)).toMatch(/grok lazycodex install|fixture fallback|repaired adapter hooks/)
+    expect(JSON.stringify(result.json)).toMatch(/grok omo install|fixture fallback|repaired adapter hooks/)
     const installers = (result.json as { installers?: readonly { packageName: string }[] }).installers
     expect(installers).toHaveLength(1)
     expect(installers?.[0]).toMatchObject({ packageName: "lfg-grok-install", exitCode: 0 })
@@ -260,119 +179,16 @@ describe("lfg CLI", () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain("lfg setup")
     expect(result.stdout).toContain("npx @islee23520/lfg setup")
+    expect(result.stdout).toContain("Setup run implementation:")
+    expect(result.stdout).toContain("@islee23520/lfg internal grok-install")
+    expect(result.stdout).not.toContain("npx lazycodex-ai install")
     expect(result.stdout).not.toContain("dry-setup")
     expect(result.stdout).not.toContain("doctor")
     expect(result.stdout).not.toContain("project-local")
     expect(result.stdout).not.toContain("bunx")
   })
 
-  test("npm pack tarball exposes lfg bin and setup works from npm install layout", async () => {
-    const packDir = await mkdtemp(join(tmpdir(), "lfg-pack-out-"))
-    const pack = await withNpmPackLock(() => execFileResult("npm", ["pack", "--pack-destination", packDir, "--json"]))
-    expect(pack.exitCode).toBe(0)
-    const packs = JSON.parse(pack.stdout) as readonly { readonly filename?: string }[]
-    const tarball = join(packDir, packs[0]?.filename ?? "")
-    expect(tarball).toMatch(/\.tgz$/)
-    const installDir = await mkdtemp(join(tmpdir(), "lfg-npm-pack-"))
-    const init = await execFileResult("npm", ["init", "-y"], installDir)
-    expect(init.exitCode).toBe(0)
-    const install = await execFileResult("npm", ["install", tarball], installDir)
-    expect(install.exitCode).toBe(0)
-    const installedPkg = JSON.parse(
-      await readFile(join(installDir, "node_modules", "@islee23520", "lfg", "package.json"), "utf8"),
-    ) as { bin?: { lfg?: string } }
-    expect(installedPkg.bin?.lfg).toBe("bin/lfg.js")
-    const shimOnDisk = join(installDir, "node_modules", "@islee23520", "lfg", "bin", "lfg.js")
-    await expect(readFile(shimOnDisk, "utf8")).resolves.toContain("../dist/lfg.js")
-    const nestedWorkspacePkg = join(installDir, "node_modules", "@islee23520", "lfg", "plugins", "lfg", "package.json")
-    await expect(readFile(nestedWorkspacePkg, "utf8")).rejects.toThrow()
-    const home = await mkdtemp(join(tmpdir(), "lfg-npm-pack-home-"))
-    const setup = await execFileResultEnv("npx", ["lfg", "--json", "setup"], installDir, { HOME: home })
-    expect(setup.exitCode).toBe(0)
-    const json = JSON.parse(setup.stdout) as { ok?: boolean; command?: string; selectedPreset?: string }
-    expect(json.ok).toBe(true)
-    expect(json.command).toBe("setup")
-    expect(json.selectedPreset).toBe("grok")
-    const scopedDoctor = await execFileResultEnv(
-      "npx",
-      ["@islee23520/lfg", "--json", "setup", "--preset", "gpt"],
-      installDir,
-      { HOME: home },
-    )
-    expect(scopedDoctor.exitCode).toBe(0)
-    const scopedJson = JSON.parse(scopedDoctor.stdout) as { ok?: boolean; command?: string; selectedPreset?: string }
-    expect(scopedJson.ok).toBe(true)
-    expect(scopedJson.command).toBe("setup")
-    expect(scopedJson.selectedPreset).toBe("gpt")
-    const doctor = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, { HOME: home })
-    expect(doctor.exitCode).toBe(1)
-    const unsupported = JSON.parse(doctor.stdout) as { ok?: boolean; code?: string; supportedCommands?: readonly string[] }
-    expect(unsupported).toMatchObject({ ok: false, code: "unsupported_command", supportedCommands: ["setup"] })
-    await rm(installDir, { recursive: true, force: true })
-    await rm(packDir, { recursive: true, force: true })
-  }, 120_000)
 })
-
-async function withModelServer(modelIds: readonly string[], run: (baseUrl: string) => Promise<void>): Promise<void> {
-  const server = createServer((request: IncomingMessage, response: ServerResponse) => {
-    if (request.url !== "/v1/models") {
-      response.writeHead(404, { "content-type": "application/json" })
-      response.end(JSON.stringify({ error: "not found" }))
-      return
-    }
-    response.writeHead(200, { "content-type": "application/json" })
-    response.end(JSON.stringify({ data: modelIds.map((id) => ({ id })) }))
-  })
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
-  const address = server.address()
-  if (typeof address !== "object" || address === null) {
-    server.close()
-    throw new Error("model test server did not expose a TCP address")
-  }
-  try {
-    await run(`http://127.0.0.1:${address.port}`)
-  } finally {
-    await new Promise<void>((resolve, reject) => {
-      server.close((error) => {
-        if (error) {
-          reject(error)
-          return
-        }
-        resolve()
-      })
-    })
-  }
-}
-
-async function packDryRunFilePaths(): Promise<readonly string[]> {
-  const result = await withNpmPackLock(() => execFileResult("npm", ["pack", "--dry-run", "--json"]))
-  expect(result.exitCode).toBe(0)
-  const parsed = JSON.parse(result.stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
-  return parsed.flatMap((pack) => pack.files?.map((file) => file.path).filter((path): path is string => typeof path === "string") ?? [])
-}
-
-async function makeFakeNpx(exitCode: number): Promise<string> {
-  const bin = await mkdtemp(join(tmpdir(), "lfg-fake-npx."))
-  const body =
-    exitCode === 0
-      ? "case \"$*\" in *lazycodex-ai*) echo fake lazycodex install: $*; echo LAZYCODEX_OPENAI_BASE_URL=${LAZYCODEX_OPENAI_BASE_URL:-}; echo LAZYCODEX_MODEL_DEFAULT=${LAZYCODEX_MODEL_DEFAULT:-}; echo LAZYCODEX_MODEL_REASONING=${LAZYCODEX_MODEL_REASONING:-} ;; *@islee23520/lfp*) echo unexpected lfp npx: $* >&2; exit 2 ;; *) echo unexpected npx: $* >&2; exit 2 ;; esac"
-      : "echo fake lazycodex failure: $* >&2"
-  await writeFile(join(bin, "npx"), `#!/usr/bin/env bash\n${body}\nexit ${exitCode}\n`)
-  await chmod(join(bin, "npx"), 0o755)
-  return bin
-}
-
-async function makeFakeNpxRejectsLfp(): Promise<string> {
-  const bin = await mkdtemp(join(tmpdir(), "lfg-fake-npx-no-lfp."))
-  const body = `case "$*" in
-  *lazycodex-ai*) echo fake lazycodex install: $* ;;
-  *@islee23520/lfp*) echo unexpected lfp npx: $* >&2; exit 2 ;;
-  *) echo unexpected npx: $* >&2; exit 2 ;;
-esac`
-  await writeFile(join(bin, "npx"), `#!/usr/bin/env bash\n${body}\nexit 0\n`)
-  await chmod(join(bin, "npx"), 0o755)
-  return bin
-}
 
 function execFileResult(file: string, args: readonly string[], cwd = process.cwd()): Promise<{ readonly exitCode: number; readonly stdout: string }> {
   return execFileResultEnv(file, args, cwd, {})

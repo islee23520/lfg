@@ -16,6 +16,10 @@ const config = await readConfig(configPath);
 const projectRoot = projectRootFromInput(input);
 const sessionId = sessionIdFromInput(input);
 const ledger = await inspectProjectOmoLedger({ projectRoot, sessionId });
+if (ledger.status === "malformed") {
+  process.stderr.write(`LFG-OMO-LEDGER-ERROR: malformed project .omo state at ${ledger.boulderPath}\n`);
+  process.exit(1);
+}
 const context = renderContext(configPath, config, ledger);
 
 if (context !== null) {

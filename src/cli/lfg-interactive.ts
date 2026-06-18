@@ -46,7 +46,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     if (discovery === null) {
       discovery = await discoverModelsInteractively(reader)
     } else {
-      printAutoDiscovery(resolved ?? { discovery, baseUrlUsed: null, baseUrlSource: "none", autoDiscovered: false })
+      await printAutoDiscovery(resolved ?? { discovery, baseUrlUsed: null, baseUrlSource: "none", autoDiscovered: false })
     }
 
     if (isTuiMode) {
@@ -87,7 +87,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     output.write("Any previous symlink or non-owned entry at that path will be replaced before applying hooks, agents, and config.\n\n")
 
     output.write(`\nRunning Grok install: ${INTERNAL_GROK_INSTALL_COMMAND}\n`)
-    output.write("(Codex npx lazycodex-ai install is not used on this path.)\n\n")
+    output.write("(Codex-home bootstrap is not used on this path.)\n\n")
     const result = await runLazycodexInstaller(configuredDiscovery)
     writeOutput(result.stdout)
     writeOutput(result.stderr)
@@ -118,7 +118,7 @@ async function discoverModelsInteractively(reader: LineReader): Promise<ModelDis
   const home = resolveGrokSetupHome(process.env)
   const auto = await resolveSetupDiscovery({ home, cliBaseUrl: null })
   if (auto && auto.discovery !== null && auto.discovery !== undefined) {
-    printAutoDiscovery(auto)
+    await printAutoDiscovery(auto)
     return auto.discovery
   }
   output.write("OpenAI-compatible base URL (Enter = skip model mapping): ")
@@ -133,11 +133,11 @@ async function discoverModelsInteractively(reader: LineReader): Promise<ModelDis
     output.write(`Could not fetch models from ${baseUrl}. Installer will run without model mapping.\n\n`)
     return null
   }
-  printAutoDiscovery({ ...manual, baseUrlSource: "cli" })
+  await printAutoDiscovery({ ...manual, baseUrlSource: "cli" })
   return manual.discovery
 }
 
-function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): void {
+async function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): Promise<void> {
   const discovery = resolved.discovery
   if (discovery === null) {
     return
@@ -157,7 +157,18 @@ function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): void {
   output.write(`  coding: ${discovery.mapping.coding}\n\n`)
 
   // Show Grok-first model recommendations
-  const recTable = formatRecommendationTable(discovery.modelIds)
+  const bundledOverrides = await loadBundledDefaultOmoOverridesForInteractive()
+  const bundledRecMap = Object.fromEntries(
+    Object.entries(bundledOverrides).map(([name, o]) => [
+      name,
+      {
+        model: o.model,
+        ...(o.modelFallback !== undefined ? { model_fallback: o.modelFallback } : {}),
+        ...(o.roleRationale !== undefined ? { role_rationale: o.roleRationale } : {}),
+      },
+    ]),
+  )
+  const recTable = formatRecommendationTable(discovery.modelIds, bundledRecMap)
   output.write(recTable + "\n")
 }
 

@@ -1,28 +1,40 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { NATIVE_HEPHAESTUS_MARKER, NATIVE_OMO_AGENT_NAMES } from "./native-omo-agents"
+import { NATIVE_HEPHAESTUS_MARKER, NATIVE_OMO_AGENT_NAMES, NATIVE_SISYPHUS_MARKER } from "./native-omo-agents"
 
 export type NativeAgentsVerifyResult = {
   readonly status: "verified" | "missing"
   readonly pluginAgents: readonly string[]
   readonly roles: readonly string[]
   readonly prompts: readonly string[]
-  readonly hephaestusNativeDefault: boolean
+  readonly sisyphusDefaultAgent: boolean
+  readonly hephaestusPromptPresent: boolean
 }
 
 export async function verifyNativeOmoAgents(pluginRoot: string, home: string): Promise<NativeAgentsVerifyResult> {
   const pluginAgents = await existingNames(pluginRoot, "agents", ".md")
   const roles = await existingNames(join(home, ".grok"), "roles", ".toml")
-  const prompts = await existingNames(join(home, ".grok", "prompts"), "lazycodex", ".md")
+  const omoPrompts = await existingNames(join(home, ".grok", "prompts"), "omo", ".md")
+  const legacyPrompts = await existingNames(join(home, ".grok", "prompts"), "lazycodex", ".md")
+  const prompts = [...new Set([...omoPrompts, ...legacyPrompts])]
   const defaultAgent = await readSafe(join(pluginRoot, "agents", "default.md"))
-  const defaultPrompt = await readSafe(join(home, ".grok", "prompts", "lazycodex", "default.md"))
-  const hephaestusNativeDefault = defaultAgent.includes(NATIVE_HEPHAESTUS_MARKER) && defaultPrompt.includes(NATIVE_HEPHAESTUS_MARKER)
+  const defaultPrompt = await readFirstSafe([
+    join(home, ".grok", "prompts", "omo", "default.md"),
+    join(home, ".grok", "prompts", "lazycodex", "default.md"),
+  ])
+  const hephaestusAgent = await readSafe(join(pluginRoot, "agents", "hephaestus.md"))
+  const hephaestusPrompt = await readFirstSafe([
+    join(home, ".grok", "prompts", "omo", "hephaestus.md"),
+    join(home, ".grok", "prompts", "lazycodex", "hephaestus.md"),
+  ])
+  const sisyphusDefaultAgent = defaultAgent.includes(NATIVE_SISYPHUS_MARKER) && defaultPrompt.includes(NATIVE_SISYPHUS_MARKER)
+  const hephaestusPromptPresent = hephaestusAgent.includes(NATIVE_HEPHAESTUS_MARKER) && hephaestusPrompt.includes(NATIVE_HEPHAESTUS_MARKER)
   const allNativeAgentsPresent =
     NATIVE_OMO_AGENT_NAMES.every((name) => pluginAgents.includes(name)) &&
     NATIVE_OMO_AGENT_NAMES.every((name) => roles.includes(name)) &&
     NATIVE_OMO_AGENT_NAMES.every((name) => prompts.includes(name))
-  const status = hephaestusNativeDefault && allNativeAgentsPresent ? "verified" : "missing"
-  return { status, pluginAgents, roles, prompts, hephaestusNativeDefault }
+  const status = sisyphusDefaultAgent && hephaestusPromptPresent && allNativeAgentsPresent ? "verified" : "missing"
+  return { status, pluginAgents, roles, prompts, sisyphusDefaultAgent, hephaestusPromptPresent }
 }
 
 async function existingNames(root: string, dir: string, ext: string): Promise<readonly string[]> {
@@ -43,4 +55,12 @@ async function readSafe(path: string): Promise<string> {
     }
     throw error
   }
+}
+
+async function readFirstSafe(paths: readonly string[]): Promise<string> {
+  for (const path of paths) {
+    const text = await readSafe(path)
+    if (text.length > 0) return text
+  }
+  return ""
 }

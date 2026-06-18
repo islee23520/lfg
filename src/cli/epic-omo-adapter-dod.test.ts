@@ -16,7 +16,7 @@ describe("epic #26 adapter DoD", () => {
     expect(bundle.planPath).toBe("plans/lfg-omo-grok-adapter.md")
     expect(bundle.status).toBe("completed")
     const adr = await readFile(join(ROOT, "docs/grok-adapter-ownership.md"), "utf8")
-    expect(adr).toContain("lfgIsPlugin: false")
+    expect(adr).toContain("lfg as Grok plugin")
     expect(adr).toContain("npx @islee23520/lfg setup")
     await expect(access(join(ROOT, "src/lfp"))).rejects.toThrow()
   })

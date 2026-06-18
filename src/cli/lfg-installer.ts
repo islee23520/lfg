@@ -48,7 +48,7 @@ export async function runLazycodexInstaller(
   const ok = grokRun.ok
   const home = resolveGrokSetupHome(env)
   const postInstallVerify = await verifyGrokInstallSurface({ home })
-  const agentPaths = grokRun.lazycodexAgents?.written ?? []
+  const agentPaths = grokRun.omoAgents?.written ?? grokRun.lazycodexAgents?.written ?? []
   const agentOverridesPath = grokRun.agentOverridesPath ?? null
   const lfgConfigPath = grokRun.lfgConfigPath ?? null
   const hooks = grokRun.hooks ?? null
@@ -67,7 +67,6 @@ export async function runLazycodexInstaller(
     lfgConfigPath,
     hooks,
     installPath: "grok",
-    skippedCodexInstaller: true,
     preservedExistingSetup: grokRun.internalStep.skippedExistingSetup === true,
   })
 }
@@ -85,20 +84,19 @@ function installJson(fields: {
     status,
     command: "setup",
     executed: true,
-    role: "lazycodex_adapter_installer",
+    role: "omo_grok_installer",
     adapterPackage: INTERNAL_GROK_INSTALL_PACKAGE,
     companionPackage: INTERNAL_GROK_INSTALL_PACKAGE,
+    lfgIsPlugin: false,
     installerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     installerArgs: [],
     grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     lfpInstallerArgs: [],
-    legacyCodexInstallerCommand: LAZYCODEX_INSTALLER_COMMAND,
     installers,
     exitCode: failedExit,
     stdout: installers.map((installer) => installer.stdout).filter((value) => value.length > 0).join("\n"),
     stderr: installers.map((installer) => installer.stderr).filter((value) => value.length > 0).join("\n"),
-    lfgIsPlugin: false,
     ...(discovery === null ? {} : { modelDiscovery: discovery }),
     ...rest,
   }

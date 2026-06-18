@@ -1,55 +1,237 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { spawn, spawnSync } from "node:child_process"
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, test } from "vitest"
-import { materializeGrokMcpRuntimes, resolveMcpPackagesRoot } from "./materialize-grok-mcp"
+import {
+  materializeGrokMcpRuntimes,
+  resolveMcpPackagesRoot,
+  verifyPluginMcpManifest,
+} from "./materialize-grok-mcp"
 
 describe("materializeGrokMcpRuntimes", () => {
   let pluginRoot: string
+  let sourceRoot: string
 
   afterEach(async () => {
     if (pluginRoot) await rm(pluginRoot, { recursive: true, force: true })
+    if (sourceRoot) await rm(sourceRoot, { recursive: true, force: true })
   })
 
-  test("resolves MCP packages from lazycodex plugin source ancestor", async () => {
-    const npxPlugin = join(
-      process.env.HOME ?? "",
-      ".npm",
-      "_npx",
-      "c53733242e702b2e",
-      "node_modules",
-      "lazycodex-ai",
-      "packages",
-      "omo-codex",
-      "plugin",
-    )
-    const root = await resolveMcpPackagesRoot(npxPlugin)
-    expect(root).not.toBeNull()
-    expect(root).toMatch(/lazycodex-ai\/packages$/)
+  test("resolves MCP packages from plugin source ancestor", async () => {
+    sourceRoot = await createMcpPackageFixture()
+    const root = await resolveMcpPackagesRoot(join(sourceRoot, "omo-codex", "plugin"))
+    expect(root).toBe(sourceRoot)
   })
 
-  test("writes mcp-runtimes and absolute plugin .mcp.json paths", async () => {
-    const npxPlugin = join(
-      process.env.HOME ?? "",
-      ".npm",
-      "_npx",
-      "c53733242e702b2e",
-      "node_modules",
-      "lazycodex-ai",
-      "packages",
-      "omo-codex",
-      "plugin",
-    )
+  test("writes all upstream MCP servers with local binaries and remote URLs", async () => {
+    sourceRoot = await createMcpPackageFixture()
     pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-mat-"))
-    const result = await materializeGrokMcpRuntimes(pluginRoot, npxPlugin)
+    const result = await materializeGrokMcpRuntimes(pluginRoot, join(sourceRoot, "omo-codex", "plugin"), "darwin")
     expect(result.ok).toBe(true)
     const mcp = JSON.parse(
       await readFile(join(pluginRoot, ".mcp.json"), "utf8"),
-    ) as { mcpServers: Record<string, { args?: string[]; cwd?: string }> }
+    ) as { mcpServers: Record<string, { args?: readonly string[]; cwd?: string; url?: string }>; disabled_mcp_servers?: readonly string[] }
+    expect(Object.keys(mcp.mcpServers).sort()).toEqual(["ast_grep", "context7", "git_bash", "grep_app", "lsp"])
     expect(mcp.mcpServers.ast_grep?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "ast-grep-mcp", "dist", "cli.js"))
     expect(mcp.mcpServers.ast_grep?.cwd).toBe(pluginRoot)
+    expect(mcp.mcpServers.git_bash?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "git-bash-mcp", "dist", "cli.js"))
+    expect(mcp.disabled_mcp_servers).toEqual(["git_bash"])
     expect(mcp.mcpServers.lsp?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "lsp-daemon", "dist", "cli.js"))
     expect(mcp.mcpServers.lsp?.cwd).toBe(pluginRoot)
+    expect(mcp.mcpServers.grep_app?.url).toBe("https://mcp.grep.app")
+    expect(mcp.mcpServers.context7?.url).toBe("https://mcp.context7.com/mcp")
     expect(JSON.stringify(mcp)).not.toContain("installed-src")
   })
+
+  test("fails materialization when a required local MCP binary is missing", async () => {
+    sourceRoot = await createMcpPackageFixture(["git-bash-mcp"])
+    pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-mat-missing-"))
+    const result = await materializeGrokMcpRuntimes(pluginRoot, join(sourceRoot, "omo-codex", "plugin"), "darwin")
+    expect(result.ok).toBe(false)
+  })
+
+  test("accepts bundled component shims with generated package runtime targets", async () => {
+    sourceRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-bundled-"))
+    const installSource = join(sourceRoot, "dist", "grok-install")
+    const packageRoot = sourceRoot
+    await mkdir(installSource, { recursive: true })
+    await createComponentShimFixture(packageRoot)
+    pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-components-"))
+    const result = await materializeGrokMcpRuntimes(pluginRoot, installSource, "darwin")
+    expect(result.ok).toBe(true)
+    const mcp = JSON.parse(
+      await readFile(join(pluginRoot, ".mcp.json"), "utf8"),
+    ) as { mcpServers: Record<string, { args?: readonly string[]; cwd?: string }>; disabled_mcp_servers?: readonly string[] }
+    expect(mcp.mcpServers.ast_grep?.args?.[0]).toBe("./components/ast-grep/dist/cli.js")
+    expect(mcp.mcpServers.git_bash?.args?.[0]).toBe("./components/git-bash/dist/cli.js")
+    expect(mcp.mcpServers.lsp?.args?.[0]).toBe("./components/lsp/dist/cli.js")
+    expect(mcp.disabled_mcp_servers).toEqual(["git_bash"])
+    const verification = await verifyPluginMcpManifest(pluginRoot, "darwin")
+    expect(verification.ok).toBe(true)
+    expect(verification.errors).not.toContain("mcpServers.ast_grep.runtime target missing")
+  })
+
+  test("verifies package-shaped grok-install payload with bundled MCP shims", async () => {
+    const packageRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-package-root-"))
+    sourceRoot = packageRoot
+    const installSource = join(packageRoot, "dist", "grok-install")
+    await mkdir(join(packageRoot, "dist"), { recursive: true })
+    await cp(join(process.cwd(), "dist", "grok-install"), installSource, { recursive: true })
+    pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-package-shaped-"))
+    const result = await materializeGrokMcpRuntimes(pluginRoot, installSource, "darwin")
+    expect(result.ok).toBe(true)
+    const verification = await verifyPluginMcpManifest(pluginRoot, "darwin")
+    expect(verification).toMatchObject({
+      ok: true,
+      gitBash: "manifest_only_disabled_non_windows",
+    })
+  })
+
+  test("starts package-shaped MCP component shims after materialization", async () => {
+    const packageRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-runtime-package-root-"))
+    sourceRoot = packageRoot
+    const installSource = join(packageRoot, "dist", "grok-install")
+    await mkdir(join(packageRoot, "dist"), { recursive: true })
+    await cp(join(process.cwd(), "dist", "grok-install"), installSource, { recursive: true })
+    pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-runtime-package-shaped-"))
+    await cp(installSource, pluginRoot, { recursive: true, force: true })
+    const result = await materializeGrokMcpRuntimes(pluginRoot, installSource, "darwin")
+    expect(result.ok).toBe(true)
+
+    for (const component of ["ast-grep", "git-bash", "lsp"] as const) {
+      const shim = join(pluginRoot, "components", component, "dist", "cli.js")
+      const startup = spawnSync(process.execPath, [shim, "mcp"], { encoding: "utf8", input: "" })
+      expect(startup.status, startup.stderr).toBe(0)
+      expect(startup.stderr).not.toContain("Cannot find module")
+    }
+  })
+
+  test("documents bundled local MCP runtimes as manifest-only stubs with clean ESM startup", async () => {
+    for (const server of [
+      { name: "ast_grep", runtimeDir: "ast-grep-mcp" },
+      { name: "git_bash", runtimeDir: "git-bash-mcp" },
+      { name: "lsp", runtimeDir: "lsp-daemon" },
+    ] as const) {
+      const cli = join(process.cwd(), "dist", "grok-install", "mcp-runtimes", server.runtimeDir, "dist", "cli.js")
+      const responses = await runMcpProbe(cli)
+      expect(responses.stderr).toBe("")
+      expect(responses.messages).toContainEqual(
+        expect.objectContaining({
+          id: 1,
+          result: expect.objectContaining({
+            capabilities: { tools: {} },
+            serverInfo: { name: `lfg-${server.name}`, version: "0.0.0" },
+          }),
+        }),
+      )
+      expect(responses.messages).toContainEqual({ jsonrpc: "2.0", id: 2, result: { tools: [] } })
+    }
+  })
+
+  test("package-shaped MCP hook shims reject unsupported hook subcommands without recursion", () => {
+    for (const component of ["ast-grep", "lsp"] as const) {
+      const shim = join(process.cwd(), "dist", "grok-install", "components", component, "dist", "cli.js")
+      const result = spawnSync(process.execPath, [shim, "hook"], { encoding: "utf8", timeout: 1000 })
+      expect(result.error, result.stderr).toBeUndefined()
+      expect(result.status).toBe(2)
+      expect(result.stderr).toContain("unsupported hook subcommand")
+    }
+  })
+
+  test("verifies remote MCP URLs by manifest shape without network calls", async () => {
+    sourceRoot = await createMcpPackageFixture()
+    pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-verify-"))
+    await materializeGrokMcpRuntimes(pluginRoot, join(sourceRoot, "omo-codex", "plugin"), "darwin")
+    const result = await verifyPluginMcpManifest(pluginRoot, "darwin")
+    expect(result).toMatchObject({
+      ok: true,
+      remoteLiveCalls: false,
+      gitBash: "manifest_only_disabled_non_windows",
+      windowsExecution: "unverified_no_windows_runner",
+    })
+  })
+
+  test("does not report git_bash as verified Windows behavior", async () => {
+    sourceRoot = await createMcpPackageFixture()
+    pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-win-status-"))
+    await materializeGrokMcpRuntimes(pluginRoot, join(sourceRoot, "omo-codex", "plugin"), "win32")
+
+    const result = await verifyPluginMcpManifest(pluginRoot, "win32")
+
+    expect(result).toMatchObject({
+      ok: true,
+      gitBash: "manifest_only_windows_unverified",
+      windowsExecution: "unverified_no_windows_runner",
+    })
+    expect(result.errors).toEqual([])
+  })
+
+  test("rejects malformed MCP manifest input", async () => {
+    pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-bad-"))
+    await writeFile(join(pluginRoot, ".mcp.json"), '{"mcpServers":{"grep_app":{"url":"not-a-url"}}}\n', "utf8")
+    const result = await verifyPluginMcpManifest(pluginRoot, "darwin")
+    expect(result.ok).toBe(false)
+    expect(result.errors).toContain("mcpServers.ast_grep missing")
+    expect(result.errors).toContain("mcpServers.grep_app.url must be https URL")
+  })
 })
+
+async function createMcpPackageFixture(skip: readonly string[] = []): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "lfg-mcp-src-"))
+  for (const dir of ["ast-grep-mcp", "lsp-daemon", "git-bash-mcp"] as const) {
+    if (skip.includes(dir)) continue
+    const cli = join(root, dir, "dist", "cli.js")
+    await mkdir(join(root, dir, "dist"), { recursive: true })
+    await writeFile(cli, "#!/usr/bin/env node\n", "utf8")
+  }
+  await mkdir(join(root, "omo-codex", "plugin"), { recursive: true })
+  return root
+}
+
+async function createComponentShimFixture(packageRoot: string): Promise<void> {
+  for (const dir of ["ast-grep", "git-bash", "lsp"] as const) {
+    const cli = join(packageRoot, "components", dir, "dist", "cli.js")
+    await mkdir(join(packageRoot, "components", dir, "dist"), { recursive: true })
+    await writeFile(cli, "#!/usr/bin/env node\n", "utf8")
+  }
+}
+
+type McpProbeResult = {
+  readonly stderr: string
+  readonly messages: readonly unknown[]
+}
+
+async function runMcpProbe(cli: string): Promise<McpProbeResult> {
+  const child = spawn(process.execPath, [cli, "mcp"], { stdio: ["pipe", "pipe", "pipe"] })
+  let stdout = ""
+  let stderr = ""
+  child.stdout.setEncoding("utf8")
+  child.stderr.setEncoding("utf8")
+  child.stdout.on("data", (chunk: string) => {
+    stdout += chunk
+  })
+  child.stderr.on("data", (chunk: string) => {
+    stderr += chunk
+  })
+  child.stdin.end(
+    [
+      { jsonrpc: "2.0", id: 1, method: "initialize", params: {} },
+      { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
+    ]
+      .map((message) => JSON.stringify(message))
+      .join("\n") + "\n",
+  )
+  const status = await new Promise<number | null>((resolve) => {
+    child.on("exit", (code) => resolve(code))
+  })
+  expect(status, stderr).toBe(0)
+  return {
+    stderr,
+    messages: stdout
+      .trim()
+      .split("\n")
+      .filter((line) => line.length > 0)
+      .map((line) => JSON.parse(line) as unknown),
+  }
+}

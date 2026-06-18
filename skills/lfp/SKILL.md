@@ -13,6 +13,6 @@ Use `lfg` as the package-facing setup helper:
 npx @islee23520/lfg setup
 ```
 
-Default `setup --run` installs the lazycodex/omo **Grok Build adapter** (`~/.grok/plugins/lfg`) with **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks) and applies ported override behavior (Grok-first OMO parity, https://github.com/code-yeongyu/oh-my-openagent codex adapter core + opencode feature).
+Default `setup --run` installs the lazycodex/omo **GrokBuild port** and **Grok Build plugin payload** (`~/.grok/plugins/lfg`) with **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks) and applies ported override behavior (Grok-first OMO parity, https://github.com/code-yeongyu/oh-my-openagent codex adapter core + opencode feature).
 
-Do not describe `lfg` as a Grok plugin/runtime; it is a setup helper/adapter package.
+Describe `lfg` as the lfg-owned GrokBuild port/plugin payload for OpenCode OmO; the npm CLI owns install and verification through the `setup` command.

@@ -56,7 +56,6 @@ describe("lfg setup --refresh (model/auth re-sync)", () => {
       command: "setup",
       subcommand: "refresh",
       executed: false,
-      lfgIsPlugin: false,
     })
     expect(json.purpose).toContain("Refresh only the model list")
     expect(Array.isArray(json.steps)).toBe(true)
@@ -234,6 +233,7 @@ describe("lfg setup --refresh (model/auth re-sync)", () => {
           HOME: home,
           LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
           LFG_GROK_BASE_URL: "",
+          OMO_OPENAI_BASE_URL: "",
           LAZYCODEX_OPENAI_BASE_URL: "",
         },
       )

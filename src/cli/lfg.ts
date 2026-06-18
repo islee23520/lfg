@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { unsupportedCommand } from "./lfg-command"
 import { runInstallWizard } from "./lfg-interactive"
-import { LAZYCODEX_INSTALLER_COMMAND, runLazycodexInstaller } from "./lfg-installer"
+import { runLazycodexInstaller } from "./lfg-installer"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-adapter/run-grok-install"
 import { applyModelPreset, type SetupPreset } from "./lfg-models"
 import { resolveSetupDiscovery } from "../grok-adapter/resolve-setup-discovery"
@@ -103,7 +103,7 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     }
     // Plan / describe only (non-mutating).
     const plan = refreshPlan(presetResolved, args.preset)
-    return args.json ? plan : runRefreshWizard(plan, presetResolved)
+    return args.json ? plan : runRefreshWizard(presetResolved)
   }
 
   if (args.run || isForceOnly) {
@@ -150,10 +150,6 @@ function isInteractiveInstall(args: ParsedArgs): boolean {
   // Treat explicit --no-tui (and stray --force tokens) as non-disqualifying for the "bare interactive" shape.
   const cleaned = (args.positional || []).filter((p) => !["--no-tui", "no-tui", "--force", "force"].includes(String(p)))
   return !args.json && !args.run && cleaned[0] === "setup" && cleaned.length === 1 && !args.refresh
-}
-
-function isInteractiveRefresh(args: ParsedArgs): boolean {
-  return !args.json && !args.run && args.positional[0] === "setup" && args.positional.length === 1 && args.refresh === true
 }
 
 function isSetupForceShortcut(args: ParsedArgs): boolean {
@@ -255,8 +251,7 @@ function help(): string {
     "  when the current discovery does not advertise a size for a model. OPENAI_API_KEY/XAI_API_KEY, or the active",
     "  Codex provider token when env is unset, is written per model.",
     "",
-    "Setup runs:",
-    `  ${LAZYCODEX_INSTALLER_COMMAND}`,
+    "Setup run implementation:",
     `  ${INTERNAL_GROK_INSTALL_COMMAND}`,
   ].join("\n")
 }

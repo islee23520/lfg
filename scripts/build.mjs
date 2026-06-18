@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { chmod, cp, mkdir, readdir, rename, rm } from "node:fs/promises"
+import { chmod, cp, mkdir, readdir, rename, rm, writeFile } from "node:fs/promises"
 import { build } from "esbuild"
 
 const outputs = [
@@ -42,6 +42,12 @@ try {
   const fixtureSrc = "src/grok-adapter/fixture-minimal"
   const fixtureDst = "dist/grok-install/fixture-minimal"
   const grokDistDir = "dist/grok-install"
+  const mcpComponentDirs = ["ast-grep", "git-bash", "lsp"]
+  const mcpRuntimeDirs = [
+    ["ast-grep-mcp", "ast_grep"],
+    ["git-bash-mcp", "git_bash"],
+    ["lsp-daemon", "lsp"],
+  ]
   await mkdir(grokDistDir, { recursive: true })
   await Promise.all(
     (await readdir(grokDistDir, { withFileTypes: true }))
@@ -51,16 +57,33 @@ try {
   const fixtureTmp = `${fixtureDst}.build-${process.pid}-${Date.now()}`
   await rm(fixtureTmp, { recursive: true, force: true })
   await cp(fixtureSrc, fixtureTmp, { recursive: true })
+  await cp(fixtureSrc, grokDistDir, { recursive: true })
+  for (const componentDir of mcpComponentDirs) {
+    await rm(`${grokDistDir}/components/${componentDir}`, { recursive: true, force: true })
+    await cp(`components/${componentDir}`, `${grokDistDir}/components/${componentDir}`, { recursive: true, force: true })
+  }
+  await rm(`${grokDistDir}/mcp-runtimes`, { recursive: true, force: true })
+  for (const [runtimeDir, serverName] of mcpRuntimeDirs) {
+    const runtimeDist = `${grokDistDir}/mcp-runtimes/${runtimeDir}/dist`
+    const runtimeCli = `${runtimeDist}/cli.js`
+    await mkdir(runtimeDist, { recursive: true })
+    await writeFile(runtimeCli, mcpRuntimeCli(serverName), "utf8")
+    await chmod(runtimeCli, 0o755)
+  }
   const bridgeSrc = "src/grok-adapter/assets/lfg-grok-hook-bridge.mjs"
   const configLoaderSrc = "src/grok-adapter/assets/lfg-config-loader.mjs"
   const projectOmoLedgerSrc = "src/grok-adapter/assets/lfg-project-omo-ledger.mjs"
   const sisyphusHooksSrc = "src/grok-adapter/assets/lfg-sisyphus-hooks.mjs"
+  const nativeRulesSrc = "src/grok-adapter/assets/lfg-native-rules.js"
+  const nativeUltraworkSrc = "src/grok-adapter/assets/lfg-native-ultrawork.js"
   const bridgeDstDir = "dist/grok-install/assets"
   await mkdir(bridgeDstDir, { recursive: true })
   await cp(bridgeSrc, `${bridgeDstDir}/lfg-grok-hook-bridge.mjs`)
   await cp(configLoaderSrc, `${bridgeDstDir}/lfg-config-loader.mjs`)
   await cp(projectOmoLedgerSrc, `${bridgeDstDir}/lfg-project-omo-ledger.mjs`)
   await cp(sisyphusHooksSrc, `${bridgeDstDir}/lfg-sisyphus-hooks.mjs`)
+  await cp(nativeRulesSrc, `${bridgeDstDir}/lfg-native-rules.js`)
+  await cp(nativeUltraworkSrc, `${bridgeDstDir}/lfg-native-ultrawork.js`)
   const flavourSrc = "src/grok-adapter/flavour-pack-assets"
   const flavourDst = "dist/grok-install/flavour-pack-assets"
   await cp(flavourSrc, flavourDst, { recursive: true })
@@ -112,4 +135,57 @@ async function acquireBuildLock(lockDir) {
       await new Promise((resolve) => setTimeout(resolve, Math.min(25 * (attempt + 1), 250)))
     }
   }
+}
+
+function mcpRuntimeCli(serverName) {
+  return `#!/usr/bin/env node
+import { argv, stdin, stdout, stderr } from "node:process";
+
+const subcommand = argv[2] ?? "mcp";
+if (subcommand !== "mcp") {
+\tstderr.write("lfg ${serverName} runtime supports only the mcp subcommand\\n");
+\tprocess.exit(2);
+}
+
+let buffer = "";
+stdin.setEncoding("utf8");
+stdin.on("data", (chunk) => {
+\tbuffer += chunk;
+\tfor (;;) {
+\t\tconst newline = buffer.indexOf("\\n");
+\t\tif (newline === -1) break;
+\t\tconst line = buffer.slice(0, newline).trim();
+\t\tbuffer = buffer.slice(newline + 1);
+\t\tif (line.length > 0) handleMessage(line);
+\t}
+});
+stdin.on("end", () => process.exit(0));
+
+function handleMessage(line) {
+\tlet message;
+\ttry {
+\t\tmessage = JSON.parse(line);
+\t} catch {
+\t\treturn;
+\t}
+\tif (!message || typeof message !== "object" || !("id" in message)) return;
+\tif (message.method === "initialize") {
+\t\twriteResponse(message.id, {
+\t\t\tprotocolVersion: "2024-11-05",
+\t\t\tcapabilities: { tools: {} },
+\t\t\tserverInfo: { name: "lfg-${serverName}", version: "0.0.0" },
+\t\t});
+\t\treturn;
+\t}
+\tif (message.method === "tools/list") {
+\t\twriteResponse(message.id, { tools: [] });
+\t\treturn;
+\t}
+\tstdout.write(JSON.stringify({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "Method not found" } }) + "\\n");
+}
+
+function writeResponse(id, result) {
+\tstdout.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\\n");
+}
+`
 }

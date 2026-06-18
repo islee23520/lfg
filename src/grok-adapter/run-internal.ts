@@ -8,6 +8,7 @@ import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adap
 import { installGrokPluginFromSource, readGrokInstallStamp } from "./install"
 import { readLfgPackageVersionFromBundle } from "./package-version"
 import { resolveLazycodexGrokPluginSource } from "./resolve-lazycodex-plugin-source"
+import { resolveOmoPayloadSource } from "./resolve-omo-payload-source"
 import { ensureCuaDriverSkill, ensureUlwWorkflowSkills } from "./ensure-cua-driver-skill"
 import { ensureHephaestusModelGate } from "./ensure-hephaestus-model-gate"
 import { writeGrokInstallStamp } from "./write-install-stamp"
@@ -44,16 +45,20 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
   }
 
   const sourceOverride = env.LFG_GROK_INSTALL_SOURCE_ROOT?.trim()
-  const lazycodexSource =
-    sourceOverride && sourceOverride.length > 0
+  const omoSource = sourceOverride && sourceOverride.length > 0 ? null : await resolveOmoPayloadSource(env)
+  const lazycodexSource = omoSource
+    ? null
+    : sourceOverride && sourceOverride.length > 0
       ? sourceOverride
       : await resolveLazycodexGrokPluginSource(env)
+  const pluginSource = omoSource?.sourcePath ?? lazycodexSource
 
-  if (lazycodexSource) {
-    const mode = sourceOverride ? "source_override" : "lazycodex_bundle"
+  if (pluginSource) {
+    const mode = sourceOverride ? "source_override" : omoSource ? "omo_native_bundle" : "lazycodex_bundle"
+    const payloadDescription = omoSource?.payloadDescription ?? lazycodexSource ?? sourceOverride ?? pluginSource
     const result = await installGrokPluginFromSource({
       home,
-      sourceRoot: lazycodexSource,
+      sourceRoot: pluginSource,
       version,
       pluginDirName: GROK_PLUGIN_DIR,
       componentInventorySource: mode,
@@ -74,7 +79,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
       componentInventoryPath: result.componentInventoryPath,
       version: result.version,
       exitCode: 0,
-      stdout: `grok lazycodex install -> ${result.pluginRoot} from ${lazycodexSource} events=${hooks.hookNames.join(",")} cua-driver-skill=ensured`,
+      stdout: `${omoSource ? "grok omo install" : "grok lazycodex install"} -> ${result.pluginRoot} from ${payloadDescription} events=${hooks.hookNames.join(",")} cua-driver-skill=ensured`,
       stderr: "",
     }
   }
@@ -105,7 +110,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     stdout: `fixture fallback -> ${result.pluginRoot} events=${hooks.hookNames.join(",")} cua-driver-skill=ensured`,
     stderr: "",
     warning:
-      "Full lazycodex tree not found. Set LFG_LAZYCODEX_PLUGIN_SOURCE or run `npx lazycodex-ai` once to populate npm cache, then re-run lfg setup --run.",
+      "Full OMO/lazycodex tree not found. Set LFG_OMO_PLUGIN_SOURCE or LFG_LAZYCODEX_PLUGIN_SOURCE, then re-run lfg setup --run.",
   }
 }
 

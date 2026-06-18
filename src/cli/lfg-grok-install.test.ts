@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -83,7 +83,6 @@ describe("lfg internal grok install contract", () => {
     const result = await runLfg(["--json", "setup", "--run"], { HOME: home })
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
-      skippedCodexInstaller: true,
       postInstallVerify: { ok: true, status: "verified" },
     })
     expect(JSON.stringify(result.json)).not.toContain("@islee23520/lfp")
@@ -106,7 +105,7 @@ describe("lfg internal grok install contract", () => {
       readonly upstreamTag: string
     }
     expect(inventory.packageVersion).toBe("9.8.7")
-    expect(inventory.upstreamName).toBe("lazycodex-ai")
+    expect(inventory.upstreamName).toBe("oh-my-openagent")
     expect(inventory.upstreamVersion).toBe("4.10.0")
     expect(inventory.upstreamTag).toBe("v4.10.0")
   })
@@ -115,13 +114,13 @@ describe("lfg internal grok install contract", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-payload-src-"))
     const result = await runLfg(["--json", "setup", "--run"], { HOME: home })
     expect(result.exitCode).toBe(0)
-    const p = (result.json as any).postInstallVerify as { payloadSource?: string; componentInventoryPath?: string; nativeHookStatus?: string; bridgeFallback?: boolean; omoComponents?: string[]; skillWorkflows?: Record<string, boolean>; nativeAgents?: { status?: string; hephaestusNativeDefault?: boolean; pluginAgents?: string[] } } | undefined
+    const p = (result.json as any).postInstallVerify as { payloadSource?: string; componentInventoryPath?: string; nativeHookStatus?: string; bridgeFallback?: boolean; omoComponents?: string[]; skillWorkflows?: Record<string, boolean>; nativeAgents?: { status?: string; sisyphusDefaultAgent?: boolean; pluginAgents?: string[] } } | undefined
     expect(p).toBeTruthy()
     expect(p?.componentInventoryPath).toContain("lfg-component-inventory.json")
     // Accept either native Grok path (~/.grok/plugins) or legacy installed-plugins path
     expect(p?.componentInventoryPath).toMatch(/(\.grok\/(plugins|installed-plugins)\/lfg)/)
     // In this workspace without external lazycodex source it is fixture_fallback or source_tree depending on cache; assert it is a known value.
-    expect(["fixture_fallback", "source_tree", "lazycodex_bundle", "source_override", "repair_adapter"]).toContain(p?.payloadSource)
+    expect(["fixture_fallback", "source_tree", "omo_native_bundle", "source_override", "repair_adapter"]).toContain(p?.payloadSource)
     // T9: doctor/post-install native parity reporting now stable (matches fixture with native_grok_events; no bridge fallback)
     expect(p?.nativeHookStatus).toBe("native_grok_events")
     expect(p?.bridgeFallback).toBe(false)
@@ -132,7 +131,7 @@ describe("lfg internal grok install contract", () => {
     expect(p?.skillWorkflows?.["ulw-loop"]).toBe(true)
     expect(p?.nativeAgents).toMatchObject({
       status: "verified",
-      hephaestusNativeDefault: true,
+      sisyphusDefaultAgent: true,
     })
     expect(p?.nativeAgents?.pluginAgents).toContain("default")
   })
@@ -232,7 +231,6 @@ describe("lfg internal grok install contract", () => {
       status: "error",
       code: "unsupported_command",
       command: "doctor",
-      lfgIsPlugin: false,
       supportedCommands: ["setup"],
     })
     const stampRaw = await readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8")

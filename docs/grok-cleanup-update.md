@@ -15,6 +15,16 @@ Codex exposes passthrough cleanup/update on `~/.codex`. Grok Build uses `~/.grok
 | Verify install | Re-run `npx @islee23520/lfg --json setup --run` and inspect the JSON result |
 | Model/config merge | Same `setup --run` with `--base-url` when discovery needed |
 
+## Real-home rollback protocol
+
+Do not run rollback during automated QA. For a real user home, first capture evidence with
+`npx @islee23520/lfg --json setup --run` and save the JSON result, then copy
+`~/.grok/plugins/lfg`, `~/.grok/hooks/lfg-hooks.json`, `~/.grok/config.toml`,
+`~/.grok/lfg-config.jsonc`, and `~/.grok/omo-agent-overrides.json` to a timestamped backup outside
+`~/.grok`. If rollback is needed, restore only those lfg-owned paths from the backup and rerun
+`npx @islee23520/lfg --json setup --run` without `--force` to verify the restored stamped setup is
+preserved. Use `--force` only after the backup exists and replacement is intentional.
+
 ## Not implemented (by design)
 
 - `lfg cleanup` — no automatic wipe of user `~/.grok` blocks; manual edit per Grok user guide.

@@ -82,7 +82,7 @@ describe("npm setup script safety", () => {
         }
         expect(result.preservedExistingSetup).toBe(true)
         expect(result.configUpdated).toBe(true)
-        expect(result.agentOverridesPath).toBe(join(home, ".grok", "lazycodex-agent-overrides.json"))
+        expect(result.agentOverridesPath).toBe(join(home, ".grok", "omo-agent-overrides.json"))
         expect(result.agentPaths?.length).toBeGreaterThanOrEqual(1)
         const configText = await readFile(configPath, "utf8")
         expect(configText).toContain('default = "gpt-5.5"')

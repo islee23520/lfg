@@ -2,6 +2,7 @@ import { isRecord, type JsonObject } from "./lfg-json"
 import { aliasGroupKey, loadPublicLiteLLMContextMap } from "./lfg-model-context-catalog"
 import { extractContextWindows, extractModelFeatureMetadata, type ModelFeatureMetadata } from "./lfg-model-metadata"
 import type { LazycodexAgentOverrideMap, ServiceTier } from "../grok-adapter/lazycodex-agent-overrides"
+import { normalizeModelIdForConfig } from "../grok-adapter/model-id-safety"
 
 export type ModelMapping = {
   readonly default: string
@@ -144,6 +145,11 @@ export function modelDiscoveryEnv(discovery: ModelDiscovery | null, agentConfig:
     LAZYCODEX_AGENT_REASONING_REASONING_LEVEL: agents.reasoning.reasoningLevel,
     LAZYCODEX_AGENT_CODING_MODEL: agents.coding.model,
     LAZYCODEX_AGENT_CODING_REASONING_LEVEL: agents.coding.reasoningLevel,
+    OMO_OPENAI_BASE_URL: discovery.baseUrl,
+    OMO_OPENAI_MODELS: discovery.modelIds.join(","),
+    OMO_MODEL_DEFAULT: discovery.mapping.default,
+    OMO_MODEL_REASONING: discovery.mapping.reasoning,
+    OMO_MODEL_MAPPING: JSON.stringify(discovery.mapping),
   }
   if (discovery.contextWindows && Object.keys(discovery.contextWindows).length > 0) {
     env.LAZYCODEX_CONTEXT_WINDOWS = JSON.stringify(discovery.contextWindows)
@@ -208,7 +214,7 @@ function extractModelIds(payload: unknown): readonly string[] {
   if (!isRecord(payload) || !Array.isArray(payload.data)) {
     throw new ModelDiscoveryError("Model list response must be an object with a data array")
   }
-  return payload.data.flatMap((item: unknown) => (isRecord(item) && typeof item.id === "string" ? [item.id] : []))
+  return payload.data.flatMap((item: unknown) => (isRecord(item) && typeof item.id === "string" ? [normalizeModelIdForConfig(item.id)] : []))
 }
 
 function mapModels(modelIds: readonly string[]): ModelMapping {

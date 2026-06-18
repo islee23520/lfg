@@ -35,7 +35,8 @@ describe("installed project .omo loader runtime", () => {
       sessionId: "runtime-session",
       cwd: malformedRoot,
     })
-    expect(malformed).toMatchObject({ exitCode: 0, stderr: "" })
+    expect(malformed.exitCode).toBe(1)
+    expect(malformed.stderr).toContain("LFG-OMO-LEDGER-ERROR")
     expect(malformed.stdout).not.toContain("LFG project .omo ledger loaded from")
     expect(malformed.stdout).not.toContain("bad")
   })
@@ -187,7 +188,7 @@ function runInstalledLoader(
 async function runInstalledOmoHook(
   bridgePath: string,
   targetCli: string,
-  payload: Record<string, any> | string,
+  payload: Record<string, unknown> | string,
 ): Promise<OmoHookResult> {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [bridgePath, process.execPath, targetCli, "hook", "event"], {

@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
-import { runLfg, runLfgText } from "./test-process"
+import { runLfg } from "./test-process"
 
 describe("lfg Grok model config", () => {
   test("persists discovered models to grok config after setup run succeeds", async () => {
@@ -15,7 +15,7 @@ describe("lfg Grok model config", () => {
       expect(result.json).toMatchObject({ ok: true, status: "installed", configUpdated: true })
       expect(config).toContain("[endpoints]")
       expect(config).toContain(`models_base_url = "${baseUrl}/v1"`)
-      expect(config).toContain("[lazycodex.models]")
+      expect(config).toContain("[omo.models]")
       expect(config).toContain('default = "grok-3-mini"')
       expect(config).toContain('reasoning = "grok-4.20-0309-reasoning"')
       expect(config).toContain('coding = "codex-auto-review"')
@@ -68,4 +68,3 @@ async function withModelServer(modelIds: readonly string[], run: (baseUrl: strin
     })
   }
 }
-

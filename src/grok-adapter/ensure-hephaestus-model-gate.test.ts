@@ -20,29 +20,22 @@ function makePluginRoot(): string {
 }
 
 describe("ensureHephaestusModelGate", () => {
-  test("patches frontmatter to add models gate when absent", async () => {
+  test("returns retired success without patching frontmatter when gate is absent", async () => {
     const root = makePluginRoot()
     const hephPath = join(root, RULES_DIR, "hephaestus.md")
     writeFileSync(hephPath, ORIGINAL_FRONTMATTER, "utf8")
     try {
       const result = await ensureHephaestusModelGate(root)
       expect(result.ensured).toBe(true)
-      expect(result.patched).toBe(true)
-      const patched = readFileSync(hephPath, "utf8")
-      expect(patched).toContain("models:")
-      expect(patched).toContain("  - gpt-5*")
-      // The models line should be inside the frontmatter (before second ---)
-      const frontmatter = patched.split("---")[1] ?? ""
-      expect(frontmatter).toContain("models:")
-      expect(frontmatter).toContain("gpt-5*")
-      // Body should be unchanged
-      expect(patched).toContain("You are Hephaestus")
+      expect(result.patched).toBe(false)
+      expect(result.reason).toContain("not default")
+      expect(readFileSync(hephPath, "utf8")).toBe(ORIGINAL_FRONTMATTER)
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
   })
 
-  test("is idempotent when models gate already present", async () => {
+  test("returns retired success without patching when models gate already present", async () => {
     const root = makePluginRoot()
     const hephPath = join(root, RULES_DIR, "hephaestus.md")
     const alreadyPatched = ORIGINAL_FRONTMATTER.replace(
@@ -54,7 +47,7 @@ describe("ensureHephaestusModelGate", () => {
       const result = await ensureHephaestusModelGate(root)
       expect(result.ensured).toBe(true)
       expect(result.patched).toBe(false)
-      expect(result.reason).toContain("already present")
+      expect(result.reason).toContain("not default")
       const content = readFileSync(hephPath, "utf8")
       // Should be unchanged
       expect(content).toBe(alreadyPatched)
@@ -63,13 +56,13 @@ describe("ensureHephaestusModelGate", () => {
     }
   })
 
-  test("returns ensured=false when hephaestus.md not found", async () => {
+  test("returns retired success when hephaestus.md not found", async () => {
     const root = makePluginRoot()
     try {
       const result = await ensureHephaestusModelGate(root)
-      expect(result.ensured).toBe(false)
+      expect(result.ensured).toBe(true)
       expect(result.patched).toBe(false)
-      expect(result.reason).toContain("not found")
+      expect(result.reason).toContain("not default")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }

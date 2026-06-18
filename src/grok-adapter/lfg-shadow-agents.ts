@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { LazycodexAgentOverrideMap } from "./lazycodex-agent-overrides"
 
-export const LFG_SHADOW_AGENT_NAMES = ["general-purpose", "explore", "grok-build", "builder", "ulw"] as const
+export const LFG_SHADOW_AGENT_NAMES = ["general-purpose", "explore", "grok-build", "builder"] as const
 
 export async function writeLfgShadowAgents(home: string, agentOverrides: LazycodexAgentOverrideMap): Promise<readonly string[]> {
   const shadowAgentsDir = join(home, ".grok", "agents")
@@ -47,14 +47,6 @@ async function writeShadowAgentSurfaces(shadowAgentsDir: string, agentOverrides:
       model: codingModel,
       permission: "default",
       body: renderUlwBody("builder"),
-    },
-    {
-      name: "ulw",
-      description:
-        "LFG LazyCodex ultrawork orchestrator (ulw). Decomposes work into minimal concrete steps, delegates to specialized LFG workers (explorer/reasoning/coding/reviewer), preserves user intent, and closes the loop with verification evidence.",
-      model: reasoningModel,
-      permission: "default",
-      body: renderUlwBody("ulw"),
     },
   ] as const
   const written: string[] = []

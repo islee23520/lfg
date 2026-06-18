@@ -4,13 +4,27 @@ import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
+const DEPRECATED_IDENTITY_COPY = new RegExp(
+  [
+    "not a Grok " + "plugin",
+    "not a Grok " + "plugin/runtime",
+    "setup helper/adapter " + "package only",
+  ].join("|"),
+)
 
 describe("docs/grok-adapter-ownership.md", () => {
   test("ADR states lfgIsPlugin false and no default lfp setup", async () => {
     const text = await readFile(join(ROOT, "docs/grok-adapter-ownership.md"), "utf8")
+    expect(text).toContain("lfg as Grok plugin")
+    expect(text).toContain("GrokBuild port")
+    expect(text).toContain("Grok Build plugin payload")
     expect(text).toContain("lfgIsPlugin: false")
+    expect(text).toContain("not reported as a Grok plugin object")
+    expect(text).toContain("setup --run")
+    expect(text).toContain("~/.grok/plugins/lfg")
     expect(text).toContain("npx @islee23520/lfg setup")
     expect(text).toContain("copy-paste vendor")
+    expect(text).not.toMatch(DEPRECATED_IDENTITY_COPY)
     expect(text.toLowerCase()).not.toContain("linalab product")
     expect(text).toContain("src/cli/")
   })

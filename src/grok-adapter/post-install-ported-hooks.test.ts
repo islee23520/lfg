@@ -1,8 +1,10 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
+import { z } from "zod"
 import { validateGrokHooksJson } from "./hook-trust"
+import { OMO_HOOK_PARITY_EVENTS, OMO_HOOK_PARITY_MATRIX } from "./hook-parity"
 import { runInternalGrokInstall } from "./run-internal"
 import { verifyGrokInstallSurface } from "./post-install-verify"
 
@@ -68,4 +70,95 @@ describe("post-install ported hooks (#32)", () => {
     expect(trust.ok).toBe(true)
     expect(trust.hookNames).toContain("SessionStart")
   })
+
+  test("event matrix covers upstream OmO hook events with explicit local decisions", () => {
+    const covered = new Set(OMO_HOOK_PARITY_MATRIX.map((row) => row.event))
+    expect([...covered].sort()).toEqual([...OMO_HOOK_PARITY_EVENTS].sort())
+    expect(OMO_HOOK_PARITY_MATRIX).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ event: "SessionStart", upstreamMatcher: null, status: "Grok-adapted" }),
+        expect.objectContaining({ event: "UserPromptSubmit", upstreamCommand: expect.stringContaining("ultrawork") }),
+        expect.objectContaining({ event: "PreToolUse", upstreamMatcher: "^Bash$" }),
+        expect.objectContaining({ event: "PostToolUse", upstreamMatcher: expect.stringContaining("apply_patch") }),
+        expect.objectContaining({ event: "PostCompact", upstreamMatcher: "manual|auto" }),
+        expect.objectContaining({ event: "Stop", upstreamCommand: expect.stringContaining("start-work-continuation") }),
+        expect.objectContaining({ event: "SubagentStop", upstreamCommand: expect.stringContaining("start-work-continuation") }),
+      ]),
+    )
+    expect(OMO_HOOK_PARITY_MATRIX.find((row) => row.upstreamCommand.includes("telemetry"))?.status).toBe("Unsupported")
+    expect(OMO_HOOK_PARITY_MATRIX.find((row) => row.upstreamCommand.includes("auto-update"))?.status).toBe("Unsupported")
+  })
+
+  test("generated hook commands resolve to installed files or approved bridge targets", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-post-hooks-targets-"))
+    await runInternalGrokInstall({ HOME: home })
+    const pluginRoot = join(home, ".grok", "plugins", "lfg")
+    const hooksPath = join(pluginRoot, "hooks", "hooks.json")
+    const parsed = parseHooksJson(await readFile(hooksPath, "utf8"))
+    const commands = collectHookCommands(parsed)
+    expect(commands.length).toBeGreaterThan(0)
+    for (const command of commands) {
+      await expectCommandTargetsInstalled(pluginRoot, command)
+    }
+  })
 })
+
+type HooksPayload = {
+  readonly hooks: readonly (readonly HookHandler[])[]
+}
+
+const HookHandlerSchema = z.object({
+  type: z.literal("command"),
+  command: z.string().min(1),
+})
+
+type HookHandler = z.infer<typeof HookHandlerSchema>
+
+const HookGroupSchema = z.object({
+  hooks: z.array(z.unknown()).optional(),
+})
+
+const HooksPayloadSchema = z.object({
+  hooks: z.record(z.string(), z.array(HookGroupSchema)),
+})
+
+function parseHooksJson(raw: string): HooksPayload {
+  const parsed = HooksPayloadSchema.parse(JSON.parse(raw))
+  const groups: HookHandler[][] = []
+  for (const eventGroups of Object.values(parsed.hooks)) {
+    for (const group of eventGroups) {
+      groups.push((group.hooks ?? []).flatMap(parseCommandHandler))
+    }
+  }
+  return { hooks: groups }
+}
+
+function collectHookCommands(payload: HooksPayload): readonly string[] {
+  const commands: string[] = []
+  for (const handlers of payload.hooks) {
+    for (const handler of handlers) {
+      commands.push(handler.command)
+    }
+  }
+  return commands
+}
+
+function parseCommandHandler(value: unknown): readonly HookHandler[] {
+  const parsed = HookHandlerSchema.safeParse(value)
+  return parsed.success ? [parsed.data] : []
+}
+
+async function expectCommandTargetsInstalled(pluginRoot: string, command: string): Promise<void> {
+  const quotedTargets = [...command.matchAll(/"([^"]+)"/g)].map((match) => match[1] ?? "")
+  const fileTargets = quotedTargets
+    .filter((target) => target.includes("${GROK_PLUGIN_ROOT}") || target.includes("${PLUGIN_ROOT}"))
+    .map((target) => target.replace(/\$\{GROK_PLUGIN_ROOT\}|\$\{PLUGIN_ROOT\}/g, pluginRoot))
+  expect(fileTargets.length).toBeGreaterThan(0)
+  for (const target of fileTargets) {
+    await access(target)
+  }
+  if (command.includes("lfg-grok-hook-bridge.mjs")) {
+    expect(fileTargets[0]).toContain("lfg-grok-hook-bridge.mjs")
+    expect(fileTargets.length).toBeGreaterThan(1)
+  }
+}
