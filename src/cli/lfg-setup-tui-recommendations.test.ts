@@ -9,7 +9,11 @@ vi.mock("@clack/prompts", () => {
       calls.push(["confirm", opts.message])
       return !/Install now\?|Core \+ ULW/i.test(String(opts.message ?? ""))
     },
-    select: async (opts: { readonly options?: readonly { readonly value: string }[] }) => opts.options?.[0]?.value ?? "grok-3-mini-fast",
+    select: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[] }) => {
+      // Exercise the proxy (discovery-based) path: pick cli-proxy at the Model setup question.
+      if (/Model setup/i.test(String(opts.message ?? ""))) return "proxy";
+      return opts.options?.[0]?.value ?? "grok-3-mini-fast";
+    },
     autocomplete: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[]; readonly initialValue?: string }) => {
       calls.push(["autocomplete", opts.message, opts.options?.length, opts.initialValue, opts.options])
       return opts.initialValue ?? opts.options?.[0]?.value ?? "grok-3-mini-fast"

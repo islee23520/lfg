@@ -14,6 +14,9 @@ vi.mock("@clack/prompts", () => {
     },
     select: async (opts: any) => {
       calls.push(["select", opts?.message, opts?.options?.length, opts?.initialValue]);
+      // The TUI now asks "Model setup" (vanilla vs cli-proxy) first. These tests exercise the
+      // proxy (discovery-based) path, so explicitly opt into cli-proxy here.
+      if (/Model setup/i.test(String(opts?.message ?? ""))) return "proxy";
       return opts?.options?.[0]?.value ?? "grok-3-mini-fast";
     },
     autocomplete: async (opts: any) => {

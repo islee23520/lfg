@@ -113,16 +113,31 @@ async function configureAgent(
   if (rec !== null) {
     prompts.note(formatAgentRecommendationBody(rec), `${name} model recommendation`)
   }
-  const initialModel = selectInitialModel(currentModel, rec?.recommended, choices)
-  const picked = await selectors.modelSelector({ agentName: name, current: initialModel, recommended: rec?.recommended, choices })
-  const tier = await selectors.tierSelector({ agentName: name, current: defaultTierPromptForAgent(name) })
-  const model = resolveModelForServiceTier(discovery?.modelIds ?? [], picked, tier, {
-    mappingFast: discovery?.mapping.fast,
-    mappingDefault: discovery?.mapping.default,
-  })
-  const reasoning = toReasoningLevel(await selectors.reasoningSelector({ agentName: name, current: currentReasoning }))
-  console.log(`  ${name}: ${model} / ${reasoning} (tier: ${tier})`)
-  return { name, model, tier, reasoning }
+  // Per-agent undo: after the three picks, offer a keep/redo confirm so a wrong selection can be
+  // re-run for just this agent. The recommendation stays visible via the pinned selector message.
+  for (;;) {
+    const initialModel = selectInitialModel(currentModel, rec?.recommended, choices)
+    const picked = await selectors.modelSelector({ agentName: name, current: initialModel, recommended: rec?.recommended, choices })
+    const tier = await selectors.tierSelector({ agentName: name, current: defaultTierPromptForAgent(name) })
+    const model = resolveModelForServiceTier(discovery?.modelIds ?? [], picked, tier, {
+      mappingFast: discovery?.mapping.fast,
+      mappingDefault: discovery?.mapping.default,
+    })
+    const reasoning = toReasoningLevel(await selectors.reasoningSelector({ agentName: name, current: currentReasoning }))
+    console.log(`  ${name}: ${model} / ${reasoning} (tier: ${tier})`)
+    const keep = await prompts.confirm({
+      message: `Keep ${name} as ${model} / ${reasoning} (tier: ${tier})?`,
+      initialValue: true,
+    })
+    if (prompts.isCancel(keep)) {
+      prompts.cancel("lfg setup cancelled.")
+      throw new Error("lfg setup cancelled")
+    }
+    if (keep) {
+      return { name, model, tier, reasoning }
+    }
+    // redo this agent only; loop again
+  }
 }
 
 function selectInitialModel(currentModel: string, recommended: string | undefined, choices: readonly ModelChoice[]): string {

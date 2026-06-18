@@ -52,7 +52,12 @@ describe("lfg-setup-tui model routing", () => {
 
     const origSelect = prompts.select
     const origAutocomplete = prompts.autocomplete
-    prompts.select = async (options: any) => (/model/i.test(String(options.message ?? "")) && /sisyphus/i.test(String(options.message ?? "")) ? "grok-4.3" : String(options.options?.[0]?.value ?? "grok-3-mini-fast"))
+    prompts.select = async (options: any) => {
+      if (/Model setup/i.test(String(options.message ?? ""))) return "proxy";
+      return /model/i.test(String(options.message ?? "")) && /sisyphus/i.test(String(options.message ?? ""))
+        ? "grok-4.3"
+        : String(options.options?.[0]?.value ?? "grok-3-mini-fast");
+    }
     prompts.autocomplete = async (options: any) =>
       /model/i.test(String(options.message ?? "")) && /sisyphus/i.test(String(options.message ?? ""))
         ? "grok-4.3"
@@ -86,6 +91,7 @@ describe("lfg-setup-tui model routing", () => {
     prompts.select = async (options: any) => {
       calls.push(["select", options.message])
       const message = String(options.message ?? "")
+      if (/Model setup/i.test(message)) return "proxy"
       if (/service tier/i.test(message) && /explorer/i.test(message)) return "fast"
       if (/model/i.test(message) && /explorer/i.test(message)) return "grok-3-mini"
       return String(options.options?.[0]?.value ?? "grok-3-mini-fast")

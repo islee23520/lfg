@@ -163,10 +163,15 @@ export function getAgentRecommendation(
   return null
 }
 
-/** Format a recommendation table for terminal output. */
+/** Format a recommendation table for terminal output.
+ *
+ * Pass `{ condensed: true }` for the interactive proxy path so the table is short enough to
+ * coexist with a long model list without scrolling the per-agent guide off screen.
+ */
 export function formatRecommendationTable(
   availableModels: readonly string[],
   bundledOverrides?: Readonly<Record<string, AgentRecommendationOverride>>,
+  options: { readonly condensed?: boolean } = {},
 ): string {
   const names = bundledOverrides
     ? [...new Set([...Object.keys(bundledOverrides), ...ROLE_PROFILES.map((r) => r.role)])]
@@ -175,6 +180,16 @@ export function formatRecommendationTable(
     const rec = getAgentRecommendation(name, availableModels, bundledOverrides)
     return rec === null ? [] : [{ role: name, ...rec }]
   })
+  if (options.condensed) {
+    const lines: string[] = []
+    lines.push("Agent Model Recommendations (available-model aware, benchmarked) \u2014 condensed")
+    lines.push("─".repeat(60))
+    for (const rec of allRecs) {
+      const effort = rec.variant !== undefined ? ` @ ${rec.variant}` : ""
+      lines.push(`  ${rec.role.padEnd(26)} ${rec.recommended}${effort}`)
+    }
+    return lines.join("\n")
+  }
   const lines: string[] = []
   lines.push("Agent Model Recommendations (available-model aware, benchmarked)")
   lines.push("─".repeat(92))

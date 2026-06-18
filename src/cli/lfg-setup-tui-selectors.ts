@@ -56,17 +56,22 @@ function createModelSelector(prompts: typeof clack): ModelSelector {
   return async ({ agentName, current, recommended, choices }) => {
     const options = buildModelOptions(current, choices, recommended)
     const hasAutocomplete = typeof prompts.autocomplete === "function"
+    // Pin the per-agent recommendation INTO the prompt message so it stays visible above the
+    // (potentially long) scrolling model list, instead of being a separate note that scrolls away.
+    const base = agentName ? `${agentName} model` : "Model"
+    const message = recommended ? `${base} \u2014 recommended: ${recommended}` : base
+    const initialValue = options.find((option) => option.value === current)?.value ?? options[0]?.value
     const selected = hasAutocomplete
       ? await prompts.autocomplete({
-          message: agentName ? `${agentName} model` : "Model",
+          message,
           options,
           placeholder: "Type to search models...",
-          initialValue: options.find((option) => option.value === current)?.value ?? options[0]?.value,
+          initialValue,
         })
       : await prompts.select({
-          message: agentName ? `${agentName} model` : "Model",
+          message,
           options,
-          initialValue: options.find((option) => option.value === current)?.value ?? options[0]?.value,
+          initialValue,
         })
     if (prompts.isCancel(selected)) {
       prompts.cancel("lfg setup cancelled.")

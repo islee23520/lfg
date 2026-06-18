@@ -1,10 +1,16 @@
 import * as clack from "@clack/prompts";
 import pc from "picocolors";
 
-import type { LazycodexAgentConfig } from "./lfg-models";
+import type { LazycodexAgentConfig, ModelDiscovery } from "./lfg-models";
 import { buildModelChoicesForTui, createSetupSelectors, type ModelSelector, type ReasoningSelector, type TierSelector } from "./lfg-setup-tui-selectors";
 import { loadBundledDefaultOmoOverrides } from "../grok-adapter/lazycodex-agent-overrides";
-import { readDiscoveryFromContext, toRecommendationOverrideMap } from "./lfg-setup-tui-data";
+import {
+  buildVanillaGrokConfig,
+  formatVanillaResults,
+  formatVanillaSummary,
+  readDiscoveryFromContext,
+  toRecommendationOverrideMap,
+} from "./lfg-setup-tui-data";
 import { configureAgentOverrides, configureRoleAgents, resolveFastMappingSlot } from "./lfg-setup-tui-agents";
 import { formatRecommendationTable } from "../grok-adapter/model-recommendations";
 
@@ -54,30 +60,69 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
     throw new Error("lfg setup cancelled");
   }
 
-  const discovery = readDiscoveryFromContext(context);
-  const choices = buildModelChoicesForTui(discovery?.modelIds ?? []);
-  const selectors = createSetupSelectors(prompts);
   const bundled = await loadBundledDefaultOmoOverrides();
-  const bundledRecommendationOverrides = toRecommendationOverrideMap(bundled);
-  prompts.note(formatRecommendationTable(discovery?.modelIds ?? [], bundledRecommendationOverrides), "Model recommendations");
-  const roleResults = await configureRoleAgents(prompts, discovery, choices, selectors, bundledRecommendationOverrides);
-  const agentConfig = {
-    explorer: { model: roleResults[0].model, reasoningLevel: roleResults[0].reasoning },
-    reasoning: { model: roleResults[1].model, reasoningLevel: roleResults[1].reasoning },
-    coding: { model: roleResults[2].model, reasoningLevel: roleResults[2].reasoning },
-  } satisfies LazycodexAgentConfig;
-  const agentOverrides = await configureAgentOverrides(prompts, discovery, choices, selectors, roleResults, agentConfig, bundled, bundledRecommendationOverrides);
-  const explorerModel = agentConfig.explorer.model;
-  const effectiveMapping = discovery?.mapping
-    ? { ...discovery.mapping, default: agentOverrides.agentOverrideMap.sisyphus?.model ?? explorerModel, fast: resolveFastMappingSlot(discovery, roleResults, explorerModel) }
-    : { default: agentOverrides.agentOverrideMap.sisyphus?.model ?? explorerModel, fast: explorerModel, reasoning: agentConfig.reasoning.model, coding: agentConfig.coding.model };
-  const configuredForInstall = discovery
-    ? { ...discovery, mapping: effectiveMapping, agentConfig, agentOverrideMap: agentOverrides.agentOverrideMap }
-    : null;
 
-  const resultsText = [...roleResults, ...agentOverrides.extraResults]
-    .map(r => `  ${r.name}: ${r.model} / ${r.reasoning} (tier: ${r.tier})`)
-    .join("\n");
+  // Ask how to source models. This is fundamentally a Grok plugin, so "Vanilla Grok models"
+  // (no proxy, no per-agent selection) is the default. Choosing cli-proxy keeps the prior
+  // discovery-based model-selection flow.
+  const modelMode = await prompts.select({
+    message: "Model setup",
+    options: [
+      { value: "vanilla", label: "Vanilla Grok models (recommended)", hint: "built-in Grok defaults, no proxy" },
+      { value: "proxy", label: "Set up cli-proxy / model provider", hint: "discover models from proxy" },
+    ],
+    initialValue: "vanilla",
+  });
+  if (prompts.isCancel(modelMode)) {
+    prompts.cancel("lfg setup cancelled.");
+    throw new Error("lfg setup cancelled");
+  }
+
+  let configuredForInstall: ModelDiscovery | null;
+  let resultsText: string;
+  let modelConfigLine: string;
+
+  if (modelMode === "proxy") {
+    const discovery = readDiscoveryFromContext(context);
+    const choices = buildModelChoicesForTui(discovery?.modelIds ?? []);
+    const selectors = createSetupSelectors(prompts);
+    const bundledRecommendationOverrides = toRecommendationOverrideMap(bundled);
+    prompts.note(formatRecommendationTable(discovery?.modelIds ?? [], bundledRecommendationOverrides, { condensed: true }), "Model recommendations");
+    const roleResults = await configureRoleAgents(prompts, discovery, choices, selectors, bundledRecommendationOverrides);
+    const agentConfig = {
+      explorer: { model: roleResults[0].model, reasoningLevel: roleResults[0].reasoning },
+      reasoning: { model: roleResults[1].model, reasoningLevel: roleResults[1].reasoning },
+      coding: { model: roleResults[2].model, reasoningLevel: roleResults[2].reasoning },
+    } satisfies LazycodexAgentConfig;
+    const agentOverrides = await configureAgentOverrides(prompts, discovery, choices, selectors, roleResults, agentConfig, bundled, bundledRecommendationOverrides);
+    const explorerModel = agentConfig.explorer.model;
+    const effectiveMapping = discovery?.mapping
+      ? { ...discovery.mapping, default: agentOverrides.agentOverrideMap.sisyphus?.model ?? explorerModel, fast: resolveFastMappingSlot(discovery, roleResults, explorerModel) }
+      : { default: agentOverrides.agentOverrideMap.sisyphus?.model ?? explorerModel, fast: explorerModel, reasoning: agentConfig.reasoning.model, coding: agentConfig.coding.model };
+    configuredForInstall = discovery
+      ? { ...discovery, mapping: effectiveMapping, agentConfig, agentOverrideMap: agentOverrides.agentOverrideMap }
+      : null;
+    resultsText = [...roleResults, ...agentOverrides.extraResults]
+      .map(r => `  ${r.name}: ${r.model} / ${r.reasoning} (tier: ${r.tier})`)
+      .join("\n");
+    modelConfigLine = "Model config: auto-mapped from /v1/models";
+  } else {
+    // Vanilla Grok fast path: skip discovery and per-agent selection; use bundled Grok-first defaults.
+    const vanilla = buildVanillaGrokConfig(bundled);
+    const vanillaModelIds = [...new Set([vanilla.mapping.default, vanilla.mapping.fast, vanilla.mapping.reasoning, vanilla.mapping.coding])];
+    configuredForInstall = {
+      baseUrl: "",
+      modelsUrl: "",
+      modelIds: vanillaModelIds,
+      mapping: vanilla.mapping,
+      agentConfig: vanilla.agentConfig,
+      agentOverrideMap: vanilla.agentOverrideMap,
+    };
+    resultsText = formatVanillaResults(vanilla);
+    modelConfigLine = "Model config: built-in Grok defaults (no proxy)";
+    prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models");
+  }
+
   prompts.note(resultsText, "Setup results");
 
   // TUI's own clean Install Summary (replaces the classic printInstallPlan + Magic Word box).
@@ -85,7 +130,7 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
     [
       "Install path: grok",
       "Installer: @islee23520/lfg internal grok-install",
-      "Model config: auto-mapped from /v1/models",
+      modelConfigLine,
       "Writes: hooks, agents, overrides, lfg config, Grok plugin enablement",
       "",
       "Include ultrawork (or ulw) in your prompt to unlock deep exploration, parallel agents,",
