@@ -95,6 +95,7 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
       ["rules", "Grok-adapted"],
       ["lsp", "Manifest-only"],
       ["ast_grep", "Manifest-only"],
+      ["codegraph", "Grok-adapted"],
       ["grep_app", "Remote URL manifest-only"],
       ["context7", "Remote URL manifest-only"],
       ["ultrawork", "Grok-adapted"],

@@ -27,7 +27,9 @@ describe("materializeGrokMcpRuntimes", () => {
   test("writes all upstream MCP servers with local binaries and remote URLs", async () => {
     sourceRoot = await createMcpPackageFixture()
     pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-mat-"))
-    const result = await materializeGrokMcpRuntimes(pluginRoot, join(sourceRoot, "omo-codex", "plugin"), "darwin")
+    const result = await materializeGrokMcpRuntimes(pluginRoot, join(sourceRoot, "omo-codex", "plugin"), "darwin", {
+      codegraphEntry: null,
+    })
     expect(result.ok).toBe(true)
     const mcp = JSON.parse(
       await readFile(join(pluginRoot, ".mcp.json"), "utf8"),
@@ -42,6 +44,39 @@ describe("materializeGrokMcpRuntimes", () => {
     expect(mcp.mcpServers.grep_app?.url).toBe("https://mcp.grep.app")
     expect(mcp.mcpServers.context7?.url).toBe("https://mcp.context7.com/mcp")
     expect(JSON.stringify(mcp)).not.toContain("installed-src")
+  })
+
+  test("emits codegraph MCP entry when an enabled codegraph binary resolves", async () => {
+    sourceRoot = await createMcpPackageFixture()
+    pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-codegraph-"))
+    const result = await materializeGrokMcpRuntimes(pluginRoot, join(sourceRoot, "omo-codex", "plugin"), "darwin", {
+      codegraphEntry: {
+        enabled: true,
+        command: ["/opt/codegraph/bin/codegraph", "serve", "--mcp"],
+        environment: { CODEGRAPH_INSTALL_DIR: "/home/user/.omo/codegraph", CODEGRAPH_TELEMETRY: "0" },
+      },
+    })
+    expect(result.ok).toBe(true)
+    const mcp = JSON.parse(
+      await readFile(join(pluginRoot, ".mcp.json"), "utf8"),
+    ) as { mcpServers: Record<string, { command: string; args: readonly string[]; env: Record<string, string> }> }
+    expect(mcp.mcpServers.codegraph).toBeDefined()
+    expect(mcp.mcpServers.codegraph?.command).toBe("/opt/codegraph/bin/codegraph")
+    expect(mcp.mcpServers.codegraph?.args).toStrictEqual(["serve", "--mcp"])
+    expect(mcp.mcpServers.codegraph?.env.CODEGRAPH_TELEMETRY).toBe("0")
+  })
+
+  test("omits codegraph when the binary does not resolve", async () => {
+    sourceRoot = await createMcpPackageFixture()
+    pluginRoot = await mkdtemp(join(tmpdir(), "lfg-mcp-no-codegraph-"))
+    const result = await materializeGrokMcpRuntimes(pluginRoot, join(sourceRoot, "omo-codex", "plugin"), "darwin", {
+      codegraphEntry: { enabled: false, command: ["codegraph", "serve", "--mcp"], environment: {} },
+    })
+    expect(result.ok).toBe(true)
+    const mcp = JSON.parse(
+      await readFile(join(pluginRoot, ".mcp.json"), "utf8"),
+    ) as { mcpServers: Record<string, unknown> }
+    expect(mcp.mcpServers.codegraph).toBeUndefined()
   })
 
   test("fails materialization when a required local MCP binary is missing", async () => {

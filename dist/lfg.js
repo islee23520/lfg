@@ -17406,6 +17406,7 @@ var init_component_inventory = __esm({
       { id: "rules", status: "Grok-adapted", evidence: "Component hooks are bridged through lfg-grok-hook-bridge.mjs when present in the installed payload." },
       { id: "lsp", status: "Manifest-only", evidence: "lsp MCP is present in plugin .mcp.json with an lfg-owned local runtime stub; behavior-level LSP tools are deferred until a real Grok-adapted runtime is packaged." },
       { id: "ast_grep", status: "Manifest-only", evidence: "ast_grep MCP is present in plugin .mcp.json with an lfg-owned local runtime stub; tools/list intentionally remains empty until a real Grok-adapted runtime is packaged." },
+      { id: "codegraph", status: "Grok-adapted", evidence: "External @colbymchenry/codegraph semantic-code-graph MCP binary wrapped via utils/codegraph provisioning + Grok-native .mcp.json command server; Phase 0 of the core/adapter port strategy (docs/grok-adapter-core-port-strategy.md)." },
       { id: "grep_app", status: "Remote URL manifest-only", evidence: "grep_app MCP is represented as the upstream remote URL server https://mcp.grep.app; lfg validates manifest shape and does not live-call it by default." },
       { id: "context7", status: "Remote URL manifest-only", evidence: "context7 MCP is represented as the upstream remote URL server https://mcp.context7.com/mcp; lfg validates manifest shape and does not live-call it by default." },
       { id: "ultrawork", status: "Grok-adapted", evidence: "Ultrawork OMO hook parity routed natively via component/runtime and Grok-native OMO agent surfaces (default/sisyphus/role agents); implements `omo hook <event>` shape for Grok without new top-level commands." },
@@ -17557,10 +17558,100 @@ var init_mcp_manifest_verify = __esm({
   }
 });
 
+// src/grok-adapter/codegraph-resolve.ts
+import { existsSync } from "node:fs";
+import { homedir as homedir3 } from "node:os";
+import { spawnSync } from "node:child_process";
+import { basename, join as join14 } from "node:path";
+function defaultCodegraphInstallDir(homeDir = homedir3()) {
+  return join14(homeDir, ".omo", "codegraph");
+}
+function buildCodegraphEnv(options = {}) {
+  const homeDir = options.homeDir ?? homedir3();
+  return {
+    [CODEGRAPH_INSTALL_DIR_ENV]: defaultCodegraphInstallDir(homeDir),
+    [CODEGRAPH_NO_DOWNLOAD_ENV]: "1",
+    [CODEGRAPH_TELEMETRY_ENV]: "0",
+    [DO_NOT_TRACK_ENV]: "1"
+  };
+}
+function provisionedBinFromInstallDir(installDir, fileExists2 = existsSync) {
+  if (installDir === void 0) return null;
+  const candidate = join14(installDir, "bin", process.platform === "win32" ? "codegraph.cmd" : "codegraph");
+  return fileExists2(candidate) ? candidate : null;
+}
+function resolveCodegraphCommand(options = {}) {
+  const env = options.env ?? process.env;
+  const fileExists2 = options.fileExists ?? existsSync;
+  const which = options.which ?? defaultWhich;
+  const homeDir = options.homeDir ?? homedir3();
+  const envBin = (env[CODEGRAPH_ENV_BIN] ?? env[CODEGRAPH_LEGACY_ENV_BIN])?.trim();
+  if (envBin !== void 0 && envBin.length > 0) {
+    const command = looksLikePath(envBin) ? envBin : which(envBin);
+    if (command !== null && fileExists2(command)) {
+      return { argsPrefix: [], command, exists: true, source: "env" };
+    }
+  }
+  const provisioned = options.provisioned ?? (() => provisionedBinFromInstallDir(defaultCodegraphInstallDir(homeDir), fileExists2));
+  const provisionedBin = provisioned();
+  if (provisionedBin !== null) {
+    return { argsPrefix: [], command: provisionedBin, exists: true, source: "provisioned" };
+  }
+  const pathBin = which("codegraph");
+  if (pathBin !== null && fileExists2(pathBin)) {
+    return { argsPrefix: [], command: pathBin, exists: true, source: "path" };
+  }
+  return { argsPrefix: [], command: "codegraph", exists: false, source: "bundled" };
+}
+function looksLikePath(command) {
+  return command.includes("/") || command.includes("\\") || /^[a-zA-Z]:/.test(command);
+}
+function defaultWhich(commandName) {
+  const tool = process.platform === "win32" ? "where" : "which";
+  try {
+    const result = spawnSync(tool, [commandName], { encoding: "utf8", timeout: 2e3, windowsHide: true });
+    if (result.error !== void 0 || result.status !== 0) return null;
+    const line = `${result.stdout}
+${result.stderr}`.split(/\r?\n/)[0]?.trim();
+    return line !== void 0 && line.length > 0 ? line : null;
+  } catch {
+    return null;
+  }
+}
+function createCodegraphMcpEntry(options = {}) {
+  const homeDir = options.homeDir ?? homedir3();
+  const resolved = resolveCodegraphCommand({
+    env: options.env,
+    fileExists: options.fileExists,
+    homeDir,
+    provisioned: options.provisioned,
+    which: options.which
+  });
+  const env = buildCodegraphEnv({ homeDir });
+  const environment = options.installDir === void 0 ? env : { ...env, [CODEGRAPH_INSTALL_DIR_ENV]: options.installDir };
+  return {
+    command: [resolved.command, ...resolved.argsPrefix, "serve", "--mcp"],
+    enabled: resolved.exists,
+    environment
+  };
+}
+var CODEGRAPH_INSTALL_DIR_ENV, CODEGRAPH_NO_DOWNLOAD_ENV, CODEGRAPH_TELEMETRY_ENV, DO_NOT_TRACK_ENV, CODEGRAPH_ENV_BIN, CODEGRAPH_LEGACY_ENV_BIN;
+var init_codegraph_resolve = __esm({
+  "src/grok-adapter/codegraph-resolve.ts"() {
+    "use strict";
+    CODEGRAPH_INSTALL_DIR_ENV = "CODEGRAPH_INSTALL_DIR";
+    CODEGRAPH_NO_DOWNLOAD_ENV = "CODEGRAPH_NO_DOWNLOAD";
+    CODEGRAPH_TELEMETRY_ENV = "CODEGRAPH_TELEMETRY";
+    DO_NOT_TRACK_ENV = "DO_NOT_TRACK";
+    CODEGRAPH_ENV_BIN = "OMO_CODEGRAPH_BIN";
+    CODEGRAPH_LEGACY_ENV_BIN = "CODEGRAPH_BIN";
+  }
+});
+
 // src/grok-adapter/materialize-grok-mcp.ts
 import { cp as cp2, mkdir as mkdir8, writeFile as writeFile8 } from "node:fs/promises";
-import { dirname as dirname8, join as join14 } from "node:path";
-function pluginMcpJson(pluginRoot, platform, mode) {
+import { dirname as dirname8, join as join15 } from "node:path";
+function pluginMcpJson(pluginRoot, platform, mode, codegraphEntry) {
   const disabledServers = platform === "win32" ? [] : ["git_bash"];
   const cwd = mode === "runtime_packages" ? pluginRoot : ".";
   const localServer = (server) => ({
@@ -17568,53 +17659,63 @@ function pluginMcpJson(pluginRoot, platform, mode) {
     args: [localServerPath(pluginRoot, mode, server), "mcp"],
     cwd
   });
+  const mcpServers = {
+    ast_grep: localServer(LOCAL_MCP_SERVERS[0]),
+    grep_app: { url: REMOTE_MCP_SERVERS.grep_app },
+    context7: { url: REMOTE_MCP_SERVERS.context7 },
+    git_bash: localServer(LOCAL_MCP_SERVERS[1]),
+    lsp: localServer(LOCAL_MCP_SERVERS[2])
+  };
+  if (codegraphEntry !== null && codegraphEntry.enabled) {
+    mcpServers.codegraph = {
+      command: codegraphEntry.command[0],
+      args: codegraphEntry.command.slice(1),
+      env: codegraphEntry.environment
+    };
+  }
   return {
-    mcpServers: {
-      ast_grep: localServer(LOCAL_MCP_SERVERS[0]),
-      grep_app: { url: REMOTE_MCP_SERVERS.grep_app },
-      context7: { url: REMOTE_MCP_SERVERS.context7 },
-      git_bash: localServer(LOCAL_MCP_SERVERS[1]),
-      lsp: localServer(LOCAL_MCP_SERVERS[2])
-    },
+    mcpServers,
     ...disabledServers.length === 0 ? {} : { disabled_mcp_servers: disabledServers }
   };
 }
 function localServerPath(pluginRoot, mode, server) {
-  return mode === "runtime_packages" ? join14(pluginRoot, "mcp-runtimes", server.runtimeDir, "dist", "cli.js") : `./components/${server.componentDir}/dist/cli.js`;
+  return mode === "runtime_packages" ? join15(pluginRoot, "mcp-runtimes", server.runtimeDir, "dist", "cli.js") : `./components/${server.componentDir}/dist/cli.js`;
 }
-async function materializeGrokMcpRuntimes(pluginRoot, sourceRoot, platform = process.platform) {
+async function materializeGrokMcpRuntimes(pluginRoot, sourceRoot, platform = process.platform, options = {}) {
   const runtimesRoot = await resolveMcpPackagesRoot(sourceRoot);
-  if (runtimesRoot === null) return materializeBundledMcpComponents(pluginRoot, sourceRoot, platform);
-  const destRoot = join14(pluginRoot, "mcp-runtimes");
+  if (runtimesRoot === null) return materializeBundledMcpComponents(pluginRoot, sourceRoot, platform, options);
+  const destRoot = join15(pluginRoot, "mcp-runtimes");
   await mkdir8(destRoot, { recursive: true });
   for (const server of LOCAL_MCP_SERVERS) {
-    const src = join14(runtimesRoot, server.runtimeDir);
-    const cli = join14(src, "dist", "cli.js");
+    const src = join15(runtimesRoot, server.runtimeDir);
+    const cli = join15(src, "dist", "cli.js");
     if (!await pathExists3(cli)) continue;
-    await cp2(src, join14(destRoot, server.runtimeDir), { recursive: true, force: true });
+    await cp2(src, join15(destRoot, server.runtimeDir), { recursive: true, force: true });
   }
   if (!await localRuntimeBinariesExist(destRoot)) {
     return { ok: false, runtimesRoot };
   }
-  await writeFile8(join14(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "runtime_packages"), null, "	")}
+  const codegraphEntry = options.codegraphEntry === void 0 ? createCodegraphMcpEntry() : options.codegraphEntry;
+  await writeFile8(join15(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "runtime_packages", codegraphEntry), null, "	")}
 `, "utf8");
   return { ok: true, runtimesRoot };
 }
-async function materializeBundledMcpComponents(pluginRoot, sourceRoot, platform) {
+async function materializeBundledMcpComponents(pluginRoot, sourceRoot, platform, options = {}) {
   const componentsRoot = await resolveBundledMcpComponentsRoot(sourceRoot);
   if (componentsRoot === null) {
     return { ok: false, runtimesRoot: null };
   }
-  const destRoot = join14(pluginRoot, "components");
-  const runtimeRoot = join14(pluginRoot, "mcp-runtimes");
+  const destRoot = join15(pluginRoot, "components");
+  const runtimeRoot = join15(pluginRoot, "mcp-runtimes");
   await mkdir8(destRoot, { recursive: true });
   for (const server of LOCAL_MCP_SERVERS) {
-    await cp2(join14(componentsRoot, server.componentDir), join14(destRoot, server.componentDir), { recursive: true, force: true });
-    const runtimeCli = join14(runtimeRoot, server.runtimeDir, "dist", "cli.js");
+    await cp2(join15(componentsRoot, server.componentDir), join15(destRoot, server.componentDir), { recursive: true, force: true });
+    const runtimeCli = join15(runtimeRoot, server.runtimeDir, "dist", "cli.js");
     await mkdir8(dirname8(runtimeCli), { recursive: true });
     await writeFile8(runtimeCli, fallbackRuntimeSource(), "utf8");
   }
-  await writeFile8(join14(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "component_shims"), null, "	")}
+  const codegraphEntry = options.codegraphEntry === void 0 ? createCodegraphMcpEntry() : options.codegraphEntry;
+  await writeFile8(join15(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "component_shims", codegraphEntry), null, "	")}
 `, "utf8");
   return { ok: await localRuntimeBinariesExist(runtimeRoot), runtimesRoot: componentsRoot };
 }
@@ -17632,7 +17733,7 @@ async function resolveMcpPackagesRoot(sourceRoot) {
   let dir = sourceRoot;
   for (let i2 = 0; i2 < 6; i2++) {
     candidates.push(dir);
-    candidates.push(join14(dir, "mcp-runtimes"));
+    candidates.push(join15(dir, "mcp-runtimes"));
     const parent = dirname8(dir);
     if (parent === dir) break;
     dir = parent;
@@ -17645,11 +17746,11 @@ async function resolveMcpPackagesRoot(sourceRoot) {
   return null;
 }
 async function resolveBundledMcpComponentsRoot(sourceRoot) {
-  const candidates = [join14(sourceRoot, "components"), join14(sourceRoot, "..", "components"), join14(sourceRoot, "..", "..", "components"), join14(sourceRoot, "..", "..", "..", "components")];
+  const candidates = [join15(sourceRoot, "components"), join15(sourceRoot, "..", "components"), join15(sourceRoot, "..", "..", "components"), join15(sourceRoot, "..", "..", "..", "components")];
   for (const root of candidates) {
     let ok = true;
     for (const server of LOCAL_MCP_SERVERS) {
-      if (!await pathExists3(join14(root, server.componentDir, "dist", "cli.js"))) ok = false;
+      if (!await pathExists3(join15(root, server.componentDir, "dist", "cli.js"))) ok = false;
     }
     if (ok) return root;
   }
@@ -17659,30 +17760,31 @@ var init_materialize_grok_mcp = __esm({
   "src/grok-adapter/materialize-grok-mcp.ts"() {
     "use strict";
     init_mcp_manifest_verify();
+    init_codegraph_resolve();
     init_mcp_manifest_verify();
   }
 });
 
 // src/grok-adapter/install.ts
 import { cp as cp3, mkdir as mkdir9, readFile as readFile11, rm, writeFile as writeFile9 } from "node:fs/promises";
-import { join as join15 } from "node:path";
+import { join as join16 } from "node:path";
 function nativeGrokPluginRoot(home, pluginDirName = DEFAULT_PLUGIN_DIR) {
-  return join15(home, ".grok", "plugins", pluginDirName);
+  return join16(home, ".grok", "plugins", pluginDirName);
 }
 function legacyInstalledGrokPluginRoot(home, pluginDirName = DEFAULT_PLUGIN_DIR) {
-  return join15(home, ".grok", "installed-plugins", pluginDirName);
+  return join16(home, ".grok", "installed-plugins", pluginDirName);
 }
 async function installGrokPluginFromSource(options) {
   const pluginDirName = options.pluginDirName ?? DEFAULT_PLUGIN_DIR;
   const version2 = options.version ?? DEFAULT_VERSION;
   const pluginRoot = nativeGrokPluginRoot(options.home, pluginDirName);
   const legacyPluginRoot = legacyInstalledGrokPluginRoot(options.home, pluginDirName);
-  await mkdir9(join15(options.home, ".grok", "plugins"), { recursive: true });
+  await mkdir9(join16(options.home, ".grok", "plugins"), { recursive: true });
   await rm(pluginRoot, { recursive: true, force: true });
   await rm(legacyPluginRoot, { recursive: true, force: true });
   await cp3(options.sourceRoot, pluginRoot, { recursive: true, force: true });
   await writeLfgPluginPackageManifest(pluginRoot, version2);
-  const installStampPath = join15(pluginRoot, "lfg-install.json");
+  const installStampPath = join16(pluginRoot, "lfg-install.json");
   const stamp = { packageName: "@islee23520/lfg", version: version2, platform: "grok" };
   await writeFile9(installStampPath, `${JSON.stringify(stamp, null, 2)}
 `, "utf8");
@@ -17702,12 +17804,12 @@ async function writeLfgPluginPackageManifest(pluginRoot, version2) {
     private: true,
     type: "module"
   };
-  await writeFile9(join15(pluginRoot, "package.json"), `${JSON.stringify(manifest, null, 2)}
+  await writeFile9(join16(pluginRoot, "package.json"), `${JSON.stringify(manifest, null, 2)}
 `, "utf8");
 }
 async function readGrokInstallStamp(pluginRoot) {
   try {
-    const parsed = JSON.parse(await readFile11(join15(pluginRoot, "lfg-install.json"), "utf8"));
+    const parsed = JSON.parse(await readFile11(join16(pluginRoot, "lfg-install.json"), "utf8"));
     if (typeof parsed !== "object" || parsed === null) return null;
     const record2 = parsed;
     if (typeof record2.packageName !== "string" || typeof record2.version !== "string") return null;
@@ -17729,7 +17831,7 @@ var init_install = __esm({
 
 // src/grok-adapter/grok-adapter-paths.ts
 import { access as access5, readFile as readFile12 } from "node:fs/promises";
-import { join as join16 } from "node:path";
+import { join as join17 } from "node:path";
 async function resolveGrokAdapterPluginRoot(home) {
   for (const location of ["native_plugins", "legacy_installed_plugins"]) {
     for (const pluginDirName of GROK_ADAPTER_PLUGIN_DIR_CANDIDATES) {
@@ -17745,13 +17847,13 @@ async function resolveGrokAdapterPluginRoot(home) {
   return null;
 }
 async function looksLikeLazycodexAdapterTree(pluginRoot) {
-  if (await pathExists4(join16(pluginRoot, "components"))) {
+  if (await pathExists4(join17(pluginRoot, "components"))) {
     return true;
   }
-  if (await pathExists4(join16(pluginRoot, "lfg-install.json"))) {
+  if (await pathExists4(join17(pluginRoot, "lfg-install.json"))) {
     return true;
   }
-  const hooksPath = join16(pluginRoot, "hooks", "hooks.json");
+  const hooksPath = join17(pluginRoot, "hooks", "hooks.json");
   if (!await pathExists4(hooksPath)) {
     return false;
   }
@@ -17763,7 +17865,7 @@ async function looksLikeLazycodexAdapterTree(pluginRoot) {
   }
 }
 async function readAdapterHooksTrust(pluginRoot) {
-  const hooksPath = join16(pluginRoot, "hooks", "hooks.json");
+  const hooksPath = join17(pluginRoot, "hooks", "hooks.json");
   if (!await pathExists4(hooksPath)) {
     return { ok: false, hookNames: [], error: "hooks.json missing" };
   }
@@ -17836,14 +17938,14 @@ var init_npm_publish_bin = __esm({
 
 // src/grok-adapter/package-version.ts
 import { readFile as readFile14 } from "node:fs/promises";
-import { dirname as dirname9, join as join17 } from "node:path";
+import { dirname as dirname9, join as join18 } from "node:path";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 async function readLfgPackageVersionFromBundle(moduleUrl) {
   const distDir = dirname9(fileURLToPath4(moduleUrl));
   const candidates = [
-    join17(distDir, "..", "package.json"),
-    join17(distDir, "..", "..", "package.json"),
-    join17(distDir, "..", "..", "..", "package.json")
+    join18(distDir, "..", "package.json"),
+    join18(distDir, "..", "..", "package.json"),
+    join18(distDir, "..", "..", "..", "package.json")
   ];
   for (let i2 = 0; i2 < candidates.length; i2++) {
     const path2 = candidates[i2];
@@ -17883,18 +17985,18 @@ var init_package_version = __esm({
 
 // src/grok-adapter/resolve-lazycodex-plugin-source.ts
 import { access as access6, readdir } from "node:fs/promises";
-import { homedir as homedir3 } from "node:os";
-import { join as join18 } from "node:path";
+import { homedir as homedir4 } from "node:os";
+import { join as join19 } from "node:path";
 async function resolveLazycodexGrokPluginSource(env = process.env) {
   const explicit = env.LFG_LAZYCODEX_PLUGIN_SOURCE?.trim();
   if (explicit && await isInstallablePluginTree(explicit)) {
     return explicit;
   }
-  const home = env.HOME ?? homedir3();
+  const home = env.HOME ?? homedir4();
   return findLazycodexPluginInNpxCache(home);
 }
 async function findLazycodexPluginInNpxCache(home) {
-  const npxRoot = join18(home, ".npm", "_npx");
+  const npxRoot = join19(home, ".npm", "_npx");
   let entries;
   try {
     entries = await readdir(npxRoot);
@@ -17903,8 +18005,8 @@ async function findLazycodexPluginInNpxCache(home) {
   }
   const candidates = [];
   for (const entry of entries) {
-    const lazycodexRoot = join18(npxRoot, entry, "node_modules", "lazycodex-ai");
-    candidates.push(join18(lazycodexRoot, RELATIVE_PLUGIN_ROOT));
+    const lazycodexRoot = join19(npxRoot, entry, "node_modules", "lazycodex-ai");
+    candidates.push(join19(lazycodexRoot, RELATIVE_PLUGIN_ROOT));
   }
   candidates.sort((a3, b3) => b3.localeCompare(a3));
   for (const path2 of candidates) {
@@ -17916,11 +18018,11 @@ async function findLazycodexPluginInNpxCache(home) {
 }
 async function isInstallablePluginTree(root) {
   try {
-    await access6(join18(root, "components", "ultrawork", "agents"));
+    await access6(join19(root, "components", "ultrawork", "agents"));
     return true;
   } catch {
     try {
-      await access6(join18(root, "hooks", "hooks.json"));
+      await access6(join19(root, "hooks", "hooks.json"));
       return true;
     } catch {
       return false;
@@ -17931,13 +18033,13 @@ var RELATIVE_PLUGIN_ROOT;
 var init_resolve_lazycodex_plugin_source = __esm({
   "src/grok-adapter/resolve-lazycodex-plugin-source.ts"() {
     "use strict";
-    RELATIVE_PLUGIN_ROOT = join18("packages", "omo-codex", "plugin");
+    RELATIVE_PLUGIN_ROOT = join19("packages", "omo-codex", "plugin");
   }
 });
 
 // src/grok-adapter/resolve-omo-payload-source.ts
 import { access as access7 } from "node:fs/promises";
-import { dirname as dirname10, join as join19 } from "node:path";
+import { dirname as dirname10, join as join20 } from "node:path";
 import { fileURLToPath as fileURLToPath5 } from "node:url";
 async function resolveOmoPayloadSource(env = process.env) {
   const explicit = env.LFG_OMO_PLUGIN_SOURCE?.trim();
@@ -17946,9 +18048,9 @@ async function resolveOmoPayloadSource(env = process.env) {
   }
   const here = dirname10(fileURLToPath5(import.meta.url));
   const candidates = [
-    join19(here, "grok-install"),
-    join19(here, "..", "grok-install"),
-    join19(here, "..", "..", "dist", "grok-install")
+    join20(here, "grok-install"),
+    join20(here, "..", "grok-install"),
+    join20(here, "..", "..", "dist", "grok-install")
   ];
   for (const sourcePath of candidates) {
     if (await isBundledOmoPayload(sourcePath)) {
@@ -17959,10 +18061,10 @@ async function resolveOmoPayloadSource(env = process.env) {
 }
 async function isBundledOmoPayload(root) {
   try {
-    await access7(join19(root, "assets", "lfg-grok-hook-bridge.mjs"));
-    await access7(join19(root, "assets", "lfg-config-loader.mjs"));
-    await access7(join19(root, "hooks", "hooks.json"));
-    await access7(join19(root, "fixture-minimal", "hooks", "hooks.json"));
+    await access7(join20(root, "assets", "lfg-grok-hook-bridge.mjs"));
+    await access7(join20(root, "assets", "lfg-config-loader.mjs"));
+    await access7(join20(root, "hooks", "hooks.json"));
+    await access7(join20(root, "fixture-minimal", "hooks", "hooks.json"));
     return true;
   } catch {
     return false;
@@ -17976,9 +18078,9 @@ var init_resolve_omo_payload_source = __esm({
 
 // src/grok-adapter/write-install-stamp.ts
 import { writeFile as writeFile10 } from "node:fs/promises";
-import { join as join20 } from "node:path";
+import { join as join21 } from "node:path";
 async function writeGrokInstallStamp(pluginRoot, version2) {
-  const installStampPath = join20(pluginRoot, "lfg-install.json");
+  const installStampPath = join21(pluginRoot, "lfg-install.json");
   const stamp = { packageName: "@islee23520/lfg", version: version2, platform: "grok" };
   await writeFile10(installStampPath, `${JSON.stringify(stamp, null, 2)}
 `, "utf8");
@@ -17991,7 +18093,7 @@ var init_write_install_stamp = __esm({
 });
 
 // src/grok-adapter/grok-home.ts
-import { homedir as homedir4, userInfo } from "node:os";
+import { homedir as homedir5, userInfo } from "node:os";
 function resolveGrokSetupHome(env = process.env) {
   const testHomeAllowed = env.LFG_ALLOW_TEST_GROK_HOME === TEST_HOME_ENABLED || env.LFG_ALLOW_TEST_GROK_HOME !== "0" && process.env.LFG_ALLOW_TEST_GROK_HOME === TEST_HOME_ENABLED;
   if (testHomeAllowed) {
@@ -18014,7 +18116,7 @@ function resolveGrokSetupHome(env = process.env) {
       throw error51;
     }
   }
-  return homedir4();
+  return homedir5();
 }
 var TEST_HOME_ENABLED;
 var init_grok_home = __esm({
@@ -18025,9 +18127,9 @@ var init_grok_home = __esm({
 });
 
 // src/grok-adapter/run-internal.ts
-import { existsSync } from "node:fs";
+import { existsSync as existsSync2 } from "node:fs";
 import { lstat } from "node:fs/promises";
-import { dirname as dirname11, join as join21 } from "node:path";
+import { dirname as dirname11, join as join22 } from "node:path";
 import { fileURLToPath as fileURLToPath6 } from "node:url";
 async function runInternalGrokInstall(env = process.env) {
   const home = resolveGrokSetupHome(env);
@@ -18130,12 +18232,12 @@ async function finishRepair(pluginRoot, pluginDirName, version2, mode, env = pro
 function defaultFixtureSourceRoot() {
   const here = dirname11(fileURLToPath6(import.meta.url));
   const candidates = [
-    join21(here, "grok-install", "fixture-minimal"),
-    join21(here, "fixture-minimal"),
-    join21(here, "..", "grok-install", "fixture-minimal")
+    join22(here, "grok-install", "fixture-minimal"),
+    join22(here, "fixture-minimal"),
+    join22(here, "..", "grok-install", "fixture-minimal")
   ];
   for (const path2 of candidates) {
-    if (existsSync(path2)) {
+    if (existsSync2(path2)) {
       return path2;
     }
   }
@@ -18442,16 +18544,16 @@ var init_native_omo_agents = __esm({
 
 // src/grok-adapter/sync-lazycodex-agents-to-grok.ts
 import { mkdir as mkdir10, readdir as readdir2, readFile as readFile15, unlink, writeFile as writeFile11 } from "node:fs/promises";
-import { basename, join as join22 } from "node:path";
+import { basename as basename2, join as join23 } from "node:path";
 async function syncLazycodexAgentsToGrokLedger(home, agentOverrides) {
   const resolved = await resolveGrokAdapterPluginRoot(home);
   if (resolved === null) return null;
-  const sourceDir = join22(resolved.pluginRoot, ULTRAWORK_AGENTS_DIR);
+  const sourceDir = join23(resolved.pluginRoot, ULTRAWORK_AGENTS_DIR);
   const entries = await readTomlEntries(sourceDir) ?? [];
-  const agentsDir = join22(resolved.pluginRoot, "agents");
-  const rolesDir = join22(home, ".grok", "roles");
-  const personasDir = join22(home, ".grok", "personas");
-  const promptsDir = join22(home, ".grok", "prompts", "omo");
+  const agentsDir = join23(resolved.pluginRoot, "agents");
+  const rolesDir = join23(home, ".grok", "roles");
+  const personasDir = join23(home, ".grok", "personas");
+  const promptsDir = join23(home, ".grok", "prompts", "omo");
   await mkdir10(agentsDir, { recursive: true });
   await mkdir10(rolesDir, { recursive: true });
   await mkdir10(personasDir, { recursive: true });
@@ -18462,18 +18564,18 @@ async function syncLazycodexAgentsToGrokLedger(home, agentOverrides) {
   for (const fileName of entries) {
     const sourceName = fileName.slice(0, -".toml".length);
     const grokName = GROK_AGENT_NAMES[sourceName] ?? sourceName;
-    const codexText = await readFile15(join22(sourceDir, fileName), "utf8");
+    const codexText = await readFile15(join23(sourceDir, fileName), "utf8");
     const override = overrideForAgent(agentOverrides, sourceName);
     written.push(...await writeMappedAgentSurfaces({ codexText, sourceName, grokName, override, agentsDir, rolesDir, personasDir, promptsDir }));
     syncedNames.add(sourceName);
   }
   const flavourRoot = await resolveFlavourPackAssetsRoot(import.meta.url);
-  const flavourEntries = await readTomlEntries(join22(flavourRoot, "agent-configs"));
+  const flavourEntries = await readTomlEntries(join23(flavourRoot, "agent-configs"));
   for (const fileName of flavourEntries ?? []) {
     const sourceName = fileName.slice(0, -".toml".length);
     if (syncedNames.has(sourceName)) continue;
     const grokName = sourceName;
-    const codexText = await readFile15(join22(flavourRoot, "agent-configs", fileName), "utf8");
+    const codexText = await readFile15(join23(flavourRoot, "agent-configs", fileName), "utf8");
     const override = overrideForAgent(agentOverrides, sourceName);
     written.push(...await writeMappedAgentSurfaces({ codexText, sourceName, grokName, override, agentsDir, rolesDir, personasDir, promptsDir }));
     syncedNames.add(sourceName);
@@ -18491,10 +18593,10 @@ async function writeMappedAgentSurfaces(args) {
   const role = renderGrokRoleTomlFromCodex(args.codexText, args.grokName, args.override, args.promptsDir);
   const prompt = role.promptBody ?? `${meta3.instructions}
 `;
-  const promptPath = join22(args.promptsDir, `${args.grokName}.md`);
-  const rolePath = join22(args.rolesDir, `${args.grokName}.toml`);
-  const agentPath = join22(args.agentsDir, `${args.grokName}.md`);
-  const personaPath = join22(args.personasDir, `${args.grokName}.toml`);
+  const promptPath = join23(args.promptsDir, `${args.grokName}.md`);
+  const rolePath = join23(args.rolesDir, `${args.grokName}.toml`);
+  const agentPath = join23(args.agentsDir, `${args.grokName}.md`);
+  const personaPath = join23(args.personasDir, `${args.grokName}.toml`);
   await writeFile11(promptPath, prompt, "utf8");
   await writeFile11(rolePath, role.toml.replace(`${args.promptsDir}/${args.grokName}.md`, promptPath), "utf8");
   await writeFile11(
@@ -18512,9 +18614,9 @@ async function writeMappedAgentSurfaces(args) {
   return [agentPath, rolePath, personaPath, promptPath];
 }
 async function writeMinimalAgentSurfaces(args) {
-  const promptPath = join22(args.promptsDir, `${args.grokName}.md`);
-  const rolePath = join22(args.rolesDir, `${args.grokName}.toml`);
-  const agentPath = join22(args.agentsDir, `${args.grokName}.md`);
+  const promptPath = join23(args.promptsDir, `${args.grokName}.md`);
+  const rolePath = join23(args.rolesDir, `${args.grokName}.toml`);
+  const agentPath = join23(args.agentsDir, `${args.grokName}.md`);
   const prompt = nativeOmoFallbackPrompt(args.sourceName);
   const meta3 = {
     description: `LFG LazyCodex ${args.sourceName} agent.`,
@@ -18581,19 +18683,19 @@ async function readTomlEntries(dir) {
 }
 async function moveConflictingUserAgentsAside(home, names) {
   await moveConflictingMarkdownAgentsAside(home, names);
-  const userAgentsDir = join22(home, ".grok", "agents");
-  const tomlBackupDir = join22(home, ".grok", "agents-toml-backup-lfg");
+  const userAgentsDir = join23(home, ".grok", "agents");
+  const tomlBackupDir = join23(home, ".grok", "agents-toml-backup-lfg");
   await mkdir10(tomlBackupDir, { recursive: true });
-  for (const entry of await readTomlEntries(userAgentsDir) ?? []) await moveIfExists(join22(userAgentsDir, entry), join22(tomlBackupDir, basename(entry)));
+  for (const entry of await readTomlEntries(userAgentsDir) ?? []) await moveIfExists(join23(userAgentsDir, entry), join23(tomlBackupDir, basename2(entry)));
 }
 function conflictingUserAgentNames() {
   return [...Object.values(GROK_AGENT_NAMES)];
 }
 async function moveConflictingMarkdownAgentsAside(home, names) {
-  const userAgentsDir = join22(home, ".grok", "agents");
-  const mdBackupDir = join22(home, ".grok", "agents-user-backup-lfg");
+  const userAgentsDir = join23(home, ".grok", "agents");
+  const mdBackupDir = join23(home, ".grok", "agents-user-backup-lfg");
   await mkdir10(mdBackupDir, { recursive: true });
-  for (const name of names) await moveIfExists(join22(userAgentsDir, `${name}.md`), join22(mdBackupDir, `${name}.md`));
+  for (const name of names) await moveIfExists(join23(userAgentsDir, `${name}.md`), join23(mdBackupDir, `${name}.md`));
 }
 async function moveIfExists(source, dest) {
   try {
@@ -18626,7 +18728,7 @@ var init_sync_lazycodex_agents_to_grok = __esm({
     init_grok_adapter_paths();
     init_model_id_safety();
     init_resolve_flavour_pack_asset();
-    ULTRAWORK_AGENTS_DIR = join22("components", "ultrawork", "agents");
+    ULTRAWORK_AGENTS_DIR = join23("components", "ultrawork", "agents");
     GROK_AGENT_NAMES = {
       default: "default",
       sisyphus: "sisyphus",
@@ -18896,16 +18998,16 @@ var init_model_recommendation_availability = __esm({
 
 // src/grok-adapter/grok-api-key.ts
 import { readFile as readFile16 } from "node:fs/promises";
-import { homedir as homedir5 } from "node:os";
-import { join as join23 } from "node:path";
+import { homedir as homedir6 } from "node:os";
+import { join as join24 } from "node:path";
 async function resolveGrokApiKey(env = process.env) {
   const explicit = firstNonEmpty(env.OPENAI_API_KEY, env.XAI_API_KEY);
   if (explicit !== void 0) {
     return explicit;
   }
-  const home = env.HOME ?? homedir5();
+  const home = env.HOME ?? homedir6();
   try {
-    return readCodexProviderApiKey(await readFile16(join23(home, ".codex", "config.toml"), "utf8"));
+    return readCodexProviderApiKey(await readFile16(join24(home, ".codex", "config.toml"), "utf8"));
   } catch (error51) {
     if (isNodeError4(error51) && error51.code === "ENOENT") {
       return void 0;
@@ -19160,22 +19262,22 @@ var init_run_grok_install = __esm({
 
 // src/grok-adapter/native-agent-verify.ts
 import { readFile as readFile17 } from "node:fs/promises";
-import { join as join24 } from "node:path";
+import { join as join25 } from "node:path";
 async function verifyNativeOmoAgents(pluginRoot, home) {
   const pluginAgents = await existingNames(pluginRoot, "agents", ".md");
-  const roles = await existingNames(join24(home, ".grok"), "roles", ".toml");
-  const omoPrompts = await existingNames(join24(home, ".grok", "prompts"), "omo", ".md");
-  const legacyPrompts = await existingNames(join24(home, ".grok", "prompts"), "lazycodex", ".md");
+  const roles = await existingNames(join25(home, ".grok"), "roles", ".toml");
+  const omoPrompts = await existingNames(join25(home, ".grok", "prompts"), "omo", ".md");
+  const legacyPrompts = await existingNames(join25(home, ".grok", "prompts"), "lazycodex", ".md");
   const prompts = [.../* @__PURE__ */ new Set([...omoPrompts, ...legacyPrompts])];
-  const defaultAgent = await readSafe(join24(pluginRoot, "agents", "default.md"));
+  const defaultAgent = await readSafe(join25(pluginRoot, "agents", "default.md"));
   const defaultPrompt = await readFirstSafe([
-    join24(home, ".grok", "prompts", "omo", "default.md"),
-    join24(home, ".grok", "prompts", "lazycodex", "default.md")
+    join25(home, ".grok", "prompts", "omo", "default.md"),
+    join25(home, ".grok", "prompts", "lazycodex", "default.md")
   ]);
-  const hephaestusAgent = await readSafe(join24(pluginRoot, "agents", "hephaestus.md"));
+  const hephaestusAgent = await readSafe(join25(pluginRoot, "agents", "hephaestus.md"));
   const hephaestusPrompt = await readFirstSafe([
-    join24(home, ".grok", "prompts", "omo", "hephaestus.md"),
-    join24(home, ".grok", "prompts", "lazycodex", "hephaestus.md")
+    join25(home, ".grok", "prompts", "omo", "hephaestus.md"),
+    join25(home, ".grok", "prompts", "lazycodex", "hephaestus.md")
   ]);
   const sisyphusDefaultAgent = defaultAgent.includes(NATIVE_SISYPHUS_MARKER) && defaultPrompt.includes(NATIVE_SISYPHUS_MARKER);
   const hephaestusPromptPresent = hephaestusAgent.includes(NATIVE_HEPHAESTUS_MARKER) && hephaestusPrompt.includes(NATIVE_HEPHAESTUS_MARKER);
@@ -19186,7 +19288,7 @@ async function verifyNativeOmoAgents(pluginRoot, home) {
 async function existingNames(root, dir, ext) {
   const names = [];
   for (const name of NATIVE_OMO_AGENT_NAMES) {
-    const path2 = join24(root, dir, `${name}${ext}`);
+    const path2 = join25(root, dir, `${name}${ext}`);
     if ((await readSafe(path2)).length > 0) names.push(name);
   }
   return names;
@@ -19217,7 +19319,7 @@ var init_native_agent_verify = __esm({
 
 // src/grok-adapter/post-install-verify.ts
 import { access as access8, readFile as readFile18 } from "node:fs/promises";
-import { join as join25 } from "node:path";
+import { join as join26 } from "node:path";
 async function verifyGrokInstallSurface(options) {
   const resolved = options.pluginDirName === void 0 ? await resolveGrokAdapterPluginRoot(options.home) : await resolveFixedPlugin(options.home, options.pluginDirName);
   if (resolved === null) {
@@ -19246,7 +19348,7 @@ async function verifyGrokInstallSurface(options) {
   }
   const { pluginRoot, pluginDirName } = resolved;
   const stamp = await readGrokInstallStamp(pluginRoot);
-  const hooksPath = join25(pluginRoot, "hooks", "hooks.json");
+  const hooksPath = join26(pluginRoot, "hooks", "hooks.json");
   const hookTrust = await readAdapterHooksTrust(pluginRoot);
   const hooksRaw = await readHooksJsonSafe(hooksPath);
   const hookTargetErrors = hookTrust.ok ? await verifyHookCommandTargets(pluginRoot, hooksRaw) : [];
@@ -19284,7 +19386,7 @@ async function verifyGrokInstallSurface(options) {
 function missingMcpVerification(pluginRoot, error51) {
   return {
     ok: false,
-    manifestPath: join25(pluginRoot, ".mcp.json"),
+    manifestPath: join26(pluginRoot, ".mcp.json"),
     expectedServers: ["ast_grep", "grep_app", "context7", "git_bash", "lsp"],
     localServers: ["ast_grep", "git_bash", "lsp"],
     remoteServers: ["grep_app", "context7"],
@@ -19387,8 +19489,8 @@ async function computeSkillWorkflows(pluginRoot) {
       return "";
     }
   };
-  const planPath = join25(pluginRoot, "skills", "ulw-plan", "SKILL.md");
-  const loopPath = join25(pluginRoot, "skills", "ulw-loop", "SKILL.md");
+  const planPath = join26(pluginRoot, "skills", "ulw-plan", "SKILL.md");
+  const loopPath = join26(pluginRoot, "skills", "ulw-loop", "SKILL.md");
   const planContent = await readSafe2(planPath);
   const loopContent = await readSafe2(loopPath);
   return {
@@ -19401,7 +19503,7 @@ async function resolveFixedPlugin(home, pluginDirName) {
     const hookTrust = await readAdapterHooksTrust(pluginRoot);
     if (!hookTrust.ok && hookTrust.error === "hooks.json missing") {
       try {
-        await readFile18(join25(pluginRoot, "lfg-install.json"), "utf8");
+        await readFile18(join26(pluginRoot, "lfg-install.json"), "utf8");
         return { pluginDirName, pluginRoot };
       } catch {
         continue;
@@ -19549,12 +19651,22 @@ function getAgentRecommendation(agentName, availableModels, bundledOverrides) {
   }
   return null;
 }
-function formatRecommendationTable(availableModels, bundledOverrides) {
+function formatRecommendationTable(availableModels, bundledOverrides, options = {}) {
   const names = bundledOverrides ? [.../* @__PURE__ */ new Set([...Object.keys(bundledOverrides), ...ROLE_PROFILES.map((r2) => r2.role)])] : ROLE_PROFILES.map((r2) => r2.role);
   const allRecs = names.flatMap((name) => {
     const rec = getAgentRecommendation(name, availableModels, bundledOverrides);
     return rec === null ? [] : [{ role: name, ...rec }];
   });
+  if (options.condensed) {
+    const lines2 = [];
+    lines2.push("Agent Model Recommendations (available-model aware, benchmarked) \u2014 condensed");
+    lines2.push("\u2500".repeat(60));
+    for (const rec of allRecs) {
+      const effort = rec.variant !== void 0 ? ` @ ${rec.variant}` : "";
+      lines2.push(`  ${rec.role.padEnd(26)} ${rec.recommended}${effort}`);
+    }
+    return lines2.join("\n");
+  }
   const lines = [];
   lines.push("Agent Model Recommendations (available-model aware, benchmarked)");
   lines.push("\u2500".repeat(92));
@@ -21268,8 +21380,8 @@ __export(dist_exports, {
 });
 import { styleText as styleText2, stripVTControlCharacters } from "node:util";
 import process$1 from "node:process";
-import { existsSync as existsSync2, lstatSync, readdirSync } from "node:fs";
-import { dirname as dirname12, join as join27 } from "node:path";
+import { existsSync as existsSync3, lstatSync, readdirSync } from "node:fs";
+import { dirname as dirname12, join as join28 } from "node:path";
 function isUnicodeSupported() {
   if (process$1.platform !== "win32") {
     return process$1.env.TERM !== "linux";
@@ -22232,10 +22344,10 @@ ${n2}
             return [];
           try {
             let i2;
-            existsSync2(t2) ? lstatSync(t2).isDirectory() && (!e.directory || t2.endsWith("/")) ? i2 = t2 : i2 = dirname12(t2) : i2 = dirname12(t2);
+            existsSync3(t2) ? lstatSync(t2).isDirectory() && (!e.directory || t2.endsWith("/")) ? i2 = t2 : i2 = dirname12(t2) : i2 = dirname12(t2);
             const c3 = t2.length > 1 && t2.endsWith("/") ? t2.slice(0, -1) : t2;
             return readdirSync(i2).map((r2) => {
-              const n2 = join27(i2, r2), m2 = lstatSync(n2);
+              const n2 = join28(i2, r2), m2 = lstatSync(n2);
               return {
                 name: r2,
                 path: n2,
@@ -22756,15 +22868,18 @@ function createModelSelector(prompts) {
   return async ({ agentName, current, recommended, choices }) => {
     const options = buildModelOptions(current, choices, recommended);
     const hasAutocomplete = typeof prompts.autocomplete === "function";
+    const base = agentName ? `${agentName} model` : "Model";
+    const message = recommended ? `${base} \u2014 recommended: ${recommended}` : base;
+    const initialValue = options.find((option) => option.value === current)?.value ?? options[0]?.value;
     const selected = hasAutocomplete ? await prompts.autocomplete({
-      message: agentName ? `${agentName} model` : "Model",
+      message,
       options,
       placeholder: "Type to search models...",
-      initialValue: options.find((option) => option.value === current)?.value ?? options[0]?.value
+      initialValue
     }) : await prompts.select({
-      message: agentName ? `${agentName} model` : "Model",
+      message,
       options,
-      initialValue: options.find((option) => option.value === current)?.value ?? options[0]?.value
+      initialValue
     });
     if (prompts.isCancel(selected)) {
       prompts.cancel("lfg setup cancelled.");
@@ -22878,7 +22993,64 @@ function isModelDiscovery(value) {
 function isStringArray(value) {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
-var WHY_TWO_MODEL_STEPS_BODY;
+function isGrokModel(model) {
+  return typeof model === "string" && (/^grok[-_/]/i.test(model) || model === "grok-build");
+}
+function pickGrokModel(primary, fallback, roleDefault) {
+  if (isGrokModel(primary)) return primary;
+  if (isGrokModel(fallback)) return fallback;
+  return roleDefault;
+}
+function buildVanillaGrokConfig(bundled) {
+  const grokFor = (name, fallbackDefault) => {
+    const rec = getAgentRecommendation(name, [], void 0);
+    if (rec !== null && isGrokModel(rec.recommended)) {
+      return rec.recommended;
+    }
+    const override = bundled[name];
+    return pickGrokModel(override?.model, override?.modelFallback, fallbackDefault);
+  };
+  const explorerModel = grokFor("explorer", "grok-3-mini-fast");
+  const reasoningModel = grokFor("reasoning", "grok-4.20-0309-reasoning");
+  const codingModel = grokFor("coding", "grok-4.20-0309-non-reasoning");
+  const defaultModel = grokFor("default", reasoningModel);
+  const agentOverrideMap = {};
+  for (const [name, override] of Object.entries(bundled)) {
+    const model = grokFor(name, FASTISH_VANILLA_AGENTS.has(name) ? explorerModel : reasoningModel);
+    agentOverrideMap[name] = { ...override, model };
+  }
+  const level = (name, fallback) => bundled[name]?.reasoningLevel ?? fallback;
+  const agentConfig = {
+    explorer: { model: explorerModel, reasoningLevel: level("explorer", "low"), serviceTier: "fast" },
+    reasoning: { model: reasoningModel, reasoningLevel: level("reasoning", "high") },
+    coding: { model: codingModel, reasoningLevel: level("coding", "medium") }
+  };
+  return {
+    agentConfig,
+    agentOverrideMap,
+    mapping: { default: defaultModel, fast: explorerModel, reasoning: reasoningModel, coding: codingModel }
+  };
+}
+function formatVanillaSummary(config2) {
+  return [
+    "Using built-in Grok models directly (no cli-proxy discovery, no per-agent selection).",
+    `default: ${config2.mapping.default}`,
+    `fast: ${config2.mapping.fast}`,
+    `reasoning: ${config2.mapping.reasoning}`,
+    `coding: ${config2.mapping.coding}`,
+    "",
+    "Per-agent models are pinned to Grok. Re-run setup and choose cli-proxy to tune them."
+  ].join("\n");
+}
+function formatVanillaResults(config2) {
+  const tierOf = (o2) => o2.serviceTier ?? "default";
+  const names = [.../* @__PURE__ */ new Set([...VANILLA_RESULTS_ORDER, ...Object.keys(config2.agentOverrideMap)])];
+  return names.filter((name) => config2.agentOverrideMap[name] !== void 0).map((name) => {
+    const override = config2.agentOverrideMap[name];
+    return `  ${name}: ${override.model} / ${override.reasoningLevel} (tier: ${tierOf(override)})`;
+  }).join("\n");
+}
+var WHY_TWO_MODEL_STEPS_BODY, FASTISH_VANILLA_AGENTS, VANILLA_RESULTS_ORDER;
 var init_lfg_setup_tui_data = __esm({
   "src/cli/lfg-setup-tui-data.ts"() {
     "use strict";
@@ -22893,6 +23065,20 @@ var init_lfg_setup_tui_data = __esm({
       "Core + ULW overrides tune the named OMO/ultrawork agents individually, such as sisyphus, prometheus, plan, metis, momus, and codex-ultrawork-reviewer.",
       "Skip this to keep the bundled recommendations for those agents."
     ].join("\n");
+    FASTISH_VANILLA_AGENTS = /* @__PURE__ */ new Set(["explorer", "librarian", "quick", "unspecified-low", "sisyphus-junior"]);
+    VANILLA_RESULTS_ORDER = [
+      "explorer",
+      "reasoning",
+      "coding",
+      "default",
+      "sisyphus",
+      "prometheus",
+      "librarian",
+      "plan",
+      "metis",
+      "momus",
+      "codex-ultrawork-reviewer"
+    ];
   }
 });
 
@@ -22941,16 +23127,28 @@ async function configureAgent(prompts, discovery, name, currentModel, currentRea
   if (rec !== null) {
     prompts.note(formatAgentRecommendationBody(rec), `${name} model recommendation`);
   }
-  const initialModel = selectInitialModel(currentModel, rec?.recommended, choices);
-  const picked = await selectors.modelSelector({ agentName: name, current: initialModel, recommended: rec?.recommended, choices });
-  const tier = await selectors.tierSelector({ agentName: name, current: defaultTierPromptForAgent(name) });
-  const model = resolveModelForServiceTier(discovery?.modelIds ?? [], picked, tier, {
-    mappingFast: discovery?.mapping.fast,
-    mappingDefault: discovery?.mapping.default
-  });
-  const reasoning = toReasoningLevel(await selectors.reasoningSelector({ agentName: name, current: currentReasoning }));
-  console.log(`  ${name}: ${model} / ${reasoning} (tier: ${tier})`);
-  return { name, model, tier, reasoning };
+  for (; ; ) {
+    const initialModel = selectInitialModel(currentModel, rec?.recommended, choices);
+    const picked = await selectors.modelSelector({ agentName: name, current: initialModel, recommended: rec?.recommended, choices });
+    const tier = await selectors.tierSelector({ agentName: name, current: defaultTierPromptForAgent(name) });
+    const model = resolveModelForServiceTier(discovery?.modelIds ?? [], picked, tier, {
+      mappingFast: discovery?.mapping.fast,
+      mappingDefault: discovery?.mapping.default
+    });
+    const reasoning = toReasoningLevel(await selectors.reasoningSelector({ agentName: name, current: currentReasoning }));
+    console.log(`  ${name}: ${model} / ${reasoning} (tier: ${tier})`);
+    const keep = await prompts.confirm({
+      message: `Keep ${name} as ${model} / ${reasoning} (tier: ${tier})?`,
+      initialValue: true
+    });
+    if (prompts.isCancel(keep)) {
+      prompts.cancel("lfg setup cancelled.");
+      throw new Error("lfg setup cancelled");
+    }
+    if (keep) {
+      return { name, model, tier, reasoning };
+    }
+  }
 }
 function selectInitialModel(currentModel, recommended, choices) {
   const currentChoice = matchingChoiceValue(currentModel, choices);
@@ -23029,29 +23227,61 @@ async function runSetupTui(_args, context, deps = {}) {
     prompts.cancel("lfg setup cancelled.");
     throw new Error("lfg setup cancelled");
   }
-  const discovery = readDiscoveryFromContext(context);
-  const choices = buildModelChoicesForTui(discovery?.modelIds ?? []);
-  const selectors = createSetupSelectors(prompts);
   const bundled = await loadBundledDefaultOmoOverrides();
-  const bundledRecommendationOverrides = toRecommendationOverrideMap(bundled);
-  prompts.note(formatRecommendationTable(discovery?.modelIds ?? [], bundledRecommendationOverrides), "Model recommendations");
-  const roleResults = await configureRoleAgents(prompts, discovery, choices, selectors, bundledRecommendationOverrides);
-  const agentConfig = {
-    explorer: { model: roleResults[0].model, reasoningLevel: roleResults[0].reasoning },
-    reasoning: { model: roleResults[1].model, reasoningLevel: roleResults[1].reasoning },
-    coding: { model: roleResults[2].model, reasoningLevel: roleResults[2].reasoning }
-  };
-  const agentOverrides = await configureAgentOverrides(prompts, discovery, choices, selectors, roleResults, agentConfig, bundled, bundledRecommendationOverrides);
-  const explorerModel = agentConfig.explorer.model;
-  const effectiveMapping = discovery?.mapping ? { ...discovery.mapping, default: agentOverrides.agentOverrideMap.sisyphus?.model ?? explorerModel, fast: resolveFastMappingSlot(discovery, roleResults, explorerModel) } : { default: agentOverrides.agentOverrideMap.sisyphus?.model ?? explorerModel, fast: explorerModel, reasoning: agentConfig.reasoning.model, coding: agentConfig.coding.model };
-  const configuredForInstall = discovery ? { ...discovery, mapping: effectiveMapping, agentConfig, agentOverrideMap: agentOverrides.agentOverrideMap } : null;
-  const resultsText = [...roleResults, ...agentOverrides.extraResults].map((r2) => `  ${r2.name}: ${r2.model} / ${r2.reasoning} (tier: ${r2.tier})`).join("\n");
+  const modelMode = await prompts.select({
+    message: "Model setup",
+    options: [
+      { value: "vanilla", label: "Vanilla Grok models (recommended)", hint: "built-in Grok defaults, no proxy" },
+      { value: "proxy", label: "Set up cli-proxy / model provider", hint: "discover models from proxy" }
+    ],
+    initialValue: "vanilla"
+  });
+  if (prompts.isCancel(modelMode)) {
+    prompts.cancel("lfg setup cancelled.");
+    throw new Error("lfg setup cancelled");
+  }
+  let configuredForInstall;
+  let resultsText;
+  let modelConfigLine;
+  if (modelMode === "proxy") {
+    const discovery = readDiscoveryFromContext(context);
+    const choices = buildModelChoicesForTui(discovery?.modelIds ?? []);
+    const selectors = createSetupSelectors(prompts);
+    const bundledRecommendationOverrides = toRecommendationOverrideMap(bundled);
+    prompts.note(formatRecommendationTable(discovery?.modelIds ?? [], bundledRecommendationOverrides, { condensed: true }), "Model recommendations");
+    const roleResults = await configureRoleAgents(prompts, discovery, choices, selectors, bundledRecommendationOverrides);
+    const agentConfig = {
+      explorer: { model: roleResults[0].model, reasoningLevel: roleResults[0].reasoning },
+      reasoning: { model: roleResults[1].model, reasoningLevel: roleResults[1].reasoning },
+      coding: { model: roleResults[2].model, reasoningLevel: roleResults[2].reasoning }
+    };
+    const agentOverrides = await configureAgentOverrides(prompts, discovery, choices, selectors, roleResults, agentConfig, bundled, bundledRecommendationOverrides);
+    const explorerModel = agentConfig.explorer.model;
+    const effectiveMapping = discovery?.mapping ? { ...discovery.mapping, default: agentOverrides.agentOverrideMap.sisyphus?.model ?? explorerModel, fast: resolveFastMappingSlot(discovery, roleResults, explorerModel) } : { default: agentOverrides.agentOverrideMap.sisyphus?.model ?? explorerModel, fast: explorerModel, reasoning: agentConfig.reasoning.model, coding: agentConfig.coding.model };
+    configuredForInstall = discovery ? { ...discovery, mapping: effectiveMapping, agentConfig, agentOverrideMap: agentOverrides.agentOverrideMap } : null;
+    resultsText = [...roleResults, ...agentOverrides.extraResults].map((r2) => `  ${r2.name}: ${r2.model} / ${r2.reasoning} (tier: ${r2.tier})`).join("\n");
+    modelConfigLine = "Model config: auto-mapped from /v1/models";
+  } else {
+    const vanilla = buildVanillaGrokConfig(bundled);
+    const vanillaModelIds = [.../* @__PURE__ */ new Set([vanilla.mapping.default, vanilla.mapping.fast, vanilla.mapping.reasoning, vanilla.mapping.coding])];
+    configuredForInstall = {
+      baseUrl: "",
+      modelsUrl: "",
+      modelIds: vanillaModelIds,
+      mapping: vanilla.mapping,
+      agentConfig: vanilla.agentConfig,
+      agentOverrideMap: vanilla.agentOverrideMap
+    };
+    resultsText = formatVanillaResults(vanilla);
+    modelConfigLine = "Model config: built-in Grok defaults (no proxy)";
+    prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models");
+  }
   prompts.note(resultsText, "Setup results");
   prompts.note(
     [
       "Install path: grok",
       "Installer: @islee23520/lfg internal grok-install",
-      "Model config: auto-mapped from /v1/models",
+      modelConfigLine,
       "Writes: hooks, agents, overrides, lfg config, Grok plugin enablement",
       "",
       "Include ultrawork (or ulw) in your prompt to unlock deep exploration, parallel agents,",
@@ -23281,9 +23511,9 @@ init_lfg_models();
 
 // src/grok-adapter/read-grok-models-base-url.ts
 import { readFile as readFile19 } from "node:fs/promises";
-import { join as join26 } from "node:path";
+import { join as join27 } from "node:path";
 async function readGrokModelsBaseUrlFromConfig(home) {
-  const path2 = join26(home, ".grok", "config.toml");
+  const path2 = join27(home, ".grok", "config.toml");
   let text2;
   try {
     text2 = await readFile19(path2, "utf8");

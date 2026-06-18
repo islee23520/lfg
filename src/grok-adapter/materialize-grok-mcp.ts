@@ -7,12 +7,20 @@ import {
   pathExists,
   type LocalMcpServer,
 } from "./mcp-manifest-verify"
+import { createCodegraphMcpEntry } from "./codegraph-resolve"
 
 export { verifyPluginMcpManifest, type McpVerificationResult } from "./mcp-manifest-verify"
 
 type McpRuntimeMode = "runtime_packages" | "component_shims"
 
-function pluginMcpJson(pluginRoot: string, platform: NodeJS.Platform, mode: McpRuntimeMode): object {
+/** A resolved codegraph MCP entry, or null to omit it from the manifest. */
+export type CodegraphMcpEntryInput = {
+  readonly command: readonly string[]
+  readonly enabled: boolean
+  readonly environment: Record<string, string>
+} | null
+
+function pluginMcpJson(pluginRoot: string, platform: NodeJS.Platform, mode: McpRuntimeMode, codegraphEntry: CodegraphMcpEntryInput): object {
   const disabledServers = platform === "win32" ? [] : ["git_bash"]
   const cwd = mode === "runtime_packages" ? pluginRoot : "."
   const localServer = (server: (typeof LOCAL_MCP_SERVERS)[number]): object => ({
@@ -20,14 +28,24 @@ function pluginMcpJson(pluginRoot: string, platform: NodeJS.Platform, mode: McpR
     args: [localServerPath(pluginRoot, mode, server), "mcp"],
     cwd,
   })
+  const mcpServers: Record<string, object> = {
+    ast_grep: localServer(LOCAL_MCP_SERVERS[0]),
+    grep_app: { url: REMOTE_MCP_SERVERS.grep_app },
+    context7: { url: REMOTE_MCP_SERVERS.context7 },
+    git_bash: localServer(LOCAL_MCP_SERVERS[1]),
+    lsp: localServer(LOCAL_MCP_SERVERS[2]),
+  }
+  // codegraph is an external MCP binary (Phase 0 core/adapter port). It is
+  // emitted only when the entry is enabled (binary resolved via env/provisioned/PATH).
+  if (codegraphEntry !== null && codegraphEntry.enabled) {
+    mcpServers.codegraph = {
+      command: codegraphEntry.command[0],
+      args: codegraphEntry.command.slice(1),
+      env: codegraphEntry.environment,
+    }
+  }
   return {
-    mcpServers: {
-      ast_grep: localServer(LOCAL_MCP_SERVERS[0]),
-      grep_app: { url: REMOTE_MCP_SERVERS.grep_app },
-      context7: { url: REMOTE_MCP_SERVERS.context7 },
-      git_bash: localServer(LOCAL_MCP_SERVERS[1]),
-      lsp: localServer(LOCAL_MCP_SERVERS[2]),
-    },
+    mcpServers,
     ...(disabledServers.length === 0 ? {} : { disabled_mcp_servers: disabledServers }),
   }
 }
@@ -38,13 +56,19 @@ function localServerPath(pluginRoot: string, mode: McpRuntimeMode, server: Local
     : `./components/${server.componentDir}/dist/cli.js`
 }
 
+export interface MaterializeMcpOptions {
+  /** Pre-resolved codegraph entry. Defaults to a real env resolution. Pass null to omit. */
+  readonly codegraphEntry?: CodegraphMcpEntryInput
+}
+
 export async function materializeGrokMcpRuntimes(
   pluginRoot: string,
   sourceRoot: string,
   platform: NodeJS.Platform = process.platform,
+  options: MaterializeMcpOptions = {},
 ): Promise<{ ok: boolean; runtimesRoot: string | null }> {
   const runtimesRoot = await resolveMcpPackagesRoot(sourceRoot)
-  if (runtimesRoot === null) return materializeBundledMcpComponents(pluginRoot, sourceRoot, platform)
+  if (runtimesRoot === null) return materializeBundledMcpComponents(pluginRoot, sourceRoot, platform, options)
 
   const destRoot = join(pluginRoot, "mcp-runtimes")
   await mkdir(destRoot, { recursive: true })
@@ -60,7 +84,8 @@ export async function materializeGrokMcpRuntimes(
     return { ok: false, runtimesRoot }
   }
 
-  await writeFile(join(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "runtime_packages"), null, "\t")}\n`, "utf8")
+  const codegraphEntry: CodegraphMcpEntryInput = options.codegraphEntry === undefined ? createCodegraphMcpEntry() : options.codegraphEntry
+  await writeFile(join(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "runtime_packages", codegraphEntry), null, "\t")}\n`, "utf8")
   return { ok: true, runtimesRoot }
 }
 
@@ -68,6 +93,7 @@ async function materializeBundledMcpComponents(
   pluginRoot: string,
   sourceRoot: string,
   platform: NodeJS.Platform,
+  options: MaterializeMcpOptions = {},
 ): Promise<{ ok: boolean; runtimesRoot: string | null }> {
   const componentsRoot = await resolveBundledMcpComponentsRoot(sourceRoot)
   if (componentsRoot === null) {
@@ -82,7 +108,8 @@ async function materializeBundledMcpComponents(
     await mkdir(dirname(runtimeCli), { recursive: true })
     await writeFile(runtimeCli, fallbackRuntimeSource(), "utf8")
   }
-  await writeFile(join(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "component_shims"), null, "\t")}\n`, "utf8")
+  const codegraphEntry: CodegraphMcpEntryInput = options.codegraphEntry === undefined ? createCodegraphMcpEntry() : options.codegraphEntry
+  await writeFile(join(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "component_shims", codegraphEntry), null, "\t")}\n`, "utf8")
   return { ok: await localRuntimeBinariesExist(runtimeRoot), runtimesRoot: componentsRoot }
 }
 
