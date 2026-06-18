@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto"
 import { chmod, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import { homedir } from "node:os"
-import { basename, join } from "node:path"
+import { join } from "node:path"
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 
@@ -34,7 +34,6 @@ export interface EnsureCodegraphProvisionedOptions {
   readonly downloader?: (asset: CodegraphProvisionAsset) => Promise<Uint8Array>
   readonly downloadTimeoutMs?: number
   readonly extractor?: (tarballPath: string, destDir: string) => Promise<void>
-  readonly forceBadChecksum?: boolean
   readonly installDir?: string
   readonly lockDir: string
   readonly lockStaleMs?: number
@@ -95,27 +94,6 @@ async function defaultDownloader(asset: CodegraphProvisionAsset, timeoutMs = DEF
   return new Uint8Array(await response.arrayBuffer())
 }
 
-function forcedBadChecksumOptions(options: EnsureCodegraphProvisionedOptions): {
-  readonly downloader: (asset: CodegraphProvisionAsset) => Promise<Uint8Array>
-  readonly installDir: string
-  readonly manifest: CodegraphProvisionManifest
-  readonly platformKey: string
-} | null {
-  if (options.forceBadChecksum !== true) return null
-  const key = options.platformKey ?? platformKey()
-  return {
-    downloader: async () => new TextEncoder().encode("checksum mismatch"),
-    installDir: options.installDir ?? join(options.lockDir, "codegraph-force-bad-checksum"),
-    manifest: {
-      assets: {
-        [key]: { executableName: process.platform === "win32" ? "codegraph.cmd" : "codegraph", sha256: "0000", url: "memory://bad" },
-      },
-      version: options.version,
-    },
-    platformKey: key,
-  }
-}
-
 async function readMarker(path: string): Promise<string | null> {
   if (!existsSync(path)) return null
   try {
@@ -160,7 +138,27 @@ async function acquireLock(lockDir: string, staleMs: number, waitMs: number): Pr
 
 async function extractTarball(tarballPath: string, destDir: string): Promise<void> {
   await mkdir(destDir, { recursive: true })
+  // List entries first and reject path traversal before extraction.
+  const { stdout } = await execFileAsync("tar", ["-tzf", tarballPath], { maxBuffer: 1024 * 1024 })
+  const entries = stdout.split(/\r?\n/).filter((line) => line.length > 0)
+  for (const entry of entries) {
+    if (!isSafeTarEntry(entry)) {
+      throw new Error(`tar entry escapes dest dir: ${entry}`)
+    }
+  }
   await execFileAsync("tar", ["-xzf", tarballPath, "-C", destDir])
+}
+
+function isSafeTarEntry(entry: string): boolean {
+  if (entry.startsWith("/")) return false
+  if (entry.startsWith("\\")) return false
+  // Reject Windows drive roots (e.g. C:\) and parent traversal.
+  if (/^[a-zA-Z]:[\\/]/.test(entry)) return false
+  const parts = entry.split("/")
+  for (const part of parts) {
+    if (part === "..") return false
+  }
+  return true
 }
 
 /**
@@ -169,7 +167,6 @@ async function extractTarball(tarballPath: string, destDir: string): Promise<voi
  * promotes into `<installDir>/bin/`. Returns the bin path on success.
  */
 export async function ensureCodegraphProvisioned(options: EnsureCodegraphProvisionedOptions): Promise<CodegraphProvisionResult> {
-  const forced = forcedBadChecksumOptions(options)
   const manifest = options.manifest ?? CODEGRAPH_PROVISION_MANIFEST
   const key = options.platformKey ?? platformKey()
   const installDir = options.installDir ?? defaultInstallDir()
@@ -191,7 +188,7 @@ export async function ensureCodegraphProvisioned(options: EnsureCodegraphProvisi
   }
 
   try {
-    const downloader = forced?.downloader ?? options.downloader ?? defaultDownloader
+    const downloader = options.downloader ?? defaultDownloader
     const bytes = await downloader(asset)
     const hash = sha256(bytes)
     if (hash !== asset.sha256) {

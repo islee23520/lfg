@@ -17166,7 +17166,7 @@ var init_mcp_manifest_verify = __esm({
 import { existsSync } from "node:fs";
 import { homedir as homedir3 } from "node:os";
 import { spawnSync } from "node:child_process";
-import { basename, join as join14 } from "node:path";
+import { join as join14 } from "node:path";
 function defaultCodegraphInstallDir(homeDir = homedir3()) {
   return join14(homeDir, ".omo", "codegraph");
 }
@@ -18148,7 +18148,7 @@ var init_native_omo_agents = __esm({
 
 // src/grok-adapter/sync-lazycodex-agents-to-grok.ts
 import { mkdir as mkdir10, readdir as readdir2, readFile as readFile15, unlink, writeFile as writeFile11 } from "node:fs/promises";
-import { basename as basename2, join as join23 } from "node:path";
+import { basename, join as join23 } from "node:path";
 async function syncLazycodexAgentsToGrokLedger(home, agentOverrides) {
   const resolved = await resolveGrokAdapterPluginRoot(home);
   if (resolved === null) return null;
@@ -18290,7 +18290,7 @@ async function moveConflictingUserAgentsAside(home, names) {
   const userAgentsDir = join23(home, ".grok", "agents");
   const tomlBackupDir = join23(home, ".grok", "agents-toml-backup-lfg");
   await mkdir10(tomlBackupDir, { recursive: true });
-  for (const entry of await readTomlEntries(userAgentsDir) ?? []) await moveIfExists(join23(userAgentsDir, entry), join23(tomlBackupDir, basename2(entry)));
+  for (const entry of await readTomlEntries(userAgentsDir) ?? []) await moveIfExists(join23(userAgentsDir, entry), join23(tomlBackupDir, basename(entry)));
 }
 function conflictingUserAgentNames() {
   return [...Object.values(GROK_AGENT_NAMES)];

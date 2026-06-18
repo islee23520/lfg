@@ -3,7 +3,6 @@ import { homedir } from "node:os"
 import { isAbsolute, relative, resolve, sep } from "node:path"
 
 import {
-  AGENTS_FILENAME,
   createAgentsMdCache,
   createContentHash,
   createRuleScanCache,
@@ -15,9 +14,6 @@ import {
   parseRuleFrontmatter,
   shouldApplyRule,
   type AgentsMdCache,
-  type MatchResult,
-  type RuleFileCandidate,
-  type RuleMetadata,
   type RuleScanCache,
 } from "./rules-engine-vendored"
 
@@ -34,29 +30,19 @@ import {
  */
 
 export interface RuleInjectionInput {
-  /** Directory the Grok session is operating in. */
   readonly cwd: string
-  /** File path touched by the tool event (PostToolUse), used for rule matching. */
   readonly currentFile: string
-  /** Project root override; defaults to rules-engine project-root detection. */
   readonly projectRoot?: string
-  /** Home directory; defaults to os.userInfo().homedir. */
   readonly homeDir?: string
-  /** Include the project-root AGENTS.md in the upward walk (default true). */
   readonly includeRootAgentsMd?: boolean
-  /** Reuse caches across calls in the same session. */
   readonly ruleScanCache?: RuleScanCache
   readonly agentsMdCache?: AgentsMdCache
-  /** Read file contents; overridable for tests. */
   readonly readFile?: (path: string) => Promise<string>
 }
 
 export interface RuleInjectionResult {
-  /** Markdown block to append to context. Empty string when nothing matched. */
   readonly contextBlock: string
-  /** Number of rule files matched (after dedup). */
   readonly matchedCount: number
-  /** Number of AGENTS.md files discovered on the upward walk. */
   readonly agentsMdCount: number
 }
 
@@ -136,6 +122,3 @@ function dirOf(filePath: string): string {
   const idx = filePath.lastIndexOf(sep)
   return idx === -1 ? filePath : filePath.slice(0, idx)
 }
-
-export { AGENTS_FILENAME }
-export type { MatchResult, RuleFileCandidate, RuleMetadata, RuleScanCache, AgentsMdCache }

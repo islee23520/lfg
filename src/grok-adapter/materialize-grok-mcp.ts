@@ -57,7 +57,6 @@ function localServerPath(pluginRoot: string, mode: McpRuntimeMode, server: Local
 }
 
 export interface MaterializeMcpOptions {
-  /** Pre-resolved codegraph entry. Defaults to a real env resolution. Pass null to omit. */
   readonly codegraphEntry?: CodegraphMcpEntryInput
 }
 

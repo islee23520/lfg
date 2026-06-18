@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs"
 import { homedir } from "node:os"
 import { spawnSync } from "node:child_process"
-import { basename, join } from "node:path"
+import { join } from "node:path"
 
 /**
  * codegraph resolver + env builder.
@@ -165,6 +165,3 @@ export function createCodegraphMcpEntry(options: CreateCodegraphMcpEntryOptions 
     environment,
   }
 }
-
-// Re-export basename for callers that build messages.
-export { basename }

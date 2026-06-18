@@ -1,7 +1,7 @@
-import { appendFileSync, existsSync, mkdirSync } from "node:fs"
+import { appendFileSync, mkdirSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { cwd as processCwd, env as processEnv, stderr as processStderr } from "node:process"
+import { cwd as processCwd, env as processEnv } from "node:process"
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 
@@ -85,7 +85,7 @@ export async function runCodegraphSessionStart(options: CodegraphSessionStartOpt
   const nodeSupport = evaluateCodegraphNodeSupport({ env, nodeVersion: options.nodeVersion })
 
   try {
-    const resolution = resolveOrProvision({
+    const resolution = await resolveOrProvision({
       config,
       env,
       homeDir,
@@ -124,14 +124,14 @@ type ResolutionResult =
   | { readonly kind: "unsupported-node" }
   | { readonly error: string; readonly kind: "unavailable"; readonly source: string }
 
-function resolveOrProvision(args: {
+async function resolveOrProvision(args: {
   config: CodegraphConfig
   env: Record<string, string | undefined>
   homeDir: string
   nodeSupport: CodegraphNodeSupport
   resolveCommand: (options: ResolveCodegraphCommandOptions) => ReturnType<typeof resolveCodegraphCommand>
   ensureProvisioned: typeof ensureCodegraphProvisioned
-}): ResolutionResult {
+}): Promise<ResolutionResult> {
   const resolved = args.resolveCommand({
     env: args.env,
     homeDir: args.homeDir,
@@ -148,10 +148,12 @@ function resolveOrProvision(args: {
     return { error: "codegraph binary unavailable and auto_provision is disabled", kind: "unavailable", source: resolved.source }
   }
 
-  // Provisioning is async; surface as unavailable here and let the caller kick
-  // off provisioning separately. The SessionStart detached worker (wired by the
-  // installer) calls ensureCodegraphProvisioned directly before re-resolving.
-  return { error: "codegraph binary not provisioned; run ensureCodegraphProvisioned first", kind: "unavailable", source: resolved.source }
+  const installDir = args.config.install_dir ?? join(args.homeDir, ".omo", "codegraph")
+  const provisioned = await args.ensureProvisioned({ installDir, lockDir: join(installDir, "locks"), version: CODEGRAPH_VERSION })
+  if (!provisioned.provisioned || provisioned.binPath === undefined) {
+    return { error: provisioned.error ?? "provisioning did not produce a binary", kind: "unavailable", source: resolved.source }
+  }
+  return { kind: "resolved", command: provisioned.binPath, argsPrefix: [], source: "provisioned" }
 }
 
 interface StatusDecision {
@@ -211,5 +213,3 @@ async function defaultRunCommand(cwd: string, command: string, args: readonly st
     return { exitCode: typeof err.code === "number" ? err.code : 1, stdout: err.stdout ?? "", stderr: err.stderr ?? "", timedOut: false }
   }
 }
-
-export { execFileAsync, existsSync }

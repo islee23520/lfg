@@ -1,39 +1,11 @@
 import { resolveModelPipeline, type ModelResolutionRequest, type ModelResolutionResult } from "./model-core-vendored"
 import type { FallbackEntry, ModelRequirement } from "./model-core-vendored"
 
-/**
- * Grok model-catalog adapter (Phase 2 glue).
- *
- * This is the host-specific glue over the vendored model-core. It bridges
- * Grok's OpenAI-compatible `/v1/models` output (bare model ids like `grok-4`)
- * to model-core's expected `provider/model-id` form, and supplies the
- * `availableModels` / `connectedProviders` inputs to `resolveModelPipeline`.
- *
- * Inspired by the gajae-code multiprovider descriptor pattern: providers are
- * declared as descriptors with a provider id + id-prefix inference, then
- * projected into the minimal inputs model-core needs.
- *
- * See `docs/grok-adapter-core-port-strategy.md` (Phase 2).
- */
-
-/**
- * Provider descriptor: maps a provider id to the model-id prefixes that belong
- * to it. Used to infer the provider from a bare model id returned by
- * Grok's `/v1/models` endpoint (which does not include provider prefixes).
- *
- * Mirrors the `inferSubProvider` logic in model-core's
- * `provider-model-id-transform.ts`, but exposed as data so it can be extended.
- */
 export interface ProviderDescriptor {
   readonly providerId: string
   readonly modelPrefixes: readonly string[]
 }
 
-/**
- * Default provider descriptors. Order matters: the first matching prefix wins.
- * `xai` covers Grok's first-party models; the rest cover common OpenAI-compat
- * providers that may be exposed through Grok's proxy.
- */
 export const DEFAULT_PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   { providerId: "xai", modelPrefixes: ["grok-"] },
   { providerId: "anthropic", modelPrefixes: ["claude-"] },
@@ -43,11 +15,6 @@ export const DEFAULT_PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   { providerId: "zai", modelPrefixes: ["glm-"] },
   { providerId: "minimax", modelPrefixes: ["minimax-"] },
 ]
-
-export interface GrokModelCatalogEntry {
-  /** Bare model id as returned by /v1/models (e.g. "grok-4"). */
-  readonly id: string
-}
 
 export interface GrokModelCatalogInput {
   /** Bare model ids from Grok's /v1/models, or pre-normalized provider/model ids. */
@@ -191,14 +158,9 @@ function withGrokFallback(chain: readonly FallbackEntry[] | undefined, catalog: 
 }
 
 function pickGrokModel(available: Set<string>): string | undefined {
-  // Look for xai/grok-* models; prefer the shortest id (most generic).
   const grokModels = Array.from(available).filter((m) => m.startsWith("xai/grok-"))
   if (grokModels.length === 0) return undefined
-  // Strip the provider prefix; model-core's fallbackChain expects bare model ids.
   const bare = grokModels.map((m) => m.split("/").slice(1).join("/"))
   bare.sort((a, b) => a.length - b.length)
   return bare[0]
 }
-
-export { resolveModelPipeline }
-export type { FallbackEntry, ModelRequirement, ModelResolutionRequest, ModelResolutionResult }

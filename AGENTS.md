@@ -8,6 +8,82 @@ Lineage: **codex adapter core feature + opencode feature** from `https://github.
 
 The npm package identity is deliberately distinct from the installed plugin: `lfgIsPlugin: false` in JSON contracts (the npm package is never reported as a Grok plugin object), even though `setup --run` installs a real Grok plugin payload.
 
+## GrokBuild Parity Reference (oh-my-openagent)
+
+This section makes AGENTS.md the canonical quick-reference for **GrokBuild parity vs `https://github.com/code-yeongyu/oh-my-openagent`** (upstream baseline `omo-codex`/OMO `v4.10.0`, recorded per-setup in `lfg-component-inventory.json`). For the full row-by-row matrix with test citations, see `docs/grok-adapter-parity.md`; for the core/adapter port strategy and phase roadmap, see `docs/grok-adapter-core-port-strategy.md`.
+
+**Strategic posture:** upstream is a core/adapter monorepo — `omo-codex` is packaging/install reference only, `omo-opencode` is the architectural reference, and shared host-neutral `*-core` packages are the behavioral source. lfg is shifting from 1:1 `omo-codex` mapping to a thin Grok adapter that consumes cores.
+
+**Status vocabulary:** `Implemented` · `Grok-adapted` · `Manifest-only` · `Remote URL manifest-only` · `Unsupported` · `Deferred`. Manifest-only MCP stubs must never be claimed as behavioral ports.
+
+### Core install parity (Codex reference → Grok owner)
+
+| omo-codex capability | Grok owner (lfg) | Status |
+|---|---|---|
+| Plugin cache install | `src/grok-adapter/` → `~/.grok/plugins/lfg` | Implemented |
+| `config.toml` merge | `lfg-grok-config.ts` (single-writer) | Implemented |
+| Agent TOML + reasoning | `sync-lazycodex-agents-to-grok.ts` + native OMO agents | Implemented |
+| Hook trust | `hook-trust.ts` + post-install verifier | Implemented |
+| Install version stamp | `lfg-install.json` | Implemented |
+| Internal verifier (doctor) | `grok-install/doctor.ts` (not public CLI) | Implemented |
+| `cleanup` / `update` | re-run `setup --run` / `setup --run --force` | N/A by design |
+| Model catalog | `lfg-models.ts` + `LAZYCODEX_*` | Implemented |
+| Project `.omo` awareness | `assets/lfg-config-loader.mjs` (fail-closed) | Implemented |
+| Extension hooks (LFP port) | `extension-hooks.ts` (native first-party; bridge for legacy) | Implemented |
+| Per-agent model overrides | `lazycodex-agent-overrides.ts` | Implemented |
+| Autonomous permissions | Grok permissions own this | N/A |
+| Telemetry | not emitted by lfg | N/A |
+
+### Full OMO component parity (upstream `v4.10.0`)
+
+| Upstream component | lfg support | Status |
+|---|---|---|
+| `codegraph` | External `@colbymchenry/codegraph` binary, sha256-verified into `~/.omo/codegraph`, `.mcp.json` command server | **Grok-adapted** (Phase 0, shipped) |
+| `rules` | `rules-engine-vendored/` (verbatim) + `rules-injector.ts` PostToolUse glue; native first-party hook | **Grok-adapted** (Phase 1, shipped) |
+| `ultrawork` | Native first-party hook + agent prompts synced | **Grok-adapted** |
+| `ulw-loop` | Project `.omo` awareness via fail-closed config loader; durable CLI stays upstream-owned | **Grok-adapted** |
+| `git-bash` | Local MCP stub, disabled on macOS via `disabled_mcp_servers` | Manifest-only |
+| `lsp` | Local runtime stub in plugin `.mcp.json`; `tools/list` empty | Manifest-only |
+| `ast_grep` | Local runtime stub; `tools/list` intentionally empty | Manifest-only |
+| `grep_app` | Remote URL `https://mcp.grep.app`; shape-validated only | Remote URL manifest-only |
+| `context7` | Remote URL `https://mcp.context7.com/mcp`; shape-validated only | Remote URL manifest-only |
+| `comment-checker` | Not wired as Grok-native post-edit workflow | Deferred |
+| `start-work-continuation` | Sisyphus native Stop/SubagentStop hooks substitute | Deferred |
+| `bootstrap` | lfg does not bootstrap Codex runtime deps from Grok | Deferred |
+| `auto-update` | Updates stay user-controlled; hook not generated | Unsupported |
+| `telemetry` | lfg does not emit upstream anonymous telemetry | Unsupported |
+
+### Core/adapter port roadmap
+
+| Phase | Capability | Classification | Status |
+|---|---|---|---|
+| 0 | codegraph MCP + provisioning | CORE + GLUE | Shipped |
+| 1 | Rules / AGENTS.md context engine | CORE + GLUE | Shipped |
+| 2 | Model resolution / fallback (`model-core`) | CORE + HOST-BOUND | Shipped |
+| 3 | Prompt variants + routing (`prompts-core`) | CORE + GLUE | Pending |
+| 4 | Sisyphus / Hephaestus agent prompt builders | GLUE + HOST-BOUND | Pending |
+| 5 | Delegation / orchestration (`delegate-core`, `boulder-state`) | Mixed | Pending |
+| 6 | Skills loading (`skills-loader-core`, `shared-skills`) | Mixed | Pending |
+
+### Gap analysis
+
+**Real GrokBuild surface gaps** (OpenCode surfaces with no Grok equivalent — require Grok-specific alternatives):
+- `experimental.chat.system.transform` — per-turn system-prompt mutation. Workaround: static system-prompt assembly at SessionStart.
+- `experimental.chat.messages.transform` — full message-history rewrite.
+- `chat.params` — mutable model params/headers before dispatch.
+- `experimental.session.compacting` — compaction-context preservation. Workaround: persistence-based recovery.
+
+**Behavioral ports still owed** (currently Manifest-only / Deferred, blocking full parity):
+- `comment-checker` (PostToolUse) — needs a Grok-native post-edit comment workflow.
+- `lsp` (PostToolUse / PostCompact) — needs a real non-empty `tools/list` Grok-adapted runtime.
+- `ast_grep` — needs a real Grok-adapted runtime (currently empty `tools/list`).
+- `git-bash` — Windows-unverified; macOS disabled.
+- `start-work-continuation` Stop/SubagentStop — partially covered by Sisyphus native hooks, but the durable continuation CLI is not packaged.
+
+**Model-family detector gap** (Phase 2 risk, now mitigated): `model-core` family detectors (`isGptModel`, `isGeminiModel`, `isClaudeOpus*Model`, …) do not match `xai/grok-*` IDs; the Grok adapter supplies `availableModels`/`connectedProviders` normalized to `provider/model-id` and maps Grok models into variant families so they don't fall to the `default` variant.
+
+**Prompt-builder gap** (Phase 3–4): bundled `prompts-core/prompts/*` markdown covers atlas/prometheus/ultrawork/mode, but Sisyphus/Hephaestus/Sisyphus-junior prompt content is built by TS builders under `omo-opencode/src/agents/*` — vendoring only `prompts-core` is insufficient; the builders (or their generated output) must also be ported.
+
 ## Architecture & Data Flow
 
 Three-layer pipeline:
