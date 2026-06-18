@@ -17768,7 +17768,9 @@ var init_materialize_grok_mcp = __esm({
 
 // src/grok-adapter/install.ts
 import { cp as cp3, mkdir as mkdir9, readFile as readFile11, rm, writeFile as writeFile9 } from "node:fs/promises";
-import { join as join16 } from "node:path";
+import { existsSync as existsSync2 } from "node:fs";
+import { dirname as dirname9, join as join16 } from "node:path";
+import { fileURLToPath as fileURLToPath4 } from "node:url";
 function nativeGrokPluginRoot(home, pluginDirName = DEFAULT_PLUGIN_DIR) {
   return join16(home, ".grok", "plugins", pluginDirName);
 }
@@ -17784,6 +17786,7 @@ async function installGrokPluginFromSource(options) {
   await rm(pluginRoot, { recursive: true, force: true });
   await rm(legacyPluginRoot, { recursive: true, force: true });
   await cp3(options.sourceRoot, pluginRoot, { recursive: true, force: true });
+  await overlayLfgComponentShims(pluginRoot);
   await writeLfgPluginPackageManifest(pluginRoot, version2);
   const installStampPath = join16(pluginRoot, "lfg-install.json");
   const stamp = { packageName: "@islee23520/lfg", version: version2, platform: "grok" };
@@ -17819,7 +17822,29 @@ async function readGrokInstallStamp(pluginRoot) {
     return null;
   }
 }
-var DEFAULT_PLUGIN_DIR, DEFAULT_VERSION;
+function resolveBundledComponentShimsRoot() {
+  const here = dirname9(fileURLToPath4(import.meta.url));
+  const candidates = [
+    join16(here, "grok-install", "components"),
+    join16(here, "..", "grok-install", "components")
+  ];
+  for (const path2 of candidates) {
+    if (existsSync2(join16(path2, "lsp", "dist", "cli.js"))) return path2;
+  }
+  return null;
+}
+async function overlayLfgComponentShims(pluginRoot) {
+  const shimsRoot = resolveBundledComponentShimsRoot();
+  if (shimsRoot === null) return;
+  for (const dir of LFG_COMPONENT_SHIM_DIRS) {
+    const src = join16(shimsRoot, dir);
+    if (!existsSync2(src)) continue;
+    const dst = join16(pluginRoot, "components", dir);
+    await rm(dst, { recursive: true, force: true });
+    await cp3(src, dst, { recursive: true });
+  }
+}
+var DEFAULT_PLUGIN_DIR, DEFAULT_VERSION, LFG_COMPONENT_SHIM_DIRS;
 var init_install = __esm({
   "src/grok-adapter/install.ts"() {
     "use strict";
@@ -17827,6 +17852,7 @@ var init_install = __esm({
     init_materialize_grok_mcp();
     DEFAULT_PLUGIN_DIR = "lfg";
     DEFAULT_VERSION = "0.0.0-dev";
+    LFG_COMPONENT_SHIM_DIRS = ["ast-grep", "git-bash", "lsp"];
   }
 });
 
@@ -17939,10 +17965,10 @@ var init_npm_publish_bin = __esm({
 
 // src/grok-adapter/package-version.ts
 import { readFile as readFile14 } from "node:fs/promises";
-import { dirname as dirname9, join as join18 } from "node:path";
-import { fileURLToPath as fileURLToPath4 } from "node:url";
+import { dirname as dirname10, join as join18 } from "node:path";
+import { fileURLToPath as fileURLToPath5 } from "node:url";
 async function readLfgPackageVersionFromBundle(moduleUrl) {
-  const distDir = dirname9(fileURLToPath4(moduleUrl));
+  const distDir = dirname10(fileURLToPath5(moduleUrl));
   const candidates = [
     join18(distDir, "..", "package.json"),
     join18(distDir, "..", "..", "package.json"),
@@ -18040,14 +18066,14 @@ var init_resolve_lazycodex_plugin_source = __esm({
 
 // src/grok-adapter/resolve-omo-payload-source.ts
 import { access as access7 } from "node:fs/promises";
-import { dirname as dirname10, join as join20 } from "node:path";
-import { fileURLToPath as fileURLToPath5 } from "node:url";
+import { dirname as dirname11, join as join20 } from "node:path";
+import { fileURLToPath as fileURLToPath6 } from "node:url";
 async function resolveOmoPayloadSource(env = process.env) {
   const explicit = env.LFG_OMO_PLUGIN_SOURCE?.trim();
   if (explicit) {
     return await isBundledOmoPayload(explicit) ? { sourcePath: explicit, payloadDescription: "LFG_OMO_PLUGIN_SOURCE" } : null;
   }
-  const here = dirname10(fileURLToPath5(import.meta.url));
+  const here = dirname11(fileURLToPath6(import.meta.url));
   const candidates = [
     join20(here, "grok-install"),
     join20(here, "..", "grok-install"),
@@ -18128,10 +18154,10 @@ var init_grok_home = __esm({
 });
 
 // src/grok-adapter/run-internal.ts
-import { existsSync as existsSync2 } from "node:fs";
+import { existsSync as existsSync3 } from "node:fs";
 import { lstat } from "node:fs/promises";
-import { dirname as dirname11, join as join22 } from "node:path";
-import { fileURLToPath as fileURLToPath6 } from "node:url";
+import { dirname as dirname12, join as join22 } from "node:path";
+import { fileURLToPath as fileURLToPath7 } from "node:url";
 async function runInternalGrokInstall(env = process.env) {
   const home = resolveGrokSetupHome(env);
   const version2 = env.LFG_PACKAGE_VERSION ?? await readLfgPackageVersionFromBundle(import.meta.url) ?? "0.0.0-dev";
@@ -18208,6 +18234,7 @@ async function finishRepair(pluginRoot, pluginDirName, version2, mode, env = pro
   if (lazycodexSource) {
     await materializeGrokMcpRuntimes(pluginRoot, lazycodexSource);
   }
+  await overlayLfgComponentShims(pluginRoot);
   const hooks = await mergePortedHooksIntoPlugin(pluginRoot);
   await ensureCuaDriverSkill(pluginRoot);
   await ensureUlwWorkflowSkills(pluginRoot);
@@ -18231,14 +18258,14 @@ async function finishRepair(pluginRoot, pluginDirName, version2, mode, env = pro
   };
 }
 function defaultFixtureSourceRoot() {
-  const here = dirname11(fileURLToPath6(import.meta.url));
+  const here = dirname12(fileURLToPath7(import.meta.url));
   const candidates = [
     join22(here, "grok-install", "fixture-minimal"),
     join22(here, "fixture-minimal"),
     join22(here, "..", "grok-install", "fixture-minimal")
   ];
   for (const path2 of candidates) {
-    if (existsSync2(path2)) {
+    if (existsSync3(path2)) {
       return path2;
     }
   }
@@ -19103,6 +19130,7 @@ async function runGrokInstall(discovery, env = process.env, options = {}) {
       subagentModelMappingFromDiscovery(discovery, resolvedAgents2)
     );
     const hooksNormalized = await normalizePluginHooksJson(existingSetup.pluginRoot);
+    await overlayLfgComponentShims(existingSetup.pluginRoot);
     await ensureCuaDriverSkill(existingSetup.pluginRoot);
     await ensureUlwWorkflowSkills(existingSetup.pluginRoot);
     await ensureHephaestusModelGate(existingSetup.pluginRoot);
@@ -21381,8 +21409,8 @@ __export(dist_exports, {
 });
 import { styleText as styleText2, stripVTControlCharacters } from "node:util";
 import process$1 from "node:process";
-import { existsSync as existsSync3, lstatSync, readdirSync } from "node:fs";
-import { dirname as dirname12, join as join28 } from "node:path";
+import { existsSync as existsSync4, lstatSync, readdirSync } from "node:fs";
+import { dirname as dirname13, join as join28 } from "node:path";
 function isUnicodeSupported() {
   if (process$1.platform !== "win32") {
     return process$1.env.TERM !== "linux";
@@ -22345,7 +22373,7 @@ ${n2}
             return [];
           try {
             let i2;
-            existsSync3(t2) ? lstatSync(t2).isDirectory() && (!e.directory || t2.endsWith("/")) ? i2 = t2 : i2 = dirname12(t2) : i2 = dirname12(t2);
+            existsSync4(t2) ? lstatSync(t2).isDirectory() && (!e.directory || t2.endsWith("/")) ? i2 = t2 : i2 = dirname13(t2) : i2 = dirname13(t2);
             const c3 = t2.length > 1 && t2.endsWith("/") ? t2.slice(0, -1) : t2;
             return readdirSync(i2).map((r2) => {
               const n2 = join28(i2, r2), m2 = lstatSync(n2);

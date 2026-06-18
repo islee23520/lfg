@@ -1,6 +1,6 @@
 {
   "name": "@islee23520/lfg",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "OpenCode OmO / lazycodex GrokBuild port: npx @islee23520/lfg setup --run installs the lfg-owned Grok Build plugin payload under ~/.grok/plugins/lfg.",
   "publishConfig": {
     "access": "public"

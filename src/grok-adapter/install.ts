@@ -1,5 +1,7 @@
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { existsSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { writeComponentInventory, type ComponentInventorySource } from "./component-inventory"
 import { materializeGrokMcpRuntimes } from "./materialize-grok-mcp"
 
@@ -21,6 +23,14 @@ export type GrokInstallOptions = {
 
 const DEFAULT_PLUGIN_DIR = "lfg"
 const DEFAULT_VERSION = "0.0.0-dev"
+
+/**
+ * MCP component directories whose upstream CLIs import packages that are not
+ * installed in the plugin tree (e.g. `@code-yeongyu/lsp-daemon`). The lfg-owned
+ * shims from the bundled `grok-install/components/` tree replace them so hook
+ * subcommands exit gracefully instead of crashing on import resolution.
+ */
+const LFG_COMPONENT_SHIM_DIRS = ["ast-grep", "git-bash", "lsp"] as const
 
 export function nativeGrokPluginRoot(home: string, pluginDirName: string = DEFAULT_PLUGIN_DIR): string {
   return join(home, ".grok", "plugins", pluginDirName)
@@ -44,6 +54,7 @@ export async function installGrokPluginFromSource(options: GrokInstallOptions): 
   await rm(legacyPluginRoot, { recursive: true, force: true })
 
   await cp(options.sourceRoot, pluginRoot, { recursive: true, force: true })
+  await overlayLfgComponentShims(pluginRoot)
   await writeLfgPluginPackageManifest(pluginRoot, version)
   const installStampPath = join(pluginRoot, "lfg-install.json")
   const stamp = { packageName: "@islee23520/lfg", version, platform: "grok" as const }
@@ -77,5 +88,41 @@ export async function readGrokInstallStamp(pluginRoot: string): Promise<{ readon
     return { packageName: record.packageName, version: record.version }
   } catch {
     return null
+  }
+}
+
+/**
+ * Resolves the bundled lfg-owned component shim directory relative to the
+ * current module. In the esbuild bundle this is `dist/grok-install/components/`.
+ * Returns null when the shims are not bundled (e.g. running from source without
+ * a build).
+ */
+function resolveBundledComponentShimsRoot(): string | null {
+  const here = dirname(fileURLToPath(import.meta.url))
+  const candidates = [
+    join(here, "grok-install", "components"),
+    join(here, "..", "grok-install", "components"),
+  ]
+  for (const path of candidates) {
+    if (existsSync(join(path, "lsp", "dist", "cli.js"))) return path
+  }
+  return null
+}
+
+/**
+ * Overwrites the three MCP component directories (ast-grep, git-bash, lsp) in
+ * the installed plugin tree with the lfg-owned shims from the bundle. This
+ * prevents upstream component CLIs from crashing on missing package imports
+ * (e.g. `@code-yeongyu/lsp-daemon`) when hooks invoke them.
+ */
+export async function overlayLfgComponentShims(pluginRoot: string): Promise<void> {
+  const shimsRoot = resolveBundledComponentShimsRoot()
+  if (shimsRoot === null) return
+  for (const dir of LFG_COMPONENT_SHIM_DIRS) {
+    const src = join(shimsRoot, dir)
+    if (!existsSync(src)) continue
+    const dst = join(pluginRoot, "components", dir)
+    await rm(dst, { recursive: true, force: true })
+    await cp(src, dst, { recursive: true })
   }
 }

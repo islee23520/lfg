@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url"
 import type { JsonObject } from "../cli/lfg-json"
 import { mergePortedHooksIntoPlugin } from "./extension-hooks"
 import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
-import { installGrokPluginFromSource, readGrokInstallStamp } from "./install"
+import { installGrokPluginFromSource, overlayLfgComponentShims, readGrokInstallStamp } from "./install"
 import { readLfgPackageVersionFromBundle } from "./package-version"
 import { resolveLazycodexGrokPluginSource } from "./resolve-lazycodex-plugin-source"
 import { resolveOmoPayloadSource } from "./resolve-omo-payload-source"
@@ -125,6 +125,7 @@ async function finishRepair(
   if (lazycodexSource) {
     await materializeGrokMcpRuntimes(pluginRoot, lazycodexSource)
   }
+  await overlayLfgComponentShims(pluginRoot)
   const hooks = await mergePortedHooksIntoPlugin(pluginRoot)
   await ensureCuaDriverSkill(pluginRoot)
   await ensureUlwWorkflowSkills(pluginRoot)

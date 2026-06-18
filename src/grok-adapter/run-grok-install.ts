@@ -14,7 +14,7 @@ import {
 } from "./lazycodex-agent-overrides"
 import { resolveGlobalLazycodexAgentConfig } from "./resolve-global-agent-config"
 import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
-import { readGrokInstallStamp } from "./install"
+import { overlayLfgComponentShims, readGrokInstallStamp } from "./install"
 import { runInternalGrokInstall } from "./run-internal"
 import { syncLazycodexAgentsToGrokLedger, type SyncLazycodexAgentsResult } from "./sync-lazycodex-agents-to-grok"
 import { componentInventoryPath } from "./component-inventory"
@@ -88,7 +88,10 @@ export async function runGrokInstall(
 
     // Hooks must always be (re)normalized on every setup run so the Grok bridge,
     // lfg-config-loader, project omo ledger, and ultrawork component hooks are guaranteed loaded.
+    // Component shims are also re-overlaid to repair upstream CLIs that crash on missing
+    // package imports (e.g. @code-yeongyu/lsp-daemon in the upstream lsp component).
     const hooksNormalized = await normalizePluginHooksJson(existingSetup.pluginRoot)
+    await overlayLfgComponentShims(existingSetup.pluginRoot)
     await ensureCuaDriverSkill(existingSetup.pluginRoot)
     await ensureUlwWorkflowSkills(existingSetup.pluginRoot)
     await ensureHephaestusModelGate(existingSetup.pluginRoot)

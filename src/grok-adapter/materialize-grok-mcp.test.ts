@@ -164,13 +164,13 @@ describe("materializeGrokMcpRuntimes", () => {
     }
   })
 
-  test("package-shaped MCP hook shims reject unsupported hook subcommands without recursion", () => {
+  test("package-shaped MCP hook shims exit 0 silently for deferred hook subcommands", () => {
     for (const component of ["ast-grep", "lsp"] as const) {
       const shim = join(process.cwd(), "dist", "grok-install", "components", component, "dist", "cli.js")
       const result = spawnSync(process.execPath, [shim, "hook"], { encoding: "utf8", timeout: 1000 })
       expect(result.error, result.stderr).toBeUndefined()
-      expect(result.status).toBe(2)
-      expect(result.stderr).toContain("unsupported hook subcommand")
+      expect(result.status).toBe(0)
+      expect(result.stderr).toBe("")
     }
   })
 
