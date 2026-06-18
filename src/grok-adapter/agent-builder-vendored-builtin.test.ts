@@ -54,8 +54,8 @@ function asAvailableAgents(names: readonly CuratedBuiltinAgentName[]): Available
 
 describe("agent-builder-vendored builtin registry", () => {
   test("contains curated entries for all Phase 4.3 builtin agent names", () => {
-    expect(BUILTIN_AGENT_NAMES.toSorted()).toEqual(expectedBuiltinAgentNames.toSorted())
-    expect(Object.keys(BUILTIN_AGENTS).toSorted()).toEqual(expectedBuiltinAgentNames.toSorted())
+    expect([...BUILTIN_AGENT_NAMES].sort()).toEqual([...expectedBuiltinAgentNames].sort())
+    expect([...Object.keys(BUILTIN_AGENTS)].sort()).toEqual([...expectedBuiltinAgentNames].sort())
   })
 
   test("each builtin entry has valid portable model, category, and metadata fields", () => {

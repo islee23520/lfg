@@ -54,7 +54,7 @@ export function buildGrokAgentRole(input: BuildGrokAgentRoleInput): GrokAgentRol
   const availableSkills = [...(input.availableSkills ?? [])]
   const availableCategories = [...(input.availableCategories ?? [])]
   const systemPrompt = buildSystemPrompt({
-    agentName: definition.metadata.promptAlias,
+    agentName: definition.metadata.promptAlias ?? definition.id,
     description: definition.description,
     model,
     promptSections: definition.promptSections,
