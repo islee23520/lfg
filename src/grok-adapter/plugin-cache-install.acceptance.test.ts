@@ -22,6 +22,10 @@ const T2_COMPONENT_IDS = [
   "ast_grep",
   "grep_app",
   "context7",
+  "agent-builder",
+  "delegate-core",
+  "boulder-state",
+  "skills-loader-core",
 ] as const
 
 /** Epic #27 / plan task 3 — fixture-only, no network. */

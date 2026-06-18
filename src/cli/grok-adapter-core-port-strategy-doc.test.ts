@@ -42,6 +42,9 @@ describe("docs/grok-adapter-core-port-strategy.md", () => {
     expect(text).toContain("rules-engine")
     expect(text).toContain("model-core")
     expect(text).toContain("prompts-core")
+    expect(text).toContain("Shipped (partial)")
+    expect(text).toContain("skills-loader-core")
+    expect(text).toContain("Shipped (curated)")
     expect(text).toContain("@colbymchenry/codegraph")
 
     // Model family mapping risk
