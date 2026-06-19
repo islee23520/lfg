@@ -16,10 +16,10 @@ After loading, follow the skill's full workflow EXACTLY:
 4. Round 2 — Cross-attack (each member ruthlessly attacks the other 4's findings)
 5. Round 3 — Defend, refine, or concede
 6. Distill defensible insights into a structured bundle (Lead does NOT write the plan)
-7. MANDATORY: hand the bundle to the `plan` agent via `task(subagent_type="plan", ...)` — the plan agent owns sequencing, parallelization, and verification gates
-8. Present the plan agent's output verbatim with provenance line, then clean up the team
+7. MANDATORY: load and follow `ulw-plan`, using the adversarial bundle as the planning input — `ulw-plan` owns sequencing, parallelization, and verification gates
+8. Present the `ulw-plan` output path and concise summary with provenance line, then clean up the team
 
-Do NOT improvise. Do NOT skip rounds. Do NOT write the plan yourself in step 6 — the handoff to the plan agent in step 7 is non-negotiable. Be the lead orchestrator and let the adversarial members do the cross-critique.
+Do NOT improvise. Do NOT skip rounds. Do NOT write the plan yourself in step 6 — the handoff to `ulw-plan` in step 7 is non-negotiable. Be the lead orchestrator and let the adversarial members do the cross-critique.
 
 If team-mode is unavailable (`team_*` tools missing), instruct the user to set `team_mode.enabled: true` in `~/.config/opencode/oh-my-opencode.jsonc` and restart opencode.
 </hyperplan-mode>

@@ -62,7 +62,7 @@ Before acting, survey the skills available in this system: scan their descriptio
 | explore agent | Need codebase patterns you don't have | `task(subagent_type="explore", load_skills=[], run_in_background=true, ...)` |
 | librarian agent | External library docs, OSS examples | `task(subagent_type="librarian", load_skills=[], run_in_background=true, ...)` |
 | oracle agent | Stuck on architecture/debugging after 2+ attempts | `task(subagent_type="oracle", load_skills=[], run_in_background=false, ...)` |
-| plan agent | Complex multi-step with dependencies (5+ steps) | `task(subagent_type="plan", load_skills=[], run_in_background=false, ...)` |
+| `ulw-plan` skill | Complex multi-step with dependencies (5+ steps) | Load and follow `ulw-plan`; create or reuse `.omo/plans/<slug>.md` |
 | task category | Specialized work matching a category | `task(category="...", load_skills=[...], run_in_background=true)` |
 
 <tool_usage_rules>

@@ -191,16 +191,16 @@ export function buildNonClaudePlannerSection(model: string): string {
     return ""
   }
 
-  return `### Plan Agent Dependency (Non-Claude)
+  return `### ULW-Plan Dependency (Non-Claude)
 
-Multi-step task? **ALWAYS consult Plan Agent first.** Do NOT start implementation without a plan.
+Multi-step task? **ALWAYS load and follow the \`ulw-plan\` skill first.** Do NOT start implementation without a durable plan.
 
 - Single-file fix or trivial change → proceed directly
-- Anything else (2+ steps, unclear scope, architecture) → \`task(subagent_type="plan", ...)\` FIRST
-- Use \`task_id\` to resume the same Plan Agent - ask follow-up questions aggressively
-- If ANY part of the task is ambiguous, ask Plan Agent before guessing
+- Anything else (2+ steps, unclear scope, architecture) → load and follow \`ulw-plan\` FIRST
+- Reuse and revise the matching \`.omo/plans/*.md\` plan instead of creating a duplicate
+- If ANY part of the task is ambiguous, use the \`ulw-plan\` interview rules before guessing
 
-Plan Agent returns a structured work breakdown with parallel execution opportunities. Follow it.`
+ULW-Plan returns a structured, path-backed work breakdown with verification gates. Follow it.`
 }
 
 export function buildParallelDelegationSection(

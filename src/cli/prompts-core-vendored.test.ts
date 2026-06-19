@@ -56,6 +56,16 @@ describe("prompts-core-vendored: prompt tables", () => {
     }
   })
 
+  it("ultrawork planning routes through the ulw-plan skill", () => {
+    for (const variant of ["default", "gpt", "gemini", "glm"]) {
+      const prompt = bundled(ultrawork, variant).content
+      expect(prompt).toContain("ulw-plan")
+      expect(prompt).not.toContain("task(subagent_type=\"plan\"")
+    }
+    expect(HYPERPLAN_MODE_PROMPT).toContain("ulw-plan")
+    expect(HYPERPLAN_MODE_PROMPT).not.toContain("task(subagent_type=\"plan\"")
+  })
+
   it("prometheus has default variant", () => {
     expect(prometheusPromptVariants.default).toBeDefined()
     expect(prometheusPromptVariants.default.content).toContain("Prometheus")

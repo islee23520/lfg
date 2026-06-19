@@ -131,34 +131,34 @@ YOU MUST LEVERAGE ALL AVAILABLE AGENTS / **CATEGORY + SKILLS** TO THEIR FULLEST 
 
 TELL THE USER WHAT AGENTS + SKILLS YOU WILL LEVERAGE NOW TO SATISFY USER'S REQUEST.
 
-## MANDATORY: PLAN AGENT INVOCATION (NON-NEGOTIABLE)
+## MANDATORY: ULW-PLAN PLANNING (NON-NEGOTIABLE)
 
-**FIRST SIZE THE SCOPE** — count distinct surfaces, files, and steps — then decide. **YOU MUST ALWAYS INVOKE THE PLAN AGENT FOR ANY NON-TRIVIAL TASK.**
+**FIRST SIZE THE SCOPE** — count distinct surfaces, files, and steps — then decide. **YOU MUST LOAD AND FOLLOW `ulw-plan` FOR ANY NON-TRIVIAL TASK.**
 
 | Condition | Action |
 |-----------|--------|
-| Task has 2+ steps | MUST call plan agent |
-| Task scope unclear | MUST call plan agent |
-| Implementation required | MUST call plan agent |
-| Architecture decision needed | MUST call plan agent |
+| Task has 2+ steps | MUST load and follow `ulw-plan` |
+| Task scope unclear | MUST load and follow `ulw-plan` |
+| Implementation required | MUST create or reuse the `ulw-plan` plan before execution |
+| Architecture decision needed | MUST capture the decision in the `ulw-plan` plan |
 
-**AFTER THE PLAN RETURNS:** execute in the EXACT wave order and parallel grouping it specifies, and run the verification IT defines per task. Do NOT invent your own ordering or skip its verification.
+**AFTER THE PLAN EXISTS:** execute in the EXACT wave order and verification gates it specifies. Do NOT invent your own ordering or skip its verification.
 
 ```
-task(subagent_type="plan", load_skills=[], run_in_background=false, prompt="<gathered context + user request>")
+skill(name="ulw-plan")
 ```
 
-### SESSION CONTINUITY WITH PLAN AGENT (CRITICAL)
+### SESSION CONTINUITY WITH ULW-PLAN (CRITICAL)
 
-**Plan agent output includes a continuation ID (`ses_...`). USE IT for follow-up interactions via `task(task_id="ses_...", ...)`.**
+**The `ulw-plan` artifact is the continuation surface. Re-read the existing `.omo/plans/*.md` plan and revise it instead of starting a duplicate plan.**
 
 | Scenario | Action |
 |----------|--------|
-| Plan agent asks clarifying questions | `task(task_id="{returned_task_id}", load_skills=[], run_in_background=false, prompt="<your answer>")` |
-| Need to refine the plan | `task(task_id="{returned_task_id}", load_skills=[], run_in_background=false, prompt="Please adjust: <feedback>")` |
-| Plan needs more detail | `task(task_id="{returned_task_id}", load_skills=[], run_in_background=false, prompt="Add more detail to Task N")` |
+| Plan has clarifying questions | Ask the user only for decisions repo evidence cannot resolve |
+| Need to refine the plan | Edit the existing `.omo/plans/<slug>.md` with the new constraints |
+| Plan needs more detail | Add dependency order, acceptance criteria, and verification gates in the plan file |
 
-**FAILURE TO CALL PLAN AGENT = INCOMPLETE WORK.**
+**FAILURE TO USE ULW-PLAN = INCOMPLETE WORK.**
 
 ---
 
@@ -172,7 +172,7 @@ task(subagent_type="plan", load_skills=[], run_in_background=false, prompt="<gat
 |-----------|--------|-----|
 | Codebase exploration | task(subagent_type="explore", load_skills=[], run_in_background=true) | Parallel, context-efficient |
 | Documentation lookup | task(subagent_type="librarian", load_skills=[], run_in_background=true) | Specialized knowledge |
-| Planning | task(subagent_type="plan", load_skills=[], run_in_background=false) | Parallel task graph + structured TODO list |
+| Planning | Load and follow the `ulw-plan` skill | Durable `.omo/plans` artifact + verification gates |
 | Hard problem (conventional) | task(subagent_type="oracle", load_skills=[], run_in_background=false) | Architecture, debugging, complex logic |
 | Hard problem (non-conventional) | task(category="artistry", load_skills=[...], run_in_background=true) | Different approach needed |
 | Implementation | task(category="...", load_skills=[...], run_in_background=true) | Domain-optimized models |
