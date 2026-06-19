@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -6,7 +7,8 @@ import { describe, expect, test } from "vitest"
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
 const BUNDLE = join(ROOT, ".omo/plan-evidence/lfg-omo-grok-adapter.json")
 
-describe(".omo/plan-evidence/lfg-omo-grok-adapter.json (#35)", () => {
+// `.omo/` is gitignored; this evidence-bundle check is local-dev-only and skipped in CI.
+describe.skipIf(!existsSync(BUNDLE))(".omo/plan-evidence/lfg-omo-grok-adapter.json (#35)", () => {
   test("bundle references canonical plan and epic without secrets", async () => {
     const raw = await readFile(BUNDLE, "utf8")
     expect(raw).not.toMatch(/sk-[a-zA-Z0-9]{10,}/)

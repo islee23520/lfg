@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
-import { execFile } from "node:child_process"
+import { execFile, spawnSync } from "node:child_process"
 import { promisify } from "node:util"
 import { describe, expect, test } from "vitest"
 
@@ -15,7 +15,18 @@ import { resolveFastModelId, serviceTierFromChoice } from "./resolve-tier-model"
 
 const execFileAsync = promisify(execFile)
 
-describe("fast tier → Grok-visible explorer model (live harness)", () => {
+const GROK_BIN = process.env.GROK_BIN ?? "grok"
+
+/** A "live" test — only meaningful when the `grok` CLI is on PATH (CI runners lack it). */
+function grokBinaryAvailable(bin: string): boolean {
+  const result = spawnSync(bin, ["--version"], { timeout: 3000, encoding: "utf8" })
+  if (result.error) {
+    return (result.error as NodeJS.ErrnoException).code !== "ENOENT"
+  }
+  return true
+}
+
+describe.skipIf(!grokBinaryAvailable(GROK_BIN))("fast tier → Grok-visible explorer model (live harness)", () => {
   test("install writes grok-3-mini-fast to roles/overrides; grok inspect lists lfg:explorer", async () => {
     const modelIds = ["grok-3-mini", "grok-3-mini-fast", "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark"] as const
     await withModelServer(modelIds, async (baseUrl) => {
@@ -64,10 +75,9 @@ describe("fast tier → Grok-visible explorer model (live harness)", () => {
           expect(overridesRaw).toContain("grok-3-mini-fast")
           expect(overridesRaw).toContain('"service_tier": "fast"')
 
-          const grokBin = process.env.GROK_BIN ?? "grok"
           let inspectStdout = ""
           try {
-            const { stdout } = await execFileAsync(grokBin, ["inspect", "--json"], {
+            const { stdout } = await execFileAsync(GROK_BIN, ["inspect", "--json"], {
               env: { ...process.env, HOME: home, GROK_HOME: join(home, ".grok") },
               maxBuffer: 8 * 1024 * 1024,
             })
