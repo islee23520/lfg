@@ -12,3 +12,8 @@ plans/
 *lfg*.tgz
 *.code-workspace
 .gjc/
+
+# Project instruction files are tracked despite any global gitignore AGENTS.md rule.
+!AGENTS.md
+!src/AGENTS.md
+!**/AGENTS.md
