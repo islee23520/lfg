@@ -1,4 +1,4 @@
-import { access, readFile, readdir, stat } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 export async function inspectProjectOmoLedger(options) {
@@ -7,13 +7,13 @@ export async function inspectProjectOmoLedger(options) {
   const base = { projectRoot: options.projectRoot, boulderPath, ledgerPath };
   const raw = await readOptionalText(boulderPath);
   if (raw === null) {
-    const ulwLoop = await inspectUlwLoop(options.projectRoot);
-    return { ...base, status: "absent", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null, ulwLoop };
+    const ulwLoop = await inspectUlwLoop(options.projectRoot) ?? emptyUlwLoop();
+    return { ...base, status: "absent", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null, ulwLoop, resumeOptions: [], ledgerPreviews: [] };
   }
   const state = parseBoulderState(raw);
   if (state === null) {
-    const ulwLoop = await inspectUlwLoop(options.projectRoot);
-    return { ...base, status: "malformed", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null, ulwLoop };
+    const ulwLoop = await inspectUlwLoop(options.projectRoot) ?? emptyUlwLoop();
+    return { ...base, status: "malformed", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null, ulwLoop, resumeOptions: [], ledgerPreviews: [] };
   }
   const match = findWork(state, options.sessionId);
   const ledger = await inspectLedger(ledgerPath);
@@ -26,6 +26,8 @@ export async function inspectProjectOmoLedger(options) {
     ledgerLineCount: ledger.lineCount,
     matchedBy: match?.matchedBy ?? null,
     ulwLoop,
+    resumeOptions: resumeOptionsFromState(state),
+    ledgerPreviews: ledgerPreviews(ledger, ulwLoop),
   };
 }
 
@@ -79,6 +81,7 @@ function findWork(state, sessionId) {
   const sessionMatches = sessionId !== null ? [
     { session: `grok:${sessionId}`, matchedBy: "grok-session" },
     { session: `codex:${sessionId}`, matchedBy: "codex-session" },
+    { session: `opencode:${sessionId}`, matchedBy: "opencode-session" },
     { session: sessionId, matchedBy: "raw-session" },
   ] : [];
   for (const candidate of sessionMatches) {
@@ -107,10 +110,35 @@ async function inspectLedger(path) {
   try {
     await access(path);
     const text = await readFile(path, "utf8");
-    return { exists: true, lineCount: text.split("\n").filter((line) => line.length > 0).length };
+    return { exists: true, lineCount: text.split("\n").filter((line) => line.length > 0).length, truncated: false };
   } catch {
-    return { exists: false, lineCount: 0 };
+    return { exists: false, lineCount: 0, truncated: false };
   }
+}
+
+function resumeOptionsFromState(state) {
+  return [...state.works.values()].map((work) => ({
+    workId: work.workId,
+    planName: work.planName,
+    status: work.status,
+    activePlan: work.activePlan,
+    worktreePath: work.worktreePath,
+    sessionCount: work.sessionIds.length,
+    awarenessOnly: true,
+  }));
+}
+
+function ledgerPreviews(ledger, ulwLoop) {
+  const previews = [];
+  if (ledger.exists) {
+    previews.push({ source: "start-work", sessionId: null, lineCount: ledger.lineCount, truncated: ledger.truncated });
+  }
+  previews.push(...(ulwLoop?.ledgerPreviews ?? []));
+  return previews;
+}
+
+function emptyUlwLoop() {
+  return { present: false, sessionCount: 0, hasActiveLedger: false, ledgerPreviews: [] };
 }
 
 async function inspectUlwLoop(projectRoot) {
@@ -119,24 +147,20 @@ async function inspectUlwLoop(projectRoot) {
     const entries = await readdir(loopRoot, { withFileTypes: true });
     const sessions = entries.filter((e) => e.isDirectory() && /^[0-9a-f-]{8,}$/i.test(e.name));
     if (sessions.length === 0) {
-      return { present: false, sessionCount: 0, hasActiveLedger: false };
+      return emptyUlwLoop();
     }
     let hasActiveLedger = false;
+    const ledgerPreviews = [];
     for (const s of sessions) {
       const ledgerPath = join(loopRoot, s.name, "ledger.jsonl");
-      try {
-        const st = await stat(ledgerPath);
-        if (st.isFile() && st.size > 0) {
-          hasActiveLedger = true;
-          break;
-        }
-      } catch {
-        // ledger missing or unreadable for this session; continue
+      const preview = await inspectLedger(ledgerPath);
+      if (preview.exists && preview.lineCount > 0) {
+        hasActiveLedger = true;
+        ledgerPreviews.push({ source: "ulw-loop", sessionId: s.name, lineCount: preview.lineCount, truncated: preview.truncated });
       }
     }
-    return { present: true, sessionCount: sessions.length, hasActiveLedger };
+    return { present: true, sessionCount: sessions.length, hasActiveLedger, ledgerPreviews };
   } catch {
-    // no .omo/ulw-loop directory or not readable
     return null;
   }
 }

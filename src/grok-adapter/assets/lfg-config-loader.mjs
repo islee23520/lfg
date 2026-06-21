@@ -8,6 +8,8 @@ import { devLog } from "./lfg-dev-logger.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEST_HOME_ENABLED = "1";
+const PROJECT_CONTEXT_MAX_CHARS = 2048;
+const FIELD_MAX_CHARS = 160;
 
 const input = parseJson(await readStdin());
 const event = normalizeHookEventName(input);
@@ -134,6 +136,31 @@ function renderProjectOmoLedger(ledger) {
   lines.push(`Matched by: ${ledger.matchedBy ?? "none"}`);
   lines.push(`Ledger exists: ${ledger.ledgerExists ? "true" : "false"}`);
   lines.push(`Ledger line count: ${ledger.ledgerLineCount}`);
+  const resumeOptions = Array.isArray(ledger.resumeOptions) ? ledger.resumeOptions : [];
+  const ledgerPreviews = Array.isArray(ledger.ledgerPreviews) ? ledger.ledgerPreviews : [];
+  if (resumeOptions.length > 0 || ledgerPreviews.length > 0) {
+    lines.push("Previous OMO context: awareness-only; continuation remains Deferred.");
+    for (const option of resumeOptions.slice(0, 3)) {
+      if (!option || typeof option !== "object") continue;
+      const workId = stringField(option, "workId");
+      const planName = stringField(option, "planName");
+      const status = stringField(option, "status");
+      const sessionCount = numberField(option, "sessionCount");
+      if (workId !== null && planName !== null && status !== null && sessionCount !== null) {
+        lines.push(`Resumable awareness: ${workId} (${planName}, ${status}, sessions=${sessionCount})`);
+      }
+    }
+    for (const preview of ledgerPreviews.slice(0, 5)) {
+      if (!preview || typeof preview !== "object") continue;
+      const source = stringField(preview, "source");
+      const lineCount = numberField(preview, "lineCount");
+      const previewSessionId = stringField(preview, "sessionId");
+      if (source !== null && lineCount !== null) {
+        const sessionSuffix = previewSessionId !== null ? `, session=${previewSessionId}` : "";
+        lines.push(`Ledger preview: ${source}${sessionSuffix}, lines=${lineCount}`);
+      }
+    }
+  }
   const ul = ledger.ulwLoop;
   if (ul && typeof ul === "object" && ul.present) {
     lines.push(`ulw-loop sessions: ${ul.sessionCount}`);
@@ -141,7 +168,7 @@ function renderProjectOmoLedger(ledger) {
   } else {
     lines.push("ulw-loop: none");
   }
-  return lines;
+  return lines.join("\n").length > 2048 ? lines.slice(0, 12) : lines;
 }
 
 function projectRootFromInput(record) {
@@ -171,6 +198,11 @@ function stringField(record, key) {
 function booleanField(record, key) {
   const value = record[key];
   return typeof value === "boolean" ? value : null;
+}
+
+function numberField(record, key) {
+  const value = record[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function normalizeHookEventName(record) {

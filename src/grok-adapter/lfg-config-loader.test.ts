@@ -37,9 +37,38 @@ describe("lfg-config-loader project .omo context", () => {
     expect(output.hookSpecificOutput?.additionalContext).toContain("Active plan: .omo/plans/demo.md")
     expect(output.hookSpecificOutput?.additionalContext).toContain("Ledger exists: true")
     expect(output.hookSpecificOutput?.additionalContext).toContain("Ledger line count: 2")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Previous OMO context: awareness-only; continuation remains Deferred.")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Resumable awareness: demo-work (Demo Plan, active, sessions=1)")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Ledger preview: start-work, lines=2")
     expect(output.hookSpecificOutput?.additionalContext).not.toContain("ledger one")
     expect(output.hookSpecificOutput?.additionalContext).not.toContain("ledger two")
     expect(output.hookSpecificOutput?.additionalContext).toContain("ulw-loop: none")
+    expect(output.hookSpecificOutput?.additionalContext.length).toBeLessThanOrEqual(2048)
+  })
+
+  test("omits secret-like ledger text from rendered project .omo awareness", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-loader-secret-home-"))
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-loader-secret-project-"))
+    await writeProjectOmo(projectRoot, "session-123", [
+      '{"api_key":"sk-test-secret","prompt":"do not leak this prompt"}',
+      "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
+    ])
+
+    const result = await runLoader({
+      home,
+      payload: {
+        hookEventName: "session_start",
+        sessionId: "session-123",
+        cwd: projectRoot,
+      },
+    })
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" })
+    const context = parseHookOutput(result.stdout).hookSpecificOutput?.additionalContext ?? ""
+    expect(context).toContain("Ledger preview: start-work, lines=2")
+    expect(context).not.toContain("sk-test-secret")
+    expect(context).not.toContain("Authorization")
+    expect(context).not.toContain("do not leak this prompt")
   })
 
   test("fails closed for malformed project .omo", async () => {

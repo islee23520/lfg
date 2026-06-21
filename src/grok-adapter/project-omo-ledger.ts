@@ -1,4 +1,4 @@
-import { access, readFile, readdir, stat } from "node:fs/promises"
+import { access, open, readdir, stat } from "node:fs/promises"
 import { join } from "node:path"
 
 export type ProjectOmoLedgerOptions = {
@@ -14,14 +14,34 @@ export type ProjectOmoLedgerSummary = {
   readonly work: ProjectOmoLedgerWork | null
   readonly ledgerExists: boolean
   readonly ledgerLineCount: number
-  readonly matchedBy: "grok-session" | "codex-session" | "raw-session" | "active-work-id" | null
+  readonly matchedBy: "grok-session" | "codex-session" | "opencode-session" | "raw-session" | "active-work-id" | null
   readonly ulwLoop: ProjectOmoUlwLoopSummary | null
+  readonly resumeOptions: readonly ProjectOmoAwarenessResumeOption[]
+  readonly ledgerPreviews: readonly ProjectOmoLedgerPreview[]
+}
+
+export type ProjectOmoAwarenessResumeOption = {
+  readonly workId: string
+  readonly planName: string
+  readonly status: string
+  readonly activePlan: string
+  readonly worktreePath: string | null
+  readonly sessionCount: number
+  readonly awarenessOnly: true
+}
+
+export type ProjectOmoLedgerPreview = {
+  readonly source: "start-work" | "ulw-loop"
+  readonly sessionId: string | null
+  readonly lineCount: number
+  readonly truncated: boolean
 }
 
 export type ProjectOmoUlwLoopSummary = {
   readonly present: boolean
   readonly sessionCount: number
   readonly hasActiveLedger: boolean
+  readonly ledgerPreviews: readonly ProjectOmoLedgerPreview[]
 }
 
 export type ProjectOmoLedgerWork = {
@@ -46,19 +66,22 @@ type BoulderState = {
   readonly works: ReadonlyMap<string, BoulderWork>
 }
 
+const BOULDER_MAX_BYTES = 128 * 1024
+const LEDGER_MAX_BYTES = 64 * 1024
+
 export async function inspectProjectOmoLedger(options: ProjectOmoLedgerOptions): Promise<ProjectOmoLedgerSummary> {
   const boulderPath = join(options.projectRoot, ".omo", "boulder.json")
   const ledgerPath = join(options.projectRoot, ".omo", "start-work", "ledger.jsonl")
   const base = { projectRoot: options.projectRoot, boulderPath, ledgerPath }
   const raw = await readOptionalText(boulderPath)
   if (raw === null) {
-    const ulwLoop = await inspectUlwLoop(options.projectRoot) ?? { present: false, sessionCount: 0, hasActiveLedger: false }
-    return { ...base, status: "absent", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null, ulwLoop }
+    const ulwLoop = await inspectUlwLoop(options.projectRoot) ?? emptyUlwLoop()
+    return { ...base, status: "absent", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null, ulwLoop, resumeOptions: [], ledgerPreviews: [] }
   }
   const state = parseBoulderState(raw)
   if (state === null) {
-    const ulwLoop = await inspectUlwLoop(options.projectRoot) ?? { present: false, sessionCount: 0, hasActiveLedger: false }
-    return { ...base, status: "malformed", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null, ulwLoop }
+    const ulwLoop = await inspectUlwLoop(options.projectRoot) ?? emptyUlwLoop()
+    return { ...base, status: "malformed", work: null, ledgerExists: false, ledgerLineCount: 0, matchedBy: null, ulwLoop, resumeOptions: [], ledgerPreviews: [] }
   }
   const match = findWork(state, options.sessionId)
   const ledger = await inspectLedger(ledgerPath)
@@ -71,14 +94,37 @@ export async function inspectProjectOmoLedger(options: ProjectOmoLedgerOptions):
     ledgerLineCount: ledger.lineCount,
     matchedBy: match?.matchedBy ?? null,
     ulwLoop,
+    resumeOptions: resumeOptionsFromState(state),
+    ledgerPreviews: ledgerPreviews(ledger, ulwLoop),
   }
 }
 
 async function readOptionalText(path: string): Promise<string | null> {
+  const result = await readLimitedText(path, BOULDER_MAX_BYTES)
+  return result.exists ? result.text : null
+}
+
+type LimitedTextRead = {
+  readonly exists: boolean
+  readonly text: string
+  readonly truncated: boolean
+}
+
+async function readLimitedText(path: string, maxBytes: number): Promise<LimitedTextRead> {
   try {
-    return await readFile(path, "utf8")
+    const fileStat = await stat(path)
+    if (!fileStat.isFile()) return { exists: false, text: "", truncated: false }
+    const handle = await open(path, "r")
+    try {
+      const bytesToRead = Math.min(fileStat.size, maxBytes)
+      const buffer = Buffer.alloc(bytesToRead)
+      const { bytesRead } = await handle.read(buffer, 0, bytesToRead, 0)
+      return { exists: true, text: buffer.subarray(0, bytesRead).toString("utf8"), truncated: fileStat.size > maxBytes }
+    } finally {
+      await handle.close()
+    }
   } catch {
-    return null
+    return { exists: false, text: "", truncated: false }
   }
 }
 
@@ -124,6 +170,7 @@ function findWork(state: BoulderState, sessionId: string | null): { readonly wor
   const sessionMatches = sessionId !== null ? ([
     { session: `grok:${sessionId}`, matchedBy: "grok-session" as const },
     { session: `codex:${sessionId}`, matchedBy: "codex-session" as const },
+    { session: `opencode:${sessionId}`, matchedBy: "opencode-session" as const },
     { session: sessionId, matchedBy: "raw-session" as const },
   ] as const) : []
   for (const candidate of sessionMatches) {
@@ -148,15 +195,44 @@ function publicWork(work: BoulderWork): ProjectOmoLedgerWork {
   }
 }
 
-async function inspectLedger(path: string): Promise<{ readonly exists: boolean; readonly lineCount: number }> {
+async function inspectLedger(path: string): Promise<{ readonly exists: boolean; readonly lineCount: number; readonly truncated: boolean }> {
   try {
     await access(path)
-    const text = await readFile(path, "utf8")
-    const lineCount = text.split("\n").filter((line) => line.length > 0).length
-    return { exists: true, lineCount }
   } catch {
-    return { exists: false, lineCount: 0 }
+    return { exists: false, lineCount: 0, truncated: false }
   }
+  const result = await readLimitedText(path, LEDGER_MAX_BYTES)
+  if (!result.exists) return { exists: false, lineCount: 0, truncated: false }
+  const lineCount = result.text.split("\n").filter((line) => line.length > 0).length
+  return { exists: true, lineCount, truncated: result.truncated }
+}
+
+function resumeOptionsFromState(state: BoulderState): readonly ProjectOmoAwarenessResumeOption[] {
+  return [...state.works.values()].map((work) => ({
+    workId: work.workId,
+    planName: work.planName,
+    status: work.status,
+    activePlan: work.activePlan,
+    worktreePath: work.worktreePath,
+    sessionCount: work.sessionIds.length,
+    awarenessOnly: true,
+  }))
+}
+
+function ledgerPreviews(
+  ledger: { readonly exists: boolean; readonly lineCount: number; readonly truncated: boolean },
+  ulwLoop: ProjectOmoUlwLoopSummary | null,
+): readonly ProjectOmoLedgerPreview[] {
+  const previews: ProjectOmoLedgerPreview[] = []
+  if (ledger.exists) {
+    previews.push({ source: "start-work", sessionId: null, lineCount: ledger.lineCount, truncated: ledger.truncated })
+  }
+  previews.push(...(ulwLoop?.ledgerPreviews ?? []))
+  return previews
+}
+
+function emptyUlwLoop(): ProjectOmoUlwLoopSummary {
+  return { present: false, sessionCount: 0, hasActiveLedger: false, ledgerPreviews: [] }
 }
 
 async function inspectUlwLoop(projectRoot: string): Promise<ProjectOmoUlwLoopSummary | null> {
@@ -165,22 +241,19 @@ async function inspectUlwLoop(projectRoot: string): Promise<ProjectOmoUlwLoopSum
     const entries = await readdir(loopRoot, { withFileTypes: true })
     const sessions = entries.filter((e) => e.isDirectory() && /^[0-9a-f-]{8,}$/i.test(e.name))
     if (sessions.length === 0) {
-      return { present: false, sessionCount: 0, hasActiveLedger: false }
+      return emptyUlwLoop()
     }
     let hasActiveLedger = false
+    const ledgerPreviews: ProjectOmoLedgerPreview[] = []
     for (const s of sessions) {
       const ledgerPath = join(loopRoot, s.name, "ledger.jsonl")
-      try {
-        const st = await stat(ledgerPath)
-        if (st.isFile() && st.size > 0) {
-          hasActiveLedger = true
-          break
-        }
-      } catch {
-        // ledger missing or unreadable for this session; continue
+      const preview = await inspectLedger(ledgerPath)
+      if (preview.exists && preview.lineCount > 0) {
+        hasActiveLedger = true
+        ledgerPreviews.push({ source: "ulw-loop", sessionId: s.name, lineCount: preview.lineCount, truncated: preview.truncated })
       }
     }
-    return { present: true, sessionCount: sessions.length, hasActiveLedger }
+    return { present: true, sessionCount: sessions.length, hasActiveLedger, ledgerPreviews }
   } catch {
     // no .omo/ulw-loop directory or not readable
     return null

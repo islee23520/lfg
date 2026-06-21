@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../src/cli/npm-publish-bin.ts"],
-  "sourcesContent": ["import { readFile } from \"node:fs/promises\"\n\nexport const PUBLISHED_LFG_BIN_TARGET = \"bin/lfg.js\"\n\n/** npm pack root layout: bin.lfg must point at the root shell shim (#22). */\nexport function isPublishedLfgBinTarget(binLfg: string | undefined | null): boolean {\n  return binLfg === PUBLISHED_LFG_BIN_TARGET\n}\n\n/** Whether package.json exposes npm bin.lfg (publish-root layout #22). */\nexport async function packageJsonHasBinLfg(packageJsonPath: string): Promise<boolean> {\n  try {\n    const parsed = JSON.parse(await readFile(packageJsonPath, \"utf8\")) as unknown\n    if (typeof parsed !== \"object\" || parsed === null) {\n      return false\n    }\n    const bin = (parsed as Record<string, unknown>).bin\n    if (typeof bin !== \"object\" || bin === null) {\n      return false\n    }\n    const lfg = (bin as Record<string, unknown>).lfg\n    return typeof lfg === \"string\" && isPublishedLfgBinTarget(lfg)\n  } catch {\n    return false\n  }\n}"],
-  "mappings": ";AAAA,SAAS,gBAAgB;AAElB,IAAM,2BAA2B;AAGjC,SAAS,wBAAwB,QAA4C;AAClF,SAAO,WAAW;AACpB;AAGA,eAAsB,qBAAqB,iBAA2C;AACpF,MAAI;AACF,UAAM,SAAS,KAAK,MAAM,MAAM,SAAS,iBAAiB,MAAM,CAAC;AACjE,QAAI,OAAO,WAAW,YAAY,WAAW,MAAM;AACjD,aAAO;AAAA,IACT;AACA,UAAM,MAAO,OAAmC;AAChD,QAAI,OAAO,QAAQ,YAAY,QAAQ,MAAM;AAC3C,aAAO;AAAA,IACT;AACA,UAAM,MAAO,IAAgC;AAC7C,WAAO,OAAO,QAAQ,YAAY,wBAAwB,GAAG;AAAA,EAC/D,QAAQ;AACN,WAAO;AAAA,EACT;AACF;",
-  "names": []
-}

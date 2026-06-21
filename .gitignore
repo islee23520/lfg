@@ -17,3 +17,5 @@ plans/
 !AGENTS.md
 !src/AGENTS.md
 !**/AGENTS.md
+dist/
+bin/

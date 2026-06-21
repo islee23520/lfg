@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../src/cli/npm-registry-version.ts"],
-  "sourcesContent": ["/** Parse `npm view <pkg> version` stdout for doctor publishGap (#22). */\nexport function parseNpmRegistryVersion(stdout: string): string | null {\n  const trimmed = stdout.trim()\n  return /^\\d+\\.\\d+\\.\\d+/.test(trimmed) ? trimmed : null\n}"],
-  "mappings": ";AACO,SAAS,wBAAwB,QAA+B;AACrE,QAAM,UAAU,OAAO,KAAK;AAC5B,SAAO,iBAAiB,KAAK,OAAO,IAAI,UAAU;AACpD;",
-  "names": []
-}

@@ -90,6 +90,32 @@ describe("project .omo ledger", () => {
     expect(summary.ledgerLineCount).toBe(1)
   })
 
+  test("matches active work by opencode-prefixed session when grok and codex sessions are absent", async () => {
+    const projectRoot = await projectWithBoulder({
+      activeWorkId: "fallback-work",
+      works: {
+        "opencode-work": work({ workId: "opencode-work", sessionIds: [`opencode:${sessionId}`] }),
+        "raw-work": work({ workId: "raw-work", sessionIds: [sessionId] }),
+        "fallback-work": work({ workId: "fallback-work", sessionIds: [] }),
+      },
+      ledgerLines: ["one"],
+    })
+
+    const summary = await inspectProjectOmoLedger({ projectRoot, sessionId })
+
+    expect(summary.matchedBy).toBe("opencode-session")
+    expect(summary.work?.workId).toBe("opencode-work")
+    expect(summary.resumeOptions).toContainEqual({
+      workId: "opencode-work",
+      planName: "Plan opencode-work",
+      status: "active",
+      activePlan: ".omo/plans/opencode-work.md",
+      worktreePath: null,
+      sessionCount: 1,
+      awarenessOnly: true,
+    })
+  })
+
   test("matches active work by raw session when prefixed sessions are absent", async () => {
     const projectRoot = await projectWithBoulder({
       activeWorkId: "fallback-work",
@@ -186,7 +212,7 @@ describe("project .omo ledger", () => {
 
     const summary = await inspectProjectOmoLedger({ projectRoot, sessionId })
 
-    expect(summary.ulwLoop).toEqual({ present: false, sessionCount: 0, hasActiveLedger: false })
+    expect(summary.ulwLoop).toEqual({ present: false, sessionCount: 0, hasActiveLedger: false, ledgerPreviews: [] })
   })
 
   test("reports ulwLoop session count and active ledger presence for real sessions", async () => {
@@ -202,7 +228,42 @@ describe("project .omo ledger", () => {
 
     const summary = await inspectProjectOmoLedger({ projectRoot, sessionId })
 
-    expect(summary.ulwLoop).toEqual({ present: true, sessionCount: 2, hasActiveLedger: true })
+    expect(summary.ulwLoop).toEqual({
+      present: true,
+      sessionCount: 2,
+      hasActiveLedger: true,
+      ledgerPreviews: [{ source: "ulw-loop", sessionId: "019e9705-2774-7683-a928-73d4d7755386", lineCount: 1, truncated: false }],
+    })
+    expect(summary.ledgerPreviews).toContainEqual({
+      source: "ulw-loop",
+      sessionId: "019e9705-2774-7683-a928-73d4d7755386",
+      lineCount: 1,
+      truncated: false,
+    })
+  })
+
+  test("reports only allowlisted ledger metadata without leaking ledger text", async () => {
+    const projectRoot = await projectWithBoulder({
+      activeWorkId: "w1",
+      works: { w1: work({ workId: "w1", sessionIds: [`grok:${sessionId}`] }) },
+      ledgerLines: [
+        '{"event":"tool","api_key":"sk-test-secret","prompt":"do not leak this prompt"}',
+        "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
+      ],
+    })
+
+    const summary = await inspectProjectOmoLedger({ projectRoot, sessionId })
+    const rendered = JSON.stringify(summary)
+
+    expect(summary.ledgerPreviews).toContainEqual({
+      source: "start-work",
+      sessionId: null,
+      lineCount: 2,
+      truncated: false,
+    })
+    expect(rendered).not.toContain("sk-test-secret")
+    expect(rendered).not.toContain("Authorization")
+    expect(rendered).not.toContain("do not leak this prompt")
   })
 })
 

@@ -1,9 +1,0 @@
-{
-	"mcpServers": {
-		"git_bash": {
-			"command": "node",
-			"args": ["./dist/cli.js", "mcp"],
-			"cwd": "."
-		}
-	}
-}
