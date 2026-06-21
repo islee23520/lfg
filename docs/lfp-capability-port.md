@@ -6,7 +6,7 @@
 
 | LFP area (legacy) | Grok adapter action |
 |-------------------|---------------------|
-| Hook injection (visual / art-team guidance) | **Reimplement** against Grok `hooks/hooks.json` + `GROK_PLUGIN_*` env; drop Codex-only hook runners where Grok has no equivalent |
+| Hook injection (visual / art-team guidance) | **Reimplement** against global Grok `~/.grok/hooks/lfg-hooks.json` + installed plugin paths; keep plugin `hooks/hooks.source.json` only as normalized source input and drop Codex-only hook runners where Grok has no equivalent |
 | Agent model-field overrides on upstream TOMLs | **Reimplement** for `~/.grok/agents/` + omo agent names; preserve “don’t wipe user reasoning” like omo `agents.mjs` |
 | Extra helper agents (artistry, visual-engineering, etc.) | **Port selectively** — only agents that make sense on Grok Build; rewrite configs, don’t copy TOML verbatim if model IDs differ |
 | `codex-plugin-install.mjs` / Codex marketplace `linalab` | **Do not port** — Grok uses `~/.grok` plugin layout from `grok-install` |

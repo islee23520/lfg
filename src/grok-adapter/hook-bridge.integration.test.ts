@@ -60,10 +60,11 @@ process.stdin.on('end',()=>{
 
     await runInternalGrokInstall({ HOME: home })
 
-    const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
+    const hooksRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
     expect(hooksRaw).toContain("lfg-native-rules.js")
     expect(hooksRaw).not.toContain("lfg-grok-hook-bridge.mjs")
-    expect(hooksRaw).toContain("GROK_PLUGIN_ROOT")
+    expect(hooksRaw).toContain(pluginRoot)
 
     const bridgePath = join(pluginRoot, "hooks", "lfg-grok-hook-bridge.mjs")
     const bridgeOnDisk = await readFile(bridgePath, "utf8")
@@ -149,7 +150,8 @@ process.stdin.on('end',()=>{
 
     await runInternalGrokInstall({ HOME: home })
 
-    const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
+    const hooksRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
     expect(hooksRaw).toContain("lfg-native-ultrawork.js")
     expect(hooksRaw).not.toContain("lfg-grok-hook-bridge.mjs")
 

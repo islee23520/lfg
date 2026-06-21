@@ -1,0 +1,10 @@
+interface:
+  display_name: "lfg-report-bug (lfg)"
+  short_description: "Route lfg or GrokBuild adapter bugs with source evidence"
+  search_terms:
+    - "lfg-report-bug"
+    - "lfg bug"
+    - "lfg issue"
+    - "grok adapter bug"
+    - "grok plugin lfg issue"
+  default_prompt: "Use $lfg-report-bug to investigate this lfg or GrokBuild adapter bug, compare runtime evidence with latest islee23520/lfg source, search existing islee23520/lfg issues, and prepare a high-signal issue or comment with reproduction, root cause, fix guidance, and the lfg-generated footer."

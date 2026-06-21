@@ -79,7 +79,7 @@ describe("installed project .omo loader runtime", () => {
     // Adversarial: malformed input (invalid JSON payload rejected gracefully)
     const malformedPayload = await runInstalledOmoHook(bridgePath, ultraworkCli, "not-valid-json-at-all")
     expect([0, 1, 2]).toContain(malformedPayload.exitCode) // T7: bridge + cli rejects malformed (exit 1 or 2 per fixture; Grok stability accepts 0-2)
-    expect(malformedPayload.stderr || malformedPayload.stdout || "").toContain("T7-OMO-HOOK-ERROR") // explicit for malformed input (bridge now pipes child stderr/stdout)
+    expect(malformedPayload.stderr || malformedPayload.stdout || "").toContain("LFG-PORT7-OMO-HOOK-ERROR") // explicit for malformed input (bridge now pipes child stderr/stdout)
     // T7 adversarial: malformed input rejected gracefully; prompt_injection treated as data only; no shell exec
 
     // Adversarial: prompt_injection (payload treated as data only, no execution)

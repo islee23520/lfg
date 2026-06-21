@@ -33,7 +33,7 @@ describe("npm publish workflow (#22)", () => {
     expect(pkg.scripts?.verify).toContain("assert-pack")
     expect(pkg.scripts?.["pre-publish-check"]).toMatch(/^npm run build &&/)
     expect(pkg.scripts?.["pre-publish-check"]).toContain("pre-publish-check.mjs")
-    expect(pkg.scripts?.prepublishOnly).toBe("npm test")
+    expect(pkg.scripts?.prepublishOnly).toBe("npm run verify")
     expect(pkg.scripts?.["record-publish-gap"]).toContain("record-publish-gap.mjs")
     expect(pkg.scripts?.["assert-publish-auth"]).toContain("assert-npm-publish-auth.mjs")
   })

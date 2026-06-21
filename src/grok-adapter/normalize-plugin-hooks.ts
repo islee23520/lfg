@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises"
+import { copyFile, mkdir, readFile, unlink, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { createNativeGrokHooksForLegacyFallback, isGrokEventHooksJson, isLegacyMetadataHooksJson, validateGrokHooksJson } from "./hook-trust"
 import { normalizeHookCommandPaths, wrapLazyCodexHookCommand } from "./hook-command-normalization"
@@ -13,6 +13,8 @@ const NATIVE_RULES_FILE = "lfg-native-rules.js" as const
 const NATIVE_ULTRAWORK_FILE = "lfg-native-ultrawork.js" as const
 const DEV_LOGGER_FILE = "lfg-dev-logger.mjs" as const
 const CONFIG_LOADER_RELATIVE = join("hooks", CONFIG_LOADER_FILE)
+const PLUGIN_HOOKS_FILE = "hooks.json" as const
+const PLUGIN_HOOKS_SOURCE_FILE = "hooks.source.json" as const
 
 type JsonRecord = Record<string, unknown>
 
@@ -39,8 +41,9 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
   /** T6 native first-party: uses validateGrokHooksJson + GROK_HOOK_EVENTS allowlist from hook-trust.
    * Bridge wrapping retained only for legacy/imported hook JSON (idempotent peel+wrap). Fixture provides first-party event-map. */
   await syncGrokHookBridgeIntoPlugin(pluginRoot)
-  const hooksPath = join(pluginRoot, "hooks", "hooks.json")
-  const raw = await readFile(hooksPath, "utf8")
+  const hooksPath = join(pluginRoot, "hooks", PLUGIN_HOOKS_FILE)
+  const sourceHooksPath = join(pluginRoot, "hooks", PLUGIN_HOOKS_SOURCE_FILE)
+  const { path: sourcePath, raw } = await readSourceHooksJson(sourceHooksPath, hooksPath)
   let parsed: unknown = JSON.parse(raw)
   if (isLegacyMetadataHooksJson(parsed)) {
     parsed = createNativeGrokHooksForLegacyFallback()
@@ -70,10 +73,39 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
   }
   const nextText = `${JSON.stringify(nextPayload, null, 2)}\n`
   if (changed || nextText !== raw) {
-    await writeFile(hooksPath, nextText, "utf8")
+    await writeFile(sourceHooksPath, nextText, "utf8")
+  } else if (sourcePath !== sourceHooksPath) {
+    await writeFile(sourceHooksPath, nextText, "utf8")
   }
   const active = await materializeActiveGrokHooksJson(pluginRoot, nextPayload)
-  return { path: hooksPath, changed: changed || nextText !== raw || active.changed, hookNames: trust.hookNames }
+  const removedPluginHooks = await removePluginHookRegistration(hooksPath)
+  return { path: active.path, changed: changed || nextText !== raw || active.changed || removedPluginHooks, hookNames: trust.hookNames }
+}
+
+async function readSourceHooksJson(
+  sourceHooksPath: string,
+  hooksPath: string,
+): Promise<{ readonly path: string; readonly raw: string }> {
+  try {
+    return { path: sourceHooksPath, raw: await readFile(sourceHooksPath, "utf8") }
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return { path: hooksPath, raw: await readFile(hooksPath, "utf8") }
+    }
+    throw error
+  }
+}
+
+async function removePluginHookRegistration(hooksPath: string): Promise<boolean> {
+  try {
+    await unlink(hooksPath)
+    return true
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return false
+    }
+    throw error
+  }
 }
 
 function addLfgConfigLoaderHooks(hooksBlock: JsonRecord): JsonRecord {
@@ -215,6 +247,10 @@ function normalizeFirstPartyHookCommand(command: string): string {
 function hookEventArg(command: string): string | null {
   const match = command.match(/\bhook\s+([a-z0-9-]+)\b/i)
   return match?.[1] ?? null
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return typeof error === "object" && error !== null && "code" in error
 }
 
 export { normalizeHookCommandPaths, wrapLazyCodexHookCommand }

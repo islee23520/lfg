@@ -70,7 +70,8 @@ describe("grok-install", () => {
   test("doctor passes after fixture install", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-doc-"))
     const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-adapter", "fixture-minimal")
-    await installGrokPluginFromSource({ home, sourceRoot: source })
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
+    await mergePortedHooksIntoPlugin(pluginRoot)
     const json = await runGrokDoctor({ home })
     expect(json.ok).toBe(true)
     expect(json.status).toBe("pass")
@@ -106,8 +107,8 @@ describe("lfg internal grok install contract", () => {
     }
     expect(inventory.packageVersion).toBe("9.8.7")
     expect(inventory.upstreamName).toBe("oh-my-openagent")
-    expect(inventory.upstreamVersion).toBe("4.10.0")
-    expect(inventory.upstreamTag).toBe("v4.10.0")
+    expect(inventory.upstreamVersion).toBe("4.12.1")
+    expect(inventory.upstreamTag).toBe("v4.12.1")
   })
 
   test("setup --run surfaces payloadSource and component inventory in postInstallVerify (supports #38/#42)", async () => {
@@ -163,11 +164,9 @@ describe("lfg internal grok install contract", () => {
     const result = await runLfg(["--json", "setup", "--run"], { HOME: home })
     expect(result.exitCode).toBe(0)
 
-    // Accept native Grok path first, fall back to legacy installed-plugins for older test envs
-    const nativeRoot = join(home, ".grok", "plugins", "lfg")
-    const legacyRoot = join(home, ".grok", "plugins", "lfg")
-    const pluginRoot = (await readFile(join(nativeRoot, "hooks", "hooks.json"), "utf8").then(() => nativeRoot).catch(() => legacyRoot))
-    const hooksRaw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    const pluginRoot = join(home, ".grok", "plugins", "lfg")
+    await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
+    const hooksRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
     expect(hooksRaw).toContain("lfg-native-rules.js")
     expect(hooksRaw).toContain("lfg-native-ultrawork.js")
     expect(hooksRaw).toContain("lfg-config-loader.mjs") // T6 native + config loader
@@ -213,7 +212,8 @@ describe("lfg internal grok install contract", () => {
   test("installed fixture hooks.json uses Grok SessionStart event map", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-hooks-home-"))
     await runInternalGrokInstall({ HOME: home })
-    const raw = await readFile(join(home, ".grok", "plugins", "lfg", "hooks", "hooks.json"), "utf8")
+    await expect(readFile(join(home, ".grok", "plugins", "lfg", "hooks", "hooks.json"), "utf8")).rejects.toThrow()
+    const raw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
     const parsed = JSON.parse(raw) as { hooks: { SessionStart?: unknown } }
     expect(Array.isArray(parsed.hooks.SessionStart)).toBe(true)
   })

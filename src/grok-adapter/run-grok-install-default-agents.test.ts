@@ -31,6 +31,7 @@ describe("runGrokInstall default agent surfaces", () => {
     const prometheusRole = await readFile(join(home, ".grok", "roles", "prometheus.toml"), "utf8")
     expect(prometheusRole).toContain('model = "gpt-5.5"')
     expect(prometheusRole).toContain('reasoning_effort = "xhigh"')
+    expect(prometheusRole).toContain('prompt_file = ')
 
     const sisyphusRole = await readFile(join(home, ".grok", "roles", "sisyphus.toml"), "utf8")
     expect(sisyphusRole).toContain('model = "gpt-5.5"')
@@ -60,6 +61,45 @@ describe("runGrokInstall default agent surfaces", () => {
     await expect(readFile(join(home, ".grok", "prompts", "omo", "prometheus.md"), "utf8")).resolves.toContain("OMO Prometheus")
     await expect(readFile(join(home, ".grok", "prompts", "omo", "sisyphus.md"), "utf8")).resolves.toContain("OMO Sisyphus")
     await expect(readFile(join(home, ".grok", "prompts", "omo", "atlas.md"), "utf8")).resolves.toContain("OMO Atlas")
+  })
+
+  test("null discovery maps Grok plan role to OMO Prometheus prompt", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-plan-prometheus-"))
+    const run = await runGrokInstall(null, { HOME: home })
+    expect(run.ok).toBe(true)
+
+    const planRole = await readFile(join(home, ".grok", "roles", "plan.toml"), "utf8")
+    expect(planRole).toContain('description = "LazyCodex plan agent"')
+    expect(planRole).toContain('reasoning_effort = "xhigh"')
+    expect(planRole).toContain(`prompt_file = "${join(home, ".grok", "prompts", "omo", "plan.md")}"`)
+
+    const planPrompt = await readFile(join(home, ".grok", "prompts", "omo", "plan.md"), "utf8")
+    expect(planPrompt).toContain("OMO Prometheus")
+    expect(planPrompt).toContain("Never implement code directly")
+    expect(planPrompt).toContain(".omo/plans/<slug>.md")
+    expect(planPrompt).toContain("Approval is not execution")
+    expect(planPrompt).toContain("mandatory review gates")
+    expect(planPrompt).toContain("Metis for gap analysis")
+    expect(planPrompt).toContain("Momus for high-accuracy plan review")
+    expect(planPrompt).toContain("Only after the plan exists and both Metis and Momus approve")
+  })
+
+  test("null discovery writes Metis and Momus as plan-review gates", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-metis-momus-"))
+    const run = await runGrokInstall(null, { HOME: home })
+    expect(run.ok).toBe(true)
+
+    const metisPrompt = await readFile(join(home, ".grok", "prompts", "omo", "metis.md"), "utf8")
+    expect(metisPrompt).toContain("OMO Metis")
+    expect(metisPrompt).toContain("pre-implementation gap analyst")
+    expect(metisPrompt).toContain("Return APPROVE only when the plan is decision-complete")
+    expect(metisPrompt).toContain("never implement code")
+
+    const momusPrompt = await readFile(join(home, ".grok", "prompts", "omo", "momus.md"), "utf8")
+    expect(momusPrompt).toContain("OMO Momus")
+    expect(momusPrompt).toContain("high-accuracy plan reviewer")
+    expect(momusPrompt).toContain("Return APPROVE only when the plan is safe")
+    expect(momusPrompt).toContain("never implement code")
   })
 
   test("null discovery writes oracle and sisyphus-junior as distinct agent surfaces", async () => {
@@ -118,7 +158,7 @@ describe("runGrokInstall default agent surfaces", () => {
     expect(ultrabrainRole).toContain('reasoning_effort = "xhigh"')
 
     const quickRole = await readFile(join(home, ".grok", "roles", "quick.toml"), "utf8")
-    expect(quickRole).toContain('model = "gpt-5.4-mini"')
+    expect(quickRole).toContain('model = "gpt-5.4-mini-fast"')
 
     const overridesRaw = await readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")
     expect(overridesRaw).toContain('"ultrabrain"')

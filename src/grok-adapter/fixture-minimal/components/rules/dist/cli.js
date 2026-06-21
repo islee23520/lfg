@@ -11,7 +11,7 @@ process.stdin.on("end", () => {
   try {
     payload = JSON.parse(input);
   } catch {
-    process.stderr.write("T7-OMO-HOOK-ERROR: malformed JSON payload\n");
+    process.stderr.write("LFG-PORT7-OMO-HOOK-ERROR: malformed JSON payload\n");
     process.exit(1);
   }
   if (payload.hook_event_name !== "SessionStart") {

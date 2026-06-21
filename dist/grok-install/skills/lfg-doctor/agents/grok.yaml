@@ -1,0 +1,9 @@
+interface:
+  display_name: "lfg-doctor (lfg)"
+  short_description: "Diagnose lfg GrokBuild adapter install health"
+  search_terms:
+    - "lfg-doctor"
+    - "lfg doctor"
+    - "lfg setup health"
+    - "grok plugin lfg health"
+  default_prompt: "Use $lfg-doctor to diagnose this lfg GrokBuild adapter installation, inspect the installed ~/.grok/plugins/lfg payload, hooks, skills, agents, MCP manifests, model config, and latest islee23520/lfg source, then report evidence-backed findings without mutating user config."

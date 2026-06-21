@@ -56,19 +56,24 @@ describe("post-install ported hooks (#32)", () => {
       "UserPromptSubmit",
     ])
     expect(json.hooksRegistered).toBe(true)
-    const raw = await readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")
+    await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
+    const raw = await readFile(join(pluginRoot, "hooks", "hooks.source.json"), "utf8")
     expect(raw).toContain("GROK_PLUGIN_ROOT")
+    const activeRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
+    expect(activeRaw).toContain(pluginRoot)
+    expect(activeRaw).not.toContain("GROK_PLUGIN_ROOT")
     expect(await readFile(join(pluginRoot, "hooks", "lfg-project-omo-ledger.mjs"), "utf8")).toContain("inspectProjectOmoLedger")
   })
 
-  test("installed hooks.json parses as Grok event map", async () => {
+  test("installed global lfg-hooks.json parses as Grok event map", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-post-hooks-json-"))
     await runInternalGrokInstall({ HOME: home })
-    const hooksPath = join(home, ".grok", "plugins", "lfg", "hooks", "hooks.json")
+    const hooksPath = join(home, ".grok", "hooks", "lfg-hooks.json")
     const parsed: unknown = JSON.parse(await readFile(hooksPath, "utf8"))
     const trust = validateGrokHooksJson(parsed)
     expect(trust.ok).toBe(true)
     expect(trust.hookNames).toContain("SessionStart")
+    await expect(readFile(join(home, ".grok", "plugins", "lfg", "hooks", "hooks.json"), "utf8")).rejects.toThrow()
   })
 
   test("event matrix covers upstream OmO hook events with explicit local decisions", () => {
@@ -93,7 +98,7 @@ describe("post-install ported hooks (#32)", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-post-hooks-targets-"))
     await runInternalGrokInstall({ HOME: home })
     const pluginRoot = join(home, ".grok", "plugins", "lfg")
-    const hooksPath = join(pluginRoot, "hooks", "hooks.json")
+    const hooksPath = join(home, ".grok", "hooks", "lfg-hooks.json")
     const parsed = parseHooksJson(await readFile(hooksPath, "utf8"))
     const commands = collectHookCommands(parsed)
     expect(commands.length).toBeGreaterThan(0)
@@ -151,8 +156,8 @@ function parseCommandHandler(value: unknown): readonly HookHandler[] {
 async function expectCommandTargetsInstalled(pluginRoot: string, command: string): Promise<void> {
   const quotedTargets = [...command.matchAll(/"([^"]+)"/g)].map((match) => match[1] ?? "")
   const fileTargets = quotedTargets
-    .filter((target) => target.includes("${GROK_PLUGIN_ROOT}") || target.includes("${PLUGIN_ROOT}"))
     .map((target) => target.replace(/\$\{GROK_PLUGIN_ROOT\}|\$\{PLUGIN_ROOT\}/g, pluginRoot))
+    .filter((target) => target === pluginRoot || target.startsWith(`${pluginRoot}/`))
   expect(fileTargets.length).toBeGreaterThan(0)
   for (const target of fileTargets) {
     await access(target)

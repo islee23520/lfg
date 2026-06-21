@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { chmod, cp, mkdir, readdir, rename, rm, writeFile } from "node:fs/promises"
 import { build } from "esbuild"
+import { syncOmoSkillsToGrok } from "./sync-omo-skills-to-grok.mjs"
 
 const outputs = [
   ["src/cli/lfg.ts", "dist/lfg.js"],
@@ -91,13 +92,10 @@ try {
   const flavourDst = "dist/grok-install/flavour-pack-assets"
   await cp(flavourSrc, flavourDst, { recursive: true })
 
-  // Copy LFG-bundled skills (cua-driver + T8 ulw-plan/ulw-loop self-contained workflows)
-  // so they are present in the internal grok-install source tree and end up under
-  // ~/.grok/plugins/lfg/skills after setup. Guarantees discoverable
-  // Phase 0/Approval gate/Phase 3 + Bootstrap/Execution Loop/Manual-QA headings
-  // without sibling-path guessing (source-of-truth to avoid drift).
+  await syncOmoSkillsToGrok({ allowExistingFallback: true, includeCache: false })
   const skillsSrc = "src/grok-adapter/skills"
   const skillsDst = "dist/grok-install/skills"
+  await rm(skillsDst, { recursive: true, force: true })
   await cp(skillsSrc, skillsDst, { recursive: true })
   for (let attempt = 0; attempt < 8; attempt++) {
     await rm(fixtureDst, { recursive: true, force: true })

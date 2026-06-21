@@ -16,6 +16,7 @@ type ParsedArgs = {
   readonly run: boolean
   readonly force: boolean
   readonly refresh: boolean
+  readonly installOnly: boolean
   readonly noTui: boolean
   readonly preset: SetupPreset
   readonly presetError: string | null
@@ -77,7 +78,7 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   // Tolerate TUI flags (and --force) that may appear as extra positionals from shell invocation
   // (e.g. `lfg setup --no-tui`, `lfg --no-tui setup`). We already parse them into args.noTui etc.,
   // but we keep the positional list stable for error messages and JSON contracts.
-  const effectivePos = (args.positional || []).filter((p) => !["--no-tui", "no-tui", "--force", "force"].includes(p as string))
+  const effectivePos = (args.positional || []).filter((p) => !["--no-tui", "no-tui", "--force", "force", "--install-only", "install-only"].includes(p as string))
   const [command, subcommand] = effectivePos
   if (!command || command === "help" || command === "--help" || command === "-h") {
     return help()
@@ -107,7 +108,7 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   }
 
   if (args.run || isForceOnly) {
-    return runLazycodexInstaller(discovery, { force: args.force || isForceOnly })
+    return runLazycodexInstaller(discovery, { force: args.force || isForceOnly, installOnly: args.installOnly })
   }
   const plan = setupPlan(presetResolved, args.preset)
   if (args.json) {
@@ -148,7 +149,7 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
 
 function isInteractiveInstall(args: ParsedArgs): boolean {
   // Treat explicit --no-tui (and stray --force tokens) as non-disqualifying for the "bare interactive" shape.
-  const cleaned = (args.positional || []).filter((p) => !["--no-tui", "no-tui", "--force", "force"].includes(String(p)))
+  const cleaned = (args.positional || []).filter((p) => !["--no-tui", "no-tui", "--force", "force", "--install-only", "install-only"].includes(String(p)))
   return !args.json && !args.run && cleaned[0] === "setup" && cleaned.length === 1 && !args.refresh
 }
 
@@ -163,7 +164,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let presetError: string | null = null
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
-    if (arg === "--json" || arg === "--run" || arg === "--force" || arg === "--refresh" || arg === "--no-tui") {
+    if (arg === "--json" || arg === "--run" || arg === "--force" || arg === "--refresh" || arg === "--install-only" || arg === "--no-tui") {
       continue
     }
     if (arg === "--preset") {
@@ -196,6 +197,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     run: argv.includes("--run"),
     force: argv.includes("--force"),
     refresh: argv.includes("--refresh"),
+    installOnly: argv.includes("--install-only"),
     noTui: argv.includes("--no-tui"),
     preset,
     presetError,
@@ -237,6 +239,8 @@ function help(): string {
     "  lfg --json setup --preset grok",
     "  lfg --json setup --preset gpt",
     "  lfg --json setup --run --force",
+    "  lfg --json setup --run --install-only",
+    "  lfg setup --run --install-only",
     "  lfg --json setup --refresh",
     "  lfg --json setup --refresh --run",
     "  lfg setup --refresh --run",
@@ -250,6 +254,10 @@ function help(): string {
     "  Does not touch the Grok plugin tree, hooks, or agent TOMLs. Existing prior context_window values are preserved",
     "  when the current discovery does not advertise a size for a model. OPENAI_API_KEY/XAI_API_KEY, or the active",
     "  Codex provider token when env is unset, is written per model.",
+    "",
+    "Install-only update:",
+    "  lfg setup --run --install-only refreshes only the lfg-owned Grok plugin payload under ~/.grok/plugins/lfg.",
+    "  It skips model config, OMO/LazyCodex agent override files, roles, prompts, and subagent model settings.",
     "",
     "Setup run implementation:",
     `  ${INTERNAL_GROK_INSTALL_COMMAND}`,

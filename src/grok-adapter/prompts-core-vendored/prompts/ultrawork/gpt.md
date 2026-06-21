@@ -97,9 +97,9 @@ deep_context = background_output(task_id=...)
 // Merge ALL findings for comprehensive understanding
 ```
 
-**Plan agent (size the scope first):**
-- Count distinct surfaces, files, steps. Invoke for 5+ interdependent steps / multi-file / unclear scope; skip only for genuinely trivial single-step work.
-- Invoke AFTER gathering context from both tracks.
+**Plan through the `ulw-plan` skill (size the scope first):**
+- Count distinct surfaces, files, steps. Required for 5+ interdependent steps / multi-file / unclear scope; skip only for genuinely trivial single-step work.
+- Invoke AFTER gathering context from both tracks: restate outcome + constraints, read hook-injected `.omo` context, RESUME any matching `.omo/plans/*.md` instead of starting a duplicate, else write `.omo/plans/<slug>.md` (Outcome, Constraints, Current context, Todo graph with ids/dependencies/evidence, Verification gates, Risks and rollback, ULW state seed); clear its approval gate before implementing, then seed `.omo/ulw/*.json` and hand off to `ulw-loop`.
 - Then execute in the plan's exact wave order + parallel grouping and run the verification it specifies.
 
 **Execute:**

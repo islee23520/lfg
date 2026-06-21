@@ -16223,614 +16223,14 @@ var init_grok_plugins_enable = __esm({
   }
 });
 
-// src/grok-adapter/ensure-cua-driver-skill.ts
-import { access as access2, cp, mkdir as mkdir5, readFile as readFile6 } from "node:fs/promises";
-import { dirname as dirname4, join as join7 } from "node:path";
-import { fileURLToPath as fileURLToPath2 } from "node:url";
-async function ensureUlwWorkflowSkills(pluginRoot) {
-  const skills = ["ulw-plan", "ulw-loop"];
-  const ensuredPaths = [];
-  let anyEnsured = false;
-  for (const skill of skills) {
-    const targetDir = join7(pluginRoot, "skills", skill);
-    const targetFile = join7(targetDir, "SKILL.md");
-    const bundled = await resolveBundledSkill(skill);
-    if (!bundled) continue;
-    let need = false;
-    try {
-      await access2(targetFile);
-      const existing = await readFile6(targetFile, "utf8");
-      if (existing.length < 100 || /placeholder|TODO|stub|omits all/i.test(existing)) {
-        need = true;
-      }
-    } catch {
-      need = true;
-    }
-    if (need) {
-      await mkdir5(targetDir, { recursive: true });
-      await cp(bundled, targetFile, { force: true });
-      anyEnsured = true;
-    }
-    ensuredPaths.push(targetFile);
-  }
-  return { ensured: anyEnsured, paths: ensuredPaths };
-}
-async function resolveBundledSkill(skillName) {
-  const here = dirname4(fileURLToPath2(import.meta.url));
-  const candidates = [
-    // dist layout
-    join7(here, "grok-install", "skills", skillName, "SKILL.md"),
-    join7(here, "..", "grok-install", "skills", skillName, "SKILL.md"),
-    // source tree
-    join7(here, "skills", skillName, "SKILL.md"),
-    join7(here, "..", "skills", skillName, "SKILL.md"),
-    // published package root
-    join7(here, "..", "..", "skills", skillName, "SKILL.md")
-  ];
-  for (const p of candidates) {
-    try {
-      await access2(p);
-      return p;
-    } catch {
-    }
-  }
-  return null;
-}
-async function ensureCuaDriverSkill(pluginRoot) {
-  const targetDir = join7(pluginRoot, "skills", "cua-driver");
-  const targetFile = join7(targetDir, "SKILL.md");
-  const bundled = await resolveBundledCuaDriverSkill();
-  if (!bundled) {
-    return { ensured: false, path: targetFile };
-  }
-  let need = false;
-  try {
-    await access2(targetFile);
-    const existing = await readFile6(targetFile, "utf8");
-    if (existing.length < 300 || /placeholder|TODO|stub|TODO: implement/i.test(existing)) {
-      need = true;
-    }
-  } catch {
-    need = true;
-  }
-  if (!need) {
-    return { ensured: false, path: targetFile };
-  }
-  await mkdir5(targetDir, { recursive: true });
-  await cp(bundled, targetFile, { force: true });
-  return { ensured: true, path: targetFile };
-}
-async function resolveBundledCuaDriverSkill() {
-  return resolveBundledSkill("cua-driver");
-}
-var init_ensure_cua_driver_skill = __esm({
-  "src/grok-adapter/ensure-cua-driver-skill.ts"() {
-    "use strict";
-  }
-});
-
-// src/grok-adapter/ensure-hephaestus-model-gate.ts
-import { join as join8 } from "node:path";
-async function ensureHephaestusModelGate(pluginRoot) {
-  const targetPath = join8(pluginRoot, HEPHAESTUS_RELATIVE_PATH);
-  return {
-    ensured: true,
-    patched: false,
-    path: targetPath,
-    reason: "hephaestus not default, gate not needed"
-  };
-}
-var HEPHAESTUS_RELATIVE_PATH;
-var init_ensure_hephaestus_model_gate = __esm({
-  "src/grok-adapter/ensure-hephaestus-model-gate.ts"() {
-    "use strict";
-    HEPHAESTUS_RELATIVE_PATH = join8("components", "rules", "bundled-rules", "hephaestus.md");
-  }
-});
-
-// src/grok-adapter/hook-parity.ts
-var init_hook_parity = __esm({
-  "src/grok-adapter/hook-parity.ts"() {
-    "use strict";
-  }
-});
-
-// src/grok-adapter/hook-trust.ts
-function isGrokEventHooksJson(raw) {
-  if (typeof raw !== "object" || raw === null) {
-    return false;
-  }
-  const record2 = raw;
-  const hooks = record2.hooks;
-  if (typeof hooks !== "object" || hooks === null || Array.isArray(hooks)) {
-    return false;
-  }
-  const events = Object.keys(hooks);
-  if (events.length === 0) {
-    return false;
-  }
-  return true;
-}
-function isLegacyMetadataHooksJson(raw) {
-  if (typeof raw !== "object" || raw === null) {
-    return false;
-  }
-  const record2 = raw;
-  if (!Array.isArray(record2.hooks)) {
-    return false;
-  }
-  const entries = record2.hooks;
-  if (entries.length === 0) {
-    return false;
-  }
-  return entries.every(
-    (entry) => typeof entry === "object" && entry !== null && typeof entry.name === "string"
-  );
-}
-function validateGrokHooksJson(raw) {
-  if (isLegacyMetadataHooksJson(raw)) {
-    return {
-      ok: false,
-      hookNames: [],
-      error: "hooks.json uses legacy metadata list; expected Grok event map (hooks.SessionStart, etc.)"
-    };
-  }
-  if (!isGrokEventHooksJson(raw)) {
-    return { ok: false, hookNames: [], error: "hooks.json must be an object with hooks.<Event> arrays" };
-  }
-  const record2 = raw;
-  const hookNames = [];
-  for (const [eventName, groups] of Object.entries(record2.hooks)) {
-    if (!GROK_HOOK_EVENTS.has(eventName)) {
-      return { ok: false, hookNames: [], error: `unknown Grok hook event: ${eventName}` };
-    }
-    if (!Array.isArray(groups)) {
-      return { ok: false, hookNames: [], error: `hooks.${eventName} must be an array` };
-    }
-    for (const group of groups) {
-      if (typeof group !== "object" || group === null) {
-        return { ok: false, hookNames: [], error: `hooks.${eventName} entry must be an object` };
-      }
-      const inner = group.hooks;
-      if (inner !== void 0 && !Array.isArray(inner)) {
-        return { ok: false, hookNames: [], error: `hooks.${eventName} handler list must be an array` };
-      }
-      if (Array.isArray(inner)) {
-        for (const handler of inner) {
-          if (typeof handler !== "object" || handler === null) {
-            return { ok: false, hookNames: [], error: "hook handler must be an object" };
-          }
-          const type = handler.type;
-          if (type === "command") {
-            const command = handler.command;
-            if (typeof command !== "string" || command.length === 0) {
-              return { ok: false, hookNames: [], error: "command hook requires non-empty command" };
-            }
-          }
-        }
-      }
-    }
-    hookNames.push(eventName);
-  }
-  hookNames.sort((a, b) => a.localeCompare(b));
-  if (hookNames.length === 0) {
-    return { ok: false, hookNames: [], error: "no recognized Grok hook events" };
-  }
-  return { ok: true, hookNames, error: null };
-}
-function createNativeGrokHooksForLegacyFallback() {
-  const hooks = {};
-  for (const eventName of GROK_HOOK_EVENTS) {
-    const lowerEvent = eventName.replace(/([A-Z])/g, "-$1").toLowerCase();
-    const command = `node "\${GROK_PLUGIN_ROOT}/hooks/lfg-grok-hook-bridge.mjs" node "\${GROK_PLUGIN_ROOT}/components/ultrawork/dist/cli.js" hook ${lowerEvent}`;
-    hooks[eventName] = [
-      {
-        hooks: [
-          {
-            type: "command",
-            command,
-            timeout: 5,
-            description: `lfg legacy/imported fallback ${eventName} hook`
-          }
-        ]
-      }
-    ];
-  }
-  return { hooks };
-}
-var GROK_HOOK_EVENTS;
-var init_hook_trust = __esm({
-  "src/grok-adapter/hook-trust.ts"() {
-    "use strict";
-    init_hook_parity();
-    GROK_HOOK_EVENTS = /* @__PURE__ */ new Set([
-      "SessionStart",
-      "UserPromptSubmit",
-      "PreToolUse",
-      "PostToolUse",
-      "PostToolUseFailure",
-      "PermissionDenied",
-      "Stop",
-      "StopFailure",
-      "Notification",
-      "SubagentStart",
-      "SubagentStop",
-      "SubagentEnd",
-      "PreCompact",
-      "PostCompact",
-      "SessionEnd"
-    ]);
-  }
-});
-
-// src/grok-adapter/hook-command-normalization.ts
-function normalizeHookCommandPaths(command) {
-  return command.replace(PLUGIN_ROOT_PLACEHOLDER, "${GROK_PLUGIN_ROOT}");
-}
-function wrapLazyCodexHookCommand(command) {
-  let trimmed = command.trim();
-  if (!/^node\s+/i.test(trimmed)) {
-    return command;
-  }
-  while (true) {
-    const match2 = trimmed.match(/^node\s+("(?:[^"\\]|\\.)*"|[^\s]+)\s*(.*)$/i);
-    if (!match2) break;
-    const first = match2[1] ?? "";
-    const rest2 = (match2[2] ?? "").trim();
-    if (first.toLowerCase().includes(BRIDGE_MARKER)) {
-      if (rest2.length === 0) break;
-      trimmed = rest2.startsWith("node ") ? rest2 : `node ${rest2}`;
-      continue;
-    }
-    break;
-  }
-  if (!trimmed.includes("/components/") && !trimmed.includes("/scripts/")) {
-    return command;
-  }
-  const match = trimmed.match(/^node\s+("(?:[^"\\]|\\.)*"|[^\s]+)\s*(.*)$/i);
-  if (!match) {
-    return command;
-  }
-  const nodeTarget = match[1] ?? "";
-  const rest = match[2] ?? "";
-  const bridge = '"${GROK_PLUGIN_ROOT}/hooks/lfg-grok-hook-bridge.mjs"';
-  return `node ${bridge} node ${nodeTarget}${rest.length > 0 ? ` ${rest}` : ""}`;
-}
-var PLUGIN_ROOT_PLACEHOLDER, BRIDGE_MARKER;
-var init_hook_command_normalization = __esm({
-  "src/grok-adapter/hook-command-normalization.ts"() {
-    "use strict";
-    PLUGIN_ROOT_PLACEHOLDER = /\$\{PLUGIN_ROOT\}/g;
-    BRIDGE_MARKER = "lfg-grok-hook-bridge.mjs";
-  }
-});
-
-// src/grok-adapter/normalize-plugin-hooks-active.ts
-import { mkdir as mkdir6, readFile as readFile7, writeFile as writeFile5 } from "node:fs/promises";
-import { dirname as dirname5 } from "node:path";
-async function materializeActiveGrokHooksJson(pluginRoot, payload) {
-  const activePath = `${dirname5(dirname5(pluginRoot))}/hooks/${ACTIVE_GROK_HOOKS_FILE}`;
-  const activePayload = toActiveGrokHooksPayload(payload, pluginRoot);
-  const nextText = `${JSON.stringify(activePayload, null, 2)}
-`;
-  const current = await readTextIfExists3(activePath);
-  if (current !== nextText) {
-    await mkdir6(dirname5(activePath), { recursive: true });
-    await writeFile5(activePath, nextText, "utf8");
-    return { path: activePath, changed: true };
-  }
-  return { path: activePath, changed: false };
-}
-function toActiveGrokHooksPayload(payload, pluginRoot) {
-  const replaced = replacePluginRootPlaceholders(payload, pluginRoot);
-  if (typeof replaced !== "object" || replaced === null) {
-    return replaced;
-  }
-  const hooks = replaced.hooks;
-  if (typeof hooks !== "object" || hooks === null || Array.isArray(hooks)) {
-    return replaced;
-  }
-  return {
-    ...replaced,
-    hooks: Object.fromEntries(
-      Object.entries(hooks).map(([eventName, groups]) => [eventName, stripLifecycleMatchers(eventName, groups)])
-    )
-  };
-}
-function stripLifecycleMatchers(eventName, groups) {
-  if (!LIFECYCLE_EVENTS_WITHOUT_MATCHERS.has(eventName) || !Array.isArray(groups)) {
-    return groups;
-  }
-  return groups.map((group) => {
-    if (typeof group !== "object" || group === null || !("matcher" in group)) {
-      return group;
-    }
-    const { matcher: _matcher, ...rest } = group;
-    return rest;
-  });
-}
-function replacePluginRootPlaceholders(value, pluginRoot) {
-  if (typeof value === "string") {
-    return value.replace(/\$\{GROK_PLUGIN_ROOT\}|\$\{PLUGIN_ROOT\}/g, pluginRoot);
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => replacePluginRootPlaceholders(item, pluginRoot));
-  }
-  if (typeof value === "object" && value !== null) {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, entry]) => [key, replacePluginRootPlaceholders(entry, pluginRoot)])
-    );
-  }
-  return value;
-}
-async function readTextIfExists3(path) {
-  try {
-    return await readFile7(path, "utf8");
-  } catch (error51) {
-    if (typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT") {
-      return "";
-    }
-    throw error51;
-  }
-}
-var ACTIVE_GROK_HOOKS_FILE, LIFECYCLE_EVENTS_WITHOUT_MATCHERS;
-var init_normalize_plugin_hooks_active = __esm({
-  "src/grok-adapter/normalize-plugin-hooks-active.ts"() {
-    "use strict";
-    ACTIVE_GROK_HOOKS_FILE = "lfg-hooks.json";
-    LIFECYCLE_EVENTS_WITHOUT_MATCHERS = /* @__PURE__ */ new Set(["SessionStart", "Stop", "Notification", "SubagentStart", "SubagentStop"]);
-  }
-});
-
-// src/grok-adapter/resolve-hook-bridge-asset.ts
-import { access as access3 } from "node:fs/promises";
-import { dirname as dirname6, join as join9 } from "node:path";
-import { fileURLToPath as fileURLToPath3 } from "node:url";
-async function resolveGrokHookBridgeAssetPath(moduleUrl = import.meta.url) {
-  const here = dirname6(toFilePath2(moduleUrl));
-  const candidates = [
-    join9(here, "grok-install", "assets", BRIDGE_FILE),
-    join9(here, "assets", BRIDGE_FILE),
-    join9(here, "..", "grok-install", "assets", BRIDGE_FILE),
-    join9(here, "..", "..", "grok-install", "assets", BRIDGE_FILE)
-  ];
-  for (const path of candidates) {
-    if (await pathExists2(path)) {
-      return path;
-    }
-  }
-  throw new Error(`grok hook bridge asset not found (searched from ${here})`);
-}
-function toFilePath2(moduleUrl) {
-  if (moduleUrl.startsWith("file://")) {
-    return fileURLToPath3(moduleUrl);
-  }
-  return moduleUrl;
-}
-async function pathExists2(path) {
-  try {
-    await access3(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-var BRIDGE_FILE;
-var init_resolve_hook_bridge_asset = __esm({
-  "src/grok-adapter/resolve-hook-bridge-asset.ts"() {
-    "use strict";
-    BRIDGE_FILE = "lfg-grok-hook-bridge.mjs";
-  }
-});
-
-// src/grok-adapter/normalize-plugin-hooks.ts
-import { copyFile, mkdir as mkdir7, readFile as readFile8, writeFile as writeFile6 } from "node:fs/promises";
-import { dirname as dirname7, join as join10 } from "node:path";
-async function syncGrokHookBridgeIntoPlugin(pluginRoot) {
-  const assetPath = await resolveGrokHookBridgeAssetPath();
-  const destPath = join10(pluginRoot, BRIDGE_RELATIVE);
-  await mkdir7(dirname7(destPath), { recursive: true });
-  await copyFile(assetPath, destPath);
-  await copyFile(join10(dirname7(assetPath), CONFIG_LOADER_FILE), join10(pluginRoot, CONFIG_LOADER_RELATIVE));
-  await copyFile(join10(dirname7(assetPath), PROJECT_OMO_LEDGER_FILE), join10(pluginRoot, "hooks", PROJECT_OMO_LEDGER_FILE));
-  await copyFile(join10(dirname7(assetPath), SISYPHUS_HOOKS_FILE), join10(pluginRoot, "hooks", SISYPHUS_HOOKS_FILE));
-  await copyFile(join10(dirname7(assetPath), NATIVE_RULES_FILE), join10(pluginRoot, "hooks", NATIVE_RULES_FILE));
-  await copyFile(join10(dirname7(assetPath), NATIVE_ULTRAWORK_FILE), join10(pluginRoot, "hooks", NATIVE_ULTRAWORK_FILE));
-  await copyFile(join10(dirname7(assetPath), DEV_LOGGER_FILE), join10(pluginRoot, "hooks", DEV_LOGGER_FILE));
-  return destPath;
-}
-async function normalizePluginHooksJson(pluginRoot) {
-  await syncGrokHookBridgeIntoPlugin(pluginRoot);
-  const hooksPath = join10(pluginRoot, "hooks", "hooks.json");
-  const raw = await readFile8(hooksPath, "utf8");
-  let parsed = JSON.parse(raw);
-  if (isLegacyMetadataHooksJson(parsed)) {
-    parsed = createNativeGrokHooksForLegacyFallback();
-  } else if (!isGrokEventHooksJson(parsed)) {
-    const trust2 = validateGrokHooksJson(parsed);
-    throw new Error(trust2.error ?? "hooks.json is not Grok event format");
-  }
-  const record2 = parsed;
-  const hooksBlock = record2.hooks;
-  let changed = false;
-  const nextBlock = {};
-  for (const [eventName, groups] of Object.entries(hooksBlock)) {
-    if (!Array.isArray(groups)) {
-      nextBlock[eventName] = groups;
-      continue;
-    }
-    nextBlock[eventName] = groups.map(
-      (group) => normalizeHookGroup(group, () => {
-        changed = true;
-      })
-    );
-  }
-  const nextPayload = { hooks: addSisyphusHooks(addLfgConfigLoaderHooks(nextBlock)) };
-  const trust = validateGrokHooksJson(nextPayload);
-  if (!trust.ok) {
-    throw new Error(trust.error ?? "invalid hooks after normalize");
-  }
-  const nextText = `${JSON.stringify(nextPayload, null, 2)}
-`;
-  if (changed || nextText !== raw) {
-    await writeFile6(hooksPath, nextText, "utf8");
-  }
-  const active = await materializeActiveGrokHooksJson(pluginRoot, nextPayload);
-  return { path: hooksPath, changed: changed || nextText !== raw || active.changed, hookNames: trust.hookNames };
-}
-function addLfgConfigLoaderHooks(hooksBlock) {
-  return {
-    ...hooksBlock,
-    SessionStart: appendConfigLoader(hooksBlock.SessionStart, "SessionStart"),
-    UserPromptSubmit: appendConfigLoader(hooksBlock.UserPromptSubmit, "UserPromptSubmit")
-  };
-}
-function addSisyphusHooks(hooksBlock) {
-  const next = { ...hooksBlock };
-  for (const eventName of SISYPHUS_HOOK_EVENTS) {
-    next[eventName] = appendSisyphusHook(next[eventName], eventName);
-  }
-  return next;
-}
-function appendSisyphusHook(groups, eventName) {
-  const current = Array.isArray(groups) ? groups : [];
-  const command = `node "\${GROK_PLUGIN_ROOT}/hooks/${SISYPHUS_HOOKS_FILE}"`;
-  const withoutOld = current.filter((group) => !groupHasSisyphusCommand(group, command));
-  return [
-    ...withoutOld,
-    {
-      hooks: [
-        {
-          type: "command",
-          command,
-          timeout: 5,
-          description: `lfg sisyphus orchestration (${eventName})`,
-          statusMessage: `Sisyphus: ${eventName} orchestration context`
-        }
-      ]
-    }
-  ];
-}
-function groupHasSisyphusCommand(group, command) {
-  if (typeof group !== "object" || group === null) return false;
-  const hooks = group.hooks;
-  if (!Array.isArray(hooks)) return false;
-  return hooks.some((handler) => {
-    if (typeof handler !== "object" || handler === null) return false;
-    const h = handler;
-    return h.command === command;
-  });
-}
-function appendConfigLoader(groups, eventName) {
-  const current = Array.isArray(groups) ? groups : [];
-  const command = `node "\${GROK_PLUGIN_ROOT}/hooks/${CONFIG_LOADER_FILE}"`;
-  const targetStatusMessage = `LFG: Loading global config and project context (${eventName})`;
-  const withoutOldLoader = current.filter((group) => !groupHasConfigLoaderCommand(group, command));
-  const withUpdatedLoader = [
-    ...withoutOldLoader,
-    {
-      hooks: [{
-        type: "command",
-        command,
-        timeout: 5,
-        description: `lfg global config loader (${eventName})`,
-        statusMessage: targetStatusMessage
-      }]
-    }
-  ];
-  return withUpdatedLoader;
-}
-function groupHasConfigLoaderCommand(group, command) {
-  if (typeof group !== "object" || group === null) return false;
-  const hooks = group.hooks;
-  if (!Array.isArray(hooks)) return false;
-  return hooks.some((handler) => {
-    if (typeof handler !== "object" || handler === null) return false;
-    const h = handler;
-    return h.command === command;
-  });
-}
-function normalizeHookGroup(group, onChange) {
-  if (typeof group !== "object" || group === null) {
-    return group;
-  }
-  const g = group;
-  if (!Array.isArray(g.hooks)) {
-    return group;
-  }
-  const hooks = g.hooks.map((handler) => normalizeHandler(handler, onChange));
-  return { ...g, hooks };
-}
-function normalizeHandler(handler, onChange) {
-  if (typeof handler !== "object" || handler === null) {
-    return handler;
-  }
-  const h = handler;
-  if (h.type !== "command" || typeof h.command !== "string") {
-    return handler;
-  }
-  const next = normalizeFirstPartyHookCommand(wrapLazyCodexHookCommand(normalizeHookCommandPaths(h.command)));
-  if (next === h.command) {
-    return handler;
-  }
-  onChange();
-  return { ...h, command: next };
-}
-function normalizeFirstPartyHookCommand(command) {
-  const event = hookEventArg(command);
-  if (event === null) {
-    return command;
-  }
-  if (command.includes("/components/rules/dist/cli.js")) {
-    return `node "\${GROK_PLUGIN_ROOT}/hooks/${NATIVE_RULES_FILE}" ${event}`;
-  }
-  if (command.includes("/components/ultrawork/dist/cli.js")) {
-    return `node "\${GROK_PLUGIN_ROOT}/hooks/${NATIVE_ULTRAWORK_FILE}" ${event}`;
-  }
-  return command;
-}
-function hookEventArg(command) {
-  const match = command.match(/\bhook\s+([a-z0-9-]+)\b/i);
-  return match?.[1] ?? null;
-}
-var BRIDGE_RELATIVE, CONFIG_LOADER_FILE, PROJECT_OMO_LEDGER_FILE, SISYPHUS_HOOKS_FILE, NATIVE_RULES_FILE, NATIVE_ULTRAWORK_FILE, DEV_LOGGER_FILE, CONFIG_LOADER_RELATIVE, SISYPHUS_HOOK_EVENTS;
-var init_normalize_plugin_hooks = __esm({
-  "src/grok-adapter/normalize-plugin-hooks.ts"() {
-    "use strict";
-    init_hook_trust();
-    init_hook_command_normalization();
-    init_normalize_plugin_hooks_active();
-    init_resolve_hook_bridge_asset();
-    BRIDGE_RELATIVE = join10("hooks", "lfg-grok-hook-bridge.mjs");
-    CONFIG_LOADER_FILE = "lfg-config-loader.mjs";
-    PROJECT_OMO_LEDGER_FILE = "lfg-project-omo-ledger.mjs";
-    SISYPHUS_HOOKS_FILE = "lfg-sisyphus-hooks.mjs";
-    NATIVE_RULES_FILE = "lfg-native-rules.js";
-    NATIVE_ULTRAWORK_FILE = "lfg-native-ultrawork.js";
-    DEV_LOGGER_FILE = "lfg-dev-logger.mjs";
-    CONFIG_LOADER_RELATIVE = join10("hooks", CONFIG_LOADER_FILE);
-    SISYPHUS_HOOK_EVENTS = [
-      "SessionStart",
-      "UserPromptSubmit",
-      "PreToolUse",
-      "PostToolUse",
-      "SubagentStart",
-      "SubagentStop",
-      "Stop",
-      "PreCompact",
-      "Notification"
-    ];
-  }
-});
-
 // src/grok-adapter/read-lazycodex-agents-from-config.ts
-import { readFile as readFile9 } from "node:fs/promises";
-import { join as join11 } from "node:path";
+import { readFile as readFile6 } from "node:fs/promises";
+import { join as join7 } from "node:path";
 async function readLazycodexAgentsFromGrokConfig(home) {
-  const path = join11(home, ".grok", "config.toml");
+  const path = join7(home, ".grok", "config.toml");
   let text;
   try {
-    text = await readFile9(path, "utf8");
+    text = await readFile6(path, "utf8");
   } catch {
     return null;
   }
@@ -16973,11 +16373,146 @@ var init_resolve_global_agent_config = __esm({
   }
 });
 
+// src/grok-adapter/hook-parity.ts
+var init_hook_parity = __esm({
+  "src/grok-adapter/hook-parity.ts"() {
+    "use strict";
+  }
+});
+
+// src/grok-adapter/hook-trust.ts
+function isGrokEventHooksJson(raw) {
+  if (typeof raw !== "object" || raw === null) {
+    return false;
+  }
+  const record2 = raw;
+  const hooks = record2.hooks;
+  if (typeof hooks !== "object" || hooks === null || Array.isArray(hooks)) {
+    return false;
+  }
+  const events = Object.keys(hooks);
+  if (events.length === 0) {
+    return false;
+  }
+  return true;
+}
+function isLegacyMetadataHooksJson(raw) {
+  if (typeof raw !== "object" || raw === null) {
+    return false;
+  }
+  const record2 = raw;
+  if (!Array.isArray(record2.hooks)) {
+    return false;
+  }
+  const entries = record2.hooks;
+  if (entries.length === 0) {
+    return false;
+  }
+  return entries.every(
+    (entry) => typeof entry === "object" && entry !== null && typeof entry.name === "string"
+  );
+}
+function validateGrokHooksJson(raw) {
+  if (isLegacyMetadataHooksJson(raw)) {
+    return {
+      ok: false,
+      hookNames: [],
+      error: "hooks.json uses legacy metadata list; expected Grok event map (hooks.SessionStart, etc.)"
+    };
+  }
+  if (!isGrokEventHooksJson(raw)) {
+    return { ok: false, hookNames: [], error: "hooks.json must be an object with hooks.<Event> arrays" };
+  }
+  const record2 = raw;
+  const hookNames = [];
+  for (const [eventName, groups] of Object.entries(record2.hooks)) {
+    if (!GROK_HOOK_EVENTS.has(eventName)) {
+      return { ok: false, hookNames: [], error: `unknown Grok hook event: ${eventName}` };
+    }
+    if (!Array.isArray(groups)) {
+      return { ok: false, hookNames: [], error: `hooks.${eventName} must be an array` };
+    }
+    for (const group of groups) {
+      if (typeof group !== "object" || group === null) {
+        return { ok: false, hookNames: [], error: `hooks.${eventName} entry must be an object` };
+      }
+      const inner = group.hooks;
+      if (inner !== void 0 && !Array.isArray(inner)) {
+        return { ok: false, hookNames: [], error: `hooks.${eventName} handler list must be an array` };
+      }
+      if (Array.isArray(inner)) {
+        for (const handler of inner) {
+          if (typeof handler !== "object" || handler === null) {
+            return { ok: false, hookNames: [], error: "hook handler must be an object" };
+          }
+          const type = handler.type;
+          if (type === "command") {
+            const command = handler.command;
+            if (typeof command !== "string" || command.length === 0) {
+              return { ok: false, hookNames: [], error: "command hook requires non-empty command" };
+            }
+          }
+        }
+      }
+    }
+    hookNames.push(eventName);
+  }
+  hookNames.sort((a, b) => a.localeCompare(b));
+  if (hookNames.length === 0) {
+    return { ok: false, hookNames: [], error: "no recognized Grok hook events" };
+  }
+  return { ok: true, hookNames, error: null };
+}
+function createNativeGrokHooksForLegacyFallback() {
+  const hooks = {};
+  for (const eventName of GROK_HOOK_EVENTS) {
+    const lowerEvent = eventName.replace(/([A-Z])/g, "-$1").toLowerCase();
+    const command = `node "\${GROK_PLUGIN_ROOT}/hooks/lfg-grok-hook-bridge.mjs" node "\${GROK_PLUGIN_ROOT}/components/ultrawork/dist/cli.js" hook ${lowerEvent}`;
+    hooks[eventName] = [
+      {
+        hooks: [
+          {
+            type: "command",
+            command,
+            timeout: 5,
+            description: `lfg legacy/imported fallback ${eventName} hook`
+          }
+        ]
+      }
+    ];
+  }
+  return { hooks };
+}
+var GROK_HOOK_EVENTS;
+var init_hook_trust = __esm({
+  "src/grok-adapter/hook-trust.ts"() {
+    "use strict";
+    init_hook_parity();
+    GROK_HOOK_EVENTS = /* @__PURE__ */ new Set([
+      "SessionStart",
+      "UserPromptSubmit",
+      "PreToolUse",
+      "PostToolUse",
+      "PostToolUseFailure",
+      "PermissionDenied",
+      "Stop",
+      "StopFailure",
+      "Notification",
+      "SubagentStart",
+      "SubagentStop",
+      "SubagentEnd",
+      "PreCompact",
+      "PostCompact",
+      "SessionEnd"
+    ]);
+  }
+});
+
 // src/grok-adapter/component-inventory.ts
-import { writeFile as writeFile7 } from "node:fs/promises";
-import { join as join12 } from "node:path";
+import { writeFile as writeFile5 } from "node:fs/promises";
+import { join as join8 } from "node:path";
 function componentInventoryPath(pluginRoot) {
-  return join12(pluginRoot, COMPONENT_INVENTORY_FILE);
+  return join8(pluginRoot, COMPONENT_INVENTORY_FILE);
 }
 async function writeComponentInventory(options) {
   const path = componentInventoryPath(options.pluginRoot);
@@ -16993,7 +16528,7 @@ async function writeComponentInventory(options) {
     upstreamReleaseUrl: UPSTREAM_OMO_RELEASE_URL,
     components: COMPONENTS
   };
-  await writeFile7(path, `${JSON.stringify(inventory, null, 2)}
+  await writeFile5(path, `${JSON.stringify(inventory, null, 2)}
 `, "utf8");
   return path;
 }
@@ -17003,21 +16538,21 @@ var init_component_inventory = __esm({
     "use strict";
     COMPONENT_INVENTORY_FILE = "lfg-component-inventory.json";
     UPSTREAM_OMO_NAME = "oh-my-openagent";
-    UPSTREAM_OMO_VERSION = "4.10.0";
-    UPSTREAM_OMO_TAG = "v4.10.0";
-    UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0";
+    UPSTREAM_OMO_VERSION = "4.12.1";
+    UPSTREAM_OMO_TAG = "v4.12.1";
+    UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.12.1";
     COMPONENTS = [
       { id: "comment-checker", status: "Deferred", evidence: "Codex PostToolUse hook behavior has no Grok-native equivalent wired by lfg yet." },
-      { id: "git-bash", status: "Manifest-only", evidence: "git_bash MCP is disabled on macOS/Linux and Windows-unverified: the bundled runtime is a manifest-only local MCP stub with empty tools/list until behavior-level Windows support is packaged and tested." },
+      { id: "git-bash", status: "Manifest-only", evidence: "git_bash MCP is disabled on macOS/Linux and Windows-unverified. lfg can copy the upstream 4.12.1 git-bash-mcp runtime from a package-shaped source, but behavior-level Windows support remains unverified." },
       { id: "rules", status: "Grok-adapted", evidence: "Component hooks are bridged through lfg-grok-hook-bridge.mjs when present in the installed payload." },
-      { id: "lsp", status: "Manifest-only", evidence: "lsp MCP is present in plugin .mcp.json with an lfg-owned local runtime stub; behavior-level LSP tools are deferred until a real Grok-adapted runtime is packaged." },
+      { id: "lsp", status: "Manifest-only", evidence: "lsp MCP is present in plugin .mcp.json. lfg can copy the upstream 4.12.1 lsp-daemon runtime from a package-shaped source, but Grok-adapted LSP hook/tool behavior is still deferred." },
       { id: "ast_grep", status: "Manifest-only", evidence: "ast_grep MCP is present in plugin .mcp.json with an lfg-owned local runtime stub; tools/list intentionally remains empty until a real Grok-adapted runtime is packaged." },
       { id: "codegraph", status: "Grok-adapted", evidence: "External @colbymchenry/codegraph semantic-code-graph MCP binary wrapped via utils/codegraph provisioning + Grok-native .mcp.json command server; Phase 0 of the core/adapter port strategy (docs/grok-adapter-core-port-strategy.md)." },
       { id: "grep_app", status: "Remote URL manifest-only", evidence: "grep_app MCP is represented as the upstream remote URL server https://mcp.grep.app; lfg validates manifest shape and does not live-call it by default." },
       { id: "context7", status: "Remote URL manifest-only", evidence: "context7 MCP is represented as the upstream remote URL server https://mcp.context7.com/mcp; lfg validates manifest shape and does not live-call it by default." },
       { id: "ultrawork", status: "Grok-adapted", evidence: "Ultrawork OMO hook parity routed natively via component/runtime and Grok-native OMO agent surfaces (default/sisyphus/role agents); implements `omo hook <event>` shape for Grok without new top-level commands." },
-      { id: "ulw-loop", status: "Grok-adapted", evidence: "Project .omo awareness + self-contained SKILL.md workflow payloads (Bootstrap/Execution Loop/Manual-QA channels) installed via skills/ copy. No sibling guessing." },
-      { id: "ulw-plan", status: "Grok-adapted", evidence: "Self-contained ulw-plan SKILL.md with Phase 0/Approval gate/Phase 3 (source-of-truth generation avoids full-workflow.md drift)." },
+      { id: "ulw-loop", status: "Grok-adapted", evidence: "Project .omo awareness plus upstream OMO ulw-loop skill directory installed via skills/ copy, including references/full-workflow.md for Bootstrap/Execution Loop/Manual-QA channels." },
+      { id: "ulw-plan", status: "Grok-adapted", evidence: "Upstream OMO ulw-plan skill directory installed via skills/ copy, including references/full-workflow.md, intent references, and scripts/scaffold-plan.mjs." },
       { id: "bootstrap", status: "Deferred", evidence: "Upstream bootstrap provisioning is a SessionStart component for Codex runtime dependencies; lfg does not run provisioning hooks during Grok setup." },
       { id: "auto-update", status: "Unsupported", evidence: "Upstream auto-update is a SessionStart script that can run `npx lazycodex-ai@latest install`; lfg keeps updates user-controlled and does not enable this hook." },
       { id: "start-work-continuation", status: "Deferred", evidence: "Boulder/start-work continuation is not yet driven as a Grok-native lifecycle workflow." },
@@ -17026,16 +16561,18 @@ var init_component_inventory = __esm({
       { id: "delegate-core", status: "Grok-adapted", evidence: "Phase 5 of the core/adapter port strategy: delegate-core source (model-selection, retry-patterns, retry-guidance) vendored under src/grok-adapter/delegate-core-vendored/; Grok glue in grok-delegate-adapter.ts maps delegate-task model selection to Grok subagent routing (docs/grok-adapter-core-port-strategy.md)." },
       { id: "boulder-state", status: "Grok-adapted", evidence: "Phase 5 of the core/adapter port strategy: boulder-state source (plan-checklist, types, storage) vendored under src/grok-adapter/boulder-state-vendored/; Grok glue in grok-delegate-adapter.ts bridges plan-checklist to the .omo/plans convention (docs/grok-adapter-core-port-strategy.md)." },
       { id: "skills-loader-core", status: "Grok-adapted", evidence: "Phase 6 of the core/adapter port strategy: skills-loader-core host-neutral primitives (config, shared, builtin-skills loader) vendored under src/grok-adapter/skills-loader-core-vendored/; Grok glue in grok-skills-loader-adapter.ts discovers skills from Grok skill roots (OpenCode-bound discovery layers deferred). See docs/grok-adapter-core-port-strategy.md." },
+      { id: "teammode", status: "Deferred", evidence: "Upstream 4.12.1 teammode skill payload is installed as an upstream-derived skill, but the Codex codex_app thread orchestration hook is not Grok-adapted yet." },
+      { id: "lazycodex-executor-verify", status: "Deferred", evidence: "Upstream 4.12.1 SubagentStop evidence verifier targets the Codex lazycodex-executor agent and requires Grok-specific agent naming/event adaptation before it can be enabled." },
       { id: "telemetry", status: "Unsupported", evidence: "lfg does not emit upstream anonymous telemetry." }
     ];
   }
 });
 
 // src/grok-adapter/mcp-manifest-verify.ts
-import { access as access4, readFile as readFile10 } from "node:fs/promises";
-import { isAbsolute, join as join13, resolve } from "node:path";
+import { access as access2, readFile as readFile7 } from "node:fs/promises";
+import { isAbsolute, join as join9, resolve } from "node:path";
 async function verifyPluginMcpManifest(pluginRoot, platform = process.platform) {
-  const manifestPath = join13(pluginRoot, ".mcp.json");
+  const manifestPath = join9(pluginRoot, ".mcp.json");
   const errors = [];
   const parsed = await readMcpManifestSafe(manifestPath, errors);
   const mcpServers = objectField(parsed, "mcpServers");
@@ -17068,13 +16605,13 @@ async function verifyPluginMcpManifest(pluginRoot, platform = process.platform) 
 }
 async function localRuntimeBinariesExist(root) {
   for (const server of LOCAL_MCP_SERVERS) {
-    if (!await pathExists3(join13(root, server.runtimeDir, "dist", "cli.js"))) return false;
+    if (!await pathExists2(join9(root, server.runtimeDir, "dist", "cli.js"))) return false;
   }
   return true;
 }
-async function pathExists3(path) {
+async function pathExists2(path) {
   try {
-    await access4(path);
+    await access2(path);
     return true;
   } catch {
     return false;
@@ -17082,7 +16619,7 @@ async function pathExists3(path) {
 }
 async function readMcpManifestSafe(path, errors) {
   try {
-    return JSON.parse(await readFile10(path, "utf8"));
+    return JSON.parse(await readFile7(path, "utf8"));
   } catch (error51) {
     errors.push(error51 instanceof SyntaxError ? "mcp manifest malformed JSON" : "mcp manifest missing");
     return null;
@@ -17105,13 +16642,13 @@ async function validateLocalServer(options) {
   if (!cliPath.startsWith(options.pluginRoot)) {
     options.errors.push(`mcpServers.${expected.name}.args[0] must stay inside plugin root`);
   }
-  if (!cliPath.includes(join13(expected.runtimeDir, "dist", "cli.js")) && !cliPath.includes(join13("components", expected.componentDir, "dist", "cli.js"))) {
+  if (!cliPath.includes(join9(expected.runtimeDir, "dist", "cli.js")) && !cliPath.includes(join9("components", expected.componentDir, "dist", "cli.js"))) {
     options.errors.push(`mcpServers.${expected.name}.args[0] has unexpected runtime path`);
   }
-  if (!await pathExists3(cliPath)) options.errors.push(`mcpServers.${expected.name}.args[0] binary missing`);
-  if (cliPath.includes(join13("components", expected.componentDir, "dist", "cli.js"))) {
-    const runtimePath = join13(options.pluginRoot, "mcp-runtimes", expected.runtimeDir, "dist", "cli.js");
-    if (!await pathExists3(runtimePath)) options.errors.push(`mcpServers.${expected.name}.runtime target missing`);
+  if (!await pathExists2(cliPath)) options.errors.push(`mcpServers.${expected.name}.args[0] binary missing`);
+  if (cliPath.includes(join9("components", expected.componentDir, "dist", "cli.js"))) {
+    const runtimePath = join9(options.pluginRoot, "mcp-runtimes", expected.runtimeDir, "dist", "cli.js");
+    if (!await pathExists2(runtimePath)) options.errors.push(`mcpServers.${expected.name}.runtime target missing`);
   }
 }
 function validateRemoteServer(mcpServers, name, expectedUrl, errors) {
@@ -17173,9 +16710,9 @@ var init_mcp_manifest_verify = __esm({
 import { existsSync } from "node:fs";
 import { homedir as homedir3 } from "node:os";
 import { spawnSync } from "node:child_process";
-import { join as join14 } from "node:path";
+import { join as join10 } from "node:path";
 function defaultCodegraphInstallDir(homeDir = homedir3()) {
-  return join14(homeDir, ".omo", "codegraph");
+  return join10(homeDir, ".omo", "codegraph");
 }
 function buildCodegraphEnv(options = {}) {
   const homeDir = options.homeDir ?? homedir3();
@@ -17188,7 +16725,7 @@ function buildCodegraphEnv(options = {}) {
 }
 function provisionedBinFromInstallDir(installDir, fileExists2 = existsSync) {
   if (installDir === void 0) return null;
-  const candidate = join14(installDir, "bin", process.platform === "win32" ? "codegraph.cmd" : "codegraph");
+  const candidate = join10(installDir, "bin", process.platform === "win32" ? "codegraph.cmd" : "codegraph");
   return fileExists2(candidate) ? candidate : null;
 }
 function resolveCodegraphCommand(options = {}) {
@@ -17260,8 +16797,8 @@ var init_codegraph_resolve = __esm({
 });
 
 // src/grok-adapter/materialize-grok-mcp.ts
-import { cp as cp2, mkdir as mkdir8, writeFile as writeFile8 } from "node:fs/promises";
-import { dirname as dirname8, join as join15 } from "node:path";
+import { cp, mkdir as mkdir5, writeFile as writeFile6 } from "node:fs/promises";
+import { dirname as dirname4, join as join11 } from "node:path";
 function pluginMcpJson(pluginRoot, platform, mode, codegraphEntry) {
   const disabledServers = platform === "win32" ? [] : ["git_bash"];
   const cwd = mode === "runtime_packages" ? pluginRoot : ".";
@@ -17290,24 +16827,29 @@ function pluginMcpJson(pluginRoot, platform, mode, codegraphEntry) {
   };
 }
 function localServerPath(pluginRoot, mode, server) {
-  return mode === "runtime_packages" ? join15(pluginRoot, "mcp-runtimes", server.runtimeDir, "dist", "cli.js") : `./components/${server.componentDir}/dist/cli.js`;
+  return mode === "runtime_packages" ? join11(pluginRoot, "mcp-runtimes", server.runtimeDir, "dist", "cli.js") : `./components/${server.componentDir}/dist/cli.js`;
 }
 async function materializeGrokMcpRuntimes(pluginRoot, sourceRoot, platform = process.platform, options = {}) {
-  const runtimesRoot = await resolveMcpPackagesRoot(sourceRoot);
+  const runtimeSources = await resolveMcpRuntimeSources(sourceRoot);
+  const runtimesRoot = firstRuntimeRoot(runtimeSources);
   if (runtimesRoot === null) return materializeBundledMcpComponents(pluginRoot, sourceRoot, platform, options);
-  const destRoot = join15(pluginRoot, "mcp-runtimes");
-  await mkdir8(destRoot, { recursive: true });
+  const destRoot = join11(pluginRoot, "mcp-runtimes");
+  await mkdir5(destRoot, { recursive: true });
   for (const server of LOCAL_MCP_SERVERS) {
-    const src = join15(runtimesRoot, server.runtimeDir);
-    const cli = join15(src, "dist", "cli.js");
-    if (!await pathExists3(cli)) continue;
-    await cp2(src, join15(destRoot, server.runtimeDir), { recursive: true, force: true });
+    const src = runtimeSources[server.runtimeDir];
+    const destCli = join11(destRoot, server.runtimeDir, "dist", "cli.js");
+    if (src !== void 0 && await pathExists2(join11(src, "dist", "cli.js"))) {
+      await cp(src, join11(destRoot, server.runtimeDir), { recursive: true, force: true });
+      continue;
+    }
+    await mkdir5(dirname4(destCli), { recursive: true });
+    await writeFile6(destCli, fallbackRuntimeSource(server.name), "utf8");
   }
   if (!await localRuntimeBinariesExist(destRoot)) {
     return { ok: false, runtimesRoot };
   }
   const codegraphEntry = options.codegraphEntry === void 0 ? createCodegraphMcpEntry() : options.codegraphEntry;
-  await writeFile8(join15(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "runtime_packages", codegraphEntry), null, "	")}
+  await writeFile6(join11(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "runtime_packages", codegraphEntry), null, "	")}
 `, "utf8");
   return { ok: true, runtimesRoot };
 }
@@ -17316,52 +16858,92 @@ async function materializeBundledMcpComponents(pluginRoot, sourceRoot, platform,
   if (componentsRoot === null) {
     return { ok: false, runtimesRoot: null };
   }
-  const destRoot = join15(pluginRoot, "components");
-  const runtimeRoot = join15(pluginRoot, "mcp-runtimes");
-  await mkdir8(destRoot, { recursive: true });
+  const destRoot = join11(pluginRoot, "components");
+  const runtimeRoot = join11(pluginRoot, "mcp-runtimes");
+  await mkdir5(destRoot, { recursive: true });
   for (const server of LOCAL_MCP_SERVERS) {
-    await cp2(join15(componentsRoot, server.componentDir), join15(destRoot, server.componentDir), { recursive: true, force: true });
-    const runtimeCli = join15(runtimeRoot, server.runtimeDir, "dist", "cli.js");
-    await mkdir8(dirname8(runtimeCli), { recursive: true });
-    await writeFile8(runtimeCli, fallbackRuntimeSource(), "utf8");
+    await cp(join11(componentsRoot, server.componentDir), join11(destRoot, server.componentDir), { recursive: true, force: true });
+    const runtimeCli = join11(runtimeRoot, server.runtimeDir, "dist", "cli.js");
+    await mkdir5(dirname4(runtimeCli), { recursive: true });
+    await writeFile6(runtimeCli, fallbackRuntimeSource(), "utf8");
   }
   const codegraphEntry = options.codegraphEntry === void 0 ? createCodegraphMcpEntry() : options.codegraphEntry;
-  await writeFile8(join15(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "component_shims", codegraphEntry), null, "	")}
+  await writeFile6(join11(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "component_shims", codegraphEntry), null, "	")}
 `, "utf8");
   return { ok: await localRuntimeBinariesExist(runtimeRoot), runtimesRoot: componentsRoot };
 }
-function fallbackRuntimeSource() {
+function fallbackRuntimeSource(serverName = "mcp") {
+  const runtimeName = JSON.stringify(`lfg-${serverName}`);
   return `#!/usr/bin/env node
-import { stdin } from "node:process"
+import { createInterface } from "node:readline"
+import { stdin, stdout } from "node:process"
 
-stdin.resume()
-stdin.on("end", () => process.exit(0))
 if (stdin.isTTY) process.exit(0)
+
+const runtimeName = ${runtimeName}
+const rl = createInterface({ input: stdin, crlfDelay: Infinity })
+
+rl.on("line", (line) => {
+  if (line.trim().length === 0) return
+  const request = JSON.parse(line)
+  if (request.method === "initialize") {
+    stdout.write(JSON.stringify({
+      jsonrpc: "2.0",
+      id: request.id,
+      result: {
+        protocolVersion: "2024-11-05",
+        capabilities: { tools: {} },
+        serverInfo: { name: runtimeName, version: "0.0.0" },
+      },
+    }) + "\\n")
+    return
+  }
+  if (request.method === "tools/list") {
+    stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: { tools: [] } }) + "\\n")
+  }
+})
+
+rl.on("close", () => process.exit(0))
 `;
 }
-async function resolveMcpPackagesRoot(sourceRoot) {
-  const candidates = [];
+async function resolveMcpRuntimeSources(sourceRoot) {
+  const sources = {};
+  for (const server of LOCAL_MCP_SERVERS) {
+    const root = await resolveMcpRuntimeRoot(sourceRoot, server.runtimeDir);
+    if (root !== null) {
+      sources[server.runtimeDir] = root;
+    }
+  }
+  return sources;
+}
+async function resolveMcpRuntimeRoot(sourceRoot, runtimeDir) {
   let dir = sourceRoot;
-  for (let i = 0; i < 6; i++) {
-    candidates.push(dir);
-    candidates.push(join15(dir, "mcp-runtimes"));
-    const parent = dirname8(dir);
+  const candidates = [];
+  for (let i = 0; i < 7; i++) {
+    candidates.push(join11(dir, runtimeDir));
+    candidates.push(join11(dir, "mcp-runtimes", runtimeDir));
+    candidates.push(join11(dir, "packages", runtimeDir));
+    const parent = dirname4(dir);
     if (parent === dir) break;
     dir = parent;
   }
   for (const root of candidates) {
-    if (await localRuntimeBinariesExist(root)) {
+    if (await pathExists2(join11(root, "dist", "cli.js"))) {
       return root;
     }
   }
   return null;
 }
+function firstRuntimeRoot(runtimeSources) {
+  const first = Object.values(runtimeSources)[0];
+  return first === void 0 ? null : dirname4(first);
+}
 async function resolveBundledMcpComponentsRoot(sourceRoot) {
-  const candidates = [join15(sourceRoot, "components"), join15(sourceRoot, "..", "components"), join15(sourceRoot, "..", "..", "components"), join15(sourceRoot, "..", "..", "..", "components")];
+  const candidates = [join11(sourceRoot, "components"), join11(sourceRoot, "..", "components"), join11(sourceRoot, "..", "..", "components"), join11(sourceRoot, "..", "..", "..", "components")];
   for (const root of candidates) {
     let ok = true;
     for (const server of LOCAL_MCP_SERVERS) {
-      if (!await pathExists3(join15(root, server.componentDir, "dist", "cli.js"))) ok = false;
+      if (!await pathExists2(join11(root, server.componentDir, "dist", "cli.js"))) ok = false;
     }
     if (ok) return root;
   }
@@ -17377,30 +16959,30 @@ var init_materialize_grok_mcp = __esm({
 });
 
 // src/grok-adapter/install.ts
-import { cp as cp3, mkdir as mkdir9, readFile as readFile11, rm, writeFile as writeFile9 } from "node:fs/promises";
+import { cp as cp2, mkdir as mkdir6, readFile as readFile8, rm, writeFile as writeFile7 } from "node:fs/promises";
 import { existsSync as existsSync2 } from "node:fs";
-import { dirname as dirname9, join as join16 } from "node:path";
-import { fileURLToPath as fileURLToPath4 } from "node:url";
+import { dirname as dirname5, join as join12 } from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 function nativeGrokPluginRoot(home, pluginDirName = DEFAULT_PLUGIN_DIR) {
-  return join16(home, ".grok", "plugins", pluginDirName);
+  return join12(home, ".grok", "plugins", pluginDirName);
 }
 function legacyInstalledGrokPluginRoot(home, pluginDirName = DEFAULT_PLUGIN_DIR) {
-  return join16(home, ".grok", "installed-plugins", pluginDirName);
+  return join12(home, ".grok", "installed-plugins", pluginDirName);
 }
 async function installGrokPluginFromSource(options) {
   const pluginDirName = options.pluginDirName ?? DEFAULT_PLUGIN_DIR;
   const version2 = options.version ?? DEFAULT_VERSION;
   const pluginRoot = nativeGrokPluginRoot(options.home, pluginDirName);
   const legacyPluginRoot = legacyInstalledGrokPluginRoot(options.home, pluginDirName);
-  await mkdir9(join16(options.home, ".grok", "plugins"), { recursive: true });
+  await mkdir6(join12(options.home, ".grok", "plugins"), { recursive: true });
   await rm(pluginRoot, { recursive: true, force: true });
   await rm(legacyPluginRoot, { recursive: true, force: true });
-  await cp3(options.sourceRoot, pluginRoot, { recursive: true, force: true });
+  await cp2(options.sourceRoot, pluginRoot, { recursive: true, force: true });
   await overlayLfgComponentShims(pluginRoot);
   await writeLfgPluginPackageManifest(pluginRoot, version2);
-  const installStampPath = join16(pluginRoot, "lfg-install.json");
+  const installStampPath = join12(pluginRoot, "lfg-install.json");
   const stamp = { packageName: "@islee23520/lfg", version: version2, platform: "grok" };
-  await writeFile9(installStampPath, `${JSON.stringify(stamp, null, 2)}
+  await writeFile7(installStampPath, `${JSON.stringify(stamp, null, 2)}
 `, "utf8");
   const componentInventoryPath2 = await writeComponentInventory({
     pluginRoot,
@@ -17418,12 +17000,12 @@ async function writeLfgPluginPackageManifest(pluginRoot, version2) {
     private: true,
     type: "module"
   };
-  await writeFile9(join16(pluginRoot, "package.json"), `${JSON.stringify(manifest, null, 2)}
+  await writeFile7(join12(pluginRoot, "package.json"), `${JSON.stringify(manifest, null, 2)}
 `, "utf8");
 }
 async function readGrokInstallStamp(pluginRoot) {
   try {
-    const parsed = JSON.parse(await readFile11(join16(pluginRoot, "lfg-install.json"), "utf8"));
+    const parsed = JSON.parse(await readFile8(join12(pluginRoot, "lfg-install.json"), "utf8"));
     if (typeof parsed !== "object" || parsed === null) return null;
     const record2 = parsed;
     if (typeof record2.packageName !== "string" || typeof record2.version !== "string") return null;
@@ -17433,13 +17015,13 @@ async function readGrokInstallStamp(pluginRoot) {
   }
 }
 function resolveBundledComponentShimsRoot() {
-  const here = dirname9(fileURLToPath4(import.meta.url));
+  const here = dirname5(fileURLToPath2(import.meta.url));
   const candidates = [
-    join16(here, "grok-install", "components"),
-    join16(here, "..", "grok-install", "components")
+    join12(here, "grok-install", "components"),
+    join12(here, "..", "grok-install", "components")
   ];
   for (const path of candidates) {
-    if (existsSync2(join16(path, "lsp", "dist", "cli.js"))) return path;
+    if (existsSync2(join12(path, "lsp", "dist", "cli.js"))) return path;
   }
   return null;
 }
@@ -17447,11 +17029,11 @@ async function overlayLfgComponentShims(pluginRoot) {
   const shimsRoot = resolveBundledComponentShimsRoot();
   if (shimsRoot === null) return;
   for (const dir of LFG_COMPONENT_SHIM_DIRS) {
-    const src = join16(shimsRoot, dir);
+    const src = join12(shimsRoot, dir);
     if (!existsSync2(src)) continue;
-    const dst = join16(pluginRoot, "components", dir);
+    const dst = join12(pluginRoot, "components", dir);
     await rm(dst, { recursive: true, force: true });
-    await cp3(src, dst, { recursive: true });
+    await cp2(src, dst, { recursive: true });
   }
 }
 var DEFAULT_PLUGIN_DIR, DEFAULT_VERSION, LFG_COMPONENT_SHIM_DIRS;
@@ -17466,14 +17048,94 @@ var init_install = __esm({
   }
 });
 
+// src/grok-adapter/normalize-plugin-hooks-active.ts
+import { mkdir as mkdir7, readFile as readFile9, writeFile as writeFile8 } from "node:fs/promises";
+import { dirname as dirname6 } from "node:path";
+function activeGrokHooksPath(pluginRoot) {
+  return `${dirname6(dirname6(pluginRoot))}/hooks/${ACTIVE_GROK_HOOKS_FILE}`;
+}
+async function materializeActiveGrokHooksJson(pluginRoot, payload) {
+  const activePath = activeGrokHooksPath(pluginRoot);
+  const activePayload = toActiveGrokHooksPayload(payload, pluginRoot);
+  const nextText = `${JSON.stringify(activePayload, null, 2)}
+`;
+  const current = await readTextIfExists3(activePath);
+  if (current !== nextText) {
+    await mkdir7(dirname6(activePath), { recursive: true });
+    await writeFile8(activePath, nextText, "utf8");
+    return { path: activePath, changed: true };
+  }
+  return { path: activePath, changed: false };
+}
+function toActiveGrokHooksPayload(payload, pluginRoot) {
+  const replaced = replacePluginRootPlaceholders(payload, pluginRoot);
+  if (typeof replaced !== "object" || replaced === null) {
+    return replaced;
+  }
+  const hooks = replaced.hooks;
+  if (typeof hooks !== "object" || hooks === null || Array.isArray(hooks)) {
+    return replaced;
+  }
+  return {
+    ...replaced,
+    hooks: Object.fromEntries(
+      Object.entries(hooks).map(([eventName, groups]) => [eventName, stripLifecycleMatchers(eventName, groups)])
+    )
+  };
+}
+function stripLifecycleMatchers(eventName, groups) {
+  if (!LIFECYCLE_EVENTS_WITHOUT_MATCHERS.has(eventName) || !Array.isArray(groups)) {
+    return groups;
+  }
+  return groups.map((group) => {
+    if (typeof group !== "object" || group === null || !("matcher" in group)) {
+      return group;
+    }
+    const { matcher: _matcher, ...rest } = group;
+    return rest;
+  });
+}
+function replacePluginRootPlaceholders(value, pluginRoot) {
+  if (typeof value === "string") {
+    return value.replace(/\$\{GROK_PLUGIN_ROOT\}|\$\{PLUGIN_ROOT\}/g, pluginRoot);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => replacePluginRootPlaceholders(item, pluginRoot));
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, replacePluginRootPlaceholders(entry, pluginRoot)])
+    );
+  }
+  return value;
+}
+async function readTextIfExists3(path) {
+  try {
+    return await readFile9(path, "utf8");
+  } catch (error51) {
+    if (typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT") {
+      return "";
+    }
+    throw error51;
+  }
+}
+var ACTIVE_GROK_HOOKS_FILE, LIFECYCLE_EVENTS_WITHOUT_MATCHERS;
+var init_normalize_plugin_hooks_active = __esm({
+  "src/grok-adapter/normalize-plugin-hooks-active.ts"() {
+    "use strict";
+    ACTIVE_GROK_HOOKS_FILE = "lfg-hooks.json";
+    LIFECYCLE_EVENTS_WITHOUT_MATCHERS = /* @__PURE__ */ new Set(["SessionStart", "Stop", "Notification", "SubagentStart", "SubagentStop"]);
+  }
+});
+
 // src/grok-adapter/grok-adapter-paths.ts
-import { access as access5, readFile as readFile12 } from "node:fs/promises";
-import { join as join17 } from "node:path";
+import { access as access3, readFile as readFile10 } from "node:fs/promises";
+import { join as join13 } from "node:path";
 async function resolveGrokAdapterPluginRoot(home) {
   for (const location of ["native_plugins", "legacy_installed_plugins"]) {
     for (const pluginDirName of GROK_ADAPTER_PLUGIN_DIR_CANDIDATES) {
       const pluginRoot = location === "native_plugins" ? nativeGrokPluginRoot(home, pluginDirName) : legacyInstalledGrokPluginRoot(home, pluginDirName);
-      if (!await pathExists4(pluginRoot)) {
+      if (!await pathExists3(pluginRoot)) {
         continue;
       }
       if (await looksLikeLazycodexAdapterTree(pluginRoot)) {
@@ -17484,39 +17146,39 @@ async function resolveGrokAdapterPluginRoot(home) {
   return null;
 }
 async function looksLikeLazycodexAdapterTree(pluginRoot) {
-  if (await pathExists4(join17(pluginRoot, "components"))) {
+  if (await pathExists3(join13(pluginRoot, "components"))) {
     return true;
   }
-  if (await pathExists4(join17(pluginRoot, "lfg-install.json"))) {
+  if (await pathExists3(join13(pluginRoot, "lfg-install.json"))) {
     return true;
   }
-  const hooksPath = join17(pluginRoot, "hooks", "hooks.json");
-  if (!await pathExists4(hooksPath)) {
+  const hooksPath = join13(pluginRoot, "hooks", "hooks.json");
+  if (!await pathExists3(hooksPath)) {
     return false;
   }
   try {
-    const parsed = JSON.parse(await readFile12(hooksPath, "utf8"));
+    const parsed = JSON.parse(await readFile10(hooksPath, "utf8"));
     return isGrokEventHooksJson(parsed);
   } catch {
     return false;
   }
 }
 async function readAdapterHooksTrust(pluginRoot) {
-  const hooksPath = join17(pluginRoot, "hooks", "hooks.json");
-  if (!await pathExists4(hooksPath)) {
-    return { ok: false, hookNames: [], error: "hooks.json missing" };
+  const hooksPath = activeGrokHooksPath(pluginRoot);
+  if (!await pathExists3(hooksPath)) {
+    return { ok: false, hookNames: [], error: "global lfg-hooks.json missing" };
   }
   try {
-    const parsed = JSON.parse(await readFile12(hooksPath, "utf8"));
+    const parsed = JSON.parse(await readFile10(hooksPath, "utf8"));
     return validateGrokHooksJson(parsed);
   } catch (error51) {
     const message = error51 instanceof Error ? error51.message : String(error51);
     return { ok: false, hookNames: [], error: message };
   }
 }
-async function pathExists4(path) {
+async function pathExists3(path) {
   try {
-    await access5(path);
+    await access3(path);
     return true;
   } catch {
     return false;
@@ -17528,7 +17190,321 @@ var init_grok_adapter_paths = __esm({
     "use strict";
     init_hook_trust();
     init_install();
+    init_normalize_plugin_hooks_active();
     GROK_ADAPTER_PLUGIN_DIR_CANDIDATES = ["lfg", "lazycodex"];
+  }
+});
+
+// src/grok-adapter/hook-command-normalization.ts
+function normalizeHookCommandPaths(command) {
+  return command.replace(PLUGIN_ROOT_PLACEHOLDER, "${GROK_PLUGIN_ROOT}");
+}
+function wrapLazyCodexHookCommand(command) {
+  let trimmed = command.trim();
+  if (!/^node\s+/i.test(trimmed)) {
+    return command;
+  }
+  while (true) {
+    const match2 = trimmed.match(/^node\s+("(?:[^"\\]|\\.)*"|[^\s]+)\s*(.*)$/i);
+    if (!match2) break;
+    const first = match2[1] ?? "";
+    const rest2 = (match2[2] ?? "").trim();
+    if (first.toLowerCase().includes(BRIDGE_MARKER)) {
+      if (rest2.length === 0) break;
+      trimmed = rest2.startsWith("node ") ? rest2 : `node ${rest2}`;
+      continue;
+    }
+    break;
+  }
+  if (!trimmed.includes("/components/") && !trimmed.includes("/scripts/")) {
+    return command;
+  }
+  const match = trimmed.match(/^node\s+("(?:[^"\\]|\\.)*"|[^\s]+)\s*(.*)$/i);
+  if (!match) {
+    return command;
+  }
+  const nodeTarget = match[1] ?? "";
+  const rest = match[2] ?? "";
+  const bridge = '"${GROK_PLUGIN_ROOT}/hooks/lfg-grok-hook-bridge.mjs"';
+  return `node ${bridge} node ${nodeTarget}${rest.length > 0 ? ` ${rest}` : ""}`;
+}
+var PLUGIN_ROOT_PLACEHOLDER, BRIDGE_MARKER;
+var init_hook_command_normalization = __esm({
+  "src/grok-adapter/hook-command-normalization.ts"() {
+    "use strict";
+    PLUGIN_ROOT_PLACEHOLDER = /\$\{PLUGIN_ROOT\}/g;
+    BRIDGE_MARKER = "lfg-grok-hook-bridge.mjs";
+  }
+});
+
+// src/grok-adapter/resolve-hook-bridge-asset.ts
+import { access as access4 } from "node:fs/promises";
+import { dirname as dirname7, join as join14 } from "node:path";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
+async function resolveGrokHookBridgeAssetPath(moduleUrl = import.meta.url) {
+  const here = dirname7(toFilePath2(moduleUrl));
+  const candidates = [
+    join14(here, "grok-install", "assets", BRIDGE_FILE),
+    join14(here, "assets", BRIDGE_FILE),
+    join14(here, "..", "grok-install", "assets", BRIDGE_FILE),
+    join14(here, "..", "..", "grok-install", "assets", BRIDGE_FILE)
+  ];
+  for (const path of candidates) {
+    if (await pathExists4(path)) {
+      return path;
+    }
+  }
+  throw new Error(`grok hook bridge asset not found (searched from ${here})`);
+}
+function toFilePath2(moduleUrl) {
+  if (moduleUrl.startsWith("file://")) {
+    return fileURLToPath3(moduleUrl);
+  }
+  return moduleUrl;
+}
+async function pathExists4(path) {
+  try {
+    await access4(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+var BRIDGE_FILE;
+var init_resolve_hook_bridge_asset = __esm({
+  "src/grok-adapter/resolve-hook-bridge-asset.ts"() {
+    "use strict";
+    BRIDGE_FILE = "lfg-grok-hook-bridge.mjs";
+  }
+});
+
+// src/grok-adapter/normalize-plugin-hooks.ts
+import { copyFile, mkdir as mkdir8, readFile as readFile11, unlink, writeFile as writeFile9 } from "node:fs/promises";
+import { dirname as dirname8, join as join15 } from "node:path";
+async function syncGrokHookBridgeIntoPlugin(pluginRoot) {
+  const assetPath = await resolveGrokHookBridgeAssetPath();
+  const destPath = join15(pluginRoot, BRIDGE_RELATIVE);
+  await mkdir8(dirname8(destPath), { recursive: true });
+  await copyFile(assetPath, destPath);
+  await copyFile(join15(dirname8(assetPath), CONFIG_LOADER_FILE), join15(pluginRoot, CONFIG_LOADER_RELATIVE));
+  await copyFile(join15(dirname8(assetPath), PROJECT_OMO_LEDGER_FILE), join15(pluginRoot, "hooks", PROJECT_OMO_LEDGER_FILE));
+  await copyFile(join15(dirname8(assetPath), SISYPHUS_HOOKS_FILE), join15(pluginRoot, "hooks", SISYPHUS_HOOKS_FILE));
+  await copyFile(join15(dirname8(assetPath), NATIVE_RULES_FILE), join15(pluginRoot, "hooks", NATIVE_RULES_FILE));
+  await copyFile(join15(dirname8(assetPath), NATIVE_ULTRAWORK_FILE), join15(pluginRoot, "hooks", NATIVE_ULTRAWORK_FILE));
+  await copyFile(join15(dirname8(assetPath), DEV_LOGGER_FILE), join15(pluginRoot, "hooks", DEV_LOGGER_FILE));
+  return destPath;
+}
+async function normalizePluginHooksJson(pluginRoot) {
+  await syncGrokHookBridgeIntoPlugin(pluginRoot);
+  const hooksPath = join15(pluginRoot, "hooks", PLUGIN_HOOKS_FILE);
+  const sourceHooksPath = join15(pluginRoot, "hooks", PLUGIN_HOOKS_SOURCE_FILE);
+  const { path: sourcePath, raw } = await readSourceHooksJson(sourceHooksPath, hooksPath);
+  let parsed = JSON.parse(raw);
+  if (isLegacyMetadataHooksJson(parsed)) {
+    parsed = createNativeGrokHooksForLegacyFallback();
+  } else if (!isGrokEventHooksJson(parsed)) {
+    const trust2 = validateGrokHooksJson(parsed);
+    throw new Error(trust2.error ?? "hooks.json is not Grok event format");
+  }
+  const record2 = parsed;
+  const hooksBlock = record2.hooks;
+  let changed = false;
+  const nextBlock = {};
+  for (const [eventName, groups] of Object.entries(hooksBlock)) {
+    if (!Array.isArray(groups)) {
+      nextBlock[eventName] = groups;
+      continue;
+    }
+    nextBlock[eventName] = groups.map(
+      (group) => normalizeHookGroup(group, () => {
+        changed = true;
+      })
+    );
+  }
+  const nextPayload = { hooks: addSisyphusHooks(addLfgConfigLoaderHooks(nextBlock)) };
+  const trust = validateGrokHooksJson(nextPayload);
+  if (!trust.ok) {
+    throw new Error(trust.error ?? "invalid hooks after normalize");
+  }
+  const nextText = `${JSON.stringify(nextPayload, null, 2)}
+`;
+  if (changed || nextText !== raw) {
+    await writeFile9(sourceHooksPath, nextText, "utf8");
+  } else if (sourcePath !== sourceHooksPath) {
+    await writeFile9(sourceHooksPath, nextText, "utf8");
+  }
+  const active = await materializeActiveGrokHooksJson(pluginRoot, nextPayload);
+  const removedPluginHooks = await removePluginHookRegistration(hooksPath);
+  return { path: active.path, changed: changed || nextText !== raw || active.changed || removedPluginHooks, hookNames: trust.hookNames };
+}
+async function readSourceHooksJson(sourceHooksPath, hooksPath) {
+  try {
+    return { path: sourceHooksPath, raw: await readFile11(sourceHooksPath, "utf8") };
+  } catch (error51) {
+    if (isNodeError3(error51) && error51.code === "ENOENT") {
+      return { path: hooksPath, raw: await readFile11(hooksPath, "utf8") };
+    }
+    throw error51;
+  }
+}
+async function removePluginHookRegistration(hooksPath) {
+  try {
+    await unlink(hooksPath);
+    return true;
+  } catch (error51) {
+    if (isNodeError3(error51) && error51.code === "ENOENT") {
+      return false;
+    }
+    throw error51;
+  }
+}
+function addLfgConfigLoaderHooks(hooksBlock) {
+  return {
+    ...hooksBlock,
+    SessionStart: appendConfigLoader(hooksBlock.SessionStart, "SessionStart"),
+    UserPromptSubmit: appendConfigLoader(hooksBlock.UserPromptSubmit, "UserPromptSubmit")
+  };
+}
+function addSisyphusHooks(hooksBlock) {
+  const next = { ...hooksBlock };
+  for (const eventName of SISYPHUS_HOOK_EVENTS) {
+    next[eventName] = appendSisyphusHook(next[eventName], eventName);
+  }
+  return next;
+}
+function appendSisyphusHook(groups, eventName) {
+  const current = Array.isArray(groups) ? groups : [];
+  const command = `node "\${GROK_PLUGIN_ROOT}/hooks/${SISYPHUS_HOOKS_FILE}"`;
+  const withoutOld = current.filter((group) => !groupHasSisyphusCommand(group, command));
+  return [
+    ...withoutOld,
+    {
+      hooks: [
+        {
+          type: "command",
+          command,
+          timeout: 5,
+          description: `lfg sisyphus orchestration (${eventName})`,
+          statusMessage: `Sisyphus: ${eventName} orchestration context`
+        }
+      ]
+    }
+  ];
+}
+function groupHasSisyphusCommand(group, command) {
+  if (typeof group !== "object" || group === null) return false;
+  const hooks = group.hooks;
+  if (!Array.isArray(hooks)) return false;
+  return hooks.some((handler) => {
+    if (typeof handler !== "object" || handler === null) return false;
+    const h = handler;
+    return h.command === command;
+  });
+}
+function appendConfigLoader(groups, eventName) {
+  const current = Array.isArray(groups) ? groups : [];
+  const command = `node "\${GROK_PLUGIN_ROOT}/hooks/${CONFIG_LOADER_FILE}"`;
+  const targetStatusMessage = `LFG: Loading global config and project context (${eventName})`;
+  const withoutOldLoader = current.filter((group) => !groupHasConfigLoaderCommand(group, command));
+  const withUpdatedLoader = [
+    ...withoutOldLoader,
+    {
+      hooks: [{
+        type: "command",
+        command,
+        timeout: 5,
+        description: `lfg global config loader (${eventName})`,
+        statusMessage: targetStatusMessage
+      }]
+    }
+  ];
+  return withUpdatedLoader;
+}
+function groupHasConfigLoaderCommand(group, command) {
+  if (typeof group !== "object" || group === null) return false;
+  const hooks = group.hooks;
+  if (!Array.isArray(hooks)) return false;
+  return hooks.some((handler) => {
+    if (typeof handler !== "object" || handler === null) return false;
+    const h = handler;
+    return h.command === command;
+  });
+}
+function normalizeHookGroup(group, onChange) {
+  if (typeof group !== "object" || group === null) {
+    return group;
+  }
+  const g = group;
+  if (!Array.isArray(g.hooks)) {
+    return group;
+  }
+  const hooks = g.hooks.map((handler) => normalizeHandler(handler, onChange));
+  return { ...g, hooks };
+}
+function normalizeHandler(handler, onChange) {
+  if (typeof handler !== "object" || handler === null) {
+    return handler;
+  }
+  const h = handler;
+  if (h.type !== "command" || typeof h.command !== "string") {
+    return handler;
+  }
+  const next = normalizeFirstPartyHookCommand(wrapLazyCodexHookCommand(normalizeHookCommandPaths(h.command)));
+  if (next === h.command) {
+    return handler;
+  }
+  onChange();
+  return { ...h, command: next };
+}
+function normalizeFirstPartyHookCommand(command) {
+  const event = hookEventArg(command);
+  if (event === null) {
+    return command;
+  }
+  if (command.includes("/components/rules/dist/cli.js")) {
+    return `node "\${GROK_PLUGIN_ROOT}/hooks/${NATIVE_RULES_FILE}" ${event}`;
+  }
+  if (command.includes("/components/ultrawork/dist/cli.js")) {
+    return `node "\${GROK_PLUGIN_ROOT}/hooks/${NATIVE_ULTRAWORK_FILE}" ${event}`;
+  }
+  return command;
+}
+function hookEventArg(command) {
+  const match = command.match(/\bhook\s+([a-z0-9-]+)\b/i);
+  return match?.[1] ?? null;
+}
+function isNodeError3(error51) {
+  return typeof error51 === "object" && error51 !== null && "code" in error51;
+}
+var BRIDGE_RELATIVE, CONFIG_LOADER_FILE, PROJECT_OMO_LEDGER_FILE, SISYPHUS_HOOKS_FILE, NATIVE_RULES_FILE, NATIVE_ULTRAWORK_FILE, DEV_LOGGER_FILE, CONFIG_LOADER_RELATIVE, PLUGIN_HOOKS_FILE, PLUGIN_HOOKS_SOURCE_FILE, SISYPHUS_HOOK_EVENTS;
+var init_normalize_plugin_hooks = __esm({
+  "src/grok-adapter/normalize-plugin-hooks.ts"() {
+    "use strict";
+    init_hook_trust();
+    init_hook_command_normalization();
+    init_normalize_plugin_hooks_active();
+    init_resolve_hook_bridge_asset();
+    BRIDGE_RELATIVE = join15("hooks", "lfg-grok-hook-bridge.mjs");
+    CONFIG_LOADER_FILE = "lfg-config-loader.mjs";
+    PROJECT_OMO_LEDGER_FILE = "lfg-project-omo-ledger.mjs";
+    SISYPHUS_HOOKS_FILE = "lfg-sisyphus-hooks.mjs";
+    NATIVE_RULES_FILE = "lfg-native-rules.js";
+    NATIVE_ULTRAWORK_FILE = "lfg-native-ultrawork.js";
+    DEV_LOGGER_FILE = "lfg-dev-logger.mjs";
+    CONFIG_LOADER_RELATIVE = join15("hooks", CONFIG_LOADER_FILE);
+    PLUGIN_HOOKS_FILE = "hooks.json";
+    PLUGIN_HOOKS_SOURCE_FILE = "hooks.source.json";
+    SISYPHUS_HOOK_EVENTS = [
+      "SessionStart",
+      "UserPromptSubmit",
+      "PreToolUse",
+      "PostToolUse",
+      "SubagentStart",
+      "SubagentStop",
+      "Stop",
+      "PreCompact",
+      "Notification"
+    ];
   }
 });
 
@@ -17545,13 +17521,13 @@ var init_extension_hooks = __esm({
 });
 
 // src/cli/npm-publish-bin.ts
-import { readFile as readFile13 } from "node:fs/promises";
+import { readFile as readFile12 } from "node:fs/promises";
 function isPublishedLfgBinTarget(binLfg) {
   return binLfg === PUBLISHED_LFG_BIN_TARGET;
 }
 async function packageJsonHasBinLfg(packageJsonPath) {
   try {
-    const parsed = JSON.parse(await readFile13(packageJsonPath, "utf8"));
+    const parsed = JSON.parse(await readFile12(packageJsonPath, "utf8"));
     if (typeof parsed !== "object" || parsed === null) {
       return false;
     }
@@ -17574,15 +17550,15 @@ var init_npm_publish_bin = __esm({
 });
 
 // src/grok-adapter/package-version.ts
-import { readFile as readFile14 } from "node:fs/promises";
-import { dirname as dirname10, join as join18 } from "node:path";
-import { fileURLToPath as fileURLToPath5 } from "node:url";
+import { readFile as readFile13 } from "node:fs/promises";
+import { dirname as dirname9, join as join16 } from "node:path";
+import { fileURLToPath as fileURLToPath4 } from "node:url";
 async function readLfgPackageVersionFromBundle(moduleUrl) {
-  const distDir = dirname10(fileURLToPath5(moduleUrl));
+  const distDir = dirname9(fileURLToPath4(moduleUrl));
   const candidates = [
-    join18(distDir, "..", "package.json"),
-    join18(distDir, "..", "..", "package.json"),
-    join18(distDir, "..", "..", "..", "package.json")
+    join16(distDir, "..", "package.json"),
+    join16(distDir, "..", "..", "package.json"),
+    join16(distDir, "..", "..", "..", "package.json")
   ];
   for (let i = 0; i < candidates.length; i++) {
     const path = candidates[i];
@@ -17596,7 +17572,7 @@ async function readLfgPackageVersionFromBundle(moduleUrl) {
 }
 async function readVersionField(packageJsonPath, requireBinLfg) {
   try {
-    const parsed = JSON.parse(await readFile14(packageJsonPath, "utf8"));
+    const parsed = JSON.parse(await readFile13(packageJsonPath, "utf8"));
     if (typeof parsed !== "object" || parsed === null) {
       return null;
     }
@@ -17621,9 +17597,9 @@ var init_package_version = __esm({
 });
 
 // src/grok-adapter/resolve-lazycodex-plugin-source.ts
-import { access as access6, readdir } from "node:fs/promises";
+import { access as access5, readdir } from "node:fs/promises";
 import { homedir as homedir4 } from "node:os";
-import { join as join19 } from "node:path";
+import { join as join17 } from "node:path";
 async function resolveLazycodexGrokPluginSource(env = process.env) {
   const explicit = env.LFG_LAZYCODEX_PLUGIN_SOURCE?.trim();
   if (explicit && await isInstallablePluginTree(explicit)) {
@@ -17633,7 +17609,7 @@ async function resolveLazycodexGrokPluginSource(env = process.env) {
   return findLazycodexPluginInNpxCache(home);
 }
 async function findLazycodexPluginInNpxCache(home) {
-  const npxRoot = join19(home, ".npm", "_npx");
+  const npxRoot = join17(home, ".npm", "_npx");
   let entries;
   try {
     entries = await readdir(npxRoot);
@@ -17642,8 +17618,8 @@ async function findLazycodexPluginInNpxCache(home) {
   }
   const candidates = [];
   for (const entry of entries) {
-    const lazycodexRoot = join19(npxRoot, entry, "node_modules", "lazycodex-ai");
-    candidates.push(join19(lazycodexRoot, RELATIVE_PLUGIN_ROOT));
+    const lazycodexRoot = join17(npxRoot, entry, "node_modules", "lazycodex-ai");
+    candidates.push(join17(lazycodexRoot, RELATIVE_PLUGIN_ROOT));
   }
   candidates.sort((a, b) => b.localeCompare(a));
   for (const path of candidates) {
@@ -17655,11 +17631,11 @@ async function findLazycodexPluginInNpxCache(home) {
 }
 async function isInstallablePluginTree(root) {
   try {
-    await access6(join19(root, "components", "ultrawork", "agents"));
+    await access5(join17(root, "components", "ultrawork", "agents"));
     return true;
   } catch {
     try {
-      await access6(join19(root, "hooks", "hooks.json"));
+      await access5(join17(root, "hooks", "hooks.json"));
       return true;
     } catch {
       return false;
@@ -17670,24 +17646,24 @@ var RELATIVE_PLUGIN_ROOT;
 var init_resolve_lazycodex_plugin_source = __esm({
   "src/grok-adapter/resolve-lazycodex-plugin-source.ts"() {
     "use strict";
-    RELATIVE_PLUGIN_ROOT = join19("packages", "omo-codex", "plugin");
+    RELATIVE_PLUGIN_ROOT = join17("packages", "omo-codex", "plugin");
   }
 });
 
 // src/grok-adapter/resolve-omo-payload-source.ts
-import { access as access7 } from "node:fs/promises";
-import { dirname as dirname11, join as join20 } from "node:path";
-import { fileURLToPath as fileURLToPath6 } from "node:url";
+import { access as access6 } from "node:fs/promises";
+import { dirname as dirname10, join as join18 } from "node:path";
+import { fileURLToPath as fileURLToPath5 } from "node:url";
 async function resolveOmoPayloadSource(env = process.env) {
   const explicit = env.LFG_OMO_PLUGIN_SOURCE?.trim();
   if (explicit) {
     return await isBundledOmoPayload(explicit) ? { sourcePath: explicit, payloadDescription: "LFG_OMO_PLUGIN_SOURCE" } : null;
   }
-  const here = dirname11(fileURLToPath6(import.meta.url));
+  const here = dirname10(fileURLToPath5(import.meta.url));
   const candidates = [
-    join20(here, "grok-install"),
-    join20(here, "..", "grok-install"),
-    join20(here, "..", "..", "dist", "grok-install")
+    join18(here, "grok-install"),
+    join18(here, "..", "grok-install"),
+    join18(here, "..", "..", "dist", "grok-install")
   ];
   for (const sourcePath of candidates) {
     if (await isBundledOmoPayload(sourcePath)) {
@@ -17698,10 +17674,10 @@ async function resolveOmoPayloadSource(env = process.env) {
 }
 async function isBundledOmoPayload(root) {
   try {
-    await access7(join20(root, "assets", "lfg-grok-hook-bridge.mjs"));
-    await access7(join20(root, "assets", "lfg-config-loader.mjs"));
-    await access7(join20(root, "hooks", "hooks.json"));
-    await access7(join20(root, "fixture-minimal", "hooks", "hooks.json"));
+    await access6(join18(root, "assets", "lfg-grok-hook-bridge.mjs"));
+    await access6(join18(root, "assets", "lfg-config-loader.mjs"));
+    await access6(join18(root, "hooks", "hooks.json"));
+    await access6(join18(root, "fixture-minimal", "hooks", "hooks.json"));
     return true;
   } catch {
     return false;
@@ -17710,6 +17686,152 @@ async function isBundledOmoPayload(root) {
 var init_resolve_omo_payload_source = __esm({
   "src/grok-adapter/resolve-omo-payload-source.ts"() {
     "use strict";
+  }
+});
+
+// src/grok-adapter/ensure-cua-driver-skill.ts
+import { access as access7, cp as cp3, mkdir as mkdir9, readFile as readFile14, rm as rm2 } from "node:fs/promises";
+import { dirname as dirname11, join as join19 } from "node:path";
+import { fileURLToPath as fileURLToPath6 } from "node:url";
+async function ensureUlwWorkflowSkills(pluginRoot) {
+  const ensuredPaths = [];
+  let anyEnsured = false;
+  const manifest = await resolveBundledSkillSyncManifest();
+  if (manifest) {
+    await mkdir9(join19(pluginRoot, "skills"), { recursive: true });
+    await cp3(manifest, join19(pluginRoot, "skills", ".lfg-omo-skill-sync.json"), { force: true });
+    ensuredPaths.push(join19(pluginRoot, "skills", ".lfg-omo-skill-sync.json"));
+  }
+  for (const skill of RETIRED_OMO_SKILL_NAMES) {
+    await rm2(join19(pluginRoot, "skills", skill), { recursive: true, force: true });
+  }
+  for (const skill of OMO_MANAGED_SKILLS) {
+    const targetDir = join19(pluginRoot, "skills", skill);
+    const targetFile = join19(targetDir, "SKILL.md");
+    const bundled = await resolveBundledSkillDir(skill);
+    if (!bundled) continue;
+    await rm2(targetDir, { recursive: true, force: true });
+    await mkdir9(targetDir, { recursive: true });
+    await cp3(bundled, targetDir, { recursive: true, force: true });
+    anyEnsured = true;
+    ensuredPaths.push(targetFile);
+  }
+  return { ensured: anyEnsured, paths: ensuredPaths };
+}
+async function resolveBundledSkillDir(skillName) {
+  const here = dirname11(fileURLToPath6(import.meta.url));
+  const candidates = [
+    // dist layout
+    join19(here, "grok-install", "skills", skillName),
+    join19(here, "..", "grok-install", "skills", skillName),
+    // source tree
+    join19(here, "skills", skillName),
+    join19(here, "..", "skills", skillName),
+    // published package root
+    join19(here, "..", "..", "skills", skillName)
+  ];
+  for (const p of candidates) {
+    try {
+      await access7(join19(p, "SKILL.md"));
+      return p;
+    } catch {
+    }
+  }
+  return null;
+}
+async function resolveBundledSkillSyncManifest() {
+  const here = dirname11(fileURLToPath6(import.meta.url));
+  const candidates = [
+    join19(here, "grok-install", "skills", ".lfg-omo-skill-sync.json"),
+    join19(here, "..", "grok-install", "skills", ".lfg-omo-skill-sync.json"),
+    join19(here, "skills", ".lfg-omo-skill-sync.json"),
+    join19(here, "..", "skills", ".lfg-omo-skill-sync.json"),
+    join19(here, "..", "..", "skills", ".lfg-omo-skill-sync.json")
+  ];
+  for (const p of candidates) {
+    try {
+      await access7(p);
+      return p;
+    } catch {
+    }
+  }
+  return null;
+}
+async function ensureCuaDriverSkill(pluginRoot) {
+  const targetDir = join19(pluginRoot, "skills", "cua-driver");
+  const targetFile = join19(targetDir, "SKILL.md");
+  const bundled = await resolveBundledCuaDriverSkill();
+  if (!bundled) {
+    return { ensured: false, path: targetFile };
+  }
+  let need = false;
+  try {
+    await access7(targetFile);
+    const existing = await readFile14(targetFile, "utf8");
+    if (existing.length < 300 || /placeholder|TODO|stub|TODO: implement/i.test(existing)) {
+      need = true;
+    }
+  } catch {
+    need = true;
+  }
+  if (!need) {
+    return { ensured: false, path: targetFile };
+  }
+  await mkdir9(targetDir, { recursive: true });
+  await cp3(bundled, targetFile, { force: true });
+  return { ensured: true, path: targetFile };
+}
+async function resolveBundledCuaDriverSkill() {
+  const dir = await resolveBundledSkillDir("cua-driver");
+  return dir ? join19(dir, "SKILL.md") : null;
+}
+var OMO_MANAGED_SKILLS, RETIRED_OMO_SKILL_NAMES;
+var init_ensure_cua_driver_skill = __esm({
+  "src/grok-adapter/ensure-cua-driver-skill.ts"() {
+    "use strict";
+    OMO_MANAGED_SKILLS = [
+      "ast-grep",
+      "comment-checker",
+      "debugging",
+      "frontend",
+      "git-master",
+      "init-deep",
+      "lfg-contribute-bug-fix",
+      "lfg-doctor",
+      "lfg-report-bug",
+      "lsp",
+      "lsp-setup",
+      "programming",
+      "refactor",
+      "remove-ai-slops",
+      "review-work",
+      "rules",
+      "ulw-plan",
+      "ulw-loop",
+      "start-work",
+      "ultraresearch",
+      "visual-qa"
+    ];
+    RETIRED_OMO_SKILL_NAMES = ["lcx-contribute-bug-fix", "lcx-doctor", "lcx-report-bug"];
+  }
+});
+
+// src/grok-adapter/ensure-hephaestus-model-gate.ts
+import { join as join20 } from "node:path";
+async function ensureHephaestusModelGate(pluginRoot) {
+  const targetPath = join20(pluginRoot, HEPHAESTUS_RELATIVE_PATH);
+  return {
+    ensured: true,
+    patched: false,
+    path: targetPath,
+    reason: "hephaestus not default, gate not needed"
+  };
+}
+var HEPHAESTUS_RELATIVE_PATH;
+var init_ensure_hephaestus_model_gate = __esm({
+  "src/grok-adapter/ensure-hephaestus-model-gate.ts"() {
+    "use strict";
+    HEPHAESTUS_RELATIVE_PATH = join20("components", "rules", "bundled-rules", "hephaestus.md");
   }
 });
 
@@ -17765,7 +17887,7 @@ var init_grok_home = __esm({
 
 // src/grok-adapter/run-internal.ts
 import { existsSync as existsSync3 } from "node:fs";
-import { lstat } from "node:fs/promises";
+import { access as access8, lstat } from "node:fs/promises";
 import { dirname as dirname12, join as join22 } from "node:path";
 import { fileURLToPath as fileURLToPath7 } from "node:url";
 async function runInternalGrokInstall(env = process.env) {
@@ -17773,7 +17895,7 @@ async function runInternalGrokInstall(env = process.env) {
   const version2 = env.LFG_PACKAGE_VERSION ?? await readLfgPackageVersionFromBundle(import.meta.url) ?? "0.0.0-dev";
   const resolved = await resolveGrokAdapterPluginRoot(home);
   const forceReinstall = env.LFG_SETUP_FORCE === "1" || env.LFG_SETUP_FORCE === "true";
-  const canRepairCleanly = !forceReinstall && resolved !== null && resolved.location === "native_plugins" && resolved.pluginDirName === GROK_PLUGIN_DIR && await isRealDirectory(resolved.pluginRoot) && await readGrokInstallStamp(resolved.pluginRoot) !== null && (await readAdapterHooksTrust(resolved.pluginRoot)).ok;
+  const canRepairCleanly = !forceReinstall && resolved !== null && resolved.location === "native_plugins" && resolved.pluginDirName === GROK_PLUGIN_DIR && await isRealDirectory(resolved.pluginRoot) && await readGrokInstallStamp(resolved.pluginRoot) !== null && await hasRepairablePayload(resolved.pluginRoot);
   if (canRepairCleanly) {
     return finishRepair(resolved.pluginRoot, resolved.pluginDirName, version2, "repair_adapter", env);
   }
@@ -17889,6 +18011,17 @@ async function isRealDirectory(path) {
     return false;
   }
 }
+async function hasRepairablePayload(pluginRoot) {
+  return await pathExists5(`${pluginRoot}/components`) || await pathExists5(`${pluginRoot}/hooks/hooks.source.json`) || await pathExists5(`${pluginRoot}/hooks/hooks.json`);
+}
+async function pathExists5(path) {
+  try {
+    await access8(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 var GROK_PLUGIN_DIR;
 var init_run_internal = __esm({
   "src/grok-adapter/run-internal.ts"() {
@@ -17941,13 +18074,16 @@ function renderGrokRoleTomlFromCodex(codexToml, agentBaseName, modelOverride, pr
   return { toml: `${lines.join("\n")}
 `, promptPath, promptBody };
 }
-function renderMinimalGrokRoleToml(agentName, override) {
+function renderMinimalGrokRoleToml(agentName, override, promptPath) {
   const lines = [
     `description = ${tomlQuote(`LazyCodex ${agentName} agent`)}`,
     `model = ${tomlQuote(override.model)}`,
     `reasoning_effort = ${tomlQuote(override.reasoningLevel)}`
   ];
   appendFallbackLines(lines, override);
+  if (promptPath !== void 0) {
+    lines.push(`prompt_file = ${tomlQuote(promptPath)}`);
+  }
   return `${lines.join("\n")}
 `;
 }
@@ -18062,6 +18198,9 @@ function nativeOmoFallbackPrompt(sourceName) {
   if (sourceName === "oracle") return nativeOraclePrompt();
   if (sourceName === "multimodal-looker") return nativeMultimodalLookerPrompt();
   if (sourceName === "sisyphus-junior") return nativeSisyphusJuniorPrompt();
+  if (sourceName === "metis") return nativeMetisPrompt();
+  if (sourceName === "momus") return nativeMomusPrompt();
+  if (sourceName === "plan") return nativePrometheusPrompt();
   return `You are the ${sourceName} agent adapted from OMO (oh-my-openagent) for Grok Build. Complete the assigned task directly, keep scope tight, and verify before final response.
 `;
 }
@@ -18095,7 +18234,10 @@ function nativePrometheusPrompt() {
     "Your role is to produce a single executable work plan from a vague or large request.",
     "Explore the codebase exhaustively, surface only the ambiguities exploration cannot resolve, ask the user, and wait for explicit approval before producing the plan.",
     "Write plans to .omo/plans/<slug>.md. Plans must be dependency-ordered, evidence-bound, and scoped to the user's requested outcome.",
-    "You are a planner only \u2014 never implement code directly. Hand off to implementation agents after the plan is approved.",
+    "Approval is not execution. A user's approval authorizes writing or revising the plan only, never implementation.",
+    "After approval and before any implementation handoff, run the plan through mandatory review gates: Metis for gap analysis and Momus for high-accuracy plan review.",
+    "Treat Metis or Momus rejection, timeout, missing deliverable, or inconclusive output as a blocker. Revise the plan and rerun the failed gate until both approve.",
+    "Only after the plan exists and both Metis and Momus approve may you hand off to implementation agents or start-work. Never implement code directly.",
     ""
   ].join("\n");
 }
@@ -18135,7 +18277,27 @@ function nativeSisyphusJuniorPrompt() {
     ""
   ].join("\n");
 }
-var NATIVE_OMO_AGENT_NAMES, NATIVE_HEPHAESTUS_MARKER, NATIVE_SISYPHUS_MARKER, NATIVE_PROMETHEUS_MARKER, NATIVE_ATLAS_MARKER, NATIVE_ORACLE_MARKER, NATIVE_MULTIMODAL_LOOKER_MARKER, NATIVE_SISYPHUS_JUNIOR_MARKER;
+function nativeMetisPrompt() {
+  return [
+    `You are ${NATIVE_METIS_MARKER}, the pre-implementation gap analyst from OhMyOpenCode adapted for Grok Build.`,
+    "Your role is to review a proposed .omo plan before implementation starts.",
+    "Look for contradictions, missing constraints, scope creep, unvalidated assumptions, missing acceptance criteria, missing QA scenarios, unsafe ordering, and places where an implementer would need to guess.",
+    "Return APPROVE only when the plan is decision-complete and executable with zero extra interview. Otherwise return REJECT with concrete fixes tied to plan sections or file paths.",
+    "You are read-only: never implement code and never edit the plan yourself.",
+    ""
+  ].join("\n");
+}
+function nativeMomusPrompt() {
+  return [
+    `You are ${NATIVE_MOMUS_MARKER}, the high-accuracy plan reviewer from OhMyOpenCode adapted for Grok Build.`,
+    "Your role is adversarial review of the final plan before implementation starts.",
+    "Try to falsify the plan: stale evidence, weak verification, hidden owner decisions, missing rollback, misleading success criteria, unreviewable task boundaries, and implementation steps that can pass from self-report.",
+    "Return APPROVE only when the plan is safe to hand to workers. Otherwise return REJECT with the minimal plan changes required before implementation.",
+    "You are read-only: never implement code and never edit the plan yourself.",
+    ""
+  ].join("\n");
+}
+var NATIVE_OMO_AGENT_NAMES, NATIVE_HEPHAESTUS_MARKER, NATIVE_SISYPHUS_MARKER, NATIVE_PROMETHEUS_MARKER, NATIVE_ATLAS_MARKER, NATIVE_ORACLE_MARKER, NATIVE_MULTIMODAL_LOOKER_MARKER, NATIVE_SISYPHUS_JUNIOR_MARKER, NATIVE_METIS_MARKER, NATIVE_MOMUS_MARKER;
 var init_native_omo_agents = __esm({
   "src/grok-adapter/native-omo-agents.ts"() {
     "use strict";
@@ -18177,11 +18339,13 @@ var init_native_omo_agents = __esm({
     NATIVE_ORACLE_MARKER = "OMO Oracle";
     NATIVE_MULTIMODAL_LOOKER_MARKER = "OMO Multimodal-Looker";
     NATIVE_SISYPHUS_JUNIOR_MARKER = "OMO Sisyphus-Junior";
+    NATIVE_METIS_MARKER = "OMO Metis";
+    NATIVE_MOMUS_MARKER = "OMO Momus";
   }
 });
 
 // src/grok-adapter/sync-lazycodex-agents-to-grok.ts
-import { mkdir as mkdir10, readdir as readdir2, readFile as readFile15, unlink, writeFile as writeFile11 } from "node:fs/promises";
+import { mkdir as mkdir10, readdir as readdir2, readFile as readFile15, unlink as unlink2, writeFile as writeFile11 } from "node:fs/promises";
 import { basename, join as join23 } from "node:path";
 async function syncLazycodexAgentsToGrokLedger(home, agentOverrides) {
   const resolved = await resolveGrokAdapterPluginRoot(home);
@@ -18263,7 +18427,7 @@ async function writeMinimalAgentSurfaces(args) {
     reasoning: args.override.reasoningLevel
   };
   await writeFile11(promptPath, prompt, "utf8");
-  await writeFile11(rolePath, renderMinimalGrokRoleToml(args.grokName, args.override), "utf8");
+  await writeFile11(rolePath, renderMinimalGrokRoleToml(args.grokName, args.override, promptPath), "utf8");
   await writeFile11(agentPath, renderAgentMarkdown(args.grokName, meta3, args.sourceName, args.override, "lfg-owned fallback prompt"), "utf8");
   return [agentPath, rolePath, promptPath];
 }
@@ -18339,9 +18503,9 @@ async function moveIfExists(source, dest) {
   try {
     const text = await readFile15(source, "utf8");
     if (!await fileExists(dest)) await writeFile11(dest, text, "utf8");
-    await unlink(source);
+    await unlink2(source);
   } catch (error51) {
-    if (!isNodeError3(error51) || error51.code !== "ENOENT") throw error51;
+    if (!isNodeError4(error51) || error51.code !== "ENOENT") throw error51;
   }
 }
 async function fileExists(path) {
@@ -18349,11 +18513,11 @@ async function fileExists(path) {
     await readFile15(path, "utf8");
     return true;
   } catch (error51) {
-    if (isNodeError3(error51) && error51.code === "ENOENT") return false;
+    if (isNodeError4(error51) && error51.code === "ENOENT") return false;
     throw error51;
   }
 }
-function isNodeError3(error51) {
+function isNodeError4(error51) {
   return typeof error51 === "object" && error51 !== null && "code" in error51;
 }
 var ULTRAWORK_AGENTS_DIR, GROK_AGENT_NAMES, READ_ONLY_AGENT_NAMES2;
@@ -18647,7 +18811,7 @@ async function resolveGrokApiKey(env = process.env) {
   try {
     return readCodexProviderApiKey(await readFile16(join24(home, ".codex", "config.toml"), "utf8"));
   } catch (error51) {
-    if (isNodeError4(error51) && error51.code === "ENOENT") {
+    if (isNodeError5(error51) && error51.code === "ENOENT") {
       return void 0;
     }
     throw error51;
@@ -18699,7 +18863,7 @@ function makeTomlKeyPattern(part) {
 function escapeRegExp4(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-function isNodeError4(error51) {
+function isNodeError5(error51) {
   return error51 instanceof Error && "code" in error51;
 }
 var init_grok_api_key = __esm({
@@ -18708,12 +18872,86 @@ var init_grok_api_key = __esm({
   }
 });
 
+// src/grok-adapter/run-grok-install-existing.ts
+import { access as access9, lstat as lstat2 } from "node:fs/promises";
+async function resolveExistingStampedLfgSetup(home) {
+  const resolved = await resolveGrokAdapterPluginRoot(home);
+  const ok = resolved?.location === "native_plugins" && resolved.pluginDirName === "lfg" && await isRealDirectory2(resolved.pluginRoot) && await readGrokInstallStamp(resolved.pluginRoot) !== null && await hasRepairablePayload2(resolved.pluginRoot);
+  return ok ? { pluginRoot: resolved.pluginRoot } : null;
+}
+async function hasRepairablePayload2(pluginRoot) {
+  return await pathExists6(`${pluginRoot}/components`) || await pathExists6(`${pluginRoot}/hooks/hooks.source.json`) || await pathExists6(`${pluginRoot}/hooks/hooks.json`) || (await readAdapterHooksTrust(pluginRoot)).ok;
+}
+async function isRealDirectory2(path) {
+  try {
+    const stat = await lstat2(path);
+    return stat.isDirectory() && !stat.isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+async function pathExists6(path) {
+  try {
+    await access9(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+var init_run_grok_install_existing = __esm({
+  "src/grok-adapter/run-grok-install-existing.ts"() {
+    "use strict";
+    init_grok_adapter_paths();
+    init_install();
+  }
+});
+
+// src/grok-adapter/run-grok-install-post-sync.ts
+async function syncPostInstallPluginPayload(pluginRoot) {
+  const hooks = await normalizePluginHooksJson(pluginRoot);
+  await ensureCuaDriverSkill(pluginRoot);
+  await ensureUlwWorkflowSkills(pluginRoot);
+  await ensureHephaestusModelGate(pluginRoot);
+  return { path: hooks.path, hookNames: hooks.hookNames, changed: hooks.changed };
+}
+var init_run_grok_install_post_sync = __esm({
+  "src/grok-adapter/run-grok-install-post-sync.ts"() {
+    "use strict";
+    init_ensure_cua_driver_skill();
+    init_ensure_hephaestus_model_gate();
+    init_normalize_plugin_hooks();
+  }
+});
+
 // src/grok-adapter/run-grok-install.ts
-import { lstat as lstat2 } from "node:fs/promises";
 async function runGrokInstall(discovery, env = process.env, options = {}) {
   const home = resolveGrokSetupHome(env);
   const homeEnv = { ...env, HOME: home };
   const apiKey = await resolveGrokApiKey(homeEnv);
+  if (options.installOnly === true) {
+    const internalEnv2 = {
+      ...homeEnv,
+      LFG_SETUP_FORCE: "1"
+    };
+    const internalStep2 = await runInternalGrokInstall(internalEnv2);
+    const pluginRootAfterInstall2 = (await resolveGrokAdapterPluginRoot(home))?.pluginRoot;
+    let hooksFresh2 = null;
+    if (pluginRootAfterInstall2) {
+      hooksFresh2 = await syncPostInstallPluginPayload(pluginRootAfterInstall2);
+    }
+    return {
+      ok: internalStep2.ok === true,
+      configUpdate: null,
+      internalStep: { ...internalStep2, installOnly: true },
+      omoAgents: null,
+      lazycodexAgents: null,
+      agentOverridesPath: null,
+      lfgConfigPath: null,
+      pluginsEnabled: null,
+      subagentModels: null,
+      hooks: hooksFresh2
+    };
+  }
   const existingSetup = options.force === true ? null : await resolveExistingStampedLfgSetup(home);
   if (existingSetup !== null) {
     const resolvedAgents2 = await resolveGlobalLazycodexAgentConfig(home, discovery);
@@ -18739,11 +18977,8 @@ async function runGrokInstall(discovery, env = process.env, options = {}) {
       home,
       subagentModelMappingFromDiscovery(discovery, resolvedAgents2)
     );
-    const hooksNormalized = await normalizePluginHooksJson(existingSetup.pluginRoot);
     await overlayLfgComponentShims(existingSetup.pluginRoot);
-    await ensureCuaDriverSkill(existingSetup.pluginRoot);
-    await ensureUlwWorkflowSkills(existingSetup.pluginRoot);
-    await ensureHephaestusModelGate(existingSetup.pluginRoot);
+    const hooksNormalized = await syncPostInstallPluginPayload(existingSetup.pluginRoot);
     return {
       ok: true,
       configUpdate: configUpdate2,
@@ -18765,11 +19000,7 @@ async function runGrokInstall(discovery, env = process.env, options = {}) {
       lfgConfigPath: configFiles2.configPath,
       pluginsEnabled: pluginsEnabled2,
       subagentModels: subagentModels2,
-      hooks: {
-        path: hooksNormalized.path,
-        hookNames: hooksNormalized.hookNames,
-        changed: hooksNormalized.changed
-      }
+      hooks: hooksNormalized
     };
   }
   const agentConfig = discovery?.agentConfig ?? null;
@@ -18805,11 +19036,7 @@ async function runGrokInstall(discovery, env = process.env, options = {}) {
   const pluginRootAfterInstall = (await resolveGrokAdapterPluginRoot(home))?.pluginRoot;
   let hooksFresh = null;
   if (pluginRootAfterInstall) {
-    const norm = await normalizePluginHooksJson(pluginRootAfterInstall);
-    await ensureCuaDriverSkill(pluginRootAfterInstall);
-    await ensureUlwWorkflowSkills(pluginRootAfterInstall);
-    await ensureHephaestusModelGate(pluginRootAfterInstall);
-    hooksFresh = { path: norm.path, hookNames: norm.hookNames, changed: norm.changed };
+    hooksFresh = await syncPostInstallPluginPayload(pluginRootAfterInstall);
   }
   return {
     ok: internalStep.ok === true,
@@ -18824,11 +19051,6 @@ async function runGrokInstall(discovery, env = process.env, options = {}) {
     hooks: hooksFresh
   };
 }
-async function resolveExistingStampedLfgSetup(home) {
-  const resolved = await resolveGrokAdapterPluginRoot(home);
-  const ok = resolved?.location === "native_plugins" && resolved.pluginDirName === "lfg" && await isRealDirectory2(resolved.pluginRoot) && await readGrokInstallStamp(resolved.pluginRoot) !== null && (await readAdapterHooksTrust(resolved.pluginRoot)).ok;
-  return ok ? { pluginRoot: resolved.pluginRoot } : null;
-}
 function subagentModelMappingFromDiscovery(discovery, resolvedAgents) {
   const explorerModel = resolvedAgents.explorer?.model ?? discovery?.mapping.fast ?? "grok-3-mini-fast";
   const fastRoute = explorerModel;
@@ -18839,14 +19061,6 @@ function subagentModelMappingFromDiscovery(discovery, resolvedAgents) {
     coding: resolvedAgents.coding?.model ?? discovery?.mapping.coding ?? "grok-4.20-0309-non-reasoning"
   };
 }
-async function isRealDirectory2(path) {
-  try {
-    const stat = await lstat2(path);
-    return stat.isDirectory() && !stat.isSymbolicLink();
-  } catch {
-    return false;
-  }
-}
 function grokInstallStepJson(internalStep) {
   const base = {
     packageName: INTERNAL_GROK_INSTALL_PACKAGE,
@@ -18855,7 +19069,8 @@ function grokInstallStepJson(internalStep) {
     exitCode: typeof internalStep.exitCode === "number" ? internalStep.exitCode : 1,
     stdout: typeof internalStep.stdout === "string" ? internalStep.stdout : "",
     stderr: typeof internalStep.stderr === "string" ? internalStep.stderr : "",
-    ...typeof internalStep.componentInventoryPath === "string" ? { componentInventoryPath: internalStep.componentInventoryPath } : {}
+    ...typeof internalStep.componentInventoryPath === "string" ? { componentInventoryPath: internalStep.componentInventoryPath } : {},
+    ...internalStep.installOnly === true ? { installOnly: true } : {}
   };
   if (typeof internalStep.warning === "string" && internalStep.warning.length > 0) {
     return { ...base, warning: internalStep.warning };
@@ -18881,9 +19096,6 @@ var init_run_grok_install = __esm({
     init_lfg_models();
     init_grok_plugins_enable();
     init_lfg_config();
-    init_ensure_cua_driver_skill();
-    init_ensure_hephaestus_model_gate();
-    init_normalize_plugin_hooks();
     init_lazycodex_agent_overrides();
     init_resolve_global_agent_config();
     init_grok_adapter_paths();
@@ -18894,6 +19106,8 @@ var init_run_grok_install = __esm({
     init_model_recommendation_availability();
     init_grok_api_key();
     init_grok_home();
+    init_run_grok_install_existing();
+    init_run_grok_install_post_sync();
     INTERNAL_GROK_INSTALL_PACKAGE = "lfg-grok-install";
     INTERNAL_GROK_INSTALL_COMMAND = "@islee23520/lfg internal grok-install";
   }
@@ -18956,9 +19170,46 @@ var init_native_agent_verify = __esm({
   }
 });
 
-// src/grok-adapter/post-install-verify.ts
-import { access as access8, readFile as readFile18 } from "node:fs/promises";
+// src/grok-adapter/skill-workflow-verify.ts
+import { readFile as readFile18 } from "node:fs/promises";
 import { join as join26 } from "node:path";
+async function computeSkillWorkflows(pluginRoot) {
+  const planContent = await readSkillFiles(pluginRoot, "ulw-plan", [
+    "SKILL.md",
+    "references/full-workflow.md",
+    "references/intent-clear.md",
+    "references/intent-unclear.md",
+    "scripts/scaffold-plan.mjs"
+  ]);
+  const loopContent = await readSkillFiles(pluginRoot, "ulw-loop", ["SKILL.md", "references/full-workflow.md"]);
+  const startWorkContent = await readSkillFiles(pluginRoot, "start-work", ["SKILL.md"]);
+  return {
+    "ulw-plan": /You are \*\*Prometheus\*\*/i.test(planContent) && /Approval gate/i.test(planContent) && /Phase 3/i.test(planContent) && /scaffold-plan\.mjs/i.test(planContent),
+    "ulw-loop": /Bootstrap/i.test(loopContent) && /Execution Loop/i.test(loopContent) && /Manual-QA channels|Manual QA/i.test(loopContent),
+    "start-work": /Codex Harness Tool Compatibility/i.test(startWorkContent) && /ABSOLUTE RULE: YOU ARE AN ORCHESTRATOR/i.test(startWorkContent) && /Boulder state/i.test(startWorkContent)
+  };
+}
+async function readSkillFiles(pluginRoot, skill, files) {
+  const contents = await Promise.all(
+    files.map(async (file2) => {
+      try {
+        return await readFile18(join26(pluginRoot, "skills", skill, file2), "utf8");
+      } catch {
+        return "";
+      }
+    })
+  );
+  return contents.join("\n");
+}
+var init_skill_workflow_verify = __esm({
+  "src/grok-adapter/skill-workflow-verify.ts"() {
+    "use strict";
+  }
+});
+
+// src/grok-adapter/post-install-verify.ts
+import { access as access10, readFile as readFile19 } from "node:fs/promises";
+import { join as join27 } from "node:path";
 async function verifyGrokInstallSurface(options) {
   const resolved = options.pluginDirName === void 0 ? await resolveGrokAdapterPluginRoot(options.home) : await resolveFixedPlugin(options.home, options.pluginDirName);
   if (resolved === null) {
@@ -18976,18 +19227,17 @@ async function verifyGrokInstallSurface(options) {
       hookTrustError: "adapter plugin tree not found",
       componentInventoryPath: null,
       payloadSource: null,
-      // T9 native parity defaults (stable for tests); T8 skillWorkflows from real SKILL.md (defaults false)
       nativeHookStatus: "missing",
       bridgeFallback: true,
       omoComponents: [],
-      skillWorkflows: { "ulw-plan": false, "ulw-loop": false },
+      skillWorkflows: { "ulw-plan": false, "ulw-loop": false, "start-work": false },
       nativeAgents: { status: "missing", pluginAgents: [], roles: [], prompts: [], sisyphusDefaultAgent: false, hephaestusPromptPresent: false },
       mcpVerification: missingMcpVerification(pluginRoot2, "adapter plugin tree not found")
     };
   }
   const { pluginRoot, pluginDirName } = resolved;
   const stamp = await readGrokInstallStamp(pluginRoot);
-  const hooksPath = join26(pluginRoot, "hooks", "hooks.json");
+  const hooksPath = activeGrokHooksPath(pluginRoot);
   const hookTrust = await readAdapterHooksTrust(pluginRoot);
   const hooksRaw = await readHooksJsonSafe(hooksPath);
   const hookTargetErrors = hookTrust.ok ? await verifyHookCommandTargets(pluginRoot, hooksRaw) : [];
@@ -19025,7 +19275,7 @@ async function verifyGrokInstallSurface(options) {
 function missingMcpVerification(pluginRoot, error51) {
   return {
     ok: false,
-    manifestPath: join26(pluginRoot, ".mcp.json"),
+    manifestPath: join27(pluginRoot, ".mcp.json"),
     expectedServers: ["ast_grep", "grep_app", "context7", "git_bash", "lsp"],
     localServers: ["ast_grep", "git_bash", "lsp"],
     remoteServers: ["grep_app", "context7"],
@@ -19038,7 +19288,7 @@ function missingMcpVerification(pluginRoot, error51) {
 }
 async function readInventorySummary(path) {
   try {
-    const raw = await readFile18(path, "utf8");
+    const raw = await readFile19(path, "utf8");
     const parsed = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
       return { payloadSource: null, componentIds: [] };
@@ -19075,7 +19325,7 @@ function parseInventoryComponentIds(components) {
 }
 async function readHooksJsonSafe(path) {
   try {
-    const raw = await readFile18(path, "utf8");
+    const raw = await readFile19(path, "utf8");
     return JSON.parse(raw);
   } catch {
     return null;
@@ -19098,7 +19348,7 @@ async function verifyHookCommandTargets(pluginRoot, hooksRaw) {
         if (record2.type !== "command" || typeof record2.command !== "string") continue;
         for (const target of hookCommandTargets(pluginRoot, record2.command)) {
           try {
-            await access8(target);
+            await access10(target);
           } catch (error51) {
             if (!(error51 instanceof Error)) throw error51;
             errors.push(`missing hook command target: ${target}`);
@@ -19120,29 +19370,12 @@ function hookCommandTargets(pluginRoot, command) {
   }
   return targets;
 }
-async function computeSkillWorkflows(pluginRoot) {
-  const readSafe2 = async (path) => {
-    try {
-      return await readFile18(path, "utf8");
-    } catch {
-      return "";
-    }
-  };
-  const planPath = join26(pluginRoot, "skills", "ulw-plan", "SKILL.md");
-  const loopPath = join26(pluginRoot, "skills", "ulw-loop", "SKILL.md");
-  const planContent = await readSafe2(planPath);
-  const loopContent = await readSafe2(loopPath);
-  return {
-    "ulw-plan": /Phase 0|Tool Learning Protocol/i.test(planContent) && /Approval gate/i.test(planContent) && /Phase 3/i.test(planContent),
-    "ulw-loop": /Bootstrap/i.test(loopContent) && /Execution Loop/i.test(loopContent) && /Manual-QA channels|Manual QA/i.test(loopContent)
-  };
-}
 async function resolveFixedPlugin(home, pluginDirName) {
   for (const pluginRoot of [nativeGrokPluginRoot(home, pluginDirName), legacyInstalledGrokPluginRoot(home, pluginDirName)]) {
     const hookTrust = await readAdapterHooksTrust(pluginRoot);
-    if (!hookTrust.ok && hookTrust.error === "hooks.json missing") {
+    if (!hookTrust.ok && hookTrust.error === "global lfg-hooks.json missing") {
       try {
-        await readFile18(join26(pluginRoot, "lfg-install.json"), "utf8");
+        await readFile19(join27(pluginRoot, "lfg-install.json"), "utf8");
         return { pluginDirName, pluginRoot };
       } catch {
         continue;
@@ -19163,6 +19396,8 @@ var init_post_install_verify = __esm({
     init_hook_trust();
     init_native_agent_verify();
     init_materialize_grok_mcp();
+    init_skill_workflow_verify();
+    init_normalize_plugin_hooks_active();
   }
 });
 
@@ -19180,6 +19415,7 @@ async function runLazycodexInstaller(discovery = null, options = {}) {
   const env = mergeStringEnv(process.env, modelDiscoveryEnv(discovery, agentConfig));
   const grokOptions = {
     ...options.force === void 0 ? {} : { force: options.force },
+    ...options.installOnly === void 0 ? {} : { installOnly: options.installOnly },
     ...discovery?.agentOverrideMap === void 0 ? {} : { fullAgentModels: discovery.agentOverrideMap }
   };
   const grokRun = await runGrokInstall(discovery, env, grokOptions);
@@ -19388,6 +19624,7 @@ var PERF_SNAPSHOT = {
   "grok-build-0.1": { model: "grok-build-0.1", latencyMs: 4549, tokensPerSec: 121, codingQuality: 2, reasoningQuality: 2, available: true },
   "gpt-5.5": { model: "gpt-5.5", latencyMs: 2440, tokensPerSec: 23, codingQuality: 2, reasoningQuality: 2, available: true },
   "gpt-5.3-codex-spark": { model: "gpt-5.3-codex-spark", latencyMs: 1143, tokensPerSec: 236, codingQuality: 2, reasoningQuality: 2, available: true },
+  "gpt-5.4-mini-fast": { model: "gpt-5.4-mini-fast", latencyMs: 980, tokensPerSec: 85, codingQuality: 2, reasoningQuality: 1, available: true },
   "gpt-5.4-mini": { model: "gpt-5.4-mini", latencyMs: 980, tokensPerSec: 85, codingQuality: 2, reasoningQuality: 1, available: true },
   "gemini-3-pro-low": { model: "gemini-3-pro-low", latencyMs: 448, tokensPerSec: 73, codingQuality: 2, reasoningQuality: 2, available: true },
   "gemini-3-pro-high": { model: "gemini-3-pro-high", latencyMs: 603, tokensPerSec: 49, codingQuality: 2, reasoningQuality: 2, available: true },
@@ -19400,49 +19637,49 @@ var ROLE_PROFILES = [
   {
     role: "explorer",
     reasoningEffort: "medium",
-    rationale: "Fast Grok utility path for high-volume codebase search and exploration (LazyCodex 4.10.0 baseline). GPT/Gemini fallbacks when available.",
+    rationale: "Fast Grok utility path for high-volume codebase search and exploration (LazyCodex 4.12.1 baseline). GPT/Gemini fallbacks when available.",
     preferredModels: ["grok-4.20-0309-non-reasoning", "grok-3-mini-fast", "grok-composer-2.5-fast", "grok-build-0.1", "gpt-5.3-codex-spark", "gemini-3-pro-low", "glm-5-turbo"]
   },
   {
     role: "librarian",
     reasoningEffort: "low",
-    rationale: "Grok-first research route (LazyCodex 4.10.0 baseline). Fast utility models for external doc lookup.",
-    preferredModels: ["grok-3-mini-fast", "grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning", "gpt-5.4-mini", "glm-5-turbo", "gemini-3.1-flash-lite"]
+    rationale: "Grok-first research route (LazyCodex 4.12.1 baseline). Fast utility models for external doc lookup.",
+    preferredModels: ["grok-3-mini-fast", "grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning", "gpt-5.4-mini-fast", "gpt-5.4-mini", "glm-5-turbo", "gemini-3.1-flash-lite"]
   },
   {
     role: "plan",
     reasoningEffort: "high",
-    rationale: "Deep Grok reasoning for strategic planning (LazyCodex 4.10.0 baseline). GPT-5.5 as strong alternative when present.",
+    rationale: "Deep Grok reasoning for strategic planning (LazyCodex 4.12.1 baseline). GPT-5.5 as strong alternative when present.",
     preferredModels: ["grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"]
   },
   {
     role: "metis",
     reasoningEffort: "high",
-    rationale: "Pre-planning analysis benefits from Grok frontier reasoning (LazyCodex 4.10.0 baseline).",
+    rationale: "Pre-planning analysis benefits from Grok frontier reasoning (LazyCodex 4.12.1 baseline).",
     preferredModels: ["grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"]
   },
   {
     role: "momus",
     reasoningEffort: "high",
-    rationale: "Critical plan review uses Grok frontier models (LazyCodex 4.10.0 baseline). GPT-5.5 strong alternative.",
+    rationale: "Critical plan review uses Grok frontier models (LazyCodex 4.12.1 baseline). GPT-5.5 strong alternative.",
     preferredModels: ["gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"]
   },
   {
     role: "codex-ultrawork-reviewer",
     reasoningEffort: "high",
-    rationale: "Final ultrawork review uses Grok frontier (LazyCodex 4.10.0 baseline). GPT as strong second opinion.",
+    rationale: "Final ultrawork review uses Grok frontier (LazyCodex 4.12.1 baseline). GPT as strong second opinion.",
     preferredModels: ["gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"]
   },
   {
     role: "reasoning",
     reasoningEffort: "medium",
-    rationale: "General reasoning role uses Grok frontier models (LazyCodex 4.10.0 alignment).",
+    rationale: "General reasoning role uses Grok frontier models (LazyCodex 4.12.1 alignment).",
     preferredModels: ["grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high"]
   },
   {
     role: "coding",
     reasoningEffort: "medium",
-    rationale: "Coding uses fast Grok non-reasoning or specialized coding path (LazyCodex 4.10.0 baseline).",
+    rationale: "Coding uses fast Grok non-reasoning or specialized coding path (LazyCodex 4.12.1 baseline).",
     preferredModels: ["grok-4.20-0309-non-reasoning", "grok-build-0.1", "gpt-5.3-codex-spark", "grok-4.3", "glm-5-turbo", "gemini-3-pro-low"]
   }
 ];

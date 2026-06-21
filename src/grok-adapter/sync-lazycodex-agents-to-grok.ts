@@ -170,7 +170,7 @@ async function writeMinimalAgentSurfaces(args: {
     reasoning: args.override.reasoningLevel,
   }
   await writeFile(promptPath, prompt, "utf8")
-  await writeFile(rolePath, renderMinimalGrokRoleToml(args.grokName, args.override), "utf8")
+  await writeFile(rolePath, renderMinimalGrokRoleToml(args.grokName, args.override, promptPath), "utf8")
   await writeFile(agentPath, renderAgentMarkdown(args.grokName, meta, args.sourceName, args.override, "lfg-owned fallback prompt"), "utf8")
   return [agentPath, rolePath, promptPath]
 }

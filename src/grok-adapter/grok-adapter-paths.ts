@@ -2,6 +2,7 @@ import { access, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { isGrokEventHooksJson, validateGrokHooksJson } from "./hook-trust"
 import { legacyInstalledGrokPluginRoot, nativeGrokPluginRoot } from "./install"
+import { activeGrokHooksPath } from "./normalize-plugin-hooks-active"
 
 export const GROK_ADAPTER_PLUGIN_DIR_CANDIDATES = ["lfg", "lazycodex"] as const
 
@@ -49,9 +50,9 @@ async function looksLikeLazycodexAdapterTree(pluginRoot: string): Promise<boolea
 }
 
 export async function readAdapterHooksTrust(pluginRoot: string): Promise<ReturnType<typeof validateGrokHooksJson>> {
-  const hooksPath = join(pluginRoot, "hooks", "hooks.json")
+  const hooksPath = activeGrokHooksPath(pluginRoot)
   if (!(await pathExists(hooksPath))) {
-    return { ok: false, hookNames: [], error: "hooks.json missing" }
+    return { ok: false, hookNames: [], error: "global lfg-hooks.json missing" }
   }
   try {
     const parsed: unknown = JSON.parse(await readFile(hooksPath, "utf8"))

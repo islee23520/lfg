@@ -48,6 +48,11 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("post-install-ported-hooks.test.ts")
     expect(text).toContain("#32")
     expect(text).toMatch(/\| Extension hooks \(LFP port\) \|.*\| Implemented/)
+    expect(text).toMatch(/\| OMO skill payload sync \|.*sync-omo-skills-to-grok\.mjs.*\| Implemented/)
+    expect(text).toContain(".lfg-omo-skill-sync.json")
+    expect(text).toContain("converts OpenAI agent metadata to `agents/grok.yaml`")
+    expect(text).toContain("lfg-owned `lfg-doctor`, `lfg-report-bug`, and `lfg-contribute-bug-fix`")
+    expect(text).toContain("not a claim that every deferred component runtime is behavior-adapted")
     expect(text).toMatch(/\| ulw-loop \/ start-work skills \|.*project `\.omo` ledger.*\| Implemented/)
     expect(text).toContain("no ledger tail/content")
     expect(text).toContain("malformed `.omo` fails closed")
@@ -73,6 +78,9 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("native Grok hooks")
     expect(text).toContain("bridge fallback")
     expect(text).toContain("Grok-first OMO parity")
+    expect(text).toContain("Scoped Grok-first OMO parity")
+    expect(text).toContain("nativeAgentsStatus: \"missing\"")
+    expect(text).toContain("Full native OMO agent behavioral parity is not claimed")
     expect(text).toContain("native Grok hook")
     // Also pin full OMO + hook surfaces for package mapping
     expect(text).toContain("lfg-grok-hook-bridge.mjs")
@@ -85,8 +93,10 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("## Core Install Parity")
     expect(text).toContain("## Full OMO Component Parity")
     expect(text).toContain("`lfg-component-inventory.json`")
-    expect(text).toContain("`lazycodex-ai` / OMO `v4.10.0`")
-    expect(text).toContain("https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0")
+    expect(text).toContain("`lazycodex-ai` / OMO `v4.12.1`")
+    expect(text).toContain("https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.12.1")
+    expect(text).toContain("split hook JSON files under `packages/omo-codex/plugin/hooks/`")
+    expect(text).toContain("package-level MCP runtimes for")
     for (const [component, status] of [
       ["bootstrap", "Deferred"],
       ["auto-update", "Unsupported"],
@@ -100,12 +110,15 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
       ["context7", "Remote URL manifest-only"],
       ["ultrawork", "Grok-adapted"],
       ["ulw-loop", "Grok-adapted"],
+      ["ulw-plan", "Grok-adapted"],
       ["start-work-continuation", "Deferred"],
       ["prompts-core", "Grok-adapted"],
       ["agent-builder", "Grok-adapted"],
       ["delegate-core", "Grok-adapted"],
       ["boulder-state", "Grok-adapted"],
       ["skills-loader-core", "Grok-adapted"],
+      ["teammode", "Deferred"],
+      ["lazycodex-executor-verify", "Deferred"],
       ["telemetry", "Unsupported"],
     ] as const) {
       expect(text).toMatch(new RegExp(`\\| \`${component}\` \\|.*\\| .*\\| .*\\| ${status} \\|`))
@@ -114,6 +127,9 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("macOS/non-Windows")
     expect(text).toContain("disabled_mcp_servers")
     expect(text).toContain("Windows-unverified")
+    expect(text).toContain("codex_app.create_thread")
+    expect(text).toContain("`lazycodex-executor`")
+    expect(text).toContain("subagent-stop-verifying-lazycodex-executor-evidence.json")
     expect(text).toContain("src/grok-adapter/component-inventory.ts")
     expect(text).toContain("hook-bridge.integration.test.ts")
     expect(text).toContain("sync-lazycodex-agents-to-grok.ts")

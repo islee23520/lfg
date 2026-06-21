@@ -70,7 +70,7 @@ describe("lfg-setup-tui recommendations", () => {
 
     const explorerRec = calls.find((c) => c[0] === "note" && /explorer model recommendation/.test(String(c[1])))
     expect(String(explorerRec?.[2] ?? "")).toContain("Recommended: grok-3-mini-fast (low)")
-    expect(String(explorerRec?.[2] ?? "")).toContain("Fallback chain: gpt-5.4-mini → grok-3-mini-fast")
+    expect(String(explorerRec?.[2] ?? "")).toContain("Fallback chain: gpt-5.4-mini-fast → grok-3-mini-fast")
 
     const modelPrompts = calls.filter((c) => c[0] === "autocomplete")
     expect(modelPrompts.length).toBeGreaterThan(0)

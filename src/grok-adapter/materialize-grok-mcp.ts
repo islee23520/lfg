@@ -66,17 +66,22 @@ export async function materializeGrokMcpRuntimes(
   platform: NodeJS.Platform = process.platform,
   options: MaterializeMcpOptions = {},
 ): Promise<{ ok: boolean; runtimesRoot: string | null }> {
-  const runtimesRoot = await resolveMcpPackagesRoot(sourceRoot)
+  const runtimeSources = await resolveMcpRuntimeSources(sourceRoot)
+  const runtimesRoot = firstRuntimeRoot(runtimeSources)
   if (runtimesRoot === null) return materializeBundledMcpComponents(pluginRoot, sourceRoot, platform, options)
 
   const destRoot = join(pluginRoot, "mcp-runtimes")
   await mkdir(destRoot, { recursive: true })
 
   for (const server of LOCAL_MCP_SERVERS) {
-    const src = join(runtimesRoot, server.runtimeDir)
-    const cli = join(src, "dist", "cli.js")
-    if (!(await pathExists(cli))) continue
-    await cp(src, join(destRoot, server.runtimeDir), { recursive: true, force: true })
+    const src = runtimeSources[server.runtimeDir]
+    const destCli = join(destRoot, server.runtimeDir, "dist", "cli.js")
+    if (src !== undefined && await pathExists(join(src, "dist", "cli.js"))) {
+      await cp(src, join(destRoot, server.runtimeDir), { recursive: true, force: true })
+      continue
+    }
+    await mkdir(dirname(destCli), { recursive: true })
+    await writeFile(destCli, fallbackRuntimeSource(server.name), "utf8")
   }
 
   if (!(await localRuntimeBinariesExist(destRoot))) {
@@ -112,13 +117,38 @@ async function materializeBundledMcpComponents(
   return { ok: await localRuntimeBinariesExist(runtimeRoot), runtimesRoot: componentsRoot }
 }
 
-function fallbackRuntimeSource(): string {
+function fallbackRuntimeSource(serverName: string = "mcp"): string {
+  const runtimeName = JSON.stringify(`lfg-${serverName}`)
   return `#!/usr/bin/env node
-import { stdin } from "node:process"
+import { createInterface } from "node:readline"
+import { stdin, stdout } from "node:process"
 
-stdin.resume()
-stdin.on("end", () => process.exit(0))
 if (stdin.isTTY) process.exit(0)
+
+const runtimeName = ${runtimeName}
+const rl = createInterface({ input: stdin, crlfDelay: Infinity })
+
+rl.on("line", (line) => {
+  if (line.trim().length === 0) return
+  const request = JSON.parse(line)
+  if (request.method === "initialize") {
+    stdout.write(JSON.stringify({
+      jsonrpc: "2.0",
+      id: request.id,
+      result: {
+        protocolVersion: "2024-11-05",
+        capabilities: { tools: {} },
+        serverInfo: { name: runtimeName, version: "0.0.0" },
+      },
+    }) + "\\n")
+    return
+  }
+  if (request.method === "tools/list") {
+    stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: { tools: [] } }) + "\\n")
+  }
+})
+
+rl.on("close", () => process.exit(0))
 `
 }
 
@@ -139,6 +169,43 @@ export async function resolveMcpPackagesRoot(sourceRoot: string): Promise<string
     }
   }
   return null
+}
+
+type RuntimeSources = Partial<Record<(typeof LOCAL_MCP_SERVERS)[number]["runtimeDir"], string>>
+
+async function resolveMcpRuntimeSources(sourceRoot: string): Promise<RuntimeSources> {
+  const sources: RuntimeSources = {}
+  for (const server of LOCAL_MCP_SERVERS) {
+    const root = await resolveMcpRuntimeRoot(sourceRoot, server.runtimeDir)
+    if (root !== null) {
+      sources[server.runtimeDir] = root
+    }
+  }
+  return sources
+}
+
+async function resolveMcpRuntimeRoot(sourceRoot: string, runtimeDir: string): Promise<string | null> {
+  let dir = sourceRoot
+  const candidates: string[] = []
+  for (let i = 0; i < 7; i++) {
+    candidates.push(join(dir, runtimeDir))
+    candidates.push(join(dir, "mcp-runtimes", runtimeDir))
+    candidates.push(join(dir, "packages", runtimeDir))
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  for (const root of candidates) {
+    if (await pathExists(join(root, "dist", "cli.js"))) {
+      return root
+    }
+  }
+  return null
+}
+
+function firstRuntimeRoot(runtimeSources: RuntimeSources): string | null {
+  const first = Object.values(runtimeSources)[0]
+  return first === undefined ? null : dirname(first)
 }
 
 async function resolveBundledMcpComponentsRoot(sourceRoot: string): Promise<string | null> {

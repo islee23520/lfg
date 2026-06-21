@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
 import { installGrokPluginFromSource } from "./install"
+import { mergePortedHooksIntoPlugin } from "./extension-hooks"
 import { verifyGrokInstallSurface } from "./post-install-verify"
 import { validateGrokHooksJson } from "./hook-trust"
 import type { HookTrustResult } from "./hook-trust"
@@ -30,7 +31,8 @@ describe("native grok hook json contract (T1)", () => {
   test("postInstallVerify registers trusted hooks after installGrokPluginFromSource (native event map, T1)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-hook28-verify-"))
     const source = join(dirname(fileURLToPath(import.meta.url)), "fixture-minimal")
-    await installGrokPluginFromSource({ home, sourceRoot: source, version: "8.8.8" })
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source, version: "8.8.8" })
+    await mergePortedHooksIntoPlugin(pluginRoot)
     const verify = await verifyGrokInstallSurface({ home })
     expect(verify.ok).toBe(true)
     expect(verify.hooksRegistered).toBe(true)
@@ -43,10 +45,10 @@ describe("native grok hook json contract (T1)", () => {
   test("native first-party hooks install as Grok event-map (not legacy metadata list, not bridge-wrapped commands)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-t1-native-contract-"))
     const source = join(dirname(fileURLToPath(import.meta.url)), "fixture-minimal")
-    await installGrokPluginFromSource({ home, sourceRoot: source, version: "test-t1" })
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source, version: "test-t1" })
+    await mergePortedHooksIntoPlugin(pluginRoot)
 
-    const pluginRoot = join(home, ".grok", "plugins", "lfg") // native path per T1
-    const hooksPath = join(pluginRoot, "hooks", "hooks.json")
+    const hooksPath = join(home, ".grok", "hooks", "lfg-hooks.json")
     const raw = await readFile(hooksPath, "utf8")
     const parsed: unknown = JSON.parse(raw)
     const trust = validateGrokHooksJson(parsed)
@@ -58,6 +60,7 @@ describe("native grok hook json contract (T1)", () => {
     expect(raw).not.toContain("legacy metadata")
     expect(raw).not.toContain("lfg-grok-hook-bridge.mjs") // T6: first-party native hooks do NOT include bridge (updated fixture + normalize skips wrap)
     expect(raw).not.toMatch(/bridge.*bridge/) // no stacked; legacy uses exactly one per guidance
+    await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
   })
 
   test("covers all allowed events from hook-trust.ts:7-23 and rejects unknown events", () => {
@@ -89,15 +92,17 @@ describe("native grok hook json contract (T1)", () => {
     const source = join(dirname(fileURLToPath(import.meta.url)), "fixture-minimal")
 
     // First install
-    await installGrokPluginFromSource({ home, sourceRoot: source, version: "test-t1" })
+    const firstInstall = await installGrokPluginFromSource({ home, sourceRoot: source, version: "test-t1" })
+    await mergePortedHooksIntoPlugin(firstInstall.pluginRoot)
     const pluginRoot = join(home, ".grok", "plugins", "lfg")
-    const hooksPath = join(pluginRoot, "hooks", "hooks.json")
+    const hooksPath = join(home, ".grok", "hooks", "lfg-hooks.json")
     let raw1 = await readFile(hooksPath, "utf8")
     const parsed1 = JSON.parse(raw1)
     const groups1 = Object.keys((parsed1 as any).hooks || {}).length
 
     // Second install (repeated setup)
-    await installGrokPluginFromSource({ home, sourceRoot: source, version: "test-t1" })
+    const secondInstall = await installGrokPluginFromSource({ home, sourceRoot: source, version: "test-t1" })
+    await mergePortedHooksIntoPlugin(secondInstall.pluginRoot)
     const raw2 = await readFile(hooksPath, "utf8")
     const parsed2 = JSON.parse(raw2)
     const groups2 = Object.keys((parsed2 as any).hooks || {}).length
@@ -105,5 +110,6 @@ describe("native grok hook json contract (T1)", () => {
     expect(groups2).toBe(groups1) // no duplicate groups
     expect(raw2.match(/lfg-grok-hook-bridge\.mjs/g)?.length || 0).toBeLessThanOrEqual(2) // no stacking
     expect(raw1).toEqual(raw2) // stable on repeat (idempotent)
+    await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
   })
 })

@@ -7,6 +7,7 @@ import { installGrokPluginFromSource } from "./install"
 import { nativeGrokPluginRoot, legacyInstalledGrokPluginRoot } from "./install"
 import { verifyGrokInstallSurface } from "./post-install-verify"
 import { runInternalGrokInstall } from "./run-internal"
+import { mergePortedHooksIntoPlugin } from "./extension-hooks"
 
 let tempSourceRoot = ""
 
@@ -33,7 +34,8 @@ describe("post-install-verify", () => {
   test("verified after internal install stamp", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-verify-home-"))
     const source = await createMcpInstallSource()
-    await installGrokPluginFromSource({ home, sourceRoot: source, version: "9.9.9" })
+    const install = await installGrokPluginFromSource({ home, sourceRoot: source, version: "9.9.9" })
+    await mergePortedHooksIntoPlugin(install.pluginRoot)
     const json = await verifyGrokInstallSurface({ home })
     const pluginRoot = pluginRootFromFixture(json) || join(home, ".grok", "plugins", "lfg")
     expect(json).toMatchObject({

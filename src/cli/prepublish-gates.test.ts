@@ -6,21 +6,21 @@ import { describe, expect, test } from "vitest"
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
 
 describe("npm publish gates (#22)", () => {
-  test("prepublishOnly runs npm test; no postinstall hook on root package", async () => {
+  test("prepublishOnly runs the full verify gate; no postinstall hook on root package", async () => {
     const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>
     }
-    expect(pkg.scripts?.prepublishOnly).toBe("npm test")
+    expect(pkg.scripts?.prepublishOnly).toBe("npm run verify")
     expect(pkg.scripts?.prepack).toContain("build")
     expect(pkg.scripts).not.toHaveProperty("postinstall")
   })
 
-  test("verify chains assert-pack before test (#22)", async () => {
+  test("verify chains assert-pack and OMO parity before test (#22)", async () => {
     const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>
     }
     const verify = pkg.scripts?.verify ?? ""
-    expect(verify).toBe("npm run assert-pack && npm test && npm run typecheck && npm run self-test")
+    expect(verify).toBe("npm run assert-pack && npm run assert-omo-parity && npm test && npm run typecheck && npm run self-test")
   })
 
   test("scoped package name matches evaluatePublishGap default", async () => {

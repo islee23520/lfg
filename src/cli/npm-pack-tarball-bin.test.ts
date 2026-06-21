@@ -5,7 +5,7 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { describe, expect, test } from "vitest"
-import { withNpmPackLock } from "./npm-pack-mutex"
+import { npmFixtureEnv, withNpmPackLock } from "./npm-pack-mutex"
 
 const execFileAsync = promisify(execFile)
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
@@ -18,6 +18,7 @@ describe("npm pack tarball package.json (#22)", () => {
         execFileAsync("npm", ["pack", "--pack-destination", outDir, "--json"], {
           cwd: ROOT,
           encoding: "utf8",
+          env: npmFixtureEnv(),
         }),
       )
       const packs = JSON.parse(stdout) as readonly { readonly filename?: string }[]
@@ -56,13 +57,22 @@ describe("npm pack tarball package.json (#22)", () => {
 
   test("packed tarball stays allowlisted small layout (#22 not workspace dump)", async () => {
     const { stdout } = await withNpmPackLock(() =>
-      execFileAsync("npm", ["pack", "--dry-run", "--json"], { cwd: ROOT, encoding: "utf8" }),
+      execFileAsync("npm", ["pack", "--dry-run", "--json"], { cwd: ROOT, encoding: "utf8", env: npmFixtureEnv() }),
     )
     const packs = JSON.parse(stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
     const paths = packs.flatMap((p) => p.files?.map((f) => f.path).filter((x): x is string => typeof x === "string") ?? [])
     expect(paths.length).toBeGreaterThan(5)
-    expect(paths.length).toBeLessThanOrEqual(75)
+    expect(paths.length).toBeLessThanOrEqual(700)
     expect(paths).toContain("package.json")
+    expect(paths).toContain("skills/ulw-plan/references/full-workflow.md")
+    expect(paths).toContain("skills/ulw-plan/scripts/scaffold-plan.mjs")
+    expect(paths).toContain("skills/ulw-loop/references/full-workflow.md")
+    expect(paths).toContain("skills/rules/SKILL.md")
+    expect(paths).toContain("skills/lsp/SKILL.md")
+    expect(paths).toContain("skills/review-work/SKILL.md")
+    expect(paths).toContain("skills/visual-qa/SKILL.md")
+    expect(paths).toContain("skills/lfg-doctor/SKILL.md")
+    expect(paths).not.toContain("skills/lcx-doctor/SKILL.md")
     expect(paths).not.toContain("src/cli/lfg.ts")
   }, 60_000)
 })

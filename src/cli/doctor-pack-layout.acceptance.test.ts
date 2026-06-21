@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { promisify } from "util"
 import { describe, expect, test } from "vitest"
-import { withNpmPackLock } from "./npm-pack-mutex"
+import { npmFixtureEnv, withNpmPackLock } from "./npm-pack-mutex"
 import { resolveLfgCliLayout } from "./lfg-package-layout"
 
 const execFileAsync = promisify(execFile)
@@ -32,18 +32,27 @@ describe("packed CLI layout acceptance (#25)", () => {
   test("npx lfg --json setup from local pack install uses the published workspace layout", async () => {
     const packDir = await mkdtemp(join(tmpdir(), "lfg-doc25-pack-"))
     const pack = await withNpmPackLock(() =>
-      execFileAsync("npm", ["pack", "--pack-destination", packDir, "--json"], { cwd: ROOT, encoding: "utf8" }),
+      execFileAsync("npm", ["pack", "--pack-destination", packDir, "--json"], {
+        cwd: ROOT,
+        encoding: "utf8",
+        env: npmFixtureEnv(),
+      }),
     )
     const packs = JSON.parse(pack.stdout) as readonly { filename?: string }[]
     const tarball = join(packDir, packs[0]?.filename ?? "")
     const installDir = await mkdtemp(join(tmpdir(), "lfg-doc25-install-"))
-    await execFileAsync("npm", ["init", "-y"], { cwd: installDir, encoding: "utf8" })
-    await execFileAsync("npm", ["install", tarball], { cwd: installDir, encoding: "utf8", maxBuffer: 4_000_000 })
+    await execFileAsync("npm", ["init", "-y"], { cwd: installDir, encoding: "utf8", env: npmFixtureEnv() })
+    await execFileAsync("npm", ["install", tarball], {
+      cwd: installDir,
+      encoding: "utf8",
+      env: npmFixtureEnv(),
+      maxBuffer: 4_000_000,
+    })
     const home = await mkdtemp(join(tmpdir(), "lfg-doc25-home-"))
     const setup = await execFileAsync("npx", ["lfg", "--json", "setup"], {
       cwd: installDir,
       encoding: "utf8",
-      env: { ...process.env, HOME: home },
+      env: npmFixtureEnv({ HOME: home }),
       maxBuffer: 2_000_000,
     })
     const json = JSON.parse(setup.stdout) as { ok?: boolean; command?: string; companionPackage?: string; selectedPreset?: string }

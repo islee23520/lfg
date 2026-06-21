@@ -184,8 +184,8 @@ task(category="quick", load_skills=["git-master"], run_in_background=true)
 ## WORKFLOW
 1. Analyze the request and identify required capabilities
 2. Spawn exploration/librarian agents via task(run_in_background=true) in PARALLEL (10+ if needed)
-3. Use Plan agent with gathered context to create detailed work breakdown
-4. Execute with continuous verification against original requirements
+3. Plan through the `ulw-plan` skill: restate outcome + constraints, read hook-injected `.omo` context, RESUME any matching `.omo/plans/*.md` instead of starting a duplicate, else write `.omo/plans/<slug>.md` (Outcome, Constraints, Current context, Todo graph with ids/dependencies/evidence, Verification gates, Risks and rollback, ULW state seed); clear its approval gate before implementing, then seed `.omo/ulw/*.json` and hand off to `ulw-loop`
+4. Execute in the plan's EXACT wave order with continuous verification against original requirements
 
 ## VERIFICATION GUARANTEE (NON-NEGOTIABLE)
 
@@ -322,7 +322,7 @@ Procedure (non-negotiable):
 THE USER ASKED FOR X. DELIVER EXACTLY X. NOT A SUBSET. NOT A DEMO. NOT A STARTING POINT.
 
 1. EXPLORES + LIBRARIANS
-2. GATHER -> PLAN AGENT SPAWN
+2. PLAN THROUGH `ulw-plan` (.omo/plans/<slug>.md → approval gate → seed .omo/ulw/*.json → hand off to ulw-loop)
 3. WORK BY DELEGATING TO ANOTHER AGENTS
 
 NOW.

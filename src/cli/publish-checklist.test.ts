@@ -16,6 +16,9 @@ describe("publish checklist #22", () => {
     expect(doc).toContain("record-publish-gap")
     expect(doc).toContain("assert-publish-auth")
     expect(doc).toContain("npm login")
+    // tag-driven automation wiring
+    expect(doc).toContain("lfg.yml")
+    expect(doc).toContain("NPM_TOKEN")
   })
 
   test("root package.json exposes bin.lfg and publish scripts", async () => {
@@ -29,6 +32,7 @@ describe("publish checklist #22", () => {
     expect(pkg.scripts?.["record-publish-gap"]).toMatch(/^npm run build &&/)
     expect(pkg.scripts?.["assert-publish-auth"]).toMatch(/^npm run build &&/)
     expect(pkg.scripts?.["assert-publish-auth"]).toContain("assert-npm-publish-auth.mjs")
-    expect(pkg.scripts?.verify).toBe("npm run assert-pack && npm test && npm run typecheck && npm run self-test")
+    expect(pkg.scripts?.["assert-omo-parity"]).toBe("npm run build && node scripts/assert-omo-parity.mjs")
+    expect(pkg.scripts?.verify).toBe("npm run assert-pack && npm run assert-omo-parity && npm test && npm run typecheck && npm run self-test")
   })
 })

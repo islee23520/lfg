@@ -1,26 +1,24 @@
-import { lstat } from "node:fs/promises"
 import type { JsonObject } from "../cli/lfg-json"
 import { grokConfigJson, writeGrokModelConfig } from "../cli/lfg-grok-config"
 import type { ModelDiscovery } from "../cli/lfg-models"
 import { modelDiscoveryEnv } from "../cli/lfg-models"
 import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentModels } from "./grok-plugins-enable"
 import { ensureLfgConfigFiles } from "./lfg-config"
-import { ensureCuaDriverSkill, ensureUlwWorkflowSkills } from "./ensure-cua-driver-skill"
-import { ensureHephaestusModelGate } from "./ensure-hephaestus-model-gate"
-import { normalizePluginHooksJson } from "./normalize-plugin-hooks"
 import {
   resolveLazycodexAgentOverrides,
   writeOmoAgentOverridesFile,
 } from "./lazycodex-agent-overrides"
 import { resolveGlobalLazycodexAgentConfig } from "./resolve-global-agent-config"
-import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
-import { overlayLfgComponentShims, readGrokInstallStamp } from "./install"
+import { resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
+import { overlayLfgComponentShims } from "./install"
 import { runInternalGrokInstall } from "./run-internal"
 import { syncLazycodexAgentsToGrokLedger, type SyncLazycodexAgentsResult } from "./sync-lazycodex-agents-to-grok"
 import { componentInventoryPath } from "./component-inventory"
 import { applyRecommendationsToOverrideMap } from "./model-recommendation-availability"
 import { resolveGrokApiKey } from "./grok-api-key"
 import { resolveGrokSetupHome } from "./grok-home"
+import { resolveExistingStampedLfgSetup } from "./run-grok-install-existing"
+import { syncPostInstallPluginPayload, type PostInstallPluginSyncResult } from "./run-grok-install-post-sync"
 
 export const INTERNAL_GROK_INSTALL_PACKAGE = "lfg-grok-install" as const
 export const INTERNAL_GROK_INSTALL_COMMAND = "@islee23520/lfg internal grok-install" as const
@@ -36,12 +34,13 @@ export type GrokInstallRunResult = {
   readonly pluginsEnabled: Awaited<ReturnType<typeof ensureLfgPluginsEnabled>> | null
   readonly subagentModels: Awaited<ReturnType<typeof ensureLfgSubagentModels>> | null
   /** Hooks are always (re)normalized on every setup so the bridge, config loader, and ultrawork hooks are guaranteed loaded. */
-  readonly hooks: { readonly path: string; readonly hookNames: readonly string[]; readonly changed: boolean } | null
+  readonly hooks: PostInstallPluginSyncResult | null
 }
 
 export type GrokInstallRunOptions = {
   readonly force?: boolean
   readonly fullAgentModels?: Readonly<Record<string, { model: string; reasoningLevel: string }>>
+  readonly installOnly?: boolean
 }
 
 type SubagentModelMapping = NonNullable<Parameters<typeof ensureLfgSubagentModels>[1]>
@@ -55,6 +54,30 @@ export async function runGrokInstall(
   const home = resolveGrokSetupHome(env)
   const homeEnv = { ...env, HOME: home }
   const apiKey = await resolveGrokApiKey(homeEnv)
+  if (options.installOnly === true) {
+    const internalEnv = {
+      ...homeEnv,
+      LFG_SETUP_FORCE: "1",
+    }
+    const internalStep = await runInternalGrokInstall(internalEnv)
+    const pluginRootAfterInstall = (await resolveGrokAdapterPluginRoot(home))?.pluginRoot
+    let hooksFresh: PostInstallPluginSyncResult | null = null
+    if (pluginRootAfterInstall) {
+      hooksFresh = await syncPostInstallPluginPayload(pluginRootAfterInstall)
+    }
+    return {
+      ok: internalStep.ok === true,
+      configUpdate: null,
+      internalStep: { ...internalStep, installOnly: true },
+      omoAgents: null,
+      lazycodexAgents: null,
+      agentOverridesPath: null,
+      lfgConfigPath: null,
+      pluginsEnabled: null,
+      subagentModels: null,
+      hooks: hooksFresh,
+    }
+  }
   const existingSetup = options.force === true ? null : await resolveExistingStampedLfgSetup(home)
   if (existingSetup !== null) {
     const resolvedAgents = await resolveGlobalLazycodexAgentConfig(home, discovery)
@@ -90,11 +113,8 @@ export async function runGrokInstall(
     // lfg-config-loader, project omo ledger, and ultrawork component hooks are guaranteed loaded.
     // Component shims are also re-overlaid to repair upstream CLIs that crash on missing
     // package imports (e.g. @code-yeongyu/lsp-daemon in the upstream lsp component).
-    const hooksNormalized = await normalizePluginHooksJson(existingSetup.pluginRoot)
     await overlayLfgComponentShims(existingSetup.pluginRoot)
-    await ensureCuaDriverSkill(existingSetup.pluginRoot)
-    await ensureUlwWorkflowSkills(existingSetup.pluginRoot)
-    await ensureHephaestusModelGate(existingSetup.pluginRoot)
+    const hooksNormalized = await syncPostInstallPluginPayload(existingSetup.pluginRoot)
 
     return {
       ok: true,
@@ -120,11 +140,7 @@ export async function runGrokInstall(
       lfgConfigPath: configFiles.configPath,
       pluginsEnabled,
       subagentModels,
-      hooks: {
-        path: hooksNormalized.path,
-        hookNames: hooksNormalized.hookNames,
-        changed: hooksNormalized.changed,
-      },
+      hooks: hooksNormalized,
     }
   }
   const agentConfig = discovery?.agentConfig ?? null
@@ -166,13 +182,9 @@ export async function runGrokInstall(
   // Always (re)normalize hooks on every install path (fresh or repair), so the Grok bridge,
   // lfg-config-loader, project omo ledger, and ultrawork component hooks are guaranteed present.
   const pluginRootAfterInstall = (await resolveGrokAdapterPluginRoot(home))?.pluginRoot
-  let hooksFresh: { readonly path: string; readonly hookNames: readonly string[]; readonly changed: boolean } | null = null
+  let hooksFresh: PostInstallPluginSyncResult | null = null
   if (pluginRootAfterInstall) {
-    const norm = await normalizePluginHooksJson(pluginRootAfterInstall)
-    await ensureCuaDriverSkill(pluginRootAfterInstall)
-    await ensureUlwWorkflowSkills(pluginRootAfterInstall)
-    await ensureHephaestusModelGate(pluginRootAfterInstall)
-    hooksFresh = { path: norm.path, hookNames: norm.hookNames, changed: norm.changed }
+    hooksFresh = await syncPostInstallPluginPayload(pluginRootAfterInstall)
   }
 
   return {
@@ -189,21 +201,6 @@ export async function runGrokInstall(
   }
 }
 
-type ExistingStampedLfgSetup = {
-  readonly pluginRoot: string
-}
-
-async function resolveExistingStampedLfgSetup(home: string): Promise<ExistingStampedLfgSetup | null> {
-  const resolved = await resolveGrokAdapterPluginRoot(home)
-  const ok =
-    resolved?.location === "native_plugins" &&
-    resolved.pluginDirName === "lfg" &&
-    (await isRealDirectory(resolved.pluginRoot)) &&
-    (await readGrokInstallStamp(resolved.pluginRoot)) !== null &&
-    (await readAdapterHooksTrust(resolved.pluginRoot)).ok
-  return ok ? { pluginRoot: resolved.pluginRoot } : null
-}
-
 function subagentModelMappingFromDiscovery(
   discovery: ModelDiscovery | null,
   resolvedAgents: Awaited<ReturnType<typeof resolveGlobalLazycodexAgentConfig>>,
@@ -218,15 +215,6 @@ function subagentModelMappingFromDiscovery(
   }
 }
 
-async function isRealDirectory(path: string): Promise<boolean> {
-  try {
-    const stat = await lstat(path)
-    return stat.isDirectory() && !stat.isSymbolicLink()
-  } catch {
-    return false
-  }
-}
-
 export function grokInstallStepJson(internalStep: JsonObject): JsonObject {
   const base = {
     packageName: INTERNAL_GROK_INSTALL_PACKAGE,
@@ -238,6 +226,7 @@ export function grokInstallStepJson(internalStep: JsonObject): JsonObject {
     ...(typeof internalStep.componentInventoryPath === "string"
       ? { componentInventoryPath: internalStep.componentInventoryPath }
       : {}),
+    ...(internalStep.installOnly === true ? { installOnly: true } : {}),
   }
   if (typeof internalStep.warning === "string" && internalStep.warning.length > 0) {
     return { ...base, warning: internalStep.warning }

@@ -6,6 +6,7 @@
   "equivalents": {
     "_comment": "Upstream OMO model family -> cliproxy available equivalent",
     "gpt-5.5": "gpt-5.5",
+    "gpt-5.4-mini-fast": "gpt-5.4-mini-fast",
     "gpt-5.4-mini": "gpt-5.4-mini",
     "gpt-5.3-codex-spark": "gpt-5.3-codex-spark",
     "claude-sonnet-4-6": "claude-sonnet-4-6",
@@ -29,22 +30,22 @@
   },
   "overrides": {
     "explorer": {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-5.4-mini-fast",
       "model_reasoning_effort": "low",
       "service_tier": "fast",
       "model_fallback": "grok-3-mini-fast",
       "model_fallback_reasoning_effort": "low",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO explore agent: gpt-5.4-mini is #1 in upstream chain (agent-model-requirements.ts); Grok mini as availability fallback"
+      "role_rationale": "OMO explore agent: gpt-5.4-mini-fast is #1 in upstream chain (agent-model-requirements.ts); Grok mini as availability fallback"
     },
     "librarian": {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-5.4-mini-fast",
       "model_reasoning_effort": "low",
       "service_tier": "fast",
       "model_fallback": "grok-3-mini-fast",
       "model_fallback_reasoning_effort": "low",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO librarian agent: gpt-5.4-mini is #1 in upstream chain; Grok mini as availability fallback"
+      "role_rationale": "OMO librarian agent: gpt-5.4-mini-fast is #1 in upstream chain; Grok mini as availability fallback"
     },
     "plan": {
       "model": "gpt-5.5",
@@ -191,13 +192,13 @@
       "role_rationale": "OMO deep category: GPT-5.5 medium is #1 in upstream chain; Gemini 3.1 Pro high is #3 (Claude Opus #2 unavailable)"
     },
     "quick": {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-5.4-mini-fast",
       "model_reasoning_effort": "low",
       "service_tier": "fast",
       "model_fallback": "grok-3-mini-fast",
       "model_fallback_reasoning_effort": "low",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO quick category: gpt-5.4-mini is #1 in upstream chain; Grok mini-fast as availability fallback"
+      "role_rationale": "OMO quick category: gpt-5.4-mini-fast is #1 in upstream chain; Grok mini-fast as availability fallback"
     },
     "unspecified-low": {
       "model": "claude-sonnet-4-6",

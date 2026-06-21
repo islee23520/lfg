@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
 import type { ModelDiscovery } from "../cli/lfg-models"
 import { runGrokInstall } from "./run-grok-install"
+import { expectUpstreamOmoWorkflowSkills } from "./test-omo-skills-assertions"
 
 const here = dirname(fileURLToPath(import.meta.url))
 const fixtureRoot = join(here, "fixture-minimal")
@@ -43,6 +44,7 @@ describe("runGrokInstall", () => {
     expect(explorer).toContain('model = "grok-3-mini-fast"')
     const explorerAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")
     expect(explorerAgent).toContain("name: explorer")
+    await expectUpstreamOmoWorkflowSkills(join(home, ".grok", "plugins", "lfg"))
     const stamp = await readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stamp).toContain("@islee23520/lfg")
   })
@@ -93,6 +95,15 @@ describe("runGrokInstall", () => {
     await mkdir(join(home, ".grok", "plugins"), { recursive: true })
     await mkdir(join(home, ".grok", "agents"), { recursive: true })
     await cp(fixtureRoot, pluginRoot, { recursive: true })
+    for (const retiredSkill of ["lcx-contribute-bug-fix", "lcx-doctor", "lcx-report-bug"]) {
+      await mkdir(join(pluginRoot, "skills", retiredSkill, "agents"), { recursive: true })
+      await writeFile(join(pluginRoot, "skills", retiredSkill, "SKILL.md"), `name: ${retiredSkill}\n`, "utf8")
+      await writeFile(join(pluginRoot, "skills", retiredSkill, "agents", "openai.yaml"), "interface:\n  display_name: stale\n", "utf8")
+    }
+    for (const managedSkill of ["git-master", "ulw-plan", "ulw-loop"]) {
+      await mkdir(join(pluginRoot, "skills", managedSkill, "agents"), { recursive: true })
+      await writeFile(join(pluginRoot, "skills", managedSkill, "agents", "openai.yaml"), "interface:\n  display_name: stale\n", "utf8")
+    }
     await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"existing"}\n', "utf8")
     await writeFile(configPath, '[omo.models]\ndefault = "user-model"\n', "utf8")
     await writeFile(agentPath, 'model = "user-agent"\n', "utf8")
@@ -133,9 +144,16 @@ describe("runGrokInstall", () => {
     await expect(readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")).resolves.toContain('"prometheus"')
     await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "default.md"), "utf8")).resolves.toContain("name: default")
     await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "prometheus.md"), "utf8")).resolves.toContain("name: prometheus")
+    await expect(readFile(join(pluginRoot, "skills", "lfg-doctor", "SKILL.md"), "utf8")).resolves.toContain("name: lfg-doctor")
+    await expect(readFile(join(pluginRoot, "skills", "lcx-doctor", "SKILL.md"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(pluginRoot, "skills", "lcx-report-bug", "agents", "openai.yaml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(pluginRoot, "skills", "git-master", "agents", "grok.yaml"), "utf8")).resolves.toContain("git-master")
+    await expect(readFile(join(pluginRoot, "skills", "git-master", "agents", "openai.yaml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(pluginRoot, "skills", "ulw-plan", "agents", "openai.yaml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expect(readFile(join(home, ".grok", "roles", "default.toml"), "utf8")).resolves.toContain('model = "gpt-5.5"')
     await expect(readFile(join(home, ".grok", "roles", "prometheus.toml"), "utf8")).resolves.toContain('model = "gpt-5.5"')
     await expect(readFile(join(home, ".grok", "roles", "prometheus.toml"), "utf8")).resolves.toContain('reasoning_effort = "xhigh"')
+    await expectUpstreamOmoWorkflowSkills(join(home, ".grok", "plugins", "lfg"))
 
     const repeated = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
     expect(repeated.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
@@ -215,7 +233,9 @@ describe("runGrokInstall", () => {
 
     expect(run.internalStep).toMatchObject({ status: "installed" })
     expect(run.internalStep).not.toMatchObject({ skippedExistingSetup: true })
-    await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).resolves.toContain("SessionStart")
+    await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
+    await expect(readFile(join(pluginRoot, "hooks", "hooks.source.json"), "utf8")).resolves.toContain("SessionStart")
+    await expect(readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")).resolves.toContain(pluginRoot)
   })
 
   // T7: Grok-compatible OMO hook parity routing (minimal test update per task scope). Fixture components + bridge support native OMO/runtime invocation for Grok.

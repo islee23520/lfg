@@ -30,6 +30,7 @@ type InstallerStepResult = {
 
 export type LazycodexInstallerOptions = {
   readonly force?: boolean
+  readonly installOnly?: boolean
 }
 
 /** Grok-first setup: materialize lazycodex under ~/.grok via internal grok-install (no Codex npx). */
@@ -41,6 +42,7 @@ export async function runLazycodexInstaller(
   const env = mergeStringEnv(process.env, modelDiscoveryEnv(discovery, agentConfig))
   const grokOptions: GrokInstallRunOptions = {
     ...(options.force === undefined ? {} : { force: options.force }),
+    ...(options.installOnly === undefined ? {} : { installOnly: options.installOnly }),
     ...(discovery?.agentOverrideMap === undefined ? {} : { fullAgentModels: discovery.agentOverrideMap }),
   }
   const grokRun = await runGrokInstall(discovery, env, grokOptions)

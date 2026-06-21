@@ -24,8 +24,10 @@ const required = [
   // Grok-first OMO parity requires native Grok hook fixtures plus bridge fallback assets.
   "dist/grok-install/assets/lfg-grok-hook-bridge.mjs",
   "dist/grok-install/assets/lfg-config-loader.mjs",
+  "dist/grok-install/skills/.lfg-omo-skill-sync.json",
+  "skills/.lfg-omo-skill-sync.json",
 ]
-const requiredSkillFragments = ["ulw"]
+const requiredSkillFragments = ["ulw", "rules", "lsp", "review-work", "visual-qa", "lfg-doctor"]
 const missing = required.filter((p) => !paths.includes(p))
 const missingSkillFragments = requiredSkillFragments.filter(
   (fragment) => !paths.some((path) => path.startsWith("skills/") && path.includes(fragment)),

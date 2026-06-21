@@ -1,66 +1,49 @@
 ---
 name: ulw-loop
-description: Grok-native manual-continuation ULW workflow that keeps durable .omo state, uses hook-injected context, and advances evidence-bound todos until verification passes.
+description: Goal-like loop that uses ultrawork mode to decompose work into systematic, evidence-bound steps.
+metadata:
+  short-description: Goal-like ultrawork loop for systematic decomposition
 ---
 
 # ulw-loop
 
-Use this skill when the user says `ulw`, `/ulw-loop`, or asks for an ultrawork / continuous work session. ULW is a manual-continuation loop: complete one evidence-bound step, refresh state, select the next todo, and continue until the plan is done.
+Use this skill when the user asks for `ulw-loop`, `ulw`, durable goal execution, evidence-led work, manual QA, or checkpointed long-running delivery.
 
-## Bootstrap
+This skill is intentionally compact. The full workflow lives in `references/full-workflow.md`. Read only the sections needed for the current phase, then execute them exactly.
 
-1. Confirm the requested outcome and project root.
-2. Load the current `.omo` state from hook-injected context first. The `SessionStart` and `UserPromptSubmit` hooks run `lfg-config-loader.mjs`, which summarizes LFG config, the active `.omo` ledger, active plan, and any ULW loop sessions.
-3. If hook context is absent or incomplete, inspect the local `.omo` directory directly before acting.
-4. Start or resume the active ULW session under `.omo/ulw/`:
-   - `plan.json` stores the goal, constraints, selected plan file, and verification gates.
-   - `current-step.json` stores the active todo id, status, started timestamp, and last evidence entry.
-   - `todos.json` stores ordered todo objects with `id`, `title`, `status`, `dependsOn`, `evidenceRequired`, and `verification` fields.
-   - `findings.json` stores durable observations, decisions, blockers, and references discovered during the loop.
-   - Optional session files such as `.omo/ulw/<session-id>.json` may mirror the same state for history.
-5. If no plan exists, ask for planning or invoke the `ulw-plan` skill before starting implementation.
+## Required First Steps
 
-## Execution Loop
+1. Open `references/full-workflow.md`.
+2. Read through **Bootstrap** (including its tier triage), **Execution Loop**, and the **Manual-QA channels** table before running any ULW command or recording evidence.
+3. If the task has code edits, tests, QA, or commit work, follow the full workflow's delegation and evidence rules. Tests alone never prove done.
 
-Repeat this loop until every todo is complete:
+## Non-Negotiables
 
-1. **Read state**: Review hook-injected `.omo` context, then read `.omo/ulw/plan.json`, `.omo/ulw/todos.json`, `.omo/ulw/current-step.json`, and `.omo/ulw/findings.json` when available.
-2. **Choose next todo**: Select the first pending todo whose dependencies are complete. If a todo is blocked, record the blocker in `findings.json` and move to the next unblocked item. If every remaining todo is blocked, stop and report the blocker.
-3. **Set current step**: Update `.omo/ulw/current-step.json` with the chosen todo, expected result, required proof, and status `in_progress`.
-4. **Act narrowly**: Do only the work required for that todo. Preserve unrelated files and existing project conventions.
-5. **Capture evidence**: Every step must produce proof before it can be marked complete. Acceptable proof includes:
-   - relevant test/typecheck/build output,
-   - diagnostics output for changed files,
-   - concise file diff or list of changed paths,
-   - generated artifact path,
-   - manual QA notes with exact command or observation.
-6. **Update state**: Append findings and evidence to `.omo/ulw/findings.json`; mark the todo `completed` in `.omo/ulw/todos.json`; update `.omo/ulw/current-step.json` with status `completed`, completed timestamp, and evidence summary.
-7. **Manual continuation**: Immediately read the next todo from `.omo/ulw/todos.json` and continue. Do not wait for a new user prompt unless the next item is blocked, the plan requires human approval, or verification fails in a way that needs a user decision.
+- Use the ulw-loop CLI state under `.omo/ulw-loop`; do not hand-edit goal state.
+- After any compaction or context loss, re-read brief + goals + ledger FIRST (`omo sparkshell cat .omo/ulw-loop/ledger.jsonl` or read directly) plus `omo ulw-loop status --json`, then resume; never re-plan from scratch.
+- If `omo ulw-loop create-goals` says the existing aggregate is already complete, start unrelated new work with a fresh `--session-id <new-id>` instead of steering or forcing the completed default state. Use `--force` only to intentionally overwrite completed evidence.
+- Every success criterion needs observable evidence from a real surface: a channel (tmux, HTTP, browser, computer-use) or, for CLI- or data-shaped criteria, an auxiliary surface (CLI stdout, DB diff, parsed config dump).
+- Record evidence through the CLI only after cleanup receipts are available.
+- Delegate code edits, test writes, fixes, and QA execution to right-sized Codex subagents when the workflow requires it.
+- Every `multi_agent_v1.spawn_agent` message starts with `TASK:`, then names `DELIVERABLE`, `SCOPE`, and `VERIFY`; put role and specialty instructions inside `message`; use `fork_context: false` unless full history is truly required.
+- Plan and reviewer agents may run for a long time; spawn them in the background, keep doing independent root work, and poll with short `multi_agent_v1.wait_agent` cycles. Never use a single long blocking wait for them.
+- For work likely to exceed one wait cycle, require the child to send `WORKING: <task> - <current phase>` before long reading, testing, or review passes, and `BLOCKED: <reason>` only when it cannot progress.
+- Track spawned agent names locally. Use `multi_agent_v1.wait_agent` for mailbox signals, not proof of completion. A timeout only means no new mailbox update arrived. Treat a running child as alive.
+- While children run, surface the active subagent count, agent names, and latest `WORKING:` phase.
+- Fallback only when the child is completed without the deliverable, ack-only after followup, explicitly `BLOCKED:`, or no longer running. Then record inconclusive and respawn a smaller `fork_context: false` task with the missing deliverable.
+- Use `git-master` for git-tracked edits: inspect recent and touched-path commit history, then commit each verified work unit atomically in the repository's observed language, scope, and message style with only that unit's files staged.
 
-## Hook-assisted awareness
+## Codex Tool Mapping
 
-Grok hooks keep the loop aware across prompts and sessions:
+The full workflow may mention OpenCode-style orchestration examples. In Codex, translate them to native tools:
 
-- `SessionStart` loads global LFG config and active `.omo` ledger state through `lfg-config-loader.mjs`.
-- `UserPromptSubmit` refreshes that state when the user sends a new instruction, so the agent can resume the correct plan and current step.
-- The loader reports whether an active work ledger exists, which plan is active, and whether ULW loop ledgers are present.
-- Treat hook context as a snapshot. Before mutating state, confirm the on-disk `.omo/ulw/*.json` files still match the active work you intend to continue.
+| Workflow intent | Codex tool |
+| --- | --- |
+| Plan agent | `multi_agent_v1.spawn_agent({"message":"TASK: act as a planning agent. ...","fork_context":false})` |
+| Search/read-only worker | `multi_agent_v1.spawn_agent({"message":"TASK: act as an explorer. ...","fork_context":false})` |
+| Implementation or QA worker | `multi_agent_v1.spawn_agent({"message":"TASK: act as an implementation or QA worker. ...","fork_context":false})` |
+| Final verification reviewer | `multi_agent_v1.spawn_agent({"message":"TASK: act as a rigorous reviewer. ...","fork_context":false})` |
+| Wait for background result | `multi_agent_v1.wait_agent(...)` |
+| Clean up finished worker | `multi_agent_v1.close_agent(...)` |
 
-## Manual-QA channels
-
-Use Manual-QA when automated checks are insufficient or the task changes user-visible behavior:
-
-- Record the QA target, exact command or interaction, observed result, and pass/fail in `.omo/ulw/findings.json`.
-- Include screenshots, logs, or output paths when the evidence is visual or interactive.
-- If Manual-QA fails, reopen the current todo or create a follow-up todo with the failure evidence attached.
-
-## Stop condition
-
-Stop only when all of the following are true:
-
-1. Every todo in `.omo/ulw/todos.json` is `completed` or explicitly cancelled with a reason approved by the user.
-2. Required verification from `.omo/ulw/plan.json` passes.
-3. The final state has been written to `.omo/ulw/current-step.json` and `.omo/ulw/findings.json`.
-4. The final response summarizes completed work, changed files, and evidence.
-
-If verification fails, continue the loop by adding or reopening the smallest todo that can fix the failure.
+When translating `load_skills=[...]`, include the requested skill names in the spawned agent's `message`.

@@ -21,6 +21,8 @@ describe("docs/grok-adapter-ownership.md", () => {
     expect(text).toContain("lfgIsPlugin: false")
     expect(text).toContain("not reported as a Grok plugin object")
     expect(text).toContain("setup --run")
+    expect(text).toContain("nativeAgentsStatus: \"missing\"")
+    expect(text).toContain("Full native OMO agent behavioral parity")
     expect(text).toContain("~/.grok/plugins/lfg")
     expect(text).toContain("npx @islee23520/lfg setup")
     expect(text).toContain("copy-paste vendor")

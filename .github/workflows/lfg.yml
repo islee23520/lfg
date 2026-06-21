@@ -1,0 +1,92 @@
+name: lfg
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lfg-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify (assert-pack, OMO parity, test, typecheck, self-test)
+        run: npm run verify
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: "Guard: package versions match tag"
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs"
+
+          const tagVersion = process.env.GITHUB_REF_NAME?.replace(/^v/, "")
+          const pkg = JSON.parse(readFileSync("package.json", "utf8"))
+          const lock = JSON.parse(readFileSync("package-lock.json", "utf8"))
+          const lockRootVersion = lock.packages?.[""]?.version
+
+          const mismatches = [
+            ["package.json", pkg.version],
+            ["package-lock.json", lock.version],
+            ['package-lock.json packages[""]', lockRootVersion],
+          ].filter(([, version]) => version !== tagVersion)
+
+          if (mismatches.length > 0) {
+            for (const [source, version] of mismatches) {
+              console.error(`${source} version ${version ?? "<missing>"} != tag ${tagVersion}`)
+            }
+            process.exit(1)
+          }
+          NODE
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

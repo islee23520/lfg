@@ -52,13 +52,20 @@ export function renderGrokRoleTomlFromCodex(
   return { toml: `${lines.join("\n")}\n`, promptPath, promptBody }
 }
 
-export function renderMinimalGrokRoleToml(agentName: string, override: LazycodexAgentModelOverride): string {
+export function renderMinimalGrokRoleToml(
+  agentName: string,
+  override: LazycodexAgentModelOverride,
+  promptPath?: string,
+): string {
   const lines = [
     `description = ${tomlQuote(`LazyCodex ${agentName} agent`)}`,
     `model = ${tomlQuote(override.model)}`,
     `reasoning_effort = ${tomlQuote(override.reasoningLevel)}`,
   ]
   appendFallbackLines(lines, override)
+  if (promptPath !== undefined) {
+    lines.push(`prompt_file = ${tomlQuote(promptPath)}`)
+  }
   return `${lines.join("\n")}\n`
 }
 

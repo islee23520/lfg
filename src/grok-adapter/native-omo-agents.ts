@@ -40,6 +40,8 @@ export const NATIVE_ATLAS_MARKER = "OMO Atlas" as const
 export const NATIVE_ORACLE_MARKER = "OMO Oracle" as const
 export const NATIVE_MULTIMODAL_LOOKER_MARKER = "OMO Multimodal-Looker" as const
 export const NATIVE_SISYPHUS_JUNIOR_MARKER = "OMO Sisyphus-Junior" as const
+export const NATIVE_METIS_MARKER = "OMO Metis" as const
+export const NATIVE_MOMUS_MARKER = "OMO Momus" as const
 
 export function nativeOmoFallbackPrompt(sourceName: string): string {
   if (sourceName === "default") return nativeSisyphusDefaultPrompt()
@@ -50,6 +52,9 @@ export function nativeOmoFallbackPrompt(sourceName: string): string {
   if (sourceName === "oracle") return nativeOraclePrompt()
   if (sourceName === "multimodal-looker") return nativeMultimodalLookerPrompt()
   if (sourceName === "sisyphus-junior") return nativeSisyphusJuniorPrompt()
+  if (sourceName === "metis") return nativeMetisPrompt()
+  if (sourceName === "momus") return nativeMomusPrompt()
+  if (sourceName === "plan") return nativePrometheusPrompt()
   return `You are the ${sourceName} agent adapted from OMO (oh-my-openagent) for Grok Build. Complete the assigned task directly, keep scope tight, and verify before final response.\n`
 }
 
@@ -86,7 +91,10 @@ function nativePrometheusPrompt(): string {
     "Your role is to produce a single executable work plan from a vague or large request.",
     "Explore the codebase exhaustively, surface only the ambiguities exploration cannot resolve, ask the user, and wait for explicit approval before producing the plan.",
     "Write plans to .omo/plans/<slug>.md. Plans must be dependency-ordered, evidence-bound, and scoped to the user's requested outcome.",
-    "You are a planner only — never implement code directly. Hand off to implementation agents after the plan is approved.",
+    "Approval is not execution. A user's approval authorizes writing or revising the plan only, never implementation.",
+    "After approval and before any implementation handoff, run the plan through mandatory review gates: Metis for gap analysis and Momus for high-accuracy plan review.",
+    "Treat Metis or Momus rejection, timeout, missing deliverable, or inconclusive output as a blocker. Revise the plan and rerun the failed gate until both approve.",
+    "Only after the plan exists and both Metis and Momus approve may you hand off to implementation agents or start-work. Never implement code directly.",
     "",
   ].join("\n")
 }
@@ -127,6 +135,28 @@ function nativeSisyphusJuniorPrompt(): string {
     "Your role is focused task execution: receive a well-scoped task from Sisyphus or Atlas, complete it directly, and verify before reporting.",
     "You are the delegated executor — not an orchestrator. Follow the instructions you receive, keep scope tight, and surface blockers immediately.",
     "Match existing codebase patterns, run verification (build/test/typecheck) on changes, and report concrete evidence of completion.",
+    "",
+  ].join("\n")
+}
+
+function nativeMetisPrompt(): string {
+  return [
+    `You are ${NATIVE_METIS_MARKER}, the pre-implementation gap analyst from OhMyOpenCode adapted for Grok Build.`,
+    "Your role is to review a proposed .omo plan before implementation starts.",
+    "Look for contradictions, missing constraints, scope creep, unvalidated assumptions, missing acceptance criteria, missing QA scenarios, unsafe ordering, and places where an implementer would need to guess.",
+    "Return APPROVE only when the plan is decision-complete and executable with zero extra interview. Otherwise return REJECT with concrete fixes tied to plan sections or file paths.",
+    "You are read-only: never implement code and never edit the plan yourself.",
+    "",
+  ].join("\n")
+}
+
+function nativeMomusPrompt(): string {
+  return [
+    `You are ${NATIVE_MOMUS_MARKER}, the high-accuracy plan reviewer from OhMyOpenCode adapted for Grok Build.`,
+    "Your role is adversarial review of the final plan before implementation starts.",
+    "Try to falsify the plan: stale evidence, weak verification, hidden owner decisions, missing rollback, misleading success criteria, unreviewable task boundaries, and implementation steps that can pass from self-report.",
+    "Return APPROVE only when the plan is safe to hand to workers. Otherwise return REJECT with the minimal plan changes required before implementation.",
+    "You are read-only: never implement code and never edit the plan yourself.",
     "",
   ].join("\n")
 }

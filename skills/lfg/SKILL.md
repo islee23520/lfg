@@ -5,7 +5,7 @@ description: @islee23520/lfg — OpenCode OmO/lazycodex GrokBuild port 설치 CL
 
 # lfg
 
-`npx @islee23520/lfg` installs the **omo / lazycodex GrokBuild port** and **Grok Build plugin payload** (https://github.com/code-yeongyu/oh-my-openagent **codex adapter** core + **opencode** feature). It installs **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks) and **Grok-native OMO agents** including Hephaestus-like default discipline plus lfg-owned Sisyphus and Atlas planning/research surfaces into `~/.grok/plugins/lfg`.
+`npx @islee23520/lfg` installs the **omo / lazycodex GrokBuild port** and **Grok Build plugin payload** (https://github.com/code-yeongyu/oh-my-openagent **codex adapter** core + **opencode** feature). It installs **native first-party OMO hooks** (bridge fallback only for legacy/imported hooks) plus Grok agent/prompt payloads for Hephaestus-like default discipline and lfg-owned Sisyphus/Atlas planning/research surfaces into `~/.grok/plugins/lfg`. Full native OMO agent behavioral parity is verified only by full `setup --run`, not by `--install-only` receipts that can report `nativeAgentsStatus: "missing"`.
 
 ## 언제 어떤 명령?
 

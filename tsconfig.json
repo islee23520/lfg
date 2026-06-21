@@ -20,6 +20,7 @@
     "src/test-utils/**/*.ts"
   ],
   "exclude": [
-    "dist"
+    "dist",
+    "src/grok-adapter/skills"
   ]
 }

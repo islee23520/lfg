@@ -4,17 +4,28 @@
 
 `@islee23520/lfg` is a single-purpose npm CLI (only command: `setup`) that ports **OpenCode OmO / lazycodex** behavior to **GrokBuild**. Running `setup --run` materializes an lfg-owned Grok plugin payload under `~/.grok/plugins/lfg` (with legacy `~/.grok/installed-plugins/lfg` as migration/fallback).
 
-Lineage: **codex adapter core feature + opencode feature** from `https://github.com/code-yeongyu/oh-my-openagent`. Strategic posture (ADR `docs/grok-adapter-core-port-strategy.md`): upstream is a core/adapter monorepo — `omo-codex` is packaging reference only; `omo-opencode` is the architectural reference; shared `*-core` packages are the behavioral source. Phase 0 (codegraph) and Phase 1 (rules) shipped; later phases pending.
+Lineage: **codex adapter core feature + opencode feature** from `https://github.com/code-yeongyu/oh-my-openagent`. Strategic posture (ADR `docs/grok-adapter-core-port-strategy.md`): upstream is a core/adapter monorepo — `omo-codex` is packaging reference only; `omo-opencode` is the architectural reference; shared `*-core` packages are the behavioral source. Phase 0 (codegraph), Phase 1 (rules), Phase 2 (model resolution), Phase 3 (prompt variants), Phase 5 (`delegate-core`/`boulder-state`), and the host-neutral slice of Phase 6 (`skills-loader-core`) are shipped; Phase 4 is partial, and the host-bound leftovers called out below remain Deferred/Manifest-only/Unsupported.
 
 The npm package identity is deliberately distinct from the installed plugin: `lfgIsPlugin: false` in JSON contracts (the npm package is never reported as a Grok plugin object), even though `setup --run` installs a real Grok plugin payload.
 
 ## GrokBuild Parity Reference (oh-my-openagent)
 
-This section makes AGENTS.md the canonical quick-reference for **GrokBuild parity vs `https://github.com/code-yeongyu/oh-my-openagent`** (upstream baseline `omo-codex`/OMO `v4.10.0`, recorded per-setup in `lfg-component-inventory.json`). For the full row-by-row matrix with test citations, see `docs/grok-adapter-parity.md`; for the core/adapter port strategy and phase roadmap, see `docs/grok-adapter-core-port-strategy.md`.
+This section makes AGENTS.md the canonical quick-reference for **GrokBuild parity vs `https://github.com/code-yeongyu/oh-my-openagent`** (upstream baseline `lazycodex-ai`/OMO `v4.12.1`, recorded per-setup in `lfg-component-inventory.json`). For the full row-by-row matrix with test citations, see `docs/grok-adapter-parity.md`; for the core/adapter port strategy and phase roadmap, see `docs/grok-adapter-core-port-strategy.md`.
 
 **Strategic posture:** upstream is a core/adapter monorepo — `omo-codex` is packaging/install reference only, `omo-opencode` is the architectural reference, and shared host-neutral `*-core` packages are the behavioral source. lfg is shifting from 1:1 `omo-codex` mapping to a thin Grok adapter that consumes cores.
 
 **Status vocabulary:** `Implemented` · `Grok-adapted` · `Manifest-only` · `Remote URL manifest-only` · `Unsupported` · `Deferred`. Manifest-only MCP stubs must never be claimed as behavioral ports.
+
+### OMO parity inspection gate
+
+Run `npm run assert-omo-parity` for every OMO/lazycodex parity update, upstream refresh, skill sync, generated-payload edit, MCP runtime change, or change to `lfg-component-inventory.json`/`docs/grok-adapter-parity.md`/this AGENTS section. This gate builds first, then validates all three generated skill roots (`src/grok-adapter/skills`, package `skills`, and `dist/grok-install/skills`), manifest provenance/version, required managed skills, retired `lcx-*` removals, `agents/grok.yaml` conversion, `teammode`, deferred component status, docs wording, inventory baseline, and the build cache guard (`includeCache: false`).
+
+For feature intake from a new upstream OMO/lazycodex version:
+1. Inspect upstream package layout and hook/component deltas first; do not infer parity from `omo-codex` alone.
+2. Classify each upstream component with the exact status vocabulary above. `teammode`, `lazycodex-executor-verify`, `comment-checker`, `lsp`, `ast_grep`, `git-bash`, and `start-work-continuation` must stay non-behavioral unless a real Grok runtime/hook/tool surface is implemented and manually verified.
+3. Sync upstream skills through `scripts/sync-omo-skills-to-grok.mjs`; do not hand-maintain copied OMO skill payloads except for explicit lfg conversions (`lfg-doctor`, `lfg-report-bug`, `lfg-contribute-bug-fix`) and Grok metadata conversion (`agents/openai.yaml` → `agents/grok.yaml`).
+4. Verify both surfaces: `npm run assert-omo-parity` for generated payload integrity, and `node dist/lfg.js --json setup --run --install-only` against a temp Grok home for the installed plugin surface.
+5. If claiming a deferred/manifest-only component became `Grok-adapted`, prove it with a non-empty runtime/hook/tool behavior test and a real setup-surface receipt. Do not mark status up based only on copied files or manifest presence.
 
 ### Core install parity (Codex reference → Grok owner)
 
@@ -34,7 +45,7 @@ This section makes AGENTS.md the canonical quick-reference for **GrokBuild parit
 | Autonomous permissions | Grok permissions own this | N/A |
 | Telemetry | not emitted by lfg | N/A |
 
-### Full OMO component parity (upstream `v4.10.0`)
+### Full OMO component parity (upstream `v4.12.1`)
 
 | Upstream component | lfg support | Status |
 |---|---|---|
@@ -49,6 +60,8 @@ This section makes AGENTS.md the canonical quick-reference for **GrokBuild parit
 | `context7` | Remote URL `https://mcp.context7.com/mcp`; shape-validated only | Remote URL manifest-only |
 | `comment-checker` | Not wired as Grok-native post-edit workflow | Deferred |
 | `start-work-continuation` | Sisyphus native Stop/SubagentStop hooks substitute | Deferred |
+| `teammode` | Skill payload installed; Codex thread orchestration hook not Grok-adapted | Deferred |
+| `lazycodex-executor-verify` | Codex `lazycodex-executor` SubagentStop verifier not Grok-adapted | Deferred |
 | `bootstrap` | lfg does not bootstrap Codex runtime deps from Grok | Deferred |
 | `auto-update` | Updates stay user-controlled; hook not generated | Unsupported |
 | `telemetry` | lfg does not emit upstream anonymous telemetry | Unsupported |
@@ -60,10 +73,10 @@ This section makes AGENTS.md the canonical quick-reference for **GrokBuild parit
 | 0 | codegraph MCP + provisioning | CORE + GLUE | Shipped |
 | 1 | Rules / AGENTS.md context engine | CORE + GLUE | Shipped |
 | 2 | Model resolution / fallback (`model-core`) | CORE + HOST-BOUND | Shipped |
-| 3 | Prompt variants + routing (`prompts-core`) | CORE + GLUE | Pending |
-| 4 | Sisyphus / Hephaestus agent prompt builders | GLUE + HOST-BOUND | Pending |
-| 5 | Delegation / orchestration (`delegate-core`, `boulder-state`) | Mixed | Pending |
-| 6 | Skills loading (`skills-loader-core`, `shared-skills`) | Mixed | Pending |
+| 3 | Prompt variants + routing (`prompts-core`) | CORE + GLUE | Shipped |
+| 4 | Sisyphus / Hephaestus agent prompt builders | GLUE + HOST-BOUND | Shipped (partial) |
+| 5 | Delegation / orchestration (`delegate-core`, `boulder-state`) | Mixed | Shipped |
+| 6 | Skills loading (`skills-loader-core`, `shared-skills`) | Mixed | Shipped (host-neutral core); OpenCode-bound layers deferred |
 
 ### Gap analysis
 
@@ -82,7 +95,7 @@ This section makes AGENTS.md the canonical quick-reference for **GrokBuild parit
 
 **Model-family detector gap** (Phase 2 risk, now mitigated): `model-core` family detectors (`isGptModel`, `isGeminiModel`, `isClaudeOpus*Model`, …) do not match `xai/grok-*` IDs; the Grok adapter supplies `availableModels`/`connectedProviders` normalized to `provider/model-id` and maps Grok models into variant families so they don't fall to the `default` variant.
 
-**Prompt-builder gap** (Phase 3–4): bundled `prompts-core/prompts/*` markdown covers atlas/prometheus/ultrawork/mode, but Sisyphus/Hephaestus/Sisyphus-junior prompt content is built by TS builders under `omo-opencode/src/agents/*` — vendoring only `prompts-core` is insufficient; the builders (or their generated output) must also be ported.
+**Prompt-builder gap** (Phase 4 residual): bundled `prompts-core/prompts/*` markdown covers atlas/prometheus/ultrawork/mode, and the current adapter vendors the agent-builder foundation plus a curated builtin registry. Full Sisyphus/Hephaestus/Sisyphus-junior equivalence is still host-bound and must stay Deferred unless those builders are ported and verified against a real Grok runtime surface.
 
 ## Architecture & Data Flow
 
@@ -137,7 +150,7 @@ Emit discipline: `--json` always prints structured value; `--run` prints only ca
 
 Materialized plugin payload shape (under `~/.grok/plugins/lfg`, not shipped statically):
 ```
-hooks/{hooks.json, lfg-grok-hook-bridge.mjs, lfg-native-rules.js, lfg-native-ultrawork.js, lfg-sisyphus-hooks.mjs}
+hooks/{hooks.source.json, lfg-grok-hook-bridge.mjs, lfg-native-rules.js, lfg-native-ultrawork.js, lfg-sisyphus-hooks.mjs}
 components/{ast-grep,git-bash,lsp}/{.mcp.json,dist/cli.js}   (+ vendored rules/, ultrawork/)
 mcp-runtimes/{ast-grep-mcp,lsp-daemon,git-bash-mcp}/dist/cli.js
 skills/{ulw-plan,ulw-loop,cua-driver}/SKILL.md
@@ -145,6 +158,8 @@ agents/*.md, prompts/omo/   (Grok-native OMO agents + role routes)
 assets/lfg-config-loader.mjs
 lfg-install.json, lfg-component-inventory.json
 ```
+
+Active hook registration is global: `~/.grok/hooks/lfg-hooks.json`. Plugin-local `hooks/hooks.json` is removed after normalization; `hooks/hooks.source.json` is retained only as the lfg-owned normalized source payload for idempotent repair.
 
 Adjacent `~/.grok` writes (lfg-owned): `config.toml` (`[lazycodex.agents.*]`, `[endpoints]`, `[model.*]` sections), `lazycodex-agent-overrides.json`, `~/.grok/agents/*.toml` + `~/.grok/prompts/lazycodex/*.md`.
 
@@ -154,8 +169,9 @@ Adjacent `~/.grok` writes (lfg-owned): `config.toml` (`[lazycodex.agents.*]`, `[
 npm run build              # esbuild bundle + asset staging (scripts/build.mjs)
 npm test                   # build + vitest run src/cli/*.test.ts src/grok-adapter/*.test.ts
 npm run typecheck          # tsc --noEmit
+npm run assert-omo-parity  # build + validate upstream-derived OMO parity payloads
 npm run self-test          # build + node dist/self-test.js (smoke harness)
-npm run verify             # assert-pack → npm test → typecheck → self-test
+npm run verify             # assert-pack → assert-omo-parity → npm test → typecheck → self-test
 npm run assert-pack        # node scripts/assert-npm-pack-bin.mjs
 npm run pre-publish-check  # build + composite publish gate (gap + auth + registry bin)
 npm run assert-publish-auth

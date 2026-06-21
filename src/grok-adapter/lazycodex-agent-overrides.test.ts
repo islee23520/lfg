@@ -76,7 +76,7 @@ describe("lazycodex-agent-overrides", () => {
     expect(bundled.ultrabrain?.reasoningLevel).toBe("xhigh")
     expect(bundled.deep?.model).toBe("gpt-5.5")
     expect(bundled.deep?.reasoningLevel).toBe("high")
-    expect(bundled.quick?.model).toBe("gpt-5.4-mini")
+    expect(bundled.quick?.model).toBe("gpt-5.4-mini-fast")
     expect(bundled.quick?.reasoningLevel).toBe("low")
     expect(bundled["unspecified-low"]?.model).toBe("claude-sonnet-4-6")
     expect(bundled["unspecified-low"]?.reasoningLevel).toBe("low")
@@ -90,6 +90,17 @@ describe("lazycodex-agent-overrides", () => {
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("unspecified-low")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("unspecified-high")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("writing")
+  })
+
+  test("bundled fast utility agents use upstream gpt-5.4-mini-fast ids", async () => {
+    const bundled = await loadBundledDefaultOmoOverrides()
+
+    expect(bundled.explorer?.model).toBe("gpt-5.4-mini-fast")
+    expect(bundled.explorer?.serviceTier).toBe("fast")
+    expect(bundled.librarian?.model).toBe("gpt-5.4-mini-fast")
+    expect(bundled.librarian?.serviceTier).toBe("fast")
+    expect(bundled.quick?.model).toBe("gpt-5.4-mini-fast")
+    expect(bundled.quick?.serviceTier).toBe("fast")
   })
 
   test("writes and reads all 6 model fields including fallback (Wave 1A parity)", async () => {

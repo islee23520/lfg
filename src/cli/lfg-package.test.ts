@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
-import { withNpmPackLock } from "./npm-pack-mutex"
+import { npmFixtureEnv, withNpmPackLock } from "./npm-pack-mutex"
 
 describe("lfg package contract", () => {
   test("package metadata stays publishable to npm public registry", async () => {
@@ -19,10 +19,11 @@ describe("lfg package contract", () => {
       "self-test": "npm run build && node dist/self-test.js",
       typecheck: "tsc --noEmit",
       build: "node scripts/build.mjs",
-      prepublishOnly: "npm test",
+      prepublishOnly: "npm run verify",
       prepack: "npm run build",
       "assert-pack": "node scripts/assert-npm-pack-bin.mjs",
-      verify: "npm run assert-pack && npm test && npm run typecheck && npm run self-test",
+      "assert-omo-parity": "npm run build && node scripts/assert-omo-parity.mjs",
+      verify: "npm run assert-pack && npm run assert-omo-parity && npm test && npm run typecheck && npm run self-test",
       "pre-publish-check": "npm run build && node scripts/pre-publish-check.mjs",
       "record-publish-gap": "npm run build && node scripts/record-publish-gap.mjs",
       "assert-publish-auth": "npm run build && node scripts/assert-npm-publish-auth.mjs",
@@ -79,13 +80,23 @@ describe("lfg package contract", () => {
     expect(files).toContain("dist/self-test.js")
     expect(files).toContain("skills/lazycodex/SKILL.md")
     expect(files).toContain("skills/lfp/SKILL.md")
+    expect(files).toContain("skills/ulw-plan/references/full-workflow.md")
+    expect(files).toContain("skills/ulw-plan/scripts/scaffold-plan.mjs")
+    expect(files).toContain("skills/ulw-loop/references/full-workflow.md")
+    expect(files).toContain("skills/rules/SKILL.md")
+    expect(files).toContain("skills/lsp/SKILL.md")
+    expect(files).toContain("skills/review-work/SKILL.md")
+    expect(files).toContain("skills/visual-qa/SKILL.md")
+    expect(files).toContain("skills/lfg-doctor/SKILL.md")
+    expect(files).not.toContain("skills/lcx-doctor/SKILL.md")
+    expect(files).toContain("skills/.lfg-omo-skill-sync.json")
     expect(files).not.toContain("src/cli/lfg")
     expect(files).not.toContain("src/cli/lfg.ts")
     expect(files).not.toContain("src/cli/lfg-installer.ts")
     expect(files).not.toContain(".npmignore")
     expect(files).not.toContain(".omo/artifacts/ulw-qa-main-setup-only.txt")
     expect(files).not.toContain(".lfg")
-  })
+  }, 60_000)
 
   test("npm pack tarball exposes lfg bin and setup works from npm install layout", async () => {
     const packDir = await mkdtemp(join(tmpdir(), "lfg-pack-out-"))
@@ -152,7 +163,7 @@ function execFileResultEnv(
   env: Readonly<Record<string, string>>,
 ): Promise<{ readonly exitCode: number; readonly stdout: string }> {
   return new Promise((resolve) => {
-    execFile(file, [...args], { cwd, env: { ...process.env, ...env } }, (error, stdout) => {
+    execFile(file, [...args], { cwd, env: npmFixtureEnv(env) }, (error, stdout) => {
       const exitCode = typeof error === "object" && error !== null && "code" in error && typeof error.code === "number" ? error.code : 0
       resolve({ exitCode, stdout })
     })

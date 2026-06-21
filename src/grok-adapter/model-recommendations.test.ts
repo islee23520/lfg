@@ -69,6 +69,11 @@ describe("model-recommendations", () => {
     expect(table).not.toContain("grok-4.20-0309-reasoning")
   })
 
+  test("librarian recommendation uses gpt-5.4-mini-fast when available", () => {
+    expect(getAgentRecommendation("librarian", ["gpt-5.4-mini", "gpt-5.4-mini-fast"])?.recommended).toBe("gpt-5.4-mini-fast")
+    expect(PERF_SNAPSHOT["gpt-5.4-mini-fast"]).toBeDefined()
+  })
+
   test("role recommendations are not a single global fastest ranking", () => {
     const table = formatRecommendationTable(Object.keys(PERF_SNAPSHOT))
     expect(table).toContain("explorer                    grok-4.20-0309-non-reasoning")
@@ -115,7 +120,7 @@ describe("model-recommendations", () => {
   test("bundled overrides take precedence over role profiles and never recommend unavailable models", () => {
     const overrides = {
       explorer: {
-        model: "gpt-5.4-mini",
+        model: "gpt-5.4-mini-fast",
         model_reasoning_effort: "low",
         model_fallback: "grok-3-mini-fast",
         role_rationale: "OMO explore agent",
@@ -126,12 +131,12 @@ describe("model-recommendations", () => {
       recommended: "grok-3-mini-fast",
       variant: "low",
       alternatives: [],
-      fullChain: ["gpt-5.4-mini", "grok-3-mini-fast"],
+      fullChain: ["gpt-5.4-mini-fast", "grok-3-mini-fast"],
     })
 
     const table = formatRecommendationTable(["grok-3-mini-fast"], overrides)
     expect(table).toContain("explorer                    grok-3-mini-fast")
-    expect(table).not.toContain("explorer                    gpt-5.4-mini")
+    expect(table).not.toContain("explorer                    gpt-5.4-mini-fast")
   })
 
   test("perf snapshot has non-zero latency for available models", () => {

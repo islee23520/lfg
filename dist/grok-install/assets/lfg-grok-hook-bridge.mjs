@@ -19,7 +19,7 @@ const codexPayload = grok === null ? {} : mapGrokHookInputToCodex(grok);
 
 // For malformed test: if parse failed, exit non-zero immediately (aligns with fixture CLI exit 1 for T7 strict JSON)
 if (grok === null && raw.trim().length > 0) {
-  console.error("T7-OMO-HOOK-ERROR: malformed JSON payload");
+  console.error("LFG-PORT7-OMO-HOOK-ERROR: malformed JSON payload");
   process.exit(1);
 }
 

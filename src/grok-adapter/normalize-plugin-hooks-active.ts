@@ -6,11 +6,15 @@ type JsonRecord = Record<string, unknown>
 const ACTIVE_GROK_HOOKS_FILE = "lfg-hooks.json" as const
 const LIFECYCLE_EVENTS_WITHOUT_MATCHERS = new Set(["SessionStart", "Stop", "Notification", "SubagentStart", "SubagentStop"])
 
+export function activeGrokHooksPath(pluginRoot: string): string {
+  return `${dirname(dirname(pluginRoot))}/hooks/${ACTIVE_GROK_HOOKS_FILE}`
+}
+
 export async function materializeActiveGrokHooksJson(
   pluginRoot: string,
   payload: unknown,
 ): Promise<{ readonly path: string; readonly changed: boolean }> {
-  const activePath = `${dirname(dirname(pluginRoot))}/hooks/${ACTIVE_GROK_HOOKS_FILE}`
+  const activePath = activeGrokHooksPath(pluginRoot)
   const activePayload = toActiveGrokHooksPayload(payload, pluginRoot)
   const nextText = `${JSON.stringify(activePayload, null, 2)}\n`
   const current = await readTextIfExists(activePath)

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { describe, expect, test } from "vitest"
+import { mergePortedHooksIntoPlugin } from "./extension-hooks"
 import { installGrokPluginFromSource } from "./install"
 import { runGrokDoctor } from "./doctor"
 
@@ -11,7 +12,8 @@ describe("doctor JSON contract (#31)", () => {
   test("pass includes distribution, installSurface, checks, and cli from bundle", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-doc-contract-"))
     const source = join(dirname(fileURLToPath(import.meta.url)), "fixture-minimal")
-    await installGrokPluginFromSource({ home, sourceRoot: source, version: "7.7.7" })
+    const install = await installGrokPluginFromSource({ home, sourceRoot: source, version: "7.7.7" })
+    await mergePortedHooksIntoPlugin(install.pluginRoot)
     const distEntry = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "lfg.js")
     const json = await runGrokDoctor({ home, moduleUrl: pathToFileURL(distEntry).href })
     expect(json).toMatchObject({

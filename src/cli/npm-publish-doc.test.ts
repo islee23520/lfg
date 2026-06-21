@@ -13,6 +13,7 @@ describe("docs/npm-publish.md (#22)", () => {
     expect(doc).toContain("repository root")
     expect(doc).toContain("bin/lfg.js")
     expect(doc).toContain("assert-pack")
+    expect(doc).toContain("OMO parity")
     expect(doc).toContain("prepack")
     expect(doc).toContain("dist/lfg.js")
     expect(doc).toContain("closes #22")
@@ -24,5 +25,15 @@ describe("docs/npm-publish.md (#22)", () => {
     expect(doc).toContain("files")
     expect(doc).toContain("no nested workspace publish surface")
     expect(doc).toContain("@latest")
+  })
+
+  test("documents the tag-driven automation flow", async () => {
+    const doc = await readFile(join(ROOT, "docs/npm-publish.md"), "utf8")
+    expect(doc).toContain("lfg.yml")
+    expect(doc).toContain("NPM_TOKEN")
+    expect(doc).toContain("npm version")
+    expect(doc).toContain("--follow-tags")
+    expect(doc).toContain("refs/tags/v")
+    expect(doc).toContain("GitHub Release")
   })
 })

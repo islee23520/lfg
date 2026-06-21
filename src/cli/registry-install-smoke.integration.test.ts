@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { describe, expect, test } from "vitest"
 import { isLegacyRegistryBinLfg } from "./npm-registry-bin"
+import { npmFixtureEnv } from "./npm-pack-mutex"
 
 const execFileAsync = promisify(execFile)
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
@@ -14,10 +15,11 @@ describe("registry @islee23520/lfg install smoke (#22)", () => {
   test("0.1.1 without bin fails npx @islee23520/lfg (issue repro)", async () => {
     const installDir = await mkdtemp(join(tmpdir(), "lfg-registry-011-"))
     try {
-      await execFileAsync("npm", ["init", "-y"], { cwd: installDir, encoding: "utf8" })
+      await execFileAsync("npm", ["init", "-y"], { cwd: installDir, encoding: "utf8", env: npmFixtureEnv() })
       await execFileAsync("npm", ["install", "@islee23520/lfg@0.1.1"], {
         cwd: installDir,
         encoding: "utf8",
+        env: npmFixtureEnv(),
         maxBuffer: 4_000_000,
       })
       const pkgPath = join(installDir, "node_modules", "@islee23520", "lfg", "package.json")
@@ -27,6 +29,7 @@ describe("registry @islee23520/lfg install smoke (#22)", () => {
         await execFileAsync("npx", ["@islee23520/lfg", "--json", "doctor"], {
           cwd: installDir,
           encoding: "utf8",
+          env: npmFixtureEnv(),
           maxBuffer: 2_000_000,
         })
         expect.fail("expected npx scoped doctor to fail without bin")
@@ -43,10 +46,11 @@ describe("registry @islee23520/lfg install smoke (#22)", () => {
   test("0.1.3 legacy bin.lfg still runs npx doctor; republish needed for shim contract", async () => {
     const installDir = await mkdtemp(join(tmpdir(), "lfg-registry-smoke-"))
     try {
-      await execFileAsync("npm", ["init", "-y"], { cwd: installDir, encoding: "utf8" })
+      await execFileAsync("npm", ["init", "-y"], { cwd: installDir, encoding: "utf8", env: npmFixtureEnv() })
       await execFileAsync("npm", ["install", "@islee23520/lfg@0.1.3"], {
         cwd: installDir,
         encoding: "utf8",
+        env: npmFixtureEnv(),
         maxBuffer: 4_000_000,
       })
       const pkgPath = join(installDir, "node_modules", "@islee23520", "lfg", "package.json")
@@ -73,6 +77,7 @@ describe("registry @islee23520/lfg install smoke (#22)", () => {
       const { stdout } = await execFileAsync("npx", ["@islee23520/lfg", "--json", "doctor"], {
         cwd: installDir,
         encoding: "utf8",
+        env: npmFixtureEnv(),
         maxBuffer: 2_000_000,
       })
       const doctor = JSON.parse(stdout) as { ok?: boolean; lfgIsPlugin?: boolean }
@@ -82,6 +87,7 @@ describe("registry @islee23520/lfg install smoke (#22)", () => {
       const { stdout: setupOut } = await execFileAsync("npx", ["@islee23520/lfg", "--json", "setup"], {
         cwd: installDir,
         encoding: "utf8",
+        env: npmFixtureEnv(),
         maxBuffer: 2_000_000,
       })
       const setup = JSON.parse(setupOut) as { ok?: boolean; command?: string; executed?: boolean }

@@ -1,10 +1,10 @@
 import { existsSync } from "node:fs"
-import { lstat } from "node:fs/promises"
+import { access, lstat } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { JsonObject } from "../cli/lfg-json"
 import { mergePortedHooksIntoPlugin } from "./extension-hooks"
-import { readAdapterHooksTrust, resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
+import { resolveGrokAdapterPluginRoot } from "./grok-adapter-paths"
 import { installGrokPluginFromSource, overlayLfgComponentShims, readGrokInstallStamp } from "./install"
 import { readLfgPackageVersionFromBundle } from "./package-version"
 import { resolveLazycodexGrokPluginSource } from "./resolve-lazycodex-plugin-source"
@@ -38,7 +38,7 @@ export async function runInternalGrokInstall(env: NodeJS.ProcessEnv = process.en
     resolved.pluginDirName === GROK_PLUGIN_DIR &&
     (await isRealDirectory(resolved.pluginRoot)) &&
     (await readGrokInstallStamp(resolved.pluginRoot)) !== null &&
-    (await readAdapterHooksTrust(resolved.pluginRoot)).ok
+    (await hasRepairablePayload(resolved.pluginRoot))
 
   if (canRepairCleanly) {
     return finishRepair(resolved.pluginRoot, resolved.pluginDirName, version, "repair_adapter", env)
@@ -169,6 +169,23 @@ async function isRealDirectory(path: string): Promise<boolean> {
   try {
     const st = await lstat(path)
     return st.isDirectory() && !st.isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
+async function hasRepairablePayload(pluginRoot: string): Promise<boolean> {
+  return (
+    (await pathExists(`${pluginRoot}/components`)) ||
+    (await pathExists(`${pluginRoot}/hooks/hooks.source.json`)) ||
+    (await pathExists(`${pluginRoot}/hooks/hooks.json`))
+  )
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path)
+    return true
   } catch {
     return false
   }

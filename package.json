@@ -1,6 +1,6 @@
 {
   "name": "@islee23520/lfg",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "OpenCode OmO / lazycodex GrokBuild port: npx @islee23520/lfg setup --run installs the lfg-owned Grok Build plugin payload under ~/.grok/plugins/lfg.",
   "publishConfig": {
     "access": "public"
@@ -38,12 +38,14 @@
   "scripts": {
     "setup": "sh bin/lfg.js setup",
     "test": "npm run build && vitest run src/cli/*.test.ts src/grok-adapter/*.test.ts",
-    "verify": "npm run assert-pack && npm test && npm run typecheck && npm run self-test",
+    "verify": "npm run assert-pack && npm run assert-omo-parity && npm test && npm run typecheck && npm run self-test",
     "self-test": "npm run build && node dist/self-test.js",
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
+    "sync-omo-skills": "node scripts/sync-omo-skills-to-grok.mjs",
+    "assert-omo-parity": "npm run build && node scripts/assert-omo-parity.mjs",
     "prepack": "npm run build",
-    "prepublishOnly": "npm test",
+    "prepublishOnly": "npm run verify",
     "assert-pack": "node scripts/assert-npm-pack-bin.mjs",
     "record-publish-gap": "npm run build && node scripts/record-publish-gap.mjs",
     "assert-publish-auth": "npm run build && node scripts/assert-npm-publish-auth.mjs",

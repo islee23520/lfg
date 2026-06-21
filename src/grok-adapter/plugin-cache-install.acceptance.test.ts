@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
+import { mergePortedHooksIntoPlugin } from "./extension-hooks"
 import { installGrokPluginFromSource } from "./install"
 import { runGrokInstall } from "./run-grok-install"
 import { verifyGrokInstallSurface } from "./post-install-verify"
@@ -26,6 +27,8 @@ const T2_COMPONENT_IDS = [
   "delegate-core",
   "boulder-state",
   "skills-loader-core",
+  "teammode",
+  "lazycodex-executor-verify",
 ] as const
 
 /** Epic #27 / plan task 3 — fixture-only, no network. */
@@ -34,7 +37,10 @@ describe("plugin cache install acceptance (#27)", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-accept-install-"))
     await installGrokPluginFromSource({ home, sourceRoot: FIXTURE, version: "3.3.3" })
     const pluginRoot = join(home, ".grok", "plugins", "lfg")
-    await access(join(pluginRoot, "hooks", "hooks.json"))
+    await mergePortedHooksIntoPlugin(pluginRoot)
+    await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
+    await access(join(pluginRoot, "hooks", "hooks.source.json"))
+    await access(join(home, ".grok", "hooks", "lfg-hooks.json"))
     const verify = await verifyGrokInstallSurface({ home })
     expect(verify).toMatchObject({ ok: true, status: "verified", pluginDirName: "lfg" })
   })
@@ -71,9 +77,9 @@ describe("plugin cache install acceptance (#27)", () => {
       packageVersion: "5.5.5",
       platform: "grok",
       upstreamName: "oh-my-openagent",
-      upstreamVersion: "4.10.0",
-      upstreamTag: "v4.10.0",
-      upstreamReleaseUrl: "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.10.0",
+      upstreamVersion: "4.12.1",
+      upstreamTag: "v4.12.1",
+      upstreamReleaseUrl: "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.12.1",
     })
     expect(inventory.components.map((component) => component.id)).toEqual(expect.arrayContaining([...T2_COMPONENT_IDS]))
     expect(inventory.components.every((component) => component.status.length > 0)).toBe(true)
@@ -84,6 +90,8 @@ describe("plugin cache install acceptance (#27)", () => {
         expect.objectContaining({ id: "git-bash", status: "Manifest-only" }),
         expect.objectContaining({ id: "grep_app", status: "Remote URL manifest-only" }),
         expect.objectContaining({ id: "context7", status: "Remote URL manifest-only" }),
+        expect.objectContaining({ id: "teammode", status: "Deferred" }),
+        expect.objectContaining({ id: "lazycodex-executor-verify", status: "Deferred" }),
       ]),
     )
     expect(inventory.components.find((component) => component.id === "git-bash")?.evidence).toContain("Windows-unverified")
@@ -128,7 +136,7 @@ describe("plugin cache install acceptance (#27)", () => {
     await runGrokInstall(discovery, env)
 
     expect(await readFile(configPath, "utf8")).toBe(customConfig)
-    const hooksRaw = await readFile(join(home, ".grok", "plugins", "lfg", "hooks", "hooks.json"), "utf8")
+    const hooksRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
     const hooks = parseHooksCommands(hooksRaw)
     expect(countCommand(hooks, "lfg-config-loader.mjs")).toBe(2)
     expect(countCommand(hooks, "lfg-sisyphus-hooks.mjs")).toBe(9)

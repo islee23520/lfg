@@ -6,6 +6,8 @@ import { componentInventoryPath, type ComponentInventorySource } from "./compone
 import { isGrokEventHooksJson } from "./hook-trust"
 import { verifyNativeOmoAgents, type NativeAgentsVerifyResult } from "./native-agent-verify"
 import { verifyPluginMcpManifest, type McpVerificationResult } from "./materialize-grok-mcp"
+import { computeSkillWorkflows } from "./skill-workflow-verify"
+import { activeGrokHooksPath } from "./normalize-plugin-hooks-active"
 
 export type PostInstallVerifyOptions = {
   readonly home: string
@@ -28,7 +30,7 @@ export type PostInstallVerifyResult = {
   readonly nativeHookStatus: "native_grok_events" | "bridge_fallback" | "missing"
   readonly bridgeFallback: boolean
   readonly omoComponents: readonly string[]
-  readonly skillWorkflows: Record<string, boolean>  // T8: computed from real installed SKILL.md (inspects headings; no hardcode)
+  readonly skillWorkflows: Record<string, boolean>
   readonly nativeAgents: NativeAgentsVerifyResult
   readonly mcpVerification: McpVerificationResult
 }
@@ -54,18 +56,17 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
       hookTrustError: "adapter plugin tree not found",
       componentInventoryPath: null,
       payloadSource: null,
-      // T9 native parity defaults (stable for tests); T8 skillWorkflows from real SKILL.md (defaults false)
       nativeHookStatus: "missing",
       bridgeFallback: true,
       omoComponents: [],
-      skillWorkflows: { "ulw-plan": false, "ulw-loop": false },
+      skillWorkflows: { "ulw-plan": false, "ulw-loop": false, "start-work": false },
       nativeAgents: { status: "missing", pluginAgents: [], roles: [], prompts: [], sisyphusDefaultAgent: false, hephaestusPromptPresent: false },
       mcpVerification: missingMcpVerification(pluginRoot, "adapter plugin tree not found"),
     }
   }
   const { pluginRoot, pluginDirName } = resolved
   const stamp = await readGrokInstallStamp(pluginRoot)
-  const hooksPath = join(pluginRoot, "hooks", "hooks.json")
+  const hooksPath = activeGrokHooksPath(pluginRoot)
   const hookTrust = await readAdapterHooksTrust(pluginRoot)
   const hooksRaw = await readHooksJsonSafe(hooksPath)
   const hookTargetErrors = hookTrust.ok ? await verifyHookCommandTargets(pluginRoot, hooksRaw) : []
@@ -75,9 +76,6 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
   const invPath = componentInventoryPath(pluginRoot)
   const inventory = await readInventorySummary(invPath)
 
-  // T8 reviewer fix: skillWorkflows now derives from *real* installed SKILL.md content (inspects headings).
-  // Replaces hard-coded true (blocker 1). Matches T3/T8 acceptance (Phase 0/Approval gate/Phase 3; Bootstrap/Execution Loop/Manual-QA channels).
-  // Uses isolated temp HOME in QA only (blockers 3/4). No real ~/.grok mutation.
   const isNative = isGrokEventHooksJson(hooksRaw)
   const nativeHookStatus = isNative ? "native_grok_events" : (hooksOk ? "bridge_fallback" : "missing")
   const bridgeFallback = !isNative && hooksOk
@@ -224,38 +222,13 @@ function hookCommandTargets(pluginRoot: string, command: string): readonly strin
   return targets
 }
 
-/** T8: Inspect real installed SKILL.md content for workflow headings (no hard-coded booleans). */
-async function computeSkillWorkflows(pluginRoot: string): Promise<Record<string, boolean>> {
-  const readSafe = async (path: string): Promise<string> => {
-    try {
-      return await readFile(path, "utf8")
-    } catch {
-      return ""
-    }
-  }
-
-  const planPath = join(pluginRoot, "skills", "ulw-plan", "SKILL.md")
-  const loopPath = join(pluginRoot, "skills", "ulw-loop", "SKILL.md")
-  const planContent = await readSafe(planPath)
-  const loopContent = await readSafe(loopPath)
-
-  return {
-    "ulw-plan": /Phase 0|Tool Learning Protocol/i.test(planContent) &&
-                /Approval gate/i.test(planContent) &&
-                /Phase 3/i.test(planContent),
-    "ulw-loop": /Bootstrap/i.test(loopContent) &&
-                /Execution Loop/i.test(loopContent) &&
-                /Manual-QA channels|Manual QA/i.test(loopContent),
-  }
-}
-
 async function resolveFixedPlugin(
   home: string,
   pluginDirName: string,
 ): Promise<{ readonly pluginDirName: string; readonly pluginRoot: string } | null> {
   for (const pluginRoot of [nativeGrokPluginRoot(home, pluginDirName), legacyInstalledGrokPluginRoot(home, pluginDirName)]) {
     const hookTrust = await readAdapterHooksTrust(pluginRoot)
-    if (!hookTrust.ok && hookTrust.error === "hooks.json missing") {
+    if (!hookTrust.ok && hookTrust.error === "global lfg-hooks.json missing") {
       try {
         await readFile(join(pluginRoot, "lfg-install.json"), "utf8")
         return { pluginDirName, pluginRoot }

@@ -198,8 +198,8 @@ skill(name="ulw-plan")
 ## WORKFLOW
 1. **CLASSIFY INTENT** (MANDATORY - see GEMINI_INTENT_GATE above)
 2. Spawn exploration/librarian agents via task(run_in_background=true) in PARALLEL
-3. Use Plan agent with gathered context to create detailed work breakdown
-4. Execute with continuous verification against original requirements
+3. Plan through the `ulw-plan` skill: restate outcome + constraints, read hook-injected `.omo` context, RESUME any matching `.omo/plans/*.md` instead of starting a duplicate, else write `.omo/plans/<slug>.md` (Outcome, Constraints, Current context, Todo graph with ids/dependencies/evidence, Verification gates, Risks and rollback, ULW state seed); clear its approval gate before implementing, then seed `.omo/ulw/*.json` and hand off to `ulw-loop`
+4. Execute in the plan's EXACT wave order with continuous verification against original requirements
 
 ## VERIFICATION GUARANTEE (NON-NEGOTIABLE)
 
@@ -309,7 +309,7 @@ THE USER ASKED FOR X. DELIVER EXACTLY X. NOT A SUBSET. NOT A DEMO. NOT A STARTIN
 
 1. CLASSIFY INTENT (MANDATORY)
 2. EXPLORES + LIBRARIANS
-3. GATHER -> PLAN AGENT SPAWN
+3. PLAN THROUGH `ulw-plan` (.omo/plans/<slug>.md → approval gate → seed .omo/ulw/*.json → hand off to ulw-loop)
 4. WORK BY DELEGATING TO ANOTHER AGENTS
 
 NOW.

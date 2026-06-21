@@ -15,6 +15,7 @@ describe("scripts/build.mjs (#22)", () => {
     expect(script).toContain("npm-publish-bin.ts")
     expect(script).toContain("npm-registry-bin.ts")
     expect(script).toContain("fixture-minimal")
+    expect(script).toContain("includeCache: false")
     expect(script).toContain("lfg-config-loader.mjs")
     expect(script).toContain(".build-")
     expect(script).toContain("rename(fixtureTmp")
