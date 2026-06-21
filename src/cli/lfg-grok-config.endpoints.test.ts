@@ -37,4 +37,27 @@ describe("grok config endpoints (#24)", () => {
     expect(endpointsOnly).not.toContain("api_key")
     expect(endpointsOnly).toContain("models_base_url")
   })
+
+  test("writes discovered reasoning effort into model sections", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-reasoning-effort-config-"))
+    const withReasoningEffort: ModelDiscovery = {
+      ...discovery,
+      modelIds: ["gpt-5.5"],
+      mapping: { default: "gpt-5.5", fast: "gpt-5.5", reasoning: "gpt-5.5", coding: "gpt-5.5" },
+      modelFeatureMetadata: {
+        "gpt-5.5": { reasoningEffort: "xhigh" },
+      },
+    }
+
+    await writeGrokModelConfig(withReasoningEffort, { home })
+
+    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    expect(section(config, 'model."gpt-5.5"')).toContain('reasoning_effort = "xhigh"')
+    expect(section(config, 'model."grok-build"')).toContain('reasoning_effort = "xhigh"')
+  })
 })
+
+function section(source: string, name: string): string {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return new RegExp(`\\[${escaped}\\]\\n[\\s\\S]*?(?=\\n\\[[^\\n]+\\]|$)`).exec(source)?.[0] ?? ""
+}

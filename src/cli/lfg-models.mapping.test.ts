@@ -80,6 +80,18 @@ describe("context window extraction from /v1/models", () => {
   })
 })
 
+describe("reasoning effort extraction from /v1/models", () => {
+  test("captures advertised reasoning effort metadata when present", async () => {
+    const d = await fetchModelDiscoveryFromPayloadWithMeta([
+      { id: "gpt-5.5", reasoning_effort: "xhigh" },
+      { id: "grok-3-mini-fast", info: { default_reasoning_effort: "low" } },
+    ])
+
+    expect(d.modelFeatureMetadata?.["gpt-5.5"]?.reasoningEffort).toBe("xhigh")
+    expect(d.modelFeatureMetadata?.["grok-3-mini-fast"]?.reasoningEffort).toBe("low")
+  })
+})
+
 describe("public LiteLLM model spec enrichment (when local /v1/models omits context)", () => {
   test("enriches from public catalog using max_input_tokens when local payload has no sizes", async () => {
     const originalFetch = globalThis.fetch

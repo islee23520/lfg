@@ -1,6 +1,6 @@
 import { isRecord, type JsonObject } from "./lfg-json"
 import { aliasGroupKey, loadPublicLiteLLMContextMap } from "./lfg-model-context-catalog"
-import { extractContextWindows, extractModelFeatureMetadata, type ModelFeatureMetadata } from "./lfg-model-metadata"
+import { extractContextWindows, extractModelFeatureMetadata, resolveReasoningEffortForModel, type ModelFeatureMetadata } from "./lfg-model-metadata"
 import type { LazycodexAgentOverrideMap, ServiceTier } from "../grok-adapter/lazycodex-agent-overrides"
 import { normalizeModelIdForConfig } from "../grok-adapter/model-id-safety"
 
@@ -161,11 +161,17 @@ export function defaultLazycodexAgentConfig(discovery: ModelDiscovery): Lazycode
   return {
     explorer: {
       model: discovery.mapping.fast,
-      reasoningLevel: "low",
+      reasoningLevel: resolveReasoningEffortForModel(discovery.modelFeatureMetadata, discovery.mapping.fast, "low"),
       serviceTier: "fast",
     },
-    reasoning: { model: discovery.mapping.reasoning, reasoningLevel: "high" },
-    coding: { model: discovery.mapping.coding, reasoningLevel: "medium" },
+    reasoning: {
+      model: discovery.mapping.reasoning,
+      reasoningLevel: resolveReasoningEffortForModel(discovery.modelFeatureMetadata, discovery.mapping.reasoning, "high"),
+    },
+    coding: {
+      model: discovery.mapping.coding,
+      reasoningLevel: resolveReasoningEffortForModel(discovery.modelFeatureMetadata, discovery.mapping.coding, "medium"),
+    },
   }
 }
 

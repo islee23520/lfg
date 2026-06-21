@@ -242,6 +242,24 @@ describe("project .omo ledger", () => {
     })
   })
 
+  test("reports truncated metadata for large start-work ledger", async () => {
+    const projectRoot = await projectWithBoulder({
+      activeWorkId: "w1",
+      works: { w1: work({ workId: "w1", sessionIds: [`grok:${sessionId}`] }) },
+      ledgerLines: Array.from({ length: 3000 }, (_, index) => `ledger-line-${index.toString().padStart(4, "0")}-${"x".repeat(32)}`),
+    })
+
+    const summary = await inspectProjectOmoLedger({ projectRoot, sessionId })
+
+    expect(summary.ledgerExists).toBe(true)
+    expect(summary.ledgerPreviews).toContainEqual({
+      source: "start-work",
+      sessionId: null,
+      lineCount: summary.ledgerLineCount,
+      truncated: true,
+    })
+  })
+
   test("reports only allowlisted ledger metadata without leaking ledger text", async () => {
     const projectRoot = await projectWithBoulder({
       activeWorkId: "w1",

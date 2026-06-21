@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { inspectProjectOmoLedger } from "./lfg-project-omo-ledger.mjs";
 import { devLog } from "./lfg-dev-logger.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEST_HOME_ENABLED = "1";
 const PROJECT_CONTEXT_MAX_CHARS = 2048;
 const FIELD_MAX_CHARS = 160;
@@ -84,13 +82,13 @@ function resolveGrokHome(env) {
 
 function renderContext(path, config, ledger) {
   const lines = [];
-  if (config !== null) {
-    lines.push(...renderGlobalConfig(path, config));
-  }
   if (ledger.status === "present" && ledger.work !== null) {
     lines.push(...renderProjectOmoLedger(ledger));
   }
-  return lines.length > 0 ? lines.join("\n") : null;
+  if (config !== null) {
+    lines.push(...renderGlobalConfig(path, config));
+  }
+  return lines.length > 0 ? boundContextText(lines.join("\n")) : null;
 }
 
 function renderGlobalConfig(path, config) {
@@ -126,14 +124,14 @@ function renderGlobalConfig(path, config) {
 
 function renderProjectOmoLedger(ledger) {
   const lines = [
-    `LFG project .omo ledger loaded from ${ledger.boulderPath}.`,
-    `Active work: ${ledger.work.workId}`,
-    `Plan: ${ledger.work.planName}`,
-    `Status: ${ledger.work.status}`,
-    `Active plan: ${ledger.work.activePlan}`,
+    `LFG project .omo ledger loaded from ${sanitizeField(ledger.boulderPath)}.`,
+    `Active work: ${sanitizeField(ledger.work.workId)}`,
+    `Plan: ${sanitizeField(ledger.work.planName)}`,
+    `Status: ${sanitizeField(ledger.work.status)}`,
+    `Active plan: ${sanitizeField(ledger.work.activePlan)}`,
   ];
-  if (ledger.work.worktreePath !== null) lines.push(`Worktree: ${ledger.work.worktreePath}`);
-  lines.push(`Matched by: ${ledger.matchedBy ?? "none"}`);
+  if (ledger.work.worktreePath !== null) lines.push(`Worktree: ${sanitizeField(ledger.work.worktreePath)}`);
+  lines.push(`Matched by: ${sanitizeField(ledger.matchedBy ?? "none")}`);
   lines.push(`Ledger exists: ${ledger.ledgerExists ? "true" : "false"}`);
   lines.push(`Ledger line count: ${ledger.ledgerLineCount}`);
   const resumeOptions = Array.isArray(ledger.resumeOptions) ? ledger.resumeOptions : [];
@@ -147,7 +145,7 @@ function renderProjectOmoLedger(ledger) {
       const status = stringField(option, "status");
       const sessionCount = numberField(option, "sessionCount");
       if (workId !== null && planName !== null && status !== null && sessionCount !== null) {
-        lines.push(`Resumable awareness: ${workId} (${planName}, ${status}, sessions=${sessionCount})`);
+        lines.push(`Resumable awareness: ${sanitizeField(workId)} (${sanitizeField(planName)}, ${sanitizeField(status)}, sessions=${sessionCount})`);
       }
     }
     for (const preview of ledgerPreviews.slice(0, 5)) {
@@ -155,9 +153,11 @@ function renderProjectOmoLedger(ledger) {
       const source = stringField(preview, "source");
       const lineCount = numberField(preview, "lineCount");
       const previewSessionId = stringField(preview, "sessionId");
+      const truncated = booleanField(preview, "truncated") === true;
       if (source !== null && lineCount !== null) {
-        const sessionSuffix = previewSessionId !== null ? `, session=${previewSessionId}` : "";
-        lines.push(`Ledger preview: ${source}${sessionSuffix}, lines=${lineCount}`);
+        const sessionSuffix = previewSessionId !== null ? `, session=${sanitizeField(previewSessionId)}` : "";
+        const truncatedSuffix = truncated ? ", truncated=true" : "";
+        lines.push(`Ledger preview: ${sanitizeField(source)}${sessionSuffix}, lines=${lineCount}${truncatedSuffix}`);
       }
     }
   }
@@ -168,7 +168,51 @@ function renderProjectOmoLedger(ledger) {
   } else {
     lines.push("ulw-loop: none");
   }
-  return lines.join("\n").length > 2048 ? lines.slice(0, 12) : lines;
+  return boundContextLines(lines);
+}
+
+function boundContextText(text) {
+  if (text.length <= PROJECT_CONTEXT_MAX_CHARS) return text;
+  const marker = "\nProject context truncated.";
+  return `${text.slice(0, PROJECT_CONTEXT_MAX_CHARS - marker.length)}${marker}`;
+}
+
+function sanitizeField(value) {
+  const normalized = String(value).replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  if (normalized.length === 0) return "[empty]";
+  if (isSecretLike(normalized)) return "[redacted]";
+  return normalized.length > FIELD_MAX_CHARS ? `${normalized.slice(0, FIELD_MAX_CHARS - 1)}…` : normalized;
+}
+
+function isSecretLike(value) {
+  const lower = value.toLowerCase();
+  if (/\b(api[_-]?key|authorization|bearer|secret|token|password|credential)\b/i.test(value)) return true;
+  if (/\bsk-[a-z0-9][a-z0-9_-]{8,}\b/i.test(value)) return true;
+  if (/\b[a-z0-9_-]{32,}\.[a-z0-9_-]{16,}\.[a-z0-9_-]{16,}\b/i.test(value)) return true;
+  if (lower.includes("-----begin ")) return true;
+  return /^[A-Za-z0-9+/=_-]{48,}$/.test(value);
+}
+
+function boundContextLines(lines) {
+  const bounded = [];
+  for (const line of lines) {
+    const next = [...bounded, line].join("\n");
+    if (next.length <= PROJECT_CONTEXT_MAX_CHARS) {
+      bounded.push(line);
+      continue;
+    }
+    appendTruncationMarker(bounded);
+    return bounded;
+  }
+  return bounded;
+}
+
+function appendTruncationMarker(lines) {
+  const marker = "Project .omo context truncated.";
+  while (lines.length > 0 && [...lines, marker].join("\n").length > PROJECT_CONTEXT_MAX_CHARS) {
+    lines.pop();
+  }
+  if ([...lines, marker].join("\n").length <= PROJECT_CONTEXT_MAX_CHARS) lines.push(marker);
 }
 
 function projectRootFromInput(record) {

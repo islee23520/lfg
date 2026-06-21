@@ -28,6 +28,9 @@ export function upsertModelSections(
     if (metadata?.features !== undefined && metadata.features.length > 0) {
       lines.push(`features = ${tomlStringArray(metadata.features)}`)
     }
+    if (metadata?.reasoningEffort !== undefined) {
+      lines.push(`reasoning_effort = ${tomlString(metadata.reasoningEffort)}`)
+    }
     next = upsertSection(next, modelSectionName(alias), lines)
   }
   return next

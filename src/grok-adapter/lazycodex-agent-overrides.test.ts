@@ -43,6 +43,28 @@ describe("lazycodex-agent-overrides", () => {
     expect(merged.reasoning.model).toBe(role.reasoning.model)
   })
 
+  test("default agent config uses advertised reasoning effort for selected discovered models", () => {
+    const role = defaultLazycodexAgentConfig({
+      ...discovery,
+      modelIds: ["grok-3-mini-fast", "gpt-5.5", "codex-auto-review"],
+      mapping: {
+        default: "gpt-5.5",
+        fast: "grok-3-mini-fast",
+        reasoning: "gpt-5.5",
+        coding: "codex-auto-review",
+      },
+      modelFeatureMetadata: {
+        "grok-3-mini-fast": { reasoningEffort: "low" },
+        "gpt-5.5": { reasoningEffort: "xhigh" },
+        "codex-auto-review": { reasoningEffort: "high" },
+      },
+    })
+
+    expect(role.explorer.reasoningLevel).toBe("low")
+    expect(role.reasoning.reasoningLevel).toBe("xhigh")
+    expect(role.coding.reasoningLevel).toBe("high")
+  })
+
   test("bundled defaults include default, prometheus, sisyphus, and atlas agents", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()
     expect(bundled.default?.model).toBe("gpt-5.5")

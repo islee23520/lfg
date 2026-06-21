@@ -1,8 +1,11 @@
 import { isRecord } from "./lfg-json"
+import { aliasGroupKey } from "./lfg-model-context-catalog"
+import type { ReasoningLevel } from "./lfg-models"
 
 export type ModelFeatureMetadata = {
   readonly usable?: boolean
   readonly features?: readonly string[]
+  readonly reasoningEffort?: ReasoningLevel
 }
 
 export function extractContextWindows(payload: unknown): Readonly<Record<string, number>> | undefined {
@@ -34,6 +37,16 @@ export function toPositiveInt(value: unknown): number | null {
     if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed)
   }
   return null
+}
+
+export function resolveReasoningEffortForModel(
+  metadata: Readonly<Record<string, ModelFeatureMetadata>> | undefined,
+  modelId: string,
+  fallback: ReasoningLevel,
+): ReasoningLevel {
+  if (metadata === undefined) return fallback
+  const normalized = aliasGroupKey(modelId)
+  return metadata[modelId]?.reasoningEffort ?? metadata[normalized]?.reasoningEffort ?? fallback
 }
 
 function pickContextWindow(item: Record<string, unknown>): number | null {
@@ -70,10 +83,12 @@ function pickContextWindow(item: Record<string, unknown>): number | null {
 function pickModelFeatureMetadata(item: Record<string, unknown>): ModelFeatureMetadata | null {
   const usable = pickBoolean(item, ["usable", "available", "enabled"])
   const features = pickFeatureList(item)
-  if (usable === undefined && features.length === 0) return null
+  const reasoningEffort = pickReasoningEffort(item)
+  if (usable === undefined && features.length === 0 && reasoningEffort === undefined) return null
   return {
     ...(usable === undefined ? {} : { usable }),
     ...(features.length === 0 ? {} : { features }),
+    ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
   }
 }
 
@@ -97,6 +112,37 @@ function parseBoolean(value: unknown): boolean | undefined {
   const normalized = value.trim().toLowerCase()
   if (normalized === "true") return true
   if (normalized === "false") return false
+  return undefined
+}
+
+function pickReasoningEffort(item: Record<string, unknown>): ReasoningLevel | undefined {
+  const keys = [
+    "reasoning_effort",
+    "reasoningEffort",
+    "model_reasoning_effort",
+    "modelReasoningEffort",
+    "default_reasoning_effort",
+    "defaultReasoningEffort",
+  ] as const
+  for (const key of keys) {
+    const parsed = parseReasoningLevel(item[key])
+    if (parsed !== undefined) return parsed
+  }
+  const nested = isRecord(item.info) ? item.info : isRecord(item.metadata) ? item.metadata : null
+  if (nested === null) return undefined
+  for (const key of keys) {
+    const parsed = parseReasoningLevel(nested[key])
+    if (parsed !== undefined) return parsed
+  }
+  return undefined
+}
+
+function parseReasoningLevel(value: unknown): ReasoningLevel | undefined {
+  if (typeof value !== "string") return undefined
+  const normalized = value.trim().toLowerCase()
+  if (normalized === "low" || normalized === "medium" || normalized === "high" || normalized === "xhigh") {
+    return normalized
+  }
   return undefined
 }
 

@@ -112,6 +112,7 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
       ["ulw-loop", "Grok-adapted"],
       ["ulw-plan", "Grok-adapted"],
       ["start-work-continuation", "Deferred"],
+      ["plan-mode-interception", "Deferred"],
       ["prompts-core", "Grok-adapted"],
       ["agent-builder", "Grok-adapted"],
       ["delegate-core", "Grok-adapted"],
@@ -133,5 +134,8 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("src/grok-adapter/component-inventory.ts")
     expect(text).toContain("hook-bridge.integration.test.ts")
     expect(text).toContain("sync-lazycodex-agents-to-grok.ts")
+    expect(text).toContain("the durable continuation CLI is not packaged")
+    expect(text).toContain("hook-time `additionalContext` guidance only")
+    expect(text).not.toMatch(/\| `plan-mode-interception` \|.*\| (Implemented|Grok-adapted) \|/)
   })
 })

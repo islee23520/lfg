@@ -1,5 +1,8 @@
-import { access, readFile, readdir } from "node:fs/promises";
+import { access, open, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
+
+const BOULDER_MAX_BYTES = 128 * 1024;
+const LEDGER_MAX_BYTES = 64 * 1024;
 
 export async function inspectProjectOmoLedger(options) {
   const boulderPath = join(options.projectRoot, ".omo", "boulder.json");
@@ -32,10 +35,25 @@ export async function inspectProjectOmoLedger(options) {
 }
 
 async function readOptionalText(path) {
+  const result = await readLimitedText(path, BOULDER_MAX_BYTES);
+  return result.exists ? result.text : null;
+}
+
+async function readLimitedText(path, maxBytes) {
   try {
-    return await readFile(path, "utf8");
+    const fileStat = await stat(path);
+    if (!fileStat.isFile()) return { exists: false, text: "", truncated: false };
+    const handle = await open(path, "r");
+    try {
+      const bytesToRead = Math.min(fileStat.size, maxBytes);
+      const buffer = Buffer.alloc(bytesToRead);
+      const { bytesRead } = await handle.read(buffer, 0, bytesToRead, 0);
+      return { exists: true, text: buffer.subarray(0, bytesRead).toString("utf8"), truncated: fileStat.size > maxBytes };
+    } finally {
+      await handle.close();
+    }
   } catch {
-    return null;
+    return { exists: false, text: "", truncated: false };
   }
 }
 
@@ -109,11 +127,13 @@ function publicWork(work) {
 async function inspectLedger(path) {
   try {
     await access(path);
-    const text = await readFile(path, "utf8");
-    return { exists: true, lineCount: text.split("\n").filter((line) => line.length > 0).length, truncated: false };
   } catch {
     return { exists: false, lineCount: 0, truncated: false };
   }
+  const result = await readLimitedText(path, LEDGER_MAX_BYTES);
+  if (!result.exists) return { exists: false, lineCount: 0, truncated: false };
+  const lineCount = result.text.split("\n").filter((line) => line.length > 0).length;
+  return { exists: true, lineCount, truncated: result.truncated };
 }
 
 function resumeOptionsFromState(state) {

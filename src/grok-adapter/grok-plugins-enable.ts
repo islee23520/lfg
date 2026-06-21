@@ -168,11 +168,37 @@ export function upsertSubagentModels(
     "builder": mapping.coding || "grok-4.20-0309-non-reasoning",
     "reviewer": mapping.coding || "grok-4.3",
   }
-  const block = Object.entries(lfgOwned)
-    .map(([key, model]) => `${key} = ${tomlString(model)}`)
-    .join("\n")
-  // Uses upsertTomlSection (replaces section body). True merge for non-LFG keys is TODO.
+  const block = mergeSubagentModelBody(source, lfgOwned)
   return upsertTomlSection(source, "subagents.models", block)
+}
+
+function mergeSubagentModelBody(source: string, lfgOwned: Readonly<Record<string, string>>): string {
+  const ownedKeys = new Set(Object.keys(lfgOwned))
+  const preserved = subagentModelBody(source)
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim()
+      if (trimmed.length === 0) return false
+      const key = parseTomlAssignmentKey(trimmed)
+      return key === null || !ownedKeys.has(key)
+    })
+  const ownedLines = Object.entries(lfgOwned).map(([key, model]) => `${key} = ${tomlString(model)}`)
+  return [...preserved, ...ownedLines].join("\n")
+}
+
+function subagentModelBody(source: string): string {
+  const match = /(^|\n)(\[subagents\.models\]\n)([\s\S]*?)(?=\n\[[^\n]+\]|$)/.exec(source)
+  return match?.[3] ?? ""
+}
+
+function parseTomlAssignmentKey(line: string): string | null {
+  const index = line.indexOf("=")
+  if (index <= 0) return null
+  const raw = line.slice(0, index).trim()
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1)
+  }
+  return raw
 }
 
 function upsertTomlSection(source: string, section: string, body: string): string {

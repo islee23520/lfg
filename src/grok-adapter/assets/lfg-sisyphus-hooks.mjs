@@ -85,6 +85,7 @@ function sessionStartContext() {
 function userPromptSubmitContext(input) {
   const prompt = stringField(input ?? {}, ["prompt", "userQuery", "user_query"]) ?? "";
   const intentHints = detectIntentHints(prompt);
+  const planningIntent = detectPlanningIntent(prompt);
   const lines = [
     "<sisyphus-intent-routing>",
     `User prompt received (${prompt.length} chars). Intent signals: ${intentHints.join(", ") || "none detected"}.`,
@@ -95,10 +96,12 @@ function userPromptSubmitContext(input) {
     "- 'look into/check/investigate' -> investigation: explore, report findings.",
     "- 'fix/broken/error' -> diagnose: find root cause, fix minimally.",
     "- Ambiguous scope -> ask ONE clarifying question before proceeding.",
-    "",
-    "</sisyphus-intent-routing>",
   ];
-  return { statusLabel: "Intent routing hints injected", body: lines.join("\n") };
+  if (planningIntent !== null) {
+    lines.push("", planningRoutingBlock(planningIntent));
+  }
+  lines.push("", "</sisyphus-intent-routing>");
+  return { statusLabel: planningIntent !== null ? "Planning intent routed to /ulw-plan" : "Intent routing hints injected", body: lines.join("\n") };
 }
 
 function preToolUseContext(input) {
@@ -211,6 +214,87 @@ function detectIntentHints(prompt) {
   if (/\b(refactor|improve|clean|optimize)\b/i.test(prompt)) hints.push("refactor");
   if (/\b(review|audit|security)\b/i.test(prompt)) hints.push("review");
   return hints;
+}
+
+/**
+ * Detect planning-intent signals that should route through OMO /ulw-plan discipline
+ * (Prometheus planner + Metis/Momus verification gates) rather than Grok's native
+ * plan mode which bypasses OMO planning workflow.
+ *
+ * Returns a planning-intent kind string ("plan-request", "ambiguous-scope", or
+ * "architecture-decision") when detected, or null when the prompt is clearly
+ * execution/research/fix and does not need the /ulw-plan gate.
+ */
+function detectPlanningIntent(prompt) {
+  if (prompt.length === 0) return null;
+
+  // Explicit planning-artifact requests — the user is asking to produce a plan,
+  // roadmap, blueprint, or strategy. These are always /ulw-plan territory even
+  // when paired with "create"/"write"/"build" — the verb acts on the planning
+  // artifact itself, not on code. Only suppress when the prompt is clearly code
+  // execution referencing an existing plan as a spec: "implement the plan".
+  if (
+    /\b(plan|planning|blueprint|roadmap|strategy|design\s+(the|an?)\s+(approach|architecture|system|solution))\b/i.test(prompt) &&
+    !/\b(implement|code)\s+(the\s+|this\s+|that\s+|our\s+)?plan\b/i.test(prompt)
+  ) {
+    return "plan-request";
+  }
+
+  // Ambiguous/large scope that OMO /ulw-plan classifies as needing a plan:
+  // "make it better", "figure out what to build", "just make it good",
+  // multi-module refactors, architecture decisions, vague briefs.
+  const ambiguousPhrases = [
+    /\bmake\s+it\s+(better|good|work|fast)\b/i,
+    /\bfigure\s+out\s+what\s+to\b/i,
+    /\bvague\b/i,
+    /\bambiguous\b/i,
+  ];
+  for (const pattern of ambiguousPhrases) {
+    if (pattern.test(prompt)) return "ambiguous-scope";
+  }
+
+  // Architecture / multi-module decisions — these need Prometheus planning
+  // discipline: "redesign the auth system", "restructure the database",
+  // "migrate from X to Y".
+  if (/\b(redesign|restructure|migrate|overhaul|rewrite|refactor\s+(the|an?)\s+\w+\s+(system|module|service|layer|pipeline))\b/i.test(prompt)) {
+    return "architecture-decision";
+  }
+
+  // Multi-step briefs that name architecture decisions.
+  if (/\b(architecture|system design|api design|data model|schema design)\b/i.test(prompt)) {
+    return "architecture-decision";
+  }
+
+  return null;
+}
+
+/** Render the /ulw-plan routing block for the detected planning intent kind. */
+function planningRoutingBlock(intentKind) {
+  const kindLabel = intentKind === "plan-request"
+    ? "explicit planning request"
+    : intentKind === "ambiguous-scope"
+      ? "ambiguous/vague scope"
+      : "architecture/multi-module decision";
+
+  return [
+    `<sisyphus-planning-routing kind="${intentKind}">`,
+    `PLANNING INTENT DETECTED (${kindLabel}).`,
+    "",
+    "Route through OMO /ulw-plan discipline instead of Grok native plan mode:",
+    "- Invoke /ulw-plan to activate Prometheus (explore-first planning consultant).",
+    "- Prometheus explores the codebase, asks only the forks exploration cannot resolve,",
+    "  writes ONE decision-complete plan under .omo/plans/, and waits for explicit approval.",
+    "- Metis (gap analysis) and Momus (high-accuracy review) gates verify the plan before execution.",
+    "- Do NOT bypass /ulw-plan with Grok's built-in enter_plan_mode for this request.",
+    "",
+    "/ulw-plan classification:",
+    "- CLEAR (outcome known, only tradeoffs open): ask surviving forks, run approval gate.",
+    "- UNCLEAR (outcome fuzzy): research maximally, adopt best-practice defaults, auto-run Momus review.",
+    "- ON THE FENCE: treat as CLEAR, ask exactly ONE question.",
+    "",
+    "After /ulw-plan produces an approved plan, execution begins via $start-work or delegation.",
+    "</sisyphus-planning-routing>",
+  ].join("\n");
 }
 
 function normalizeHookEventName(record) {

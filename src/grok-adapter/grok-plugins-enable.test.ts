@@ -95,7 +95,6 @@ describe("ensureLfgPluginsEnabled", () => {
     expect(next).toContain('coding = "grok-4.20-0309-non-reasoning"')
     expect(next).toContain('grok-build = "grok-4.20-0309-non-reasoning"')
     expect(next).toContain('reviewer = "grok-4.20-0309-non-reasoning"')
-    // Note: upsertTomlSection currently replaces the entire section body (per current implementation).
-    // Non-LFG key preservation ("non-lfg-key") is planned for a future true-merge improvement.
+    expect(next).toContain('non-lfg-key = "user-value"')
   })
 })

@@ -71,6 +71,41 @@ describe("lfg-config-loader project .omo context", () => {
     expect(context).not.toContain("do not leak this prompt")
   })
 
+  test("redacts secret-like boulder metadata and caps project context", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-loader-boulder-secret-home-"))
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-loader-boulder-secret-project-"))
+    const longActivePlan = `.omo/plans/${"x".repeat(4096)}.md`
+    await writeProjectOmoCustom(projectRoot, {
+      work_id: "demo-work",
+      active_plan: longActivePlan,
+      plan_name: "sk-test-secret do not leak this prompt",
+      session_ids: ["grok:session-123"],
+      status: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
+      worktree_path: "/tmp/project token=secret-value",
+    }, ["safe ledger line"])
+
+    const result = await runLoader({
+      home,
+      payload: {
+        hookEventName: "session_start",
+        sessionId: "session-123",
+        cwd: projectRoot,
+      },
+    })
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" })
+    const context = parseHookOutput(result.stdout).hookSpecificOutput?.additionalContext ?? ""
+    expect(context.length).toBeLessThanOrEqual(2048)
+    expect(context).toContain("Plan: [redacted]")
+    expect(context).toContain("Status: [redacted]")
+    expect(context).toContain("Worktree: [redacted]")
+    expect(context).not.toContain("sk-test-secret")
+    expect(context).not.toContain("Authorization")
+    expect(context).not.toContain("Bearer")
+    expect(context).not.toContain(longActivePlan)
+    expect(context).not.toContain("do not leak this prompt")
+  })
+
   test("fails closed for malformed project .omo", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-loader-malformed-home-"))
     const projectRoot = await mkdtemp(join(tmpdir(), "lfg-loader-malformed-project-"))
@@ -107,6 +142,15 @@ type LoaderResult = {
   readonly stderr: string
 }
 
+type ProjectOmoFixtureWork = {
+  readonly work_id: string
+  readonly active_plan: string
+  readonly plan_name: string
+  readonly session_ids: readonly string[]
+  readonly status: string
+  readonly worktree_path: string | null
+}
+
 async function writeGlobalConfig(home: string): Promise<void> {
   await mkdir(join(home, ".grok"), { recursive: true })
   await writeFile(
@@ -117,6 +161,21 @@ async function writeGlobalConfig(home: string): Promise<void> {
 }
 
 async function writeProjectOmo(projectRoot: string, sessionId: string, ledgerLines: readonly string[]): Promise<void> {
+  await writeProjectOmoCustom(projectRoot, {
+    work_id: "demo-work",
+    active_plan: ".omo/plans/demo.md",
+    plan_name: "Demo Plan",
+    session_ids: [`grok:${sessionId}`],
+    status: "active",
+    worktree_path: null,
+  }, ledgerLines)
+}
+
+async function writeProjectOmoCustom(
+  projectRoot: string,
+  work: ProjectOmoFixtureWork,
+  ledgerLines: readonly string[],
+): Promise<void> {
   await mkdir(join(projectRoot, ".omo", "start-work"), { recursive: true })
   await writeFile(
     join(projectRoot, ".omo", "boulder.json"),
@@ -124,16 +183,7 @@ async function writeProjectOmo(projectRoot: string, sessionId: string, ledgerLin
       {
         schema_version: 2,
         active_work_id: "demo-work",
-        works: {
-          "demo-work": {
-            work_id: "demo-work",
-            active_plan: ".omo/plans/demo.md",
-            plan_name: "Demo Plan",
-            session_ids: [`grok:${sessionId}`],
-            status: "active",
-            worktree_path: null,
-          },
-        },
+        works: { "demo-work": work },
       },
       null,
       2,
