@@ -10,9 +10,9 @@ vi.mock("@clack/prompts", () => {
       return !/Install now\?|Core \+ ULW/i.test(String(opts.message ?? ""))
     },
     select: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[] }) => {
-      // Exercise the proxy (discovery-based) path: pick cli-proxy at the Model setup question.
-      if (/Model setup/i.test(String(opts.message ?? ""))) return "proxy";
-      return opts.options?.[0]?.value ?? "grok-3-mini-fast";
+      if (/Global model preset/i.test(String(opts.message ?? ""))) return "grok";
+      if (/Global reasoning effort/i.test(String(opts.message ?? ""))) return "auto";
+      return opts.options?.[0]?.value ?? "auto";
     },
     autocomplete: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[]; readonly initialValue?: string }) => {
       calls.push(["autocomplete", opts.message, opts.options?.length, opts.initialValue, opts.options])
@@ -39,7 +39,7 @@ vi.mock("./lfg-installer.js", () => ({
 import * as tui from "./lfg-setup-tui"
 
 describe("lfg-setup-tui recommendations", () => {
-  test("TUI model selector offers only discovered models and uses OMO override recommendations", async () => {
+  test("TUI global preset derives only discovered models without per-agent selectors", async () => {
     const prompts = await import("@clack/prompts") as typeof import("@clack/prompts") & { readonly __calls: unknown[][] }
     const calls = prompts.__calls
     calls.length = 0
@@ -68,16 +68,14 @@ describe("lfg-setup-tui recommendations", () => {
       },
     )
 
-    const explorerRec = calls.find((c) => c[0] === "note" && /explorer model recommendation/.test(String(c[1])))
-    expect(String(explorerRec?.[2] ?? "")).toContain("Recommended: grok-3-mini-fast (low)")
-    expect(String(explorerRec?.[2] ?? "")).toContain("Fallback chain: gpt-5.4-mini-fast → grok-3-mini-fast")
-
     const modelPrompts = calls.filter((c) => c[0] === "autocomplete")
-    expect(modelPrompts.length).toBeGreaterThan(0)
-    for (const call of modelPrompts) {
-      const options = Array.isArray(call[4]) ? call[4] : []
-      expect(options.map((option: { readonly value?: string }) => option.value)).toEqual(["grok-3-mini-fast", "grok-4.20-0309-reasoning"])
-      expect(options.some((option: { readonly value?: string }) => /missing-|gpt-5\.4-mini|gpt-5\.5|gpt-5\.3-codex/.test(String(option.value)))).toBe(false)
-    }
+    expect(modelPrompts).toHaveLength(0)
+    const resultsNote = calls.find((c) => c[0] === "note" && /Setup results/.test(String(c[1])))
+    const results = String(resultsNote?.[2] ?? "")
+    expect(results).toContain("Preset: grok")
+    expect(results).toContain("grok-3-mini-fast")
+    expect(results).toContain("grok-4.20-0309-reasoning")
+    expect(results).not.toContain("missing-default-model")
+    expect(results).not.toContain("missing-reasoning-model")
   })
 })

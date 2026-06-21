@@ -98,14 +98,11 @@ describe("lfg Grok config persistence", () => {
     })
   })
 
-  test("setup run persists interactive lazycodex agent model and reasoning choices", async () => {
+  test("setup run persists global preset and reasoning effort choices without per-agent model prompts", async () => {
     const apiKey = "sk-agent-key"
-    await withModelServer(["grok-3-mini", "grok-4.20-0309-reasoning", "codex-auto-review"], { requiredApiKey: apiKey }, async (baseUrl) => {
+    await withModelServer(["gpt-5.5", "gemini-3-flash", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "codex-auto-review"], { requiredApiKey: apiKey }, async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-            // LFP-style interactive now prints "Current:" + "Default: keep the current... press Enter to leave it unchanged."
-      // before each model/reasoning prompt, plus recommendations. The answers are still consumed in the same order.
-      // We add a trailing \n to ensure the final "Install now?" confirmation is delivered as a complete line to the readline iterator.
-      const input = ["y", "codex-auto-review", "high", "grok-4.20-0309-reasoning", "xhigh", "grok-3-mini", "low", "n", "y"].join("\n") + "\n"
+      const input = ["balanced", "high", "y"].join("\n") + "\n"
 
       const result = await runLfgText(["setup", "--base-url", baseUrl], input, {
         HOME: home,
@@ -115,14 +112,16 @@ describe("lfg Grok config persistence", () => {
 
       const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
       expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain("Configure LazyCodex role agents")
-      expect(section(config, "omo.agents.explorer")).toContain('model = "codex-auto-review"')
+      expect(result.stdout).toContain("Choose one global model preset")
+      expect(result.stdout).not.toContain("Configure LazyCodex role agents")
+      expect(section(config, "omo.agents.explorer")).toContain('model = "gemini-3-flash"')
       expect(section(config, "omo.agents.explorer")).toContain('reasoning_level = "high"')
       expect(section(config, "omo.agents.reasoning")).toContain('model = "grok-4.20-0309-reasoning"')
-      expect(section(config, "omo.agents.reasoning")).toContain('reasoning_level = "xhigh"')
-      expect(section(config, "omo.agents.coding")).toContain('model = "grok-3-mini"')
-      expect(section(config, "omo.agents.coding")).toContain('reasoning_level = "low"')
-      expect(config).toContain("[omo.agents.coding]")
+      expect(section(config, "omo.agents.reasoning")).toContain('reasoning_level = "high"')
+      expect(section(config, "omo.agents.coding")).toContain('model = "grok-4.20-0309-non-reasoning"')
+      expect(section(config, "omo.agents.coding")).toContain('reasoning_level = "high"')
+      expect(section(config, "omo.agents.metis")).toContain('model = "grok-4.20-0309-reasoning"')
+      expect(section(config, "omo.agents.momus")).toContain('model = "gpt-5.5"')
     })
   })
 

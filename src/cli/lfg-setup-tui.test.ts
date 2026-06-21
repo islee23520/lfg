@@ -14,9 +14,8 @@ vi.mock("@clack/prompts", () => {
     },
     select: async (opts: any) => {
       calls.push(["select", opts?.message, opts?.options?.length, opts?.initialValue]);
-      // The TUI now asks "Model setup" (vanilla vs cli-proxy) first. These tests exercise the
-      // proxy (discovery-based) path, so explicitly opt into cli-proxy here.
-      if (/Model setup/i.test(String(opts?.message ?? ""))) return "proxy";
+      if (/Global model preset/i.test(String(opts?.message ?? ""))) return "auto";
+      if (/Global reasoning effort/i.test(String(opts?.message ?? ""))) return "high";
       return opts?.options?.[0]?.value ?? "grok-3-mini-fast";
     },
     autocomplete: async (opts: any) => {
@@ -57,7 +56,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(tui.shouldUseSetupTui({}, { check: true, input: { isTTY: true }, output: { isTTY: true } })).toBe(false);
   });
 
-  test("runSetupTui (self-contained Clack TUI) shows LFG framing, performs role selects, emits only clean role summaries into 'Setup results', shows its own Install Summary + final confirm, and outro", async () => {
+  test("runSetupTui shows global preset and reasoning-effort selects without per-agent model prompts", async () => {
     const prompts = await import("@clack/prompts") as any;
     const calls: any[] = prompts.__calls;
     calls.length = 0;
@@ -87,46 +86,25 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
 
     const selectCalls = calls.filter((c: any[]) => c[0] === "select");
     const autocompleteCalls = calls.filter((c: any[]) => c[0] === "autocomplete");
-    expect(selectCalls.length + autocompleteCalls.length).toBeGreaterThanOrEqual(9);
+    expect(selectCalls.map((c: any[]) => String(c[1]))).toEqual(expect.arrayContaining(["Global model preset", "Global reasoning effort"]));
+    expect(autocompleteCalls).toHaveLength(0);
 
-    // The self-contained TUI produces a "Setup results" note containing only the clean role summaries
-    // (e.g. "  explorer: grok-3-mini-fast / low (tier: default)").
-    // No "Current:", "Default: keep...", "Recommended:", "Alternatives:", long-tail "Configure other...",
-    // plan review, magic word, "Install now? [y/N]", cancelled text, or oMo bye may appear in it.
     expect(calls.some((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])))).toBe(true);
-    expect(calls.some((c: any[]) => c[0] === "note" && /Model recommendations/.test(String(c[1])) && /Agent Model Recommendations/.test(String(c[2])))).toBe(true);
-    expect(calls.some((c: any[]) => c[0] === "note" && /explorer model recommendation/.test(String(c[1])) && /Recommended:/.test(String(c[2])) && /Fallback chain:/.test(String(c[2])))).toBe(true);
-    expect(calls.some((c: any[]) => c[0] === "note" && /coding model recommendation/.test(String(c[1])) && /Recommended:/.test(String(c[2])))).toBe(true);
-    expect(calls.some((c: any[]) => c[0] === "note" && /sisyphus model recommendation/.test(String(c[1])) && /Fallback chain:/.test(String(c[2])))).toBe(true);
-    expect(calls.some((c: any[]) => c[0] === "note" && /atlas model recommendation/.test(String(c[1])) && /Fallback chain:/.test(String(c[2])))).toBe(true);
-    expect(calls.some((c: any[]) => c[0] === "note" && /oracle model recommendation/.test(String(c[1])) && /Fallback chain:/.test(String(c[2])))).toBe(true);
-
     const resultsNote = calls.find((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])));
     const resultsBody = resultsNote ? String(resultsNote[2] || "") : "";
-    const expectedSummarizedAgents = [
-      "explorer",
-      "reasoning",
-      "coding",
-      "default",
-      "prometheus",
-      "librarian",
-      "plan",
-      "metis",
-      "momus",
-      "codex-ultrawork-reviewer",
-    ] as const;
-    for (const agentName of expectedSummarizedAgents) {
-      expect(new RegExp(`${agentName}:.*\\/.*\\(tier:`).test(resultsBody)).toBe(true);
-    }
-    // Must NOT contain classic readline pollution
+    expect(resultsBody).toContain("Preset: auto");
+    expect(resultsBody).toContain("default:");
+    expect(resultsBody).toContain("fast:");
+    expect(resultsBody).toContain("reasoning:");
+    expect(resultsBody).toContain("coding:");
+    expect(resultsBody).toContain("Agent routing is derived from the global preset");
+    expect(resultsBody).toContain("explorer:");
+    expect(resultsBody).toContain("coding:");
     expect(/Current: .* \(reasoning:/.test(resultsBody)).toBe(false);
     expect(/Default: keep the current LazyCodex\/OMO value/.test(resultsBody)).toBe(false);
     expect(/^\s*Recommended:/m.test(resultsBody)).toBe(false);
     expect(/^\s*Alternatives:/m.test(resultsBody)).toBe(false);
-    expect(/Configure other LazyCodex agents/i.test(resultsBody)).toBe(false);
-    expect(calls.some((c: any[]) => c[0] === "note" && /Why two model steps/.test(String(c[1])) && /first 3 prompts/.test(String(c[2])) && /named OMO\/ultrawork agents/.test(String(c[2])))).toBe(true);
-    expect(calls.some((c: any[]) => c[0] === "confirm" && /Customize Core \+ ULW named agent overrides/.test(String(c[1])))).toBe(true);
-    expect(autocompleteCalls.some((c: any[]) => Array.isArray(c[4]) && c[4].some((option: any) => /recommended/.test(String(option?.hint ?? ""))))).toBe(true);
+    expect(/Customize Core \+ ULW named agent overrides/i.test(resultsBody)).toBe(false);
 
     // The TUI shows its own clean "Install Summary" (not the classic printInstallPlan + Magic Word)
     expect(calls.some((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])))).toBe(true);

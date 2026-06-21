@@ -2,12 +2,10 @@ import { createInterface } from "node:readline/promises"
 import { stdin as input, stdout as output } from "node:process"
 import { runLazycodexInstaller } from "./lfg-installer"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-adapter/run-grok-install"
-import { configureOmoAgentOverridesInteractively } from "../grok-adapter/agent-config-wizard"
-import { defaultLazycodexAgentConfig, type ModelDiscovery } from "./lfg-models"
+import { applyModelPreset, defaultLazycodexAgentConfig, withReasoningEffort, type ModelDiscovery, type ReasoningEffortChoice, type SetupPreset } from "./lfg-models"
 import type { JsonObject } from "./lfg-json"
 import type { ResolveSetupDiscoveryResult } from "../grok-adapter/resolve-setup-discovery"
 import { resolveSetupDiscovery } from "../grok-adapter/resolve-setup-discovery"
-import type { LazycodexAgentOverrideMap } from "../grok-adapter/lazycodex-agent-overrides"
 import { formatRecommendationTable } from "../grok-adapter/model-recommendations"
 import { maybeRequestGitHubStars } from "./lfg-github-stars"
 import { printCancelled, printCompleted, printInstallIntro, printInstallPlan, printMagicWord, printStep } from "./lfg-interactive-ui"
@@ -16,7 +14,6 @@ import {
   fallbackModelDiscovery,
   loadBundledDefaultOmoOverridesForInteractive,
   mergeLazycodexAgentOverrides,
-  readAgentConfig,
 } from "./lfg-interactive-agent-config"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
@@ -50,15 +47,13 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     }
 
     if (isTuiMode) {
-      // TUI fast path: Clack selects the role agents and owns later gates.
-      const roleConfig = await readAgentConfig(reader, discovery ?? fallbackModelDiscovery(), options);
-
-      // Always take bundled defaults for the rest of the agents; never ask about "other" agents.
-      const bundled = await loadBundledDefaultOmoOverridesForInteractive();
-      const agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {});
+      const baseDiscovery = discovery ?? fallbackModelDiscovery()
+      const roleConfig = defaultLazycodexAgentConfig(baseDiscovery)
+      const bundled = await loadBundledDefaultOmoOverridesForInteractive()
+      const agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {})
 
       const configuredDiscovery: ModelDiscovery = {
-        ...(discovery ?? fallbackModelDiscovery()),
+        ...baseDiscovery,
         agentConfig: roleConfig,
         agentOverrideMap,
       }
@@ -178,50 +173,51 @@ async function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): Promis
 // base-URL prompt; it does not turn the guided setup into a silent "just do it".
 
 
-async function configureLazycodexAgentsFull(reader: LineReader, discovery: ModelDiscovery, options: InstallWizardOptions = {}): Promise<ModelDiscovery> {
-  // When TUI selectors are injected we force the role configuration path so the three main
-  // agents are presented via nice Clack selects (with Current/Recommended context printed before each).
-  // This avoids a raw "Configure role agents? [y/N]" readline prompt during TUI capture.
-  const hasTuiSelectors = !!(options.modelSelector || options.tierSelector || options.reasoningSelector)
-  const shouldConfigure = hasTuiSelectors
-    ? true
-    : await confirm(reader, "Configure LazyCodex role agents (explorer / reasoning / coding)? [y/N] ")
-  const roleConfig = shouldConfigure
-    ? await readAgentConfig(reader, discovery, options)
-    : defaultLazycodexAgentConfig(discovery)
+async function configureLazycodexAgentsFull(reader: LineReader, discovery: ModelDiscovery, _options: InstallWizardOptions = {}): Promise<ModelDiscovery> {
+  output.write("Choose one global model preset. Individual agent model prompts have been removed.\n")
+  output.write("  1) auto: best available global routes (recommended)\n")
+  output.write("  2) balanced: GPT default, Gemini fast, Grok reasoning/coding\n")
+  output.write("  3) grok: prefer Grok for all routes\n")
+  output.write("  4) gpt: prefer GPT/Codex for default/reasoning/coding\n")
+  output.write("  5) gemini: prefer Gemini for long-context exploration\n")
+  output.write("  6) glm: prefer GLM for default/reasoning\n")
+  output.write("  7) multi: balanced routes plus provider-scoped base URLs\n")
+  const preset = await readSetupPreset(reader)
+  const reasoningEffort = await readReasoningEffort(reader)
+  const presetDiscovery = withReasoningEffort(applyModelPreset(discovery, preset), reasoningEffort)
+  const roleConfig = defaultLazycodexAgentConfig(presetDiscovery)
+  const agentOverrideMap = presetDiscovery.agentOverrideMap ?? {}
+  output.write("Global model mapping:\n")
+  output.write(`  default: ${presetDiscovery.mapping.default}\n`)
+  output.write(`  fast: ${presetDiscovery.mapping.fast}\n`)
+  output.write(`  reasoning: ${presetDiscovery.mapping.reasoning}\n`)
+  output.write(`  coding: ${presetDiscovery.mapping.coding}\n\n`)
+  return { ...presetDiscovery, agentConfig: roleConfig, agentOverrideMap }
+}
 
-  // Only enter the long-tail per-agent override wizard (librarian, plan, metis, ...) if the user
-  // explicitly opted into role configuration. This keeps the common interactive "just install the adapter"
-  // flow short: URL (optional) → role question (usually n) → Install now? → direct Grok materialization
-  // (real dir under src, replacing any symlink or legacy entry).
-  let agentOverrideMap: LazycodexAgentOverrideMap | undefined
-  const hasTuiForLongTail = !!(options.modelSelector || options.tierSelector || options.reasoningSelector)
-  if (options.skipOtherAgents || hasTuiForLongTail) {
-    // TUI path (or explicit skip): do not invoke readline long-tail prompts.
-    const bundled = await loadBundledDefaultOmoOverridesForInteractive()
-    agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {})
-  } else if (shouldConfigure) {
-    agentOverrideMap = await configureOmoAgentOverridesInteractively(
-      reader,
-      discovery,
-      roleConfig,
-      (text) => output.write(text),
-      confirm,
-      options,
-    )
-  } else {
-    // Use defaults (bundled omo overrides + role defaults). No long series of "Configure xxx?" questions.
-    const bundled = await loadBundledDefaultOmoOverridesForInteractive()
-    agentOverrideMap = await mergeLazycodexAgentOverrides(roleConfig, bundled, {})
-  }
+async function readSetupPreset(reader: LineReader): Promise<SetupPreset> {
+  output.write("Global preset [auto]: ")
+  const answer = await reader.next()
+  const value = answer.done === true ? "" : answer.value.trim().toLowerCase()
+  if (value.length === 0 || value === "1" || value === "auto") return "auto"
+  if (value === "2" || value === "balanced") return "balanced"
+  if (value === "3" || value === "grok") return "grok"
+  if (value === "4" || value === "gpt") return "gpt"
+  if (value === "5" || value === "gemini") return "gemini"
+  if (value === "6" || value === "glm") return "glm"
+  if (value === "7" || value === "multi") return "multi"
+  output.write(`Unknown preset "${value}". Using auto.\n`)
+  return "auto"
+}
 
-  // Use the user-selected explorer model as the effective global default so [models].default
-  // and lazycodex.models.default reflect a deliberate setup choice.
-  const effectiveMapping = discovery.mapping
-    ? { ...discovery.mapping, default: roleConfig.explorer.model }
-    : { default: roleConfig.explorer.model, fast: roleConfig.explorer.model, reasoning: roleConfig.reasoning.model, coding: roleConfig.coding.model }
-
-  return { ...discovery, mapping: effectiveMapping, agentConfig: roleConfig, agentOverrideMap }
+async function readReasoningEffort(reader: LineReader): Promise<ReasoningEffortChoice> {
+  output.write("Global reasoning effort [auto/low/medium/high/xhigh, Enter = auto]: ")
+  const answer = await reader.next()
+  const value = answer.done === true ? "" : answer.value.trim().toLowerCase()
+  if (value.length === 0 || value === "auto") return "auto"
+  if (value === "low" || value === "medium" || value === "high" || value === "xhigh") return value
+  output.write(`Unknown reasoning effort "${value}". Using auto.\n`)
+  return "auto"
 }
 
 async function confirm(reader: LineReader, prompt: string): Promise<boolean> {

@@ -34,9 +34,25 @@ npx @islee23520/lfg --json setup --run --base-url <your-v1-base>
 
 Or merge manually: delete `api_key` from `[endpoints]`; keep `models_base_url`.
 
+## Global presets and reasoning effort
+
+`lfg setup` no longer asks for each agent model individually. Interactive setup chooses one global preset, then derives OMO agent routing from the resulting `default` / `fast` / `reasoning` / `coding` routes.
+
+Supported presets:
+
+- `auto` (default): choose the best available routes from the discovered proxy catalog.
+- `balanced`: GPT default, Gemini fast, Grok reasoning/coding when available.
+- `grok`: prefer Grok routes.
+- `gpt`: prefer GPT/Codex routes.
+- `gemini`: prefer Gemini long-context routes.
+- `glm`: prefer GLM routes.
+- `multi`: balanced routing plus provider-scoped `[model.*].base_url` values.
+
+Use `--reasoning-effort auto|low|medium|high|xhigh` to control global reasoning effort for OpenAI-compatible proxy models. `auto` uses reasoning metadata advertised by `/v1/models` when present and falls back to role defaults.
+
 ## Multi-provider preset
 
-`lfg --json setup --preset multi` keeps the Grok-first default routing, but discovery metadata may group model ids by provider so generated `[model.*]` sections can carry provider-specific `base_url` values. This is a GJC-style multi-provider configuration surface without reading `~/.gjc` or changing the default single-endpoint setup path.
+`lfg --json setup --preset multi` uses balanced global routing, but discovery metadata may group model ids by provider so generated `[model.*]` sections can carry provider-specific `base_url` values. This is a GJC-style multi-provider configuration surface without reading `~/.gjc` or changing the default single-endpoint setup path.
 
 ## Tests
 

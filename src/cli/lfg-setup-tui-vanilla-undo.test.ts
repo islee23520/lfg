@@ -46,46 +46,46 @@ function discovery() {
 }
 
 describe("lfg-setup-tui vanilla + undo", () => {
-  test("vanilla path (default) skips per-agent selection and installs Grok defaults", async () => {
+  test("auto preset path skips per-agent selection and installs global route defaults", async () => {
     const prompts = (await import("@clack/prompts")) as any
     const calls: unknown[][] = prompts.__calls
     calls.length = 0
     installerMock.runLazycodexInstaller.mockClear()
 
-    // select defaults to options[0] => "vanilla" for the Model setup question.
+    // select defaults to options[0] => "auto" for the global preset question.
     await tui.runSetupTui({}, { plan: {}, resolved: { discovery: discovery() } }, {
       prompts,
       colors: { inverse: (s: string) => s, green: (s: string) => s },
     })
 
-    // The mode question is present and Vanilla is its first/default option.
-    const modeSelect = calls.find((c) => c[0] === "select" && /Model setup/.test(String(c[1])))
+    const modeSelect = calls.find((c) => c[0] === "select" && /Global model preset/.test(String(c[1])))
+    const reasoningSelect = calls.find((c) => c[0] === "select" && /Global reasoning effort/.test(String(c[1])))
     expect(modeSelect).toBeTruthy()
+    expect(reasoningSelect).toBeTruthy()
 
     // NO per-agent model/tier/reasoning selects in the vanilla path (exclude the mode question itself).
     const perAgentModelPrompts = calls.filter((c) => {
       const msg = String(c[1] ?? "")
       return (c[0] === "autocomplete" || c[0] === "select") &&
         /model|service tier|reasoning/i.test(msg) &&
-        !/Model setup/.test(msg)
+        !/Global model preset/.test(msg) && !/Global reasoning effort/.test(msg)
     })
     expect(perAgentModelPrompts.length).toBe(0)
 
-    // Vanilla summary + Setup results notes are present, with Grok models.
-    expect(calls.some((c) => c[0] === "note" && /Vanilla Grok models/.test(String(c[1])))).toBe(true)
     const resultsNote = calls.find((c) => c[0] === "note" && /Setup results/.test(String(c[1])))
     const resultsBody = String(resultsNote?.[2] ?? "")
-    expect(resultsBody).toMatch(/explorer:.*grok.*\(tier:/)
+    expect(resultsBody).toContain("Preset: auto")
+    expect(resultsBody).toContain("Agent routing is derived from the global preset")
 
     // Install Summary + install executed with Grok agent overrides.
     expect(calls.some((c) => c[0] === "note" && /Install Summary/.test(String(c[1])))).toBe(true)
     expect(installerMock.runLazycodexInstaller).toHaveBeenCalledTimes(1)
     const installed = (installerMock.runLazycodexInstaller.mock.calls as unknown as ReadonlyArray<readonly unknown[]>)[0]?.[0] as Record<string, any>
-    expect(installed?.agentOverrideMap?.sisyphus?.model).toMatch(/^grok/)
-    expect(installed?.agentConfig?.explorer?.model).toMatch(/^grok/)
+    expect(installed?.agentOverrideMap?.sisyphus?.model).toBe("gpt-5.3-codex-spark")
+    expect(installed?.agentConfig?.explorer?.model).toBe("grok-3-mini-fast")
   })
 
-  test("vanilla path works with no proxy (resolved discovery null)", async () => {
+  test("auto preset works with no proxy by preserving existing model config", async () => {
     const prompts = (await import("@clack/prompts")) as any
     const calls: unknown[][] = prompts.__calls
     calls.length = 0
@@ -97,37 +97,21 @@ describe("lfg-setup-tui vanilla + undo", () => {
     })
 
     expect(installerMock.runLazycodexInstaller).toHaveBeenCalledTimes(1)
-    const installed = (installerMock.runLazycodexInstaller.mock.calls as unknown as ReadonlyArray<readonly unknown[]>)[0]?.[0] as Record<string, any>
-    expect(installed?.agentOverrideMap?.sisyphus?.model).toMatch(/^grok/)
+    const installed = (installerMock.runLazycodexInstaller.mock.calls as unknown as ReadonlyArray<readonly unknown[]>)[0]?.[0]
+    expect(installed).toBeNull()
   })
 
-  test("per-agent keep/redo: answering 'no' re-runs just that agent", async () => {
+  test("global reasoning effort select applies to all derived role agents", async () => {
     const prompts = (await import("@clack/prompts")) as any
-    const calls: unknown[][] = prompts.__calls
-    calls.length = 0
+    prompts.__calls.length = 0
+    installerMock.runLazycodexInstaller.mockClear()
 
-    let explorerModelShown = 0
     const origSelect = prompts.select
-    const origAutocomplete = prompts.autocomplete
-    const origConfirm = prompts.confirm
     prompts.select = async (opts: any) => {
-      if (/Model setup/.test(String(opts.message ?? ""))) return "proxy"
-      if (/service tier/i.test(String(opts.message ?? ""))) return "default"
-      return String(opts.options?.[0]?.value ?? "grok-3-mini-fast")
-    }
-    prompts.autocomplete = async (opts: any) => {
-      if (/explorer model/i.test(String(opts.message ?? ""))) explorerModelShown += 1
-      return String(opts.initialValue ?? opts.options?.[0]?.value ?? "grok-3-mini-fast")
-    }
-    let explorerKeep = 0
-    prompts.confirm = async (opts: any) => {
-      const m = String(opts.message ?? "")
-      calls.push(["confirm", m])
-      if (/Keep explorer/.test(m)) {
-        explorerKeep += 1
-        return explorerKeep === 1 ? false : true
-      }
-      return true
+      const message = String(opts.message ?? "")
+      if (/Global model preset/.test(message)) return "balanced"
+      if (/Global reasoning effort/.test(message)) return "xhigh"
+      return String(opts.options?.[0]?.value ?? "auto")
     }
 
     await tui.runSetupTui({}, { plan: {}, resolved: { discovery: discovery() } }, {
@@ -136,16 +120,14 @@ describe("lfg-setup-tui vanilla + undo", () => {
     })
 
     prompts.select = origSelect
-    prompts.autocomplete = origAutocomplete
-    prompts.confirm = origConfirm
 
-    // explorer model select shown twice: initial pick + one redo.
-    expect(explorerModelShown).toBe(2)
-    // The keep confirm was asked for explorer at least twice (initial + after redo).
-    expect(explorerKeep).toBeGreaterThanOrEqual(2)
+    const installed = (installerMock.runLazycodexInstaller.mock.calls as unknown as ReadonlyArray<readonly unknown[]>)[0]?.[0] as Record<string, any>
+    expect(installed?.agentConfig?.explorer?.reasoningLevel).toBe("xhigh")
+    expect(installed?.agentConfig?.reasoning?.reasoningLevel).toBe("xhigh")
+    expect(installed?.agentConfig?.coding?.reasoningLevel).toBe("xhigh")
   })
 
-  test("cancel on the keep/redo confirm aborts cleanly with no install", async () => {
+  test("cancel on the global preset select aborts cleanly with no install", async () => {
     const prompts = (await import("@clack/prompts")) as any
     const calls: unknown[][] = prompts.__calls
     calls.length = 0
@@ -153,9 +135,7 @@ describe("lfg-setup-tui vanilla + undo", () => {
 
     const CANCEL = Symbol.for("clack-cancel")
     const origSelect = prompts.select
-    const origConfirm = prompts.confirm
-    prompts.select = async (opts: any) => (/Model setup/.test(String(opts.message ?? "")) ? "proxy" : String(opts.options?.[0]?.value ?? "grok-3-mini-fast"))
-    prompts.confirm = async (opts: any) => (/Keep explorer/.test(String(opts.message ?? "")) ? CANCEL : true)
+    prompts.select = async (opts: any) => (/Global model preset/.test(String(opts.message ?? "")) ? CANCEL : String(opts.options?.[0]?.value ?? "auto"))
 
     await expect(
       tui.runSetupTui({}, { plan: {}, resolved: { discovery: discovery() } }, {
@@ -165,7 +145,6 @@ describe("lfg-setup-tui vanilla + undo", () => {
     ).rejects.toThrow(/cancelled/)
 
     prompts.select = origSelect
-    prompts.confirm = origConfirm
 
     expect(calls.some((c) => c[0] === "cancel")).toBe(true)
     expect(installerMock.runLazycodexInstaller).not.toHaveBeenCalled()

@@ -27,7 +27,7 @@ describe("model mapping catalog", () => {
     ])
 
     expect(applyModelPreset(discovery, "grok").mapping).toMatchObject({
-      default: "gpt-5.5",
+      default: "grok-4.20-0309-non-reasoning",
       fast: "grok-3-mini-fast",
       reasoning: "grok-4.20-0309-reasoning",
     })
@@ -48,11 +48,11 @@ describe("model mapping catalog", () => {
     expect(mapping.fast).toBe("gpt-5.4-mini-fast")
   })
 
-  test("generic and grok preset fallbacks prefer gpt-5.4-mini-fast over non-fast mini", async () => {
+  test("generic and auto preset fallbacks prefer gpt-5.4-mini-fast over non-fast mini", async () => {
     const discovery = await fetchModelDiscoveryFromPayload(["gpt-5.4-mini", "gpt-5.4-mini-fast", "gpt-5.5"])
 
     expect(discovery.mapping.fast).toBe("gpt-5.4-mini-fast")
-    expect(applyModelPreset(discovery, "grok").mapping.fast).toBe("gpt-5.4-mini-fast")
+    expect(applyModelPreset(discovery, "auto").mapping.fast).toBe("gpt-5.4-mini-fast")
   })
 })
 

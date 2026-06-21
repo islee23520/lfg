@@ -1,7 +1,7 @@
 import { isRecord, type JsonObject } from "./lfg-json"
 import { aliasGroupKey, loadPublicLiteLLMContextMap } from "./lfg-model-context-catalog"
 import { extractContextWindows, extractModelFeatureMetadata, resolveReasoningEffortForModel, type ModelFeatureMetadata } from "./lfg-model-metadata"
-import type { LazycodexAgentOverrideMap, ServiceTier } from "../grok-adapter/lazycodex-agent-overrides"
+import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap, ServiceTier } from "../grok-adapter/lazycodex-agent-overrides"
 import { normalizeModelIdForConfig } from "../grok-adapter/model-id-safety"
 
 export type ModelMapping = {
@@ -12,7 +12,8 @@ export type ModelMapping = {
 }
 
 export type ReasoningLevel = "low" | "medium" | "high" | "xhigh"
-export type SetupPreset = "grok" | "gpt" | "multi"
+export type ReasoningEffortChoice = ReasoningLevel | "auto"
+export type SetupPreset = "auto" | "balanced" | "grok" | "gpt" | "gemini" | "glm" | "multi"
 
 export type LazycodexAgentName = "explorer" | "reasoning" | "coding"
 
@@ -39,6 +40,7 @@ export type ModelDiscovery = {
   readonly preset?: SetupPreset
   readonly providerEndpoints?: readonly MultiProviderEndpoint[]
   readonly agentConfig?: LazycodexAgentConfig
+  readonly reasoningEffort?: ReasoningEffortChoice
   /** Per-agent overrides (LFP-style); persisted to ~/.grok/lazycodex-agent-overrides.json on install. */
   readonly agentOverrideMap?: LazycodexAgentOverrideMap
   /** Model id → context window size (in tokens).
@@ -64,8 +66,8 @@ export function modelDiscoveryPlan(): JsonObject {
     endpoint: "OpenAI-compatible /v1/models",
     prompt: "OpenAI-compatible base URL (optional — auto from ~/.grok/config.toml or http://127.0.0.1:8317/v1)",
     autoSources: ["--base-url", "LFG_GROK_BASE_URL", "[endpoints].models_base_url", "default_proxy"],
-    presets: ["grok", "gpt"],
-    defaultPreset: "grok",
+    presets: ["auto", "balanced", "grok", "gpt", "gemini", "glm", "multi"],
+    defaultPreset: "auto",
   }
 }
 
@@ -165,27 +167,110 @@ export function modelDiscoveryEnv(discovery: ModelDiscovery | null, agentConfig:
 }
 
 export function defaultLazycodexAgentConfig(discovery: ModelDiscovery): LazycodexAgentConfig {
+  return lazycodexAgentConfigForReasoning(discovery, discovery.reasoningEffort ?? "auto")
+}
+
+export function withReasoningEffort(discovery: ModelDiscovery, reasoningEffort: ReasoningEffortChoice): ModelDiscovery {
+  const agentConfig = lazycodexAgentConfigForReasoning(discovery, reasoningEffort)
+  return {
+    ...discovery,
+    reasoningEffort,
+    agentConfig,
+    agentOverrideMap: globalPresetAgentOverrides(discovery, reasoningEffort, agentConfig),
+  }
+}
+
+function lazycodexAgentConfigForReasoning(discovery: ModelDiscovery, reasoningEffort: ReasoningEffortChoice): LazycodexAgentConfig {
+  const explorerReasoning = resolveAgentReasoning(discovery, discovery.mapping.fast, "low", reasoningEffort)
+  const reasoningReasoning = resolveAgentReasoning(discovery, discovery.mapping.reasoning, "high", reasoningEffort)
+  const codingReasoning = resolveAgentReasoning(discovery, discovery.mapping.coding, "medium", reasoningEffort)
   return {
     explorer: {
       model: discovery.mapping.fast,
-      reasoningLevel: resolveReasoningEffortForModel(discovery.modelFeatureMetadata, discovery.mapping.fast, "low"),
+      reasoningLevel: explorerReasoning,
       serviceTier: "fast",
     },
     reasoning: {
       model: discovery.mapping.reasoning,
-      reasoningLevel: resolveReasoningEffortForModel(discovery.modelFeatureMetadata, discovery.mapping.reasoning, "high"),
+      reasoningLevel: reasoningReasoning,
     },
     coding: {
       model: discovery.mapping.coding,
-      reasoningLevel: resolveReasoningEffortForModel(discovery.modelFeatureMetadata, discovery.mapping.coding, "medium"),
+      reasoningLevel: codingReasoning,
     },
   }
 }
 
+function resolveAgentReasoning(discovery: ModelDiscovery, modelId: string, fallback: ReasoningLevel, choice: ReasoningEffortChoice): ReasoningLevel {
+  return choice === "auto" ? resolveReasoningEffortForModel(discovery.modelFeatureMetadata, modelId, fallback) : choice
+}
+
+function globalPresetAgentOverrides(
+  discovery: ModelDiscovery,
+  reasoningEffort: ReasoningEffortChoice,
+  agentConfig: LazycodexAgentConfig,
+): LazycodexAgentOverrideMap {
+  const fast = agentOverride(discovery.mapping.fast, agentConfig.explorer.reasoningLevel, "fast")
+  const defaultRoute = agentOverride(discovery.mapping.default, resolveAgentReasoning(discovery, discovery.mapping.default, "medium", reasoningEffort))
+  const reasoning = agentOverride(discovery.mapping.reasoning, agentConfig.reasoning.reasoningLevel)
+  const coding = agentOverride(discovery.mapping.coding, agentConfig.coding.reasoningLevel)
+  return {
+    default: defaultRoute,
+    sisyphus: defaultRoute,
+    oracle: defaultRoute,
+    momus: defaultRoute,
+    "multimodal-looker": fast,
+    explorer: fast,
+    librarian: fast,
+    quick: fast,
+    deep: coding,
+    ultrabrain: coding,
+    "unspecified-low": coding,
+    "unspecified-high": coding,
+    writing: coding,
+    hephaestus: coding,
+    coding,
+    reviewer: coding,
+    prometheus: reasoning,
+    atlas: reasoning,
+    plan: reasoning,
+    metis: reasoning,
+    reasoning,
+    "codex-ultrawork-reviewer": reasoning,
+    "sisyphus-junior": reasoning,
+  }
+}
+
+function agentOverride(model: string, reasoningLevel: ReasoningLevel, serviceTier?: ServiceTier): LazycodexAgentModelOverride {
+  return {
+    model,
+    reasoningLevel,
+    ...(serviceTier === undefined ? {} : { serviceTier }),
+  }
+}
+
 export function applyModelPreset(discovery: ModelDiscovery, preset: SetupPreset): ModelDiscovery {
-  const mapping = preset === "gpt" ? gptCenteredMapping(discovery.modelIds) : grokCenteredMapping(discovery.modelIds)
+  const mapping = presetMapping(discovery.modelIds, preset)
   const providerEndpoints = preset === "multi" ? multiProviderEndpoints(discovery) : discovery.providerEndpoints
   return { ...discovery, mapping, preset, ...(providerEndpoints === undefined ? {} : { providerEndpoints }) }
+}
+
+function presetMapping(modelIds: readonly string[], preset: SetupPreset): ModelMapping {
+  switch (preset) {
+    case "auto":
+      return autoBestMapping(modelIds)
+    case "balanced":
+    case "multi":
+      return balancedMapping(modelIds)
+    case "grok":
+      return grokCenteredMapping(modelIds)
+    case "gpt":
+      return gptCenteredMapping(modelIds)
+    case "gemini":
+      return geminiCenteredMapping(modelIds)
+    case "glm":
+      return glmCenteredMapping(modelIds)
+  }
 }
 
 function multiProviderEndpoints(discovery: ModelDiscovery): readonly MultiProviderEndpoint[] {
@@ -267,20 +352,34 @@ function mapModels(modelIds: readonly string[]): ModelMapping {
     throw new ModelDiscoveryError("Cannot map an empty model list")
   }
   return {
-    default: findModel(modelIds, ["grok-4.3", "grok-4.20-0309-non-reasoning", "grok-3-mini", "grok-build", "grok-3", "grok", "gpt-5.5", "glm-5.2", "gemini-3-pro"]) ?? canonicalModelFor(modelIds, first),
+    default: findModel(modelIds, ["gpt-5.5", "grok-4.3", "glm-5.2", "gemini-3.1-pro-preview", "gemini-3-pro-preview", "grok-4.20-0309-non-reasoning", "grok-3-mini", "grok-3", "grok", "grok-build"]) ?? canonicalModelFor(modelIds, first),
     fast: findModel(modelIds, ["grok-3-mini-fast", "gpt-5.4-mini-fast", "grok-composer-2.5-fast", "grok-composer", "grok-4.20-0309-non-reasoning", "gemini-3-pro-low", "gpt-5.3-codex-spark", "glm-5-turbo", "mini", "flash", "small", "fast"]) ?? canonicalModelFor(modelIds, first),
     reasoning: findModel(modelIds, ["grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5", "gpt-5.3-codex-spark", "glm-5.2", "gemini-3-pro-high", "reasoning", "reason", "o1", "o3", "o4", "r1", "grok-4", "gpt-5"]) ?? canonicalModelFor(modelIds, first),
     coding: findModel(modelIds, ["grok-4.20-0309-non-reasoning", "gpt-5.3-codex-spark", "codex-auto-review", "codex", "grok-build", "glm-5-turbo", "gemini-3-pro-low", "code", "coder", "gpt", "grok", "claude"]) ?? canonicalModelFor(modelIds, first),
   }
 }
 
+function autoBestMapping(modelIds: readonly string[]): ModelMapping {
+  return balancedMapping(modelIds)
+}
+
+function balancedMapping(modelIds: readonly string[]): ModelMapping {
+  const fallback = mapModels(modelIds)
+  return {
+    default: findModel(modelIds, ["gpt-5.5", "gpt-5.4", "gpt-5", "grok-4.3", "glm-5.2", "gemini-3.1-pro-preview", "gemini-3-pro-preview"]) ?? fallback.default,
+    fast: findModel(modelIds, ["gemini-3-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini", "grok-3-mini-fast", "gpt-5.4-mini-fast", "flash", "fast", "mini"]) ?? fallback.fast,
+    reasoning: findModel(modelIds, ["grok-4.20-0309-reasoning", "grok-4.3", "glm-5.2", "gpt-5.5", "gemini-3.1-pro-preview", "reasoning", "grok-4"]) ?? fallback.reasoning,
+    coding: findModel(modelIds, ["grok-4.20-0309-non-reasoning", "gpt-5.3-codex-spark", "codex-auto-review", "glm-5-turbo", "grok-build", "codex", "code", "coder"]) ?? fallback.coding,
+  }
+}
+
 function grokCenteredMapping(modelIds: readonly string[]): ModelMapping {
   const fallback = mapModels(modelIds)
   return {
-    default: findModel(modelIds, ["gpt-5.5", "grok-4.3", "grok-4.20-0309-non-reasoning", "grok-3-mini-fast", "grok-3-mini", "grok-build", "grok"]) ?? fallback.default,
-    fast: findModel(modelIds, ["grok-3-mini-fast", "gpt-5.4-mini-fast", "grok-composer-2.5-fast", "grok-composer", "grok-4.20-0309-non-reasoning", "grok-3-mini", "mini", "fast"]) ?? fallback.fast,
+    default: findModel(modelIds, ["grok-4.3", "grok-4.20-0309-non-reasoning", "grok-3-mini-fast", "grok-3-mini", "grok-build", "grok", "gpt-5.5"]) ?? fallback.default,
+    fast: findModel(modelIds, ["grok-3-mini-fast", "grok-composer-2.5-fast", "grok-composer", "grok-4.20-0309-non-reasoning", "grok-3-mini", "mini", "fast", "gemini-3-flash"]) ?? fallback.fast,
     reasoning: findModel(modelIds, ["grok-4.20-0309-reasoning", "grok-4.3", "grok-4", "reasoning", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"]) ?? fallback.reasoning,
-    coding: findModel(modelIds, ["grok-4.20-0309-non-reasoning", "gpt-5.3-codex-spark", "codex-auto-review", "codex", "grok-build", "glm-5-turbo", "gemini-3-pro-low", "grok"]) ?? fallback.coding,
+    coding: findModel(modelIds, ["grok-4.20-0309-non-reasoning", "grok-build", "grok", "gpt-5.3-codex-spark", "codex-auto-review", "codex", "glm-5-turbo", "gemini-3-pro-low"]) ?? fallback.coding,
   }
 }
 
@@ -291,6 +390,26 @@ function gptCenteredMapping(modelIds: readonly string[]): ModelMapping {
     fast: findModel(modelIds, ["gpt-5.4-mini-fast", "gpt-5.3-codex-spark", "gpt-5.4-mini", "gemini-3-pro-low", "grok-4.20-0309-non-reasoning", "glm-5-turbo", "mini", "fast"]) ?? fallback.fast,
     reasoning: findModel(modelIds, ["gpt-5.5", "gpt-5.3-codex-spark", "gpt-5", "grok-4.20-0309-reasoning", "glm-5.2", "gemini-3-pro-high", "reasoning", "o3", "o4"]) ?? fallback.reasoning,
     coding: findModel(modelIds, ["gpt-5.3-codex-spark", "gpt-5.3-codex", "codex", "grok-4.20-0309-non-reasoning", "glm-5-turbo", "gemini-3-pro-low", "gpt"]) ?? fallback.coding,
+  }
+}
+
+function geminiCenteredMapping(modelIds: readonly string[]): ModelMapping {
+  const fallback = mapModels(modelIds)
+  return {
+    default: findModel(modelIds, ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-2.5-pro", "gemini-pro", "gemini", "gpt-5.5", "grok-4.3"]) ?? fallback.default,
+    fast: findModel(modelIds, ["gemini-3-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini", "flash", "grok-3-mini-fast"]) ?? fallback.fast,
+    reasoning: findModel(modelIds, ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-2.5-pro", "grok-4.20-0309-reasoning", "glm-5.2", "gpt-5.5"]) ?? fallback.reasoning,
+    coding: findModel(modelIds, ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-2.5-pro", "grok-4.20-0309-non-reasoning", "gpt-5.3-codex-spark", "codex"]) ?? fallback.coding,
+  }
+}
+
+function glmCenteredMapping(modelIds: readonly string[]): ModelMapping {
+  const fallback = mapModels(modelIds)
+  return {
+    default: findModel(modelIds, ["glm-5.2", "glm-5.1", "glm-5", "glm-4.7", "glm", "gpt-5.5", "grok-4.3"]) ?? fallback.default,
+    fast: findModel(modelIds, ["glm-5-turbo", "glm-5v-turbo", "glm-4.5-air", "glm", "gemini-3-flash", "grok-3-mini-fast", "fast"]) ?? fallback.fast,
+    reasoning: findModel(modelIds, ["glm-5.2", "glm-5.1", "glm-5", "grok-4.20-0309-reasoning", "gpt-5.5", "reasoning"]) ?? fallback.reasoning,
+    coding: findModel(modelIds, ["glm-5-turbo", "glm-5.2", "glm-5", "grok-4.20-0309-non-reasoning", "gpt-5.3-codex-spark", "codex"]) ?? fallback.coding,
   }
 }
 

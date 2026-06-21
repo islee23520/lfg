@@ -3,7 +3,7 @@ import { unsupportedCommand } from "./lfg-command"
 import { runInstallWizard } from "./lfg-interactive"
 import { runLazycodexInstaller } from "./lfg-installer"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../grok-adapter/run-grok-install"
-import { applyModelPreset, type SetupPreset } from "./lfg-models"
+import { applyModelPreset, withReasoningEffort, type ReasoningEffortChoice, type SetupPreset } from "./lfg-models"
 import { resolveSetupDiscovery } from "../grok-adapter/resolve-setup-discovery"
 import { isRecord, type JsonObject } from "./lfg-json"
 import { refreshGrokModelConfig } from "./lfg-grok-config"
@@ -20,11 +20,14 @@ type ParsedArgs = {
   readonly noTui: boolean
   readonly preset: SetupPreset
   readonly presetError: string | null
+  readonly reasoningEffort: ReasoningEffortChoice
+  readonly reasoningEffortError: string | null
   readonly baseUrl: string | null
   readonly positional: readonly string[]
 }
 
-const DEFAULT_SETUP_PRESET: SetupPreset = "grok"
+const DEFAULT_SETUP_PRESET: SetupPreset = "auto"
+const DEFAULT_REASONING_EFFORT: ReasoningEffortChoice = "auto"
 
 async function main(argv: readonly string[]): Promise<number> {
   const parsed = parseArgs(argv)
@@ -73,7 +76,10 @@ async function main(argv: readonly string[]): Promise<number> {
 
 async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   if (args.presetError !== null) {
-    return { ok: false, status: "invalid_preset", error: args.presetError, supportedPresets: ["grok", "gpt"] }
+    return { ok: false, status: "invalid_preset", error: args.presetError, supportedPresets: ["auto", "balanced", "grok", "gpt", "gemini", "glm", "multi"] }
+  }
+  if (args.reasoningEffortError !== null) {
+    return { ok: false, status: "invalid_reasoning_effort", error: args.reasoningEffortError, supportedReasoningEffort: ["auto", "low", "medium", "high", "xhigh"] }
   }
   // Tolerate TUI flags (and --force) that may appear as extra positionals from shell invocation
   // (e.g. `lfg setup --no-tui`, `lfg --no-tui setup`). We already parse them into args.noTui etc.,
@@ -89,7 +95,7 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   }
   const home = resolveGrokSetupHome(process.env)
   const resolved = await resolveSetupDiscovery({ home, cliBaseUrl: args.baseUrl })
-  const discovery = resolved.discovery === null ? null : applyModelPreset(resolved.discovery, args.preset)
+  const discovery = resolved.discovery === null ? null : withReasoningEffort(applyModelPreset(resolved.discovery, args.preset), args.reasoningEffort)
   const presetResolved = { ...resolved, discovery }
 
   // --refresh path: lightweight re-sync of model list + per-model context_window + auth into ~/.grok/config.toml.
@@ -162,6 +168,8 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let baseUrl: string | null = null
   let preset: SetupPreset = DEFAULT_SETUP_PRESET
   let presetError: string | null = null
+  let reasoningEffort: ReasoningEffortChoice = DEFAULT_REASONING_EFFORT
+  let reasoningEffortError: string | null = null
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === "--json" || arg === "--run" || arg === "--force" || arg === "--refresh" || arg === "--install-only" || arg === "--no-tui") {
@@ -175,6 +183,19 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         continue
       }
       presetError = `Unsupported setup preset: ${typeof value === "string" ? value : ""}`
+      if (typeof value === "string") {
+        index += 1
+      }
+      continue
+    }
+    if (arg === "--reasoning-effort") {
+      const value = argv[index + 1]
+      if (isReasoningEffortChoice(value)) {
+        reasoningEffort = value
+        index += 1
+        continue
+      }
+      reasoningEffortError = `Unsupported reasoning effort: ${typeof value === "string" ? value : ""}`
       if (typeof value === "string") {
         index += 1
       }
@@ -201,13 +222,19 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     noTui: argv.includes("--no-tui"),
     preset,
     presetError,
+    reasoningEffort,
+    reasoningEffortError,
     baseUrl,
     positional,
   }
 }
 
 function isSetupPreset(value: unknown): value is SetupPreset {
-  return value === "grok" || value === "gpt" || value === "multi"
+  return value === "auto" || value === "balanced" || value === "grok" || value === "gpt" || value === "gemini" || value === "glm" || value === "multi"
+}
+
+function isReasoningEffortChoice(value: unknown): value is ReasoningEffortChoice {
+  return value === "auto" || value === "low" || value === "medium" || value === "high" || value === "xhigh"
 }
 
 function emit(value: JsonObject | string, json: boolean): void {
@@ -236,9 +263,10 @@ function help(): string {
     "  lfg --json setup",
     "  lfg --json setup --run",
     "  lfg setup --run",
-    "  lfg --json setup --preset grok",
-    "  lfg --json setup --preset gpt",
-    "  lfg --json setup --preset multi",
+    "  lfg --json setup --preset auto",
+    "  lfg --json setup --preset balanced",
+    "  lfg --json setup --preset grok|gpt|gemini|glm|multi",
+    "  lfg --json setup --reasoning-effort auto|low|medium|high|xhigh",
     "  lfg --json setup --run --force",
     "  lfg --json setup --run --install-only",
     "  lfg setup --run --install-only",

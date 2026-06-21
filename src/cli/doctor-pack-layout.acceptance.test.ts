@@ -59,6 +59,6 @@ describe("packed CLI layout acceptance (#25)", () => {
     expect(json.ok).toBe(true)
     expect(json.command).toBe("setup")
     expect(json.companionPackage).toBe("lfg-grok-install")
-    expect(json.selectedPreset).toBe("grok")
+    expect(json.selectedPreset).toBe("auto")
   }, 120_000)
 })

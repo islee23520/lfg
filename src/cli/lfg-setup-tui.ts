@@ -1,18 +1,15 @@
 import * as clack from "@clack/prompts";
 import pc from "picocolors";
 
-import { applyModelPreset, type LazycodexAgentConfig, type ModelDiscovery } from "./lfg-models";
-import { buildModelChoicesForTui, createSetupSelectors, type ModelSelector, type ReasoningSelector, type TierSelector } from "./lfg-setup-tui-selectors";
+import { applyModelPreset, defaultLazycodexAgentConfig, withReasoningEffort, type ModelDiscovery, type ReasoningEffortChoice, type SetupPreset } from "./lfg-models";
+import type { ModelSelector, ReasoningSelector, TierSelector } from "./lfg-setup-tui-selectors";
 import { loadBundledDefaultOmoOverrides } from "../grok-adapter/lazycodex-agent-overrides";
 import {
   buildVanillaGrokConfig,
   formatVanillaResults,
   formatVanillaSummary,
   readDiscoveryFromContext,
-  toRecommendationOverrideMap,
 } from "./lfg-setup-tui-data";
-import { configureAgentOverrides, configureRoleAgents, resolveFastMappingSlot } from "./lfg-setup-tui-agents";
-import { formatRecommendationTable } from "../grok-adapter/model-recommendations";
 
 export function shouldUseSetupTui(args: { readonly noTui?: boolean }, options: { readonly check?: boolean; readonly input?: { readonly isTTY?: boolean }; readonly output?: { readonly isTTY?: boolean } }): boolean {
   if (options.check || args.noTui === true) return false;
@@ -62,19 +59,37 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
 
   const bundled = await loadBundledDefaultOmoOverrides();
 
-  // Ask how to source models. This is fundamentally a Grok plugin, so "Vanilla Grok models"
-  // (no proxy, no per-agent selection) is the default. Choosing cli-proxy keeps the prior
-  // discovery-based model-selection flow.
   const modelMode = await prompts.select({
-    message: "Model setup",
+    message: "Global model preset",
     options: [
-      { value: "vanilla", label: "Vanilla Grok models (recommended)", hint: "built-in Grok defaults, no proxy" },
-      { value: "proxy", label: "Set up cli-proxy / model provider", hint: "discover models from proxy" },
-      { value: "multi", label: "Multi-provider preset", hint: "GJC-style provider grouping, Grok setup remains default-safe" },
+      { value: "auto", label: "Auto best available (recommended)", hint: "choose the best global routes from discovered models" },
+      { value: "balanced", label: "Balanced multi-provider", hint: "GPT default, Gemini fast, Grok reasoning/coding" },
+      { value: "grok", label: "Grok-specialized", hint: "Prefer Grok models for all global routes" },
+      { value: "gpt", label: "GPT-centered", hint: "Prefer GPT/Codex models for default/reasoning/coding" },
+      { value: "gemini", label: "Gemini-centered", hint: "Prefer Gemini for long-context exploration and summaries" },
+      { value: "glm", label: "GLM-centered", hint: "Prefer GLM for default/reasoning with Grok/GPT fallback" },
+      { value: "multi", label: "Provider-scoped config", hint: "Balanced routes plus provider base URLs for xAI/Gemini/GLM/GPT" },
+      { value: "vanilla", label: "Vanilla Grok models", hint: "built-in Grok defaults, no proxy discovery" },
     ],
-    initialValue: "vanilla",
+    initialValue: "auto",
   });
   if (prompts.isCancel(modelMode)) {
+    prompts.cancel("lfg setup cancelled.");
+    throw new Error("lfg setup cancelled");
+  }
+
+  const reasoningEffort = await prompts.select({
+    message: "Global reasoning effort",
+    options: [
+      { value: "auto", label: "Auto from model metadata (recommended)", hint: "use proxy-advertised effort when available; otherwise role defaults" },
+      { value: "low", label: "Low", hint: "fast/cheap" },
+      { value: "medium", label: "Medium", hint: "balanced" },
+      { value: "high", label: "High", hint: "deeper planning/review" },
+      { value: "xhigh", label: "Extra high", hint: "maximum reasoning where supported" },
+    ],
+    initialValue: "auto",
+  });
+  if (prompts.isCancel(reasoningEffort)) {
     prompts.cancel("lfg setup cancelled.");
     throw new Error("lfg setup cancelled");
   }
@@ -83,46 +98,29 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
   let resultsText: string;
   let modelConfigLine: string;
 
-  if (modelMode === "proxy" || modelMode === "multi") {
-    const baseDiscovery = readDiscoveryFromContext(context);
-    const discovery = modelMode === "multi" && baseDiscovery !== null ? applyModelPreset(baseDiscovery, "multi") : baseDiscovery;
-    const choices = buildModelChoicesForTui(discovery?.modelIds ?? []);
-    const selectors = createSetupSelectors(prompts);
-    const bundledRecommendationOverrides = toRecommendationOverrideMap(bundled);
-    prompts.note(formatRecommendationTable(discovery?.modelIds ?? [], bundledRecommendationOverrides, { condensed: true }), "Model recommendations");
-    const roleResults = await configureRoleAgents(prompts, discovery, choices, selectors, bundledRecommendationOverrides);
-    const agentConfig = {
-      explorer: { model: roleResults[0].model, reasoningLevel: roleResults[0].reasoning },
-      reasoning: { model: roleResults[1].model, reasoningLevel: roleResults[1].reasoning },
-      coding: { model: roleResults[2].model, reasoningLevel: roleResults[2].reasoning },
-    } satisfies LazycodexAgentConfig;
-    const agentOverrides = await configureAgentOverrides(prompts, discovery, choices, selectors, roleResults, agentConfig, bundled, bundledRecommendationOverrides);
-    const explorerModel = agentConfig.explorer.model;
-    const effectiveMapping = discovery?.mapping
-      ? { ...discovery.mapping, default: agentOverrides.agentOverrideMap.sisyphus?.model ?? explorerModel, fast: resolveFastMappingSlot(discovery, roleResults, explorerModel) }
-      : { default: agentOverrides.agentOverrideMap.sisyphus?.model ?? explorerModel, fast: explorerModel, reasoning: agentConfig.reasoning.model, coding: agentConfig.coding.model };
-    configuredForInstall = discovery
-      ? { ...discovery, mapping: effectiveMapping, agentConfig, agentOverrideMap: agentOverrides.agentOverrideMap }
-      : null;
-    resultsText = [...roleResults, ...agentOverrides.extraResults]
-      .map(r => `  ${r.name}: ${r.model} / ${r.reasoning} (tier: ${r.tier})`)
-      .join("\n");
-    modelConfigLine = modelMode === "multi" ? "Model config: multi-provider preset from /v1/models" : "Model config: auto-mapped from /v1/models";
-  } else {
-    // Vanilla Grok fast path: skip discovery and per-agent selection; use bundled Grok-first defaults.
+  if (modelMode === "vanilla") {
     const vanilla = buildVanillaGrokConfig(bundled);
     const vanillaModelIds = [...new Set([vanilla.mapping.default, vanilla.mapping.fast, vanilla.mapping.reasoning, vanilla.mapping.coding])];
-    configuredForInstall = {
+    const vanillaDiscovery = withReasoningEffort({
       baseUrl: "",
       modelsUrl: "",
       modelIds: vanillaModelIds,
       mapping: vanilla.mapping,
-      agentConfig: vanilla.agentConfig,
       agentOverrideMap: vanilla.agentOverrideMap,
-    };
+    }, reasoningEffort as ReasoningEffortChoice);
+    configuredForInstall = vanillaDiscovery;
     resultsText = formatVanillaResults(vanilla);
     modelConfigLine = "Model config: built-in Grok defaults (no proxy)";
     prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models");
+  } else {
+    const baseDiscovery = readDiscoveryFromContext(context);
+    const selectedPreset = modelMode as SetupPreset;
+    const discovery = baseDiscovery === null ? null : withReasoningEffort(applyModelPreset(baseDiscovery, selectedPreset), reasoningEffort as ReasoningEffortChoice);
+    configuredForInstall = discovery;
+    resultsText = discovery === null
+      ? "No model discovery was available. Installer will preserve existing model configuration."
+      : formatPresetResults(selectedPreset, discovery);
+    modelConfigLine = `Model config: ${selectedPreset} global preset${selectedPreset === "multi" ? " with provider-scoped base URLs" : ""}`;
   }
 
   prompts.note(resultsText, "Setup results");
@@ -173,4 +171,20 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
     prompts.outro("Install failed during execution. See errors above.");
     return { ok: false, status: "tui_error", error: error instanceof Error ? error.message : String(error), executed: false };
   }
+}
+
+function formatPresetResults(preset: SetupPreset, discovery: ModelDiscovery): string {
+  const agents = defaultLazycodexAgentConfig(discovery);
+  return [
+    `Preset: ${preset}`,
+    `  default: ${discovery.mapping.default}`,
+    `  fast: ${discovery.mapping.fast}`,
+    `  reasoning: ${discovery.mapping.reasoning}`,
+    `  coding: ${discovery.mapping.coding}`,
+    "",
+    "Agent routing is derived from the global preset:",
+    `  explorer: ${agents.explorer.model} / ${agents.explorer.reasoningLevel}`,
+    `  reasoning: ${agents.reasoning.model} / ${agents.reasoning.reasoningLevel}`,
+    `  coding: ${agents.coding.model} / ${agents.coding.reasoningLevel}`,
+  ].join("\n");
 }

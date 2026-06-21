@@ -45,7 +45,7 @@ vi.mock("./lfg-installer.js", () => installerMock)
 import * as tui from "./lfg-setup-tui"
 
 describe("lfg-setup-tui model routing", () => {
-  test("sisyphus selection becomes the persisted Grok default model", async () => {
+  test("balanced preset becomes the persisted global default model", async () => {
     const prompts = await import("@clack/prompts") as any
     prompts.__calls.length = 0
     installerMock.runLazycodexInstaller.mockClear()
@@ -53,15 +53,12 @@ describe("lfg-setup-tui model routing", () => {
     const origSelect = prompts.select
     const origAutocomplete = prompts.autocomplete
     prompts.select = async (options: any) => {
-      if (/Model setup/i.test(String(options.message ?? ""))) return "proxy";
-      return /model/i.test(String(options.message ?? "")) && /sisyphus/i.test(String(options.message ?? ""))
-        ? "grok-4.3"
-        : String(options.options?.[0]?.value ?? "grok-3-mini-fast");
+      const message = String(options.message ?? "")
+      if (/Global model preset/i.test(message)) return "balanced"
+      if (/Global reasoning effort/i.test(message)) return "auto"
+      return String(options.options?.[0]?.value ?? "auto")
     }
-    prompts.autocomplete = async (options: any) =>
-      /model/i.test(String(options.message ?? "")) && /sisyphus/i.test(String(options.message ?? ""))
-        ? "grok-4.3"
-        : String(options.initialValue ?? options.options?.[0]?.value ?? "grok-3-mini-fast")
+    prompts.autocomplete = async (options: any) => String(options.initialValue ?? options.options?.[0]?.value ?? "grok-3-mini-fast")
     const origConfirm = prompts.confirm
     prompts.confirm = async () => true as const
 
@@ -77,8 +74,8 @@ describe("lfg-setup-tui model routing", () => {
     expect(installerMock.runLazycodexInstaller).toHaveBeenCalledTimes(1)
     const installerCalls = installerMock.runLazycodexInstaller.mock.calls as unknown as readonly [ModelDiscovery][]
     const configuredDiscovery = installerCalls[0]?.[0]
-    expect(configuredDiscovery?.mapping.default).toBe("grok-4.3")
-    expect(configuredDiscovery?.agentOverrideMap?.sisyphus?.model).toBe("grok-4.3")
+    expect(configuredDiscovery?.mapping.default).toBe("gpt-5.3-codex-spark")
+    expect(configuredDiscovery?.agentOverrideMap?.sisyphus?.model).toBe("gpt-5.3-codex-spark")
   })
 
   test("fast tier maps to fast model id for Grok routing", async () => {
@@ -91,16 +88,13 @@ describe("lfg-setup-tui model routing", () => {
     prompts.select = async (options: any) => {
       calls.push(["select", options.message])
       const message = String(options.message ?? "")
-      if (/Model setup/i.test(message)) return "proxy"
-      if (/service tier/i.test(message) && /explorer/i.test(message)) return "fast"
-      if (/model/i.test(message) && /explorer/i.test(message)) return "grok-3-mini"
-      return String(options.options?.[0]?.value ?? "grok-3-mini-fast")
+      if (/Global model preset/i.test(message)) return "grok"
+      if (/Global reasoning effort/i.test(message)) return "auto"
+      return String(options.options?.[0]?.value ?? "auto")
     }
     prompts.autocomplete = async (options: any) => {
       calls.push(["autocomplete", options.message])
-      return /model/i.test(String(options.message ?? "")) && /explorer/i.test(String(options.message ?? ""))
-        ? "grok-3-mini"
-        : String(options.initialValue ?? options.options?.[0]?.value ?? "grok-3-mini-fast")
+      return String(options.initialValue ?? options.options?.[0]?.value ?? "grok-3-mini-fast")
     }
     const origConfirm = prompts.confirm
     prompts.confirm = async (options: any) => !/Install now\?|Core \+ ULW/i.test(String(options.message ?? ""))
@@ -116,7 +110,8 @@ describe("lfg-setup-tui model routing", () => {
 
     const resultsNote = calls.find((call) => call[0] === "note" && /Setup results/.test(String(call[1])))
     const resultsBody = resultsNote ? String(resultsNote[2] ?? "") : ""
-    expect(resultsBody).toMatch(/explorer:\s+grok-3-mini-fast\s+\/\s+low\s+\(tier:\s+fast\)/)
+    expect(resultsBody).toContain("Preset: grok")
+    expect(resultsBody).toMatch(/explorer:\s+grok-3-mini-fast\s+\/\s+low/)
     const outroText = calls.filter((call) => call[0] === "outro").map((call) => String(call[1])).join("\n")
     expect(outroText).toContain("lfg setup --run")
     expect(outroText).not.toContain("lfg doctor")
