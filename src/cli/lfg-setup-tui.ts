@@ -1,7 +1,7 @@
 import * as clack from "@clack/prompts";
 import pc from "picocolors";
 
-import type { LazycodexAgentConfig, ModelDiscovery } from "./lfg-models";
+import { applyModelPreset, type LazycodexAgentConfig, type ModelDiscovery } from "./lfg-models";
 import { buildModelChoicesForTui, createSetupSelectors, type ModelSelector, type ReasoningSelector, type TierSelector } from "./lfg-setup-tui-selectors";
 import { loadBundledDefaultOmoOverrides } from "../grok-adapter/lazycodex-agent-overrides";
 import {
@@ -70,6 +70,7 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
     options: [
       { value: "vanilla", label: "Vanilla Grok models (recommended)", hint: "built-in Grok defaults, no proxy" },
       { value: "proxy", label: "Set up cli-proxy / model provider", hint: "discover models from proxy" },
+      { value: "multi", label: "Multi-provider preset", hint: "GJC-style provider grouping, Grok setup remains default-safe" },
     ],
     initialValue: "vanilla",
   });
@@ -82,8 +83,9 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
   let resultsText: string;
   let modelConfigLine: string;
 
-  if (modelMode === "proxy") {
-    const discovery = readDiscoveryFromContext(context);
+  if (modelMode === "proxy" || modelMode === "multi") {
+    const baseDiscovery = readDiscoveryFromContext(context);
+    const discovery = modelMode === "multi" && baseDiscovery !== null ? applyModelPreset(baseDiscovery, "multi") : baseDiscovery;
     const choices = buildModelChoicesForTui(discovery?.modelIds ?? []);
     const selectors = createSetupSelectors(prompts);
     const bundledRecommendationOverrides = toRecommendationOverrideMap(bundled);
@@ -105,7 +107,7 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
     resultsText = [...roleResults, ...agentOverrides.extraResults]
       .map(r => `  ${r.name}: ${r.model} / ${r.reasoning} (tier: ${r.tier})`)
       .join("\n");
-    modelConfigLine = "Model config: auto-mapped from /v1/models";
+    modelConfigLine = modelMode === "multi" ? "Model config: multi-provider preset from /v1/models" : "Model config: auto-mapped from /v1/models";
   } else {
     // Vanilla Grok fast path: skip discovery and per-agent selection; use bundled Grok-first defaults.
     const vanilla = buildVanillaGrokConfig(bundled);

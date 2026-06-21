@@ -34,6 +34,10 @@ npx @islee23520/lfg --json setup --run --base-url <your-v1-base>
 
 Or merge manually: delete `api_key` from `[endpoints]`; keep `models_base_url`.
 
+## Multi-provider preset
+
+`lfg --json setup --preset multi` keeps the Grok-first default routing, but discovery metadata may group model ids by provider so generated `[model.*]` sections can carry provider-specific `base_url` values. This is a GJC-style multi-provider configuration surface without reading `~/.gjc` or changing the default single-endpoint setup path.
+
 ## Tests
 
 - `src/cli/lfg-grok-config.endpoints.test.ts`

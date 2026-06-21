@@ -1,6 +1,6 @@
 import type { JsonObject } from "../cli/lfg-json"
 import { grokConfigJson, writeGrokModelConfig } from "../cli/lfg-grok-config"
-import type { ModelDiscovery } from "../cli/lfg-models"
+import type { ModelDiscovery, SetupPreset } from "../cli/lfg-models"
 import { modelDiscoveryEnv } from "../cli/lfg-models"
 import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentModels } from "./grok-plugins-enable"
 import { ensureLfgConfigFiles } from "./lfg-config"
@@ -87,7 +87,7 @@ export async function runGrokInstall(
       : applyRecommendationsToOverrideMap(
           await resolveLazycodexAgentOverrides(home, resolvedAgents),
           discovery?.modelIds ?? [],
-          discovery?.preset,
+          recommendationPreset(discovery?.preset),
         )
     const fullAgentModels = options.fullAgentModels ?? overrideMap
     const configUpdate =
@@ -157,7 +157,7 @@ export async function runGrokInstall(
     : applyRecommendationsToOverrideMap(
         await resolveLazycodexAgentOverrides(home, resolvedAgents),
         discovery?.modelIds ?? [],
-        discovery?.preset,
+        recommendationPreset(discovery?.preset),
       )
   const fullAgentModels = options.fullAgentModels ?? overrideMap
   const configUpdate =
@@ -201,6 +201,10 @@ export async function runGrokInstall(
   }
 }
 
+function recommendationPreset(preset: SetupPreset | undefined): "grok" | "gpt" | undefined {
+  return preset === "gpt" ? "gpt" : preset === undefined ? undefined : "grok"
+}
+
 function subagentModelMappingFromDiscovery(
   discovery: ModelDiscovery | null,
   resolvedAgents: Awaited<ReturnType<typeof resolveGlobalLazycodexAgentConfig>>,
@@ -212,6 +216,9 @@ function subagentModelMappingFromDiscovery(
     fast: fastRoute,
     reasoning: resolvedAgents.reasoning?.model ?? discovery?.mapping.reasoning ?? "grok-4.20-0309-reasoning",
     coding: resolvedAgents.coding?.model ?? discovery?.mapping.coding ?? "grok-4.20-0309-non-reasoning",
+    fastReasoning: resolvedAgents.explorer?.reasoningLevel ?? "low",
+    reasoningReasoning: resolvedAgents.reasoning?.reasoningLevel ?? "high",
+    codingReasoning: resolvedAgents.coding?.reasoningLevel ?? "medium",
   }
 }
 

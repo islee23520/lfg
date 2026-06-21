@@ -38,6 +38,28 @@ describe("grok config endpoints (#24)", () => {
     expect(endpointsOnly).toContain("models_base_url")
   })
 
+  test("multi-provider preset writes provider-specific model base URLs", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-multi-provider-config-"))
+    const multi: ModelDiscovery = {
+      ...discovery,
+      modelIds: ["grok-4.3", "gpt-5.5", "glm-5.2"],
+      mapping: { default: "grok-4.3", fast: "grok-4.3", reasoning: "gpt-5.5", coding: "gpt-5.5" },
+      providerEndpoints: [
+        { id: "xai", baseUrl: "https://api.x.ai/v1", modelIds: ["grok-4.3"] },
+        { id: "openai-compatible", baseUrl: "http://127.0.0.1:8317/v1", modelIds: ["gpt-5.5"] },
+        { id: "glm", baseUrl: "https://open.bigmodel.cn/api/paas/v4", modelIds: ["glm-5.2"] },
+      ],
+    }
+
+    await writeGrokModelConfig(multi, { home })
+
+    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    expect(section(config, 'model."grok-4.3"')).toContain('base_url = "https://api.x.ai/v1"')
+    expect(section(config, 'model."gpt-5.5"')).toContain('base_url = "http://127.0.0.1:8317/v1"')
+    expect(section(config, 'model."glm-5.2"')).toContain('base_url = "https://open.bigmodel.cn/api/paas/v4"')
+    expect(section(config, "endpoints")).toContain('models_base_url = "http://127.0.0.1:11434/v1"')
+  })
+
   test("writes discovered reasoning effort into model sections", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-reasoning-effort-config-"))
     const withReasoningEffort: ModelDiscovery = {

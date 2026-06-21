@@ -32,7 +32,7 @@ export async function ensureLfgAgentsPreferred(home: string = homedir()): Promis
 /** T2: Ensures LFG-owned [subagents.models] routing (plan/metis/etc -> reasoning, explore->explorer, coding/grok-build/builder->coding; preserves non-LFG keys). Uses existing TOML upsert. */
 export async function ensureLfgSubagentModels(
   home: string = homedir(),
-  mapping: { readonly default?: string; readonly fast?: string; readonly reasoning?: string; readonly coding?: string } = {},
+  mapping: { readonly default?: string; readonly fast?: string; readonly reasoning?: string; readonly coding?: string; readonly fastReasoning?: string; readonly reasoningReasoning?: string; readonly codingReasoning?: string } = {},
 ): Promise<{ readonly path: string; readonly changed: boolean }> {
   const path = join(home, ".grok", "config.toml")
   const current = await readTextIfExists(path)
@@ -148,7 +148,7 @@ function upsertAgentPreference(source: string): string {
  */
 export function upsertSubagentModels(
   source: string,
-  mapping: { readonly default?: string; readonly fast?: string; readonly reasoning?: string; readonly coding?: string } = {},
+  mapping: { readonly default?: string; readonly fast?: string; readonly reasoning?: string; readonly coding?: string; readonly fastReasoning?: string; readonly reasoningReasoning?: string; readonly codingReasoning?: string } = {},
 ): string {
   const fastRoute = mapping.fast || mapping.default || "grok-3-mini-fast"
   const lfgOwned: Record<string, string> = {
@@ -169,7 +169,32 @@ export function upsertSubagentModels(
     "reviewer": mapping.coding || "grok-4.3",
   }
   const block = mergeSubagentModelBody(source, lfgOwned)
-  return upsertTomlSection(source, "subagents.models", block)
+  const withModels = upsertTomlSection(source, "subagents.models", block)
+  return upsertTomlSection(withModels, "subagents.reasoning_effort", subagentReasoningBody(mapping))
+}
+
+function subagentReasoningBody(mapping: { readonly fastReasoning?: string; readonly reasoningReasoning?: string; readonly codingReasoning?: string }): string {
+  const fast = mapping.fastReasoning ?? "low"
+  const reasoning = mapping.reasoningReasoning ?? "high"
+  const coding = mapping.codingReasoning ?? "medium"
+  const entries: Readonly<Record<string, string>> = {
+    "general-purpose": fast,
+    "prometheus": reasoning,
+    "atlas": reasoning,
+    "plan": reasoning,
+    "metis": reasoning,
+    "momus": reasoning,
+    "reasoning": reasoning,
+    "multimodal-looker": fast,
+    "explore": fast,
+    "explorer": fast,
+    "librarian": fast,
+    "coding": coding,
+    "grok-build": coding,
+    "builder": coding,
+    "reviewer": coding,
+  }
+  return Object.entries(entries).map(([key, effort]) => `${key} = ${tomlString(effort)}`).join("\n")
 }
 
 function mergeSubagentModelBody(source: string, lfgOwned: Readonly<Record<string, string>>): string {

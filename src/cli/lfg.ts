@@ -207,7 +207,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 }
 
 function isSetupPreset(value: unknown): value is SetupPreset {
-  return value === "grok" || value === "gpt"
+  return value === "grok" || value === "gpt" || value === "multi"
 }
 
 function emit(value: JsonObject | string, json: boolean): void {
@@ -238,6 +238,7 @@ function help(): string {
     "  lfg setup --run",
     "  lfg --json setup --preset grok",
     "  lfg --json setup --preset gpt",
+    "  lfg --json setup --preset multi",
     "  lfg --json setup --run --force",
     "  lfg --json setup --run --install-only",
     "  lfg setup --run --install-only",

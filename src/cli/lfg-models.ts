@@ -12,7 +12,7 @@ export type ModelMapping = {
 }
 
 export type ReasoningLevel = "low" | "medium" | "high" | "xhigh"
-export type SetupPreset = "grok" | "gpt"
+export type SetupPreset = "grok" | "gpt" | "multi"
 
 export type LazycodexAgentName = "explorer" | "reasoning" | "coding"
 
@@ -25,12 +25,19 @@ export type LazycodexAgentSetting = {
 
 export type LazycodexAgentConfig = Readonly<Record<LazycodexAgentName, LazycodexAgentSetting>>
 
+export type MultiProviderEndpoint = {
+  readonly id: string
+  readonly baseUrl: string
+  readonly modelIds: readonly string[]
+}
+
 export type ModelDiscovery = {
   readonly baseUrl: string
   readonly modelsUrl: string
   readonly modelIds: readonly string[]
   readonly mapping: ModelMapping
   readonly preset?: SetupPreset
+  readonly providerEndpoints?: readonly MultiProviderEndpoint[]
   readonly agentConfig?: LazycodexAgentConfig
   /** Per-agent overrides (LFP-style); persisted to ~/.grok/lazycodex-agent-overrides.json on install. */
   readonly agentOverrideMap?: LazycodexAgentOverrideMap
@@ -176,9 +183,40 @@ export function defaultLazycodexAgentConfig(discovery: ModelDiscovery): Lazycode
 }
 
 export function applyModelPreset(discovery: ModelDiscovery, preset: SetupPreset): ModelDiscovery {
-  const mapping = preset === "grok" ? grokCenteredMapping(discovery.modelIds) : gptCenteredMapping(discovery.modelIds)
-  // preserve contextWindows across preset application
-  return { ...discovery, mapping, preset }
+  const mapping = preset === "gpt" ? gptCenteredMapping(discovery.modelIds) : grokCenteredMapping(discovery.modelIds)
+  const providerEndpoints = preset === "multi" ? multiProviderEndpoints(discovery) : discovery.providerEndpoints
+  return { ...discovery, mapping, preset, ...(providerEndpoints === undefined ? {} : { providerEndpoints }) }
+}
+
+function multiProviderEndpoints(discovery: ModelDiscovery): readonly MultiProviderEndpoint[] {
+  const groups = new Map<string, string[]>()
+  for (const modelId of discovery.modelIds) {
+    const provider = providerForModel(modelId)
+    const ids = groups.get(provider) ?? []
+    ids.push(modelId)
+    groups.set(provider, ids)
+  }
+  return [...groups.entries()].map(([id, modelIds]) => ({ id, baseUrl: providerBaseUrl(id, discovery.baseUrl), modelIds }))
+}
+
+function providerForModel(modelId: string): string {
+  const explicit = modelId.includes("/") ? modelId.split("/")[0] : null
+  if (explicit !== null && explicit.length > 0) return explicit
+  const lowered = modelId.toLowerCase()
+  if (lowered.startsWith("grok-")) return "xai"
+  if (lowered.startsWith("glm-")) return "glm"
+  if (lowered.startsWith("gemini-")) return "google"
+  if (lowered.startsWith("claude-")) return "anthropic"
+  return "openai-compatible"
+}
+
+function providerBaseUrl(provider: string, fallbackBaseUrl: string): string {
+  if (provider === "xai") return "https://api.x.ai/v1"
+  if (provider === "openai") return "https://api.openai.com/v1"
+  if (provider === "google") return "https://generativelanguage.googleapis.com/v1beta/openai"
+  if (provider === "anthropic") return "https://api.anthropic.com/v1"
+  if (provider === "glm") return "https://open.bigmodel.cn/api/paas/v4"
+  return fallbackBaseUrl
 }
 
 function normalizeModelUrls(inputBaseUrl: string): { readonly baseUrl: string; readonly modelsUrl: string } {

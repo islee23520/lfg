@@ -1,6 +1,6 @@
 import type { JsonObject } from "./lfg-json"
 import type { ModelDiscovery } from "./lfg-models"
-import { modelDiscoveryEnv } from "./lfg-models"
+import { defaultLazycodexAgentConfig, modelDiscoveryEnv } from "./lfg-models"
 import {
   configFieldsFromRun,
   grokInstallStepJson,
@@ -99,9 +99,14 @@ function installJson(fields: {
     exitCode: failedExit,
     stdout: installers.map((installer) => installer.stdout).filter((value) => value.length > 0).join("\n"),
     stderr: installers.map((installer) => installer.stderr).filter((value) => value.length > 0).join("\n"),
-    ...(discovery === null ? {} : { modelDiscovery: discovery }),
+    ...(discovery === null ? {} : { modelDiscovery: discovery, agentReasoning: agentReasoningSummary(discovery) }),
     ...rest,
   }
+}
+
+function agentReasoningSummary(discovery: ModelDiscovery): JsonObject {
+  const agents = discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
+  return Object.fromEntries(Object.entries(agents).map(([name, setting]) => [name, setting.reasoningLevel]))
 }
 
 function mergeStringEnv(base: NodeJS.ProcessEnv, extra: Readonly<Record<string, string>>): Record<string, string> {

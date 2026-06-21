@@ -12,6 +12,7 @@ describe("docs/grok-config-endpoints.md (#24)", () => {
     expect(text).toContain("models_base_url")
     expect(text).toContain("writeGrokModelConfig")
     expect(text).toContain("setup --run")
+    expect(text).toContain("--preset multi")
     expect(text).toContain("OPENAI_API_KEY")
     expect(text).not.toMatch(/sk-[a-zA-Z0-9]{10,}/)
   })

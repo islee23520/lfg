@@ -13,7 +13,7 @@ export function upsertModelSections(
   let next = source
   for (const alias of aliases) {
     const upstreamModelId = alias === "grok-build" ? discovery.mapping.default : canonicalModelForAlias(discovery.modelIds, alias)
-    const lines = [`model = ${tomlString(upstreamModelId)}`, `base_url = ${tomlString(baseUrl)}`]
+    const lines = [`model = ${tomlString(upstreamModelId)}`, `base_url = ${tomlString(baseUrlForModel(discovery, upstreamModelId, baseUrl))}`]
     if (typeof apiKey === "string" && apiKey.length > 0) {
       lines.push(`api_key = ${tomlString(apiKey)}`)
     }
@@ -65,6 +65,12 @@ function resolveFeatureMetadataForModel(
   // T1: canonical metadata from discovery applies to display aliases (via normalized key)
   const normalized = aliasGroupKey(upstreamModelId)
   return metadata[upstreamModelId] ?? metadata[normalized] ?? metadata[alias] ?? metadata[aliasGroupKey(alias)] ?? null
+}
+
+function baseUrlForModel(discovery: ModelDiscovery, modelId: string, fallbackBaseUrl: string): string {
+  const endpoints = discovery.providerEndpoints
+  if (endpoints === undefined) return fallbackBaseUrl
+  return endpoints.find((endpoint) => endpoint.modelIds.includes(modelId))?.baseUrl ?? fallbackBaseUrl
 }
 
 function readPriorContextWindow(source: string, alias: string): number | null {

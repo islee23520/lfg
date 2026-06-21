@@ -34,6 +34,11 @@ describe("setup JSON reasoning effort contract", () => {
       expect(result).toMatchObject({
         lfgIsPlugin: false,
         companionPackage: "lfg-grok-install",
+        agentReasoning: {
+          explorer: "low",
+          reasoning: "xhigh",
+          coding: "xhigh",
+        },
         modelDiscovery: {
           modelFeatureMetadata: {
             "gpt-5.5": { reasoningEffort: "xhigh" },

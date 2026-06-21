@@ -1,5 +1,5 @@
 import { grokConfigJson, refreshGrokModelConfig } from "./lfg-grok-config"
-import { modelDiscoveryPlan, type ModelDiscovery, type SetupPreset } from "./lfg-models"
+import { defaultLazycodexAgentConfig, modelDiscoveryPlan, type ModelDiscovery, type SetupPreset } from "./lfg-models"
 import { type JsonObject } from "./lfg-json"
 import { resolveGrokApiKey } from "../grok-adapter/grok-api-key"
 import { resolveGrokSetupHome } from "../grok-adapter/grok-home"
@@ -23,6 +23,7 @@ export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPr
     presets: [
       { id: "grok", label: "Grok-centered hybrid", text: "Prefer Grok for default agents, with GPT help for critical review when available." },
       { id: "gpt", label: "GPT-centered", text: "Prefer GPT/Codex model ids for default, reasoning, and coding aliases." },
+      { id: "multi", label: "Multi-provider", text: "Keep Grok-first routing while writing provider-scoped model sections for mixed xAI/OpenAI-compatible/GLM catalogs." },
     ],
     executed: false,
     dryRun: false,
@@ -30,17 +31,23 @@ export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPr
     installPath: "grok",
     purpose: "Grok-first direct install of the OMO adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). Supported hooks, Sisyphus, ultrawork context, ulw skills, agents, and manifest-only MCP entries are materialized under ~/.grok/plugins/lfg; deferred OMO components stay documented as deferred or unsupported.",
     modelDiscovery: discovery ?? modelDiscoveryPlan(),
+    ...(discovery === null ? {} : { agentReasoning: agentReasoningSummary(discovery) }),
     modelDiscoverySource: resolved.baseUrlSource,
     modelsBaseUrlUsed: resolved.baseUrlUsed,
     autoModelAliases: discovery !== null,
     steps: [
-      { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) that will be used for Grok [model.*] aliases and the explorer/reasoning/coding agents." },
+      { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) that will be used for Grok [model.*] aliases and the explorer/reasoning/coding agents, including per-role reasoning effort when the proxy advertises it." },
       { id: 2, status: discovery === null ? "pending" : "done", text: "Build the Grok agent role configs and LFP-style per-agent overrides from the discovered models + bundled omo defaults." },
       { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_OMO_PLUGIN_SOURCE, the built-in native payload, or legacy fallback.` },
       { id: 4, status: "pending", text: "Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, install plugin-owned LFG agents, sync roles/personas/prompts, write omo-agent-overrides.json, and ensure the adapter is enabled for Grok Build." },
     ],
     note: "Grok-first. Default `lfg setup` (and --json setup) plans the supported lfg-owned OMO port under ~/.grok/plugins/lfg, including manifest-only MCP entries rather than behavior-adapted local MCP tools. Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit.",
   }
+}
+
+function agentReasoningSummary(discovery: ModelDiscovery): JsonObject {
+  const agents = discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
+  return Object.fromEntries(Object.entries(agents).map(([name, setting]) => [name, setting.reasoningLevel]))
 }
 
 export function refreshPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPreset): JsonObject {
