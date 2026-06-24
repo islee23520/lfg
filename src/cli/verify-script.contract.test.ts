@@ -25,7 +25,7 @@ describe("npm run verify script chain (#22)", () => {
     const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>
     }
-    expect(pkg.scripts?.["assert-pack"]).toBe("node scripts/assert-npm-pack-bin.mjs")
+    expect(pkg.scripts?.["assert-pack"]).toBe("npm run build && node scripts/assert-npm-pack-bin.mjs")
     expect(pkg.scripts?.["assert-omo-parity"]).toBe("npm run build && node scripts/assert-omo-parity.mjs")
     expect(pkg.scripts?.prepack).toContain("build")
     expect(pkg.scripts?.prepublishOnly).toBe("npm run verify")

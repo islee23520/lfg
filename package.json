@@ -46,7 +46,7 @@
     "assert-omo-parity": "npm run build && node scripts/assert-omo-parity.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "npm run verify",
-    "assert-pack": "node scripts/assert-npm-pack-bin.mjs",
+    "assert-pack": "npm run build && node scripts/assert-npm-pack-bin.mjs",
     "record-publish-gap": "npm run build && node scripts/record-publish-gap.mjs",
     "assert-publish-auth": "npm run build && node scripts/assert-npm-publish-auth.mjs",
     "pre-publish-check": "npm run build && node scripts/pre-publish-check.mjs"
