@@ -28,7 +28,7 @@ The strategic direction now mirrors the upstream architecture:
 
 > **lfg keeps its Grok-native installer, but ports the shared `*-core` behavioral packages and writes a thin Grok adapter that feeds Grok host capabilities into those cores.**
 
-- **Keep**: Grok-native install/config/hook/agent/stamp surface (`src/grok-adapter/`, `src/cli/`). This is already correct and well-tested.
+- **Keep**: Grok-native install/config/hook/agent/stamp surface (`src/grok/`, `src/cli/`). This is already correct and well-tested.
 - **Demote**: `omo-codex` becomes a **packaging/install reference only** — no longer the behavioral source of truth.
 - **Reference**: `omo-opencode` is the **architectural reference** for how a host adapter wires cores into lifecycle hooks (see seam map below).
 - **Port**: shared `*-core` packages (host-neutral TS) become the behavioral source.
@@ -69,7 +69,7 @@ Each row classifies port effort per the consumed core's host coupling: **CORE** 
 
 ### Why codegraph is Phase 0 (parallel-safe, self-contained)
 
-CodeGraph is an **external** semantic-code-graph MCP binary (`@colbymchenry/codegraph`); the graph intelligence lives in the binary, not in OMO. OMO only wraps it: provisions the platform binary (sha256-verified download into `~/.omo/codegraph`), bootstraps it at session start, and registers `codegraph serve --mcp` as an MCP server. Because Grok natively supports `.mcp.json` command servers and lfg already materializes MCP manifests (`src/grok-adapter/materialize-grok-mcp.ts`) plus native SessionStart hooks, the codegraph port is host-neutral, low-effort, and has no dependency on the other core ports. It proceeds in parallel with Phase 1+.
+CodeGraph is an **external** semantic-code-graph MCP binary (`@colbymchenry/codegraph`); the graph intelligence lives in the binary, not in OMO. OMO only wraps it: provisions the platform binary (sha256-verified download into `~/.omo/codegraph`), bootstraps it at session start, and registers `codegraph serve --mcp` as an MCP server. Because Grok natively supports `.mcp.json` command servers and lfg already materializes MCP manifests (`src/grok/mcp/materialize-grok-mcp.ts`) plus native SessionStart hooks, the codegraph port is host-neutral, low-effort, and has no dependency on the other core ports. It proceeds in parallel with Phase 1+.
 
 Upstream codegraph layers: `packages/utils/src/codegraph/{env,resolve,provision,node-support,workspace}.ts` (shared, host-neutral), `omo-codex/plugin/components/codegraph/{serve,hook,session-start-worker}.ts` (Codex wrapper), `omo-opencode/src/hooks/codegraph-bootstrap/` (OpenCode SessionStart), `omo-opencode/src/mcp/codegraph.ts` (`createCodegraphMcpConfig`), config schema `{auto_provision, enabled, install_dir, telemetry, watch_debounce_ms}`.
 

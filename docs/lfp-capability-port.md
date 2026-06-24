@@ -16,7 +16,7 @@
 
 ## Implementation home
 
-- New code under `src/grok-adapter/` and `src/extensions/` (names TBD) — **not** a mirrored `src/lfp/` vendor tree.
+- New code under `src/grok/` and `src/extensions/` (names TBD) — **not** a mirrored `src/lfp/` vendor tree.
 - When borrowing logic, **rewrite** for Grok paths and omo spinoff branding; no Linalab ids.
 
 ## Tests

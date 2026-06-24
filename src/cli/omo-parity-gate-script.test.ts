@@ -23,7 +23,7 @@ describe("scripts/assert-omo-parity.mjs", () => {
   test("pins payload, docs, inventory, and build-cache guard checks", async () => {
     const script = await readFile(join(ROOT, "scripts", "assert-omo-parity.mjs"), "utf8")
 
-    expect(script).toContain('"src/grok-adapter/skills"')
+    expect(script).toContain('"src/grok/skills"')
     expect(script).toContain('"dist/grok-install/skills"')
     expect(script).toContain('"teammode"')
     expect(script).toContain('"lazycodex-executor-verify"')

@@ -2,8 +2,8 @@ import { mkdtemp } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
-import { runGrokDoctor } from "../grok-adapter/doctor"
-import { runLfg } from "./test-process"
+import { runGrokDoctor } from "../grok/doctor/doctor"
+import { runLfg } from "./test/test-process"
 
 /** #21: setup JSON must not disagree with doctor on install surface after successful install. */
 describe("setup vs doctor install surface (#21)", () => {

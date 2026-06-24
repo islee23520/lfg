@@ -32,7 +32,7 @@ const managedSkillSources = [
 ]
 const managedSkills = managedSkillSources.map(([skillName]) => skillName)
 const retiredSkillNames = ["lcx-contribute-bug-fix", "lcx-doctor", "lcx-report-bug"]
-const defaultTargets = [join(repoRoot, "src", "grok-adapter", "skills"), join(repoRoot, "skills")]
+const defaultTargets = [join(repoRoot, "src", "grok", "skills"), join(repoRoot, "skills")]
 const syncManifestName = ".lfg-omo-skill-sync.json"
 
 export async function syncOmoSkillsToGrok(options = {}) {

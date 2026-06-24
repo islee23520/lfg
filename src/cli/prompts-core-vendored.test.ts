@@ -8,11 +8,11 @@ import {
   TEAM_MODE_PROMPT,
   resolveVariant,
   loadPromptSync,
-} from "../grok-adapter/prompts-core-vendored/index"
-import type { VariantTable, BundledPromptSource } from "../grok-adapter/prompts-core-vendored/types"
+} from "../grok/ports/vendor/prompts-core-vendored/index"
+import type { VariantTable, BundledPromptSource } from "../grok/ports/vendor/prompts-core-vendored/types"
 import {
   resolveGrokAgentPrompt,
-} from "../grok-adapter/grok-prompt-adapter"
+} from "../grok/ports/grok-prompt-adapter"
 
 const atlas = atlasPromptVariants as VariantTable
 const ultrawork = ultraworkPromptVariants as VariantTable

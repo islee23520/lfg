@@ -4,14 +4,14 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { spawn } from "node:child_process"
 import { describe, expect, test } from "vitest"
-import { applyLazycodexAgentTomls } from "../grok-adapter/apply-agent-tomls"
-import { runInternalGrokInstall } from "../grok-adapter/run-internal"
-import { mergeAgentTomlOverrides } from "../grok-adapter/agent-overrides"
-import { defaultLazycodexAgentConfig } from "./lfg-models"
-import { mergePortedHooksIntoPlugin } from "../grok-adapter/extension-hooks"
-import { installGrokPluginFromSource, readGrokInstallStamp } from "../grok-adapter/install"
-import { runGrokDoctor } from "../grok-adapter/doctor"
-import { runLfg } from "./test-process"
+import { applyLazycodexAgentTomls } from "../grok/agents/apply-agent-tomls"
+import { runInternalGrokInstall } from "../grok/install/run-internal"
+import { mergeAgentTomlOverrides } from "../grok/agents/agent-overrides"
+import { defaultLazycodexAgentConfig } from "./models/lfg-models"
+import { mergePortedHooksIntoPlugin } from "../grok/hooks/extension-hooks"
+import { installGrokPluginFromSource, readGrokInstallStamp } from "../grok/payload/install"
+import { runGrokDoctor } from "../grok/doctor/doctor"
+import { runLfg } from "./test/test-process"
 
 describe("grok-install", () => {
   test("internal install stamp uses published package version", async () => {
@@ -69,7 +69,7 @@ describe("grok-install", () => {
 
   test("doctor passes after fixture install", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-doc-"))
-    const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-adapter", "fixture-minimal")
+    const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok", "fixture")
     const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
     await mergePortedHooksIntoPlugin(pluginRoot)
     const json = await runGrokDoctor({ home })
@@ -220,7 +220,7 @@ describe("lfg internal grok install contract", () => {
 
   test("doctor remains internal and the public CLI advertises setup only", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-cli-doc-"))
-    const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-adapter", "fixture-minimal")
+    const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok", "fixture")
     const pluginRoot = join(home, ".grok", "plugins", "lfg")
     await installGrokPluginFromSource({ home, sourceRoot: source })
     await mergePortedHooksIntoPlugin(pluginRoot)
@@ -239,7 +239,7 @@ describe("lfg internal grok install contract", () => {
 
   test("doctor publishGap remains available through the internal verifier (#22)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-doc-gap-"))
-    const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok-adapter", "fixture-minimal")
+    const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok", "fixture")
     await installGrokPluginFromSource({ home, sourceRoot: source })
     const result = await runGrokDoctor({ home, registryVersion: "0.1.3" })
     expect(result).toMatchObject({

@@ -2,7 +2,7 @@ import { mkdtemp, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
-import { runLfg } from "./test-process"
+import { runLfg } from "./test/test-process"
 
 describe("gateway status honesty", () => {
   test("install-only setup reports missing native agents without overclaiming plugin identity", async () => {

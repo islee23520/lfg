@@ -2,11 +2,12 @@
 
 Repo-level tests should stay focused on the Grok-first lfg adapter installer.
 
-Current active tests live under `src/cli` and `src/grok-adapter`.
+Current active tests live under `src/cli` and `src/grok`.
 
 ## WHERE TO LOOK
 
-- `src/cli/lfg.test.ts`: CLI contract tests.
+- `src/cli/lfg.test.ts`: broad CLI integration contract tests.
+- `src/cli/command/*.test.ts`: command routing/help contract tests.
 - `src/cli/self-test.ts`: direct smoke script that emits `check-*=ok`.
 
 ## SCOPE

@@ -3,8 +3,8 @@ import { execFile } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
-import { withModelServer } from "./test-model-server"
-import { runLfg, runLfgText } from "./test-process"
+import { withModelServer } from "./test/test-model-server"
+import { runLfg, runLfgText } from "./test/test-process"
 
 describe("lfg CLI", () => {
   test("setup returns a non-mutating install plan by default", async () => {

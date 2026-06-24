@@ -56,5 +56,5 @@ Use `--reasoning-effort auto|low|medium|high|xhigh` to control global reasoning 
 
 ## Tests
 
-- `src/cli/lfg-grok-config.endpoints.test.ts`
-- `src/grok-adapter/config-single-writer.acceptance.test.ts`
+- `src/cli/config/lfg-grok-config.endpoints.test.ts`
+- `src/grok/config/config-single-writer.acceptance.test.ts`

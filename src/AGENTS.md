@@ -9,7 +9,7 @@ TypeScript source for the `@islee23520/lfg` npm package.
 | Task | Location | Notes |
 |---|---|---|
 | CLI command surface | `cli/` | Supports only `setup`; see `cli/AGENTS.md`. |
-| Grok install engine | `grok-adapter/` | Installs/syncs the lfg Grok plugin payload under `~/.grok`; see `grok-adapter/AGENTS.md`. |
+| Grok install engine | `grok/` | Installs/syncs the lfg Grok plugin payload under `~/.grok`; see `grok/AGENTS.md`. |
 | Generated runtime | `../dist/` | Built output; change source, then rebuild. |
 | Published bin shim | `../bin/lfg.js` | Shell shim that executes `../dist/lfg.js`. |
 | User-facing skills | `../skills/` | Keep Grok-first `lfg setup` wording aligned. |

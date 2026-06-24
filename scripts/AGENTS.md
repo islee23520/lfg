@@ -9,7 +9,7 @@ Root build bundler and the publish/pack/auth readiness gates. These scripts are 
 | Task | Location | Notes |
 |------|----------|-------|
 | Bundle dist | `build.mjs` | esbuild; 7 entry points → `dist/*.js`. |
-| Stage install payload | `build.mjs` | Copies `fixture-minimal/`, `assets/`, `flavour-pack-assets/`, `skills/`; generates MCP runtime CLIs. |
+| Stage install payload | `build.mjs` | Copies `fixture/`, `assets/`, `flavour/`, `skills/`; generates MCP runtime CLIs. |
 | Pack tarball guard | `assert-npm-pack-bin.mjs` | `npm run assert-pack`; required paths + bin target. |
 | OMO parity guard | `assert-omo-parity.mjs` | `npm run assert-omo-parity`; validates generated OMO skill payloads, docs, inventory, and build cache guard. |
 | Publish readiness | `pre-publish-check.mjs` | `npm run pre-publish-check`; exits 2 if not ready. |
@@ -19,8 +19,8 @@ Root build bundler and the publish/pack/auth readiness gates. These scripts are 
 
 ## CONVENTIONS
 
-- `build.mjs` acquires `dist/.build.lock` (120s timeout) because concurrent builds corrupt `fixture-minimal` staging; do not bypass it.
-- `fixture-minimal` is staged via temp dir + atomic `rename` with retry on `ENOTEMPTY`/`EBUSY`/`EEXIST`. `assert-npm-pack-bin.mjs` fails the pack if any `fixture-minimal.build-*` path leaks into the tarball.
+- `build.mjs` acquires `dist/.build.lock` (120s timeout) because concurrent builds corrupt `fixture` staging; do not bypass it.
+- `fixture` is staged via temp dir + atomic `rename` with retry on `ENOTEMPTY`/`EBUSY`/`EEXIST`. `assert-npm-pack-bin.mjs` fails the pack if any `fixture.build-*` path leaks into the tarball.
 - The `lfg-setup-tui` bundle is the only entry that externalizes `@clack/prompts` + `picocolors` (declared in root `package.json` `dependencies`); all other entries are fully bundled.
 - Gate scripts exit non-zero (`2`) on not-ready so CI/`prepublishOnly` fails loudly. `pre-publish-check.mjs` composes publish-gap + publish-auth + registry-bin contract.
 - `LFG_NPM_WHOAMI=""` forces unauthenticated; any other non-empty value overrides the npm whoami (test hook).
@@ -29,7 +29,7 @@ Root build bundler and the publish/pack/auth readiness gates. These scripts are 
 ## ANTI-PATTERNS
 
 - Adding a runtime/dependency not already in root `package.json` (the project is npm/esbuild only — no Bun).
-- Letting the build emit `fixture-minimal.build-*` temp dirs into `dist/`.
+- Letting the build emit `fixture.build-*` temp dirs into `dist/`.
 - Weakening `assert-npm-pack-bin.mjs` required-path or bin-target assertions to make pack pass.
 - Weakening `assert-omo-parity.mjs` required-skill, manifest, inventory, docs, or `includeCache: false` assertions to make a drifted OMO payload pass.
 - Making gate scripts exit `0` on not-ready.

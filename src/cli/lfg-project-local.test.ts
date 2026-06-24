@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
-import { runLfgFromCwd } from "./test-process"
+import { runLfgFromCwd } from "./test/test-process"
 
 describe("lfg project-local (#28)", () => {
   test("--json project-local is not a public command", async () => {

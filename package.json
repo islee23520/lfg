@@ -37,7 +37,7 @@
   ],
   "scripts": {
     "setup": "sh bin/lfg.js setup",
-    "test": "npm run build && vitest run src/cli/*.test.ts src/grok-adapter/*.test.ts",
+    "test": "npm run build && vitest run src/cli/*.test.ts src/cli/**/*.test.ts src/grok/*.test.ts src/grok/**/*.test.ts --exclude src/grok/skills/**/*.test.ts",
     "verify": "npm run assert-pack && npm run assert-omo-parity && npm test && npm run typecheck && npm run self-test",
     "self-test": "npm run build && node dist/self-test.js",
     "typecheck": "tsc --noEmit",

@@ -39,7 +39,7 @@ Dual-home is allowed; Grok users are not required to run Codex.
 
 | Capability | Where it lives (target) |
 |------------|-------------------------|
-| Grok install + verification + cleanup | `src/cli/` + `src/grok-adapter/` |
+| Grok install + verification + cleanup | `src/cli/` + `src/grok/` |
 | Extension hooks / agent overrides | **Ported** per `docs/lfp-capability-port.md` into `src/extensions/` (or grok-install modules) — **new Grok-native code** |
 | omo component parity | Vendor or sync from `oh-my-openagent/packages/omo-codex/plugin` — not duplicate maintenance in lfg forever without sync script |
 | Model discovery | Existing `lfg-models.ts` + `lfg-grok-config.ts` until install owns full merge |

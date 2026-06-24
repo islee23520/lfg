@@ -31,7 +31,7 @@ const requiredManagedSkills = [
   "visual-qa",
 ]
 const generatedSkillRoots = [
-  "src/grok-adapter/skills",
+  "src/grok/skills",
   "skills",
   "dist/grok-install/skills",
 ]
@@ -50,7 +50,7 @@ const failures = []
 for (const root of generatedSkillRoots) {
   await assertSkillRoot(root)
 }
-await assertTextContains("src/grok-adapter/component-inventory.ts", [
+await assertTextContains("src/grok/payload/component-inventory.ts", [
   `UPSTREAM_OMO_VERSION = "${expectedVersion}"`,
   `UPSTREAM_OMO_TAG = "v${expectedVersion}"`,
   ...deferredComponents.map((component) => `{ id: "${component}", status: "Deferred"`),

@@ -3,25 +3,54 @@ import { chmod, cp, mkdir, readdir, rename, rm, writeFile } from "node:fs/promis
 import { build } from "esbuild"
 import { syncOmoSkillsToGrok } from "./sync-omo-skills-to-grok.mjs"
 
-const outputs = [
-  ["src/cli/lfg.ts", "dist/lfg.js"],
-  ["src/cli/self-test.ts", "dist/self-test.js"],
-  ["src/cli/publish-readiness.ts", "dist/publish-readiness.js"],
-  ["src/cli/npm-publish-auth.ts", "dist/npm-publish-auth.js"],
-  ["src/cli/npm-registry-version.ts", "dist/npm-registry-version.js"],
-  ["src/cli/npm-publish-bin.ts", "dist/npm-publish-bin.js"],
-  ["src/cli/npm-registry-bin.ts", "dist/npm-registry-bin.js"],
-  // TUI module for LFP-style Clack setup on TTY (dynamic import from the main bundle).
-  // Built as a separate file (like LFP's setup-tui.mjs) so the runtime relative import works.
-  // Its runtime deps (@clack/prompts, picocolors) are declared in root package.json "dependencies"
-  // and externalized here so the emitted module retains bare imports resolved from the installed package.
-  ["src/cli/lfg-setup-tui.ts", "dist/lfg-setup-tui.js"],
+const CLI_ENTRYPOINT_SOURCE = "src/cli"
+const CLI_ENTRYPOINT_DIST = "dist"
+
+const CLI_ENTRYPOINT_DIST_NAMES = {
+  lfg: "lfg.js",
+  selfTest: "self-test.js",
+  publishReadiness: "publish-readiness.js",
+  npmPublishAuth: "npm-publish-auth.js",
+  npmRegistryVersion: "npm-registry-version.js",
+  npmPublishBin: "npm-publish-bin.js",
+  npmRegistryBin: "npm-registry-bin.js",
+  lfgSetupTui: "lfg-setup-tui.js",
+}
+
+const OUTPUT_BUNDLES = [
+  ["command/lfg.ts", CLI_ENTRYPOINT_DIST_NAMES.lfg],
+  ["self-test.ts", CLI_ENTRYPOINT_DIST_NAMES.selfTest],
+  ["publish/publish-readiness.ts", CLI_ENTRYPOINT_DIST_NAMES.publishReadiness],
+  ["publish/npm-publish-auth.ts", CLI_ENTRYPOINT_DIST_NAMES.npmPublishAuth],
+  ["publish/npm-registry-version.ts", CLI_ENTRYPOINT_DIST_NAMES.npmRegistryVersion],
+  ["publish/npm-publish-bin.ts", CLI_ENTRYPOINT_DIST_NAMES.npmPublishBin],
+  ["publish/npm-registry-bin.ts", CLI_ENTRYPOINT_DIST_NAMES.npmRegistryBin],
+  ["setup/lfg-setup-tui.ts", CLI_ENTRYPOINT_DIST_NAMES.lfgSetupTui],
 ]
 
-const distDir = "dist"
-const buildLockDir = `${distDir}/.build.lock`
+const GROK_INSTALL_DIR = "dist/grok-install"
+const GROK_INSTALL_FIXTURE_SRC = "src/grok/fixture"
+const GROK_INSTALL_FIXTURE_DST = `${GROK_INSTALL_DIR}/fixture`
+const GROK_INSTALL_ASSETS_SRC = "src/grok/assets"
+const GROK_INSTALL_ASSETS_DST = `${GROK_INSTALL_DIR}/assets`
+const GROK_INSTALL_FLAVOUR_PACK_SRC = "src/grok/flavour"
+const GROK_INSTALL_FLAVOUR_PACK_DST = `${GROK_INSTALL_DIR}/flavour`
+const GROK_INSTALL_SKILLS_SRC = "src/grok/skills"
+const GROK_INSTALL_SKILLS_DST = `${GROK_INSTALL_DIR}/skills`
+const GROK_INSTALL_MCP_COMPONENT_DIRS = ["ast-grep", "git-bash", "lsp"]
+const GROK_INSTALL_MCP_RUNTIME_DIRS = [
+  ["ast-grep-mcp", "ast_grep"],
+  ["git-bash-mcp", "git_bash"],
+  ["lsp-daemon", "lsp"],
+]
 
-await mkdir(distDir, { recursive: true })
+const buildDir = CLI_ENTRYPOINT_DIST
+const buildLockDir = `${buildDir}/.build.lock`
+
+const OUTPUTS = OUTPUT_BUNDLES.map(([entryPoint, outfile]) => [`${CLI_ENTRYPOINT_SOURCE}/${entryPoint}`, `${CLI_ENTRYPOINT_DIST}/${outfile}`])
+const outputs = OUTPUTS
+
+await mkdir(buildDir, { recursive: true })
 await acquireBuildLock(buildLockDir)
 try {
   await Promise.all(
@@ -41,66 +70,57 @@ try {
     }),
   )
 
-  const fixtureSrc = "src/grok-adapter/fixture-minimal"
-  const fixtureDst = "dist/grok-install/fixture-minimal"
-  const grokDistDir = "dist/grok-install"
-  const mcpComponentDirs = ["ast-grep", "git-bash", "lsp"]
-  const mcpRuntimeDirs = [
-    ["ast-grep-mcp", "ast_grep"],
-    ["git-bash-mcp", "git_bash"],
-    ["lsp-daemon", "lsp"],
-  ]
-  await mkdir(grokDistDir, { recursive: true })
+  await mkdir(GROK_INSTALL_DIR, { recursive: true })
   await Promise.all(
-    (await readdir(grokDistDir, { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory() && entry.name.startsWith("fixture-minimal.build-"))
-      .map((entry) => rm(`${grokDistDir}/${entry.name}`, { recursive: true, force: true })),
+    (await readdir(GROK_INSTALL_DIR, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory() && entry.name.startsWith("fixture.build-"))
+      .map((entry) => rm(`${GROK_INSTALL_DIR}/${entry.name}`, { recursive: true, force: true })),
   )
-  const fixtureTmp = `${fixtureDst}.build-${process.pid}-${Date.now()}`
+  const fixtureTmp = `${GROK_INSTALL_FIXTURE_DST}.build-${process.pid}-${Date.now()}`
   await rm(fixtureTmp, { recursive: true, force: true })
-  await cp(fixtureSrc, fixtureTmp, { recursive: true })
-  await cp(fixtureSrc, grokDistDir, { recursive: true })
-  for (const componentDir of mcpComponentDirs) {
-    await rm(`${grokDistDir}/components/${componentDir}`, { recursive: true, force: true })
-    await cp(`components/${componentDir}`, `${grokDistDir}/components/${componentDir}`, { recursive: true, force: true })
+  await cp(GROK_INSTALL_FIXTURE_SRC, fixtureTmp, { recursive: true })
+  await cp(GROK_INSTALL_FIXTURE_SRC, GROK_INSTALL_DIR, { recursive: true })
+
+  for (const componentDir of GROK_INSTALL_MCP_COMPONENT_DIRS) {
+    await rm(`${GROK_INSTALL_DIR}/components/${componentDir}`, { recursive: true, force: true })
+    await cp(`components/${componentDir}`, `${GROK_INSTALL_DIR}/components/${componentDir}`, { recursive: true, force: true })
   }
-  await rm(`${grokDistDir}/mcp-runtimes`, { recursive: true, force: true })
-  for (const [runtimeDir, serverName] of mcpRuntimeDirs) {
-    const runtimeDist = `${grokDistDir}/mcp-runtimes/${runtimeDir}/dist`
+
+  await rm(`${GROK_INSTALL_DIR}/mcp-runtimes`, { recursive: true, force: true })
+  for (const [runtimeDir, serverName] of GROK_INSTALL_MCP_RUNTIME_DIRS) {
+    const runtimeDist = `${GROK_INSTALL_DIR}/mcp-runtimes/${runtimeDir}/dist`
     const runtimeCli = `${runtimeDist}/cli.js`
     await mkdir(runtimeDist, { recursive: true })
     await writeFile(runtimeCli, mcpRuntimeCli(serverName), "utf8")
     await chmod(runtimeCli, 0o755)
   }
-  const bridgeSrc = "src/grok-adapter/assets/lfg-grok-hook-bridge.mjs"
-  const configLoaderSrc = "src/grok-adapter/assets/lfg-config-loader.mjs"
-  const projectOmoLedgerSrc = "src/grok-adapter/assets/lfg-project-omo-ledger.mjs"
-  const sisyphusHooksSrc = "src/grok-adapter/assets/lfg-sisyphus-hooks.mjs"
-  const nativeRulesSrc = "src/grok-adapter/assets/lfg-native-rules.js"
-  const nativeUltraworkSrc = "src/grok-adapter/assets/lfg-native-ultrawork.js"
-  const devLoggerSrc = "src/grok-adapter/assets/lfg-dev-logger.mjs"
-  const bridgeDstDir = "dist/grok-install/assets"
-  await mkdir(bridgeDstDir, { recursive: true })
-  await cp(bridgeSrc, `${bridgeDstDir}/lfg-grok-hook-bridge.mjs`)
-  await cp(configLoaderSrc, `${bridgeDstDir}/lfg-config-loader.mjs`)
-  await cp(projectOmoLedgerSrc, `${bridgeDstDir}/lfg-project-omo-ledger.mjs`)
-  await cp(sisyphusHooksSrc, `${bridgeDstDir}/lfg-sisyphus-hooks.mjs`)
-  await cp(nativeRulesSrc, `${bridgeDstDir}/lfg-native-rules.js`)
-  await cp(nativeUltraworkSrc, `${bridgeDstDir}/lfg-native-ultrawork.js`)
-  await cp(devLoggerSrc, `${bridgeDstDir}/lfg-dev-logger.mjs`)
-  const flavourSrc = "src/grok-adapter/flavour-pack-assets"
-  const flavourDst = "dist/grok-install/flavour-pack-assets"
-  await cp(flavourSrc, flavourDst, { recursive: true })
+
+  const bridgeSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-grok-hook-bridge.mjs`
+  const configLoaderSrc = `${GROK_INSTALL_ASSETS_SRC}/config/lfg-config-loader.mjs`
+  const projectOmoLedgerSrc = `${GROK_INSTALL_ASSETS_SRC}/ledger/lfg-project-omo-ledger.mjs`
+  const sisyphusHooksSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-sisyphus-hooks.mjs`
+  const nativeRulesSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-rules.js`
+  const nativeUltraworkSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-ultrawork.js`
+  const devLoggerSrc = `${GROK_INSTALL_ASSETS_SRC}/log/lfg-dev-logger.mjs`
+  await mkdir(GROK_INSTALL_ASSETS_DST, { recursive: true })
+  await cp(bridgeSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-grok-hook-bridge.mjs`)
+  await cp(configLoaderSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-config-loader.mjs`)
+  await cp(projectOmoLedgerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-project-omo-ledger.mjs`)
+  await cp(sisyphusHooksSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-sisyphus-hooks.mjs`)
+  await cp(nativeRulesSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-rules.js`)
+  await cp(nativeUltraworkSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-ultrawork.js`)
+  await cp(devLoggerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-dev-logger.mjs`)
+
+  await cp(GROK_INSTALL_FLAVOUR_PACK_SRC, GROK_INSTALL_FLAVOUR_PACK_DST, { recursive: true })
 
   await syncOmoSkillsToGrok({ allowExistingFallback: true, includeCache: false })
-  const skillsSrc = "src/grok-adapter/skills"
-  const skillsDst = "dist/grok-install/skills"
-  await rm(skillsDst, { recursive: true, force: true })
-  await cp(skillsSrc, skillsDst, { recursive: true })
+  await rm(GROK_INSTALL_SKILLS_DST, { recursive: true, force: true })
+  await cp(GROK_INSTALL_SKILLS_SRC, GROK_INSTALL_SKILLS_DST, { recursive: true })
+
   for (let attempt = 0; attempt < 8; attempt++) {
-    await rm(fixtureDst, { recursive: true, force: true })
+    await rm(GROK_INSTALL_FIXTURE_DST, { recursive: true, force: true })
     try {
-      await rename(fixtureTmp, fixtureDst)
+      await rename(fixtureTmp, GROK_INSTALL_FIXTURE_DST)
       break
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? error.code : null

@@ -20,7 +20,7 @@ const required = [
   "dist/npm-registry-version.js",
   "dist/npm-publish-bin.js",
   "dist/npm-registry-bin.js",
-  "dist/grok-install/fixture-minimal/hooks/hooks.json",
+  "dist/grok-install/fixture/hooks/hooks.json",
   // Grok-first OMO parity requires native Grok hook fixtures plus bridge fallback assets.
   "dist/grok-install/assets/lfg-grok-hook-bridge.mjs",
   "dist/grok-install/assets/lfg-config-loader.mjs",
@@ -36,7 +36,7 @@ if (missing.length > 0 || missingSkillFragments.length > 0) {
   console.error("assert-npm-pack-bin: missing paths:", missing.concat(missingSkillFragments).join(", "))
   process.exit(1)
 }
-const staleBuildPaths = paths.filter((p) => p.includes("/fixture-minimal.build-"))
+const staleBuildPaths = paths.filter((p) => p.includes("/fixture.build-"))
 if (staleBuildPaths.length > 0) {
   console.error("assert-npm-pack-bin: stale build temp paths:", staleBuildPaths.join(", "))
   process.exit(1)

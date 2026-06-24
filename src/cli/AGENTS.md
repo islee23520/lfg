@@ -2,20 +2,22 @@
 
 ## OVERVIEW
 
-Public CLI, JSON contract, publish/readiness helpers, and the densest test surface for the Grok-first adapter package.
+Public CLI, JSON contract, setup UI, model/config writers, publish/readiness helpers, and the densest test surface for the Grok-first adapter package.
 
 ## WHERE TO LOOK
 
 | Task | Location | Notes |
 |------|----------|-------|
-| CLI routing/help/output | `lfg.ts`, `lfg-command.ts`, `lfg-interactive.ts` | Only `setup` is supported. |
-| Grok setup execution | `lfg-installer.ts` | Delegates to internal grok-install; default skips Codex install. |
-| Setup JSON contract | `setup-json-contract.ts`, `lfg-setup-plan.test.ts`, `setup-json-contract.test.ts` | Keep field names stable. |
-| Model discovery/mapping | `lfg-models.ts`, `lfg-models.*.test.ts`, `lfg-config.test.ts` | `/v1/models` mapping feeds config and agents. |
-| Grok config output | `lfg-grok-config.ts`, `lfg-grok-config*.test.ts` | Never leak API keys. |
-| Package/bin layout | `lfg-package-layout.ts`, `npm-publish-bin.ts`, `npm-registry-bin.ts`, `*pack*test.ts` | Root package shape is the publish contract. |
-| Publish readiness | `publish-readiness.ts`, `npm-publish-auth.ts`, `record-publish-gap*.test.ts`, `pre-publish-check*.test.ts` | Keep checks deterministic and script-compatible. |
-| Test harness | `test-process.ts` | Reuses built `dist/lfg.js`; many tests require build first. |
+| CLI routing/help/output | `command/lfg.ts`, `command/lfg-command.ts` | Only `setup` is supported. Pure JSON helpers live in `src/shared/json.ts`. |
+| Grok setup execution | `setup/lfg-installer.ts` | Delegates to internal grok-install; default skips Codex install. |
+| Setup plan / interactive setup | `setup/setup-plan.ts`, `setup/lfg-interactive*.ts`, `setup/lfg-setup-tui*.ts` | Keep human output and JSON output separate. |
+| Setup JSON contract | `setup-json-contract.ts`, `setup/lfg-setup-plan.test.ts`, `setup-json-contract.test.ts` | Keep field names stable. |
+| Model discovery/mapping | `models/lfg-models.ts`, `models/lfg-models.*.test.ts`, `config/lfg-config.test.ts` | `/v1/models` mapping feeds config and agents. |
+| Grok config output | `config/lfg-grok-config.ts`, `config/lfg-grok-config*.test.ts` | Never leak API keys. |
+| Package/bin layout | `publish/lfg-package-layout.ts`, `publish/npm-publish-bin.ts`, `publish/npm-registry-bin.ts`, `publish/*pack*test.ts` | Root package shape is the publish contract. |
+| Publish readiness | `publish/publish-readiness.ts`, `publish/npm-publish-auth.ts`, `publish/record-publish-gap*.test.ts`, `publish/pre-publish-check*.test.ts` | Keep checks deterministic and script-compatible. |
+| Test harness | `test/test-process.ts`, `test/test-model-server.ts` | Reuses built `dist/lfg.js`; many tests require build first. |
+| Doc contracts | `docs-contract/` | Tests exact docs wording and path references. |
 
 ## CONVENTIONS
 
@@ -38,7 +40,7 @@ Public CLI, JSON contract, publish/readiness helpers, and the densest test surfa
 
 ```sh
 npm run build
-vitest run src/cli/*.test.ts
+vitest run src/cli/*.test.ts src/cli/**/*.test.ts src/grok/*.test.ts src/grok/**/*.test.ts --exclude src/grok/skills/**/*.test.ts
 node dist/lfg.js --json setup
 node dist/lfg.js --json setup --run
 npm run assert-pack

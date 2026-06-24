@@ -10,8 +10,8 @@ import { execFile, spawnSync } from "node:child_process"
 import { promisify } from "node:util"
 import { describe, expect, test } from "vitest"
 
-import { runLazycodexInstaller } from "./lfg-installer"
-import { resolveFastModelId, serviceTierFromChoice } from "./resolve-tier-model"
+import { runLazycodexInstaller } from "./setup/lfg-installer"
+import { resolveFastModelId, serviceTierFromChoice } from "./models/resolve-tier-model"
 
 const execFileAsync = promisify(execFile)
 

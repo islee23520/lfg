@@ -16,11 +16,11 @@
   },
   "include": [
     "src/cli/**/*.ts",
-    "src/grok-adapter/**/*.ts",
+    "src/grok/**/*.ts",
     "src/test-utils/**/*.ts"
   ],
   "exclude": [
     "dist",
-    "src/grok-adapter/skills"
+    "src/grok/skills"
   ]
 }

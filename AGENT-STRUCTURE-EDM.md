@@ -33,7 +33,7 @@ erDiagram
     }
 
     OMO_BUNDLED_OVERRIDES {
-        string path "flavour-pack-assets/omo-agent-overrides.json"
+        string path "flavour/omo-agent-overrides.json"
         string source "Grok-first defaults with perf rationale"
     }
 
@@ -48,7 +48,7 @@ erDiagram
     }
 
     FLAVOUR_PACK {
-        string path "flavour-pack-assets/agent-configs/*.toml"
+        string path "flavour/agent-configs/*.toml"
         string scope "artistry, visual, artistry-gen, artistry-qa"
     }
 

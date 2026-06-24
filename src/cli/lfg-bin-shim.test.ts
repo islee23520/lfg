@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
-import { PUBLISHED_LFG_BIN_TARGET } from "./npm-publish-bin"
+import { PUBLISHED_LFG_BIN_TARGET } from "./publish/npm-publish-bin"
 
 describe("bin/lfg.js bin shim (#22)", () => {
   test("shell wrapper execs dist/lfg.js", async () => {

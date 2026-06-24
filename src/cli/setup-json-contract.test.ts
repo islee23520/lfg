@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
 import { findDeprecatedSetupJsonKeys, setupPostInstallConsistent } from "./setup-json-contract"
-import { runLfg } from "./test-process"
+import { runLfg } from "./test/test-process"
 
 describe("setup-json-contract (#21)", () => {
   test("successful setup --run has no deprecated adapter repair keys", async () => {
