@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+if [ -f "$script_dir/../dist/lfg.js" ]; then
+  exec node "$script_dir/../dist/lfg.js" "$@"
+fi
+
+if [ -f "$script_dir/../@islee23520/lfg/dist/lfg.js" ]; then
+  exec node "$script_dir/../@islee23520/lfg/dist/lfg.js" "$@"
+fi
+
+echo "lfg has not been built yet. Run npm run build first." >&2
+exit 1
