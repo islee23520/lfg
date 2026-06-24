@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { packageJsonHasBinLfg } from "../../cli/publish/npm-publish-bin"
+import { packageJsonHasBinLfg } from "../../cli/publish/bin/npm-publish-bin"
 
 /** Read `@islee23520/lfg` version from published workspace root (npm pack layout). */
 export async function readLfgPackageVersionFromBundle(moduleUrl: string): Promise<string | null> {

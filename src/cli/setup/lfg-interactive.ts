@@ -7,7 +7,7 @@ import type { JsonObject } from "../../shared/json"
 import type { ResolveSetupDiscoveryResult } from "../../grok/install/resolve-setup-discovery"
 import { resolveSetupDiscovery } from "../../grok/install/resolve-setup-discovery"
 import { formatRecommendationTable } from "../../grok/models/model-recommendations"
-import { maybeRequestGitHubStars } from "../publish/lfg-github-stars"
+import { maybeRequestGitHubStars } from "../publish/github/lfg-github-stars"
 import { printCancelled, printCompleted, printInstallIntro, printInstallPlan, printMagicWord, printStep } from "./lfg-interactive-ui"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
 import {

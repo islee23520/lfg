@@ -1,7 +1,7 @@
 import { access } from "node:fs/promises"
 import { join } from "node:path"
 import type { JsonObject } from "../../shared/json"
-import { resolveLfgCliLayout } from "../../cli/publish/lfg-package-layout"
+import { resolveLfgCliLayout } from "../../cli/publish/layout/lfg-package-layout"
 import { readGrokInstallStamp } from "../payload/install"
 import { buildDoctorChecks, doctorChecksJson } from "./doctor-checks"
 import { doctorPublishGapJson } from "./doctor-publish-gap"

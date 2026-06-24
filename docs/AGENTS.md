@@ -17,7 +17,7 @@ Every doc has a 1:1 `*-doc.test.ts` under `src/cli/docs/` that asserts exact phr
 | `grok-config-endpoints.md` | `src/cli/docs/grok-config-endpoints-doc.test.ts` |
 | `grok-host-auth.md` | `src/cli/docs/grok-host-auth-doc.test.ts` |
 | `lfp-capability-port.md` | `src/cli/docs/lfp-capability-port-doc.test.ts` |
-| `npm-publish.md` | `src/cli/publish/npm-publish-doc.test.ts` |
+| `npm-publish.md` | `src/cli/publish/workflow/npm-publish-doc.test.ts` |
 
 ## CONVENTIONS
 

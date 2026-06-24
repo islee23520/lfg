@@ -14,8 +14,8 @@ Public CLI, JSON contract, setup UI, model/config writers, publish/readiness hel
 | Setup JSON contract | `setup-json-contract.ts`, `setup/lfg-setup-plan.test.ts`, `setup-json-contract.test.ts` | Keep field names stable. |
 | Model discovery/mapping | `models/lfg-models.ts`, `models/lfg-models.*.test.ts`, `config/lfg-config.test.ts` | `/v1/models` mapping feeds config and agents. |
 | Grok config output | `config/lfg-grok-config.ts`, `config/lfg-grok-config*.test.ts` | Never leak API keys. |
-| Package/bin layout | `publish/lfg-package-layout.ts`, `publish/npm-publish-bin.ts`, `publish/npm-registry-bin.ts`, `publish/*pack*test.ts` | Root package shape is the publish contract. |
-| Publish readiness | `publish/publish-readiness.ts`, `publish/npm-publish-auth.ts`, `publish/record-publish-gap*.test.ts`, `publish/pre-publish-check*.test.ts` | Keep checks deterministic and script-compatible. |
+| Package/bin layout | `publish/layout/lfg-package-layout.ts`, `publish/bin/npm-publish-bin.ts`, `publish/registry/npm-registry-bin.ts`, `publish/pack/*pack*test.ts` | Root package shape is the publish contract. |
+| Publish readiness | `publish/readiness/publish-readiness.ts`, `publish/auth/npm-publish-auth.ts`, `publish/readiness/record-publish-gap*.test.ts`, `publish/readiness/pre-publish-check*.test.ts` | Keep checks deterministic and script-compatible. |
 | Test harness | `test/test-process.ts`, `test/test-model-server.ts` | Reuses built `dist/lfg.js`; many tests require build first. |
 | Doc contracts | `docs-contract/` | Tests exact docs wording and path references. |
 

@@ -1,5 +1,5 @@
 import type { JsonObject } from "../../shared/json"
-import type { LfgCliLayout } from "../../cli/publish/lfg-package-layout"
+import type { LfgCliLayout } from "../../cli/publish/layout/lfg-package-layout"
 
 export type DoctorCheck = {
   readonly name: string

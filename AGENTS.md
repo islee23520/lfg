@@ -215,7 +215,7 @@ node dist/lfg.js --json setup --run   # structured Grok install result
 - `src/cli/config/lfg-grok-config.ts` (+ `-toml.ts`, `-sections.ts`) — config.toml single-writer; `LFG_OWNED_GROK_CONFIG_SECTIONS`.
 - `src/cli/setup/lfg-setup-tui.ts` (+ `-selectors.ts`, `-data.ts`, `-agents.ts`) — `@clack/prompts` TUI (`shouldUseSetupTui()`, `runSetupTui()`).
 - `src/cli/setup/lfg-interactive.ts` — `runInstallWizard()` (readline fallback).
-- `src/cli/publish/npm-publish-*.ts`, `src/cli/publish/publish-readiness.ts`, `src/cli/publish/lfg-package-layout.ts` — pack/publish gating helpers.
+- `src/cli/publish/{bin,auth,registry,readiness,layout,pack,workflow}/` — pack/publish gating helpers.
 
 ### Install engine (`src/grok/`)
 - `src/grok/install/run-grok-install.ts` — `runGrokInstall()` single transaction.

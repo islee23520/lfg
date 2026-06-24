@@ -1,5 +1,5 @@
 import type { JsonObject } from "../../shared/json"
-import { evaluatePublishGap } from "../../cli/publish/publish-readiness"
+import { evaluatePublishGap } from "../../cli/publish/readiness/publish-readiness"
 
 export function doctorPublishGapJson(
   localVersion: string | null,

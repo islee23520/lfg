@@ -20,11 +20,11 @@ const CLI_ENTRYPOINT_DIST_NAMES = {
 const OUTPUT_BUNDLES = [
   ["command/lfg.ts", CLI_ENTRYPOINT_DIST_NAMES.lfg],
   ["self-test.ts", CLI_ENTRYPOINT_DIST_NAMES.selfTest],
-  ["publish/publish-readiness.ts", CLI_ENTRYPOINT_DIST_NAMES.publishReadiness],
-  ["publish/npm-publish-auth.ts", CLI_ENTRYPOINT_DIST_NAMES.npmPublishAuth],
-  ["publish/npm-registry-version.ts", CLI_ENTRYPOINT_DIST_NAMES.npmRegistryVersion],
-  ["publish/npm-publish-bin.ts", CLI_ENTRYPOINT_DIST_NAMES.npmPublishBin],
-  ["publish/npm-registry-bin.ts", CLI_ENTRYPOINT_DIST_NAMES.npmRegistryBin],
+  ["publish/readiness/publish-readiness.ts", CLI_ENTRYPOINT_DIST_NAMES.publishReadiness],
+  ["publish/auth/npm-publish-auth.ts", CLI_ENTRYPOINT_DIST_NAMES.npmPublishAuth],
+  ["publish/registry/npm-registry-version.ts", CLI_ENTRYPOINT_DIST_NAMES.npmRegistryVersion],
+  ["publish/bin/npm-publish-bin.ts", CLI_ENTRYPOINT_DIST_NAMES.npmPublishBin],
+  ["publish/registry/npm-registry-bin.ts", CLI_ENTRYPOINT_DIST_NAMES.npmRegistryBin],
   ["setup/lfg-setup-tui.ts", CLI_ENTRYPOINT_DIST_NAMES.lfgSetupTui],
 ]
 
