@@ -26,7 +26,7 @@ describe("model feature metadata from OpenAI-compatible /v1/models", () => {
 
     try {
       const home = await mkdtemp(join(tmpdir(), "lfg-model-features-"))
-      const discovery = await fetchModelDiscovery("https://cliproxy.linalab.io/v1")
+      const discovery = await fetchModelDiscovery("http://127.0.0.1:11434/v1")
 
       await writeGrokModelConfig(discovery, { home, apiKey: "sk-not-in-output" })
 
