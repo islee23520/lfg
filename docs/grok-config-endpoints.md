@@ -16,9 +16,10 @@ Legacy BYOK flows wrote `api_key` under `[endpoints]`; Grok only recognizes keys
 
 - Sets **`endpoints.models_base_url`** only in `[endpoints]`.
 - **Removes** `endpoints.api_key` if present (including legacy files).
-- Puts provider credentials under **`[model.*]`** sections as `api_key` from `OPENAI_API_KEY` / `XAI_API_KEY`, or from the active Codex provider token in `~/.codex/config.toml` when env is unset — not under `[endpoints]`.
+- Puts single-endpoint provider credentials under **`[model.*]`** sections as `api_key` from `OPENAI_API_KEY` / `XAI_API_KEY`, or from the active Codex provider token in `~/.codex/config.toml` when env is unset — not under `[endpoints]`.
+- Omits that single global `api_key` from all `[model.*]` sections when discovery advertises provider-specific endpoints, because lfg cannot safely attribute one resolved credential to every provider URL.
 
-Prefer **`OPENAI_API_KEY`** in the environment for headless use; the Codex config fallback is for local adapter installs where the proxy token already exists in `~/.codex/config.toml`.
+Prefer **`OPENAI_API_KEY`** in the environment for headless single-endpoint use; the Codex config fallback is for local adapter installs where the proxy token already exists in `~/.codex/config.toml`.
 
 ## Related
 
@@ -48,11 +49,11 @@ Supported presets:
 - `glm`: prefer GLM routes.
 - `multi`: balanced routing plus provider-scoped `[model.*].base_url` values.
 
-Use `--reasoning-effort auto|low|medium|high|xhigh` to control global reasoning effort for OpenAI-compatible proxy models. `auto` uses reasoning metadata advertised by `/v1/models` when present and falls back to role defaults.
+Use `--reasoning-effort auto|low|medium|high|xhigh` to control global reasoning effort for derived OMO agent roles. `auto` keeps role defaults (`explorer=low`, `coding=medium`, `reasoning=high`) instead of trusting model-advertised reasoning metadata.
 
 ## Multi-provider preset
 
-`lfg --json setup --preset multi` uses balanced global routing, but discovery metadata may group model ids by provider so generated `[model.*]` sections can carry provider-specific `base_url` values. This is a GJC-style multi-provider configuration surface without reading `~/.gjc` or changing the default single-endpoint setup path.
+`lfg --json setup --preset multi` uses balanced global routing, but discovery metadata may group model ids by provider so generated `[model.*]` sections can carry provider-specific `base_url` values. In this mode, lfg does not write the single resolved global `api_key` into per-provider model sections. This is a GJC-style multi-provider configuration surface without reading `~/.gjc` or changing the default single-endpoint setup path.
 
 ## Tests
 

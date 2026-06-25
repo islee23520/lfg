@@ -73,11 +73,11 @@ export type ModelConfigRefreshResult = {
 }
 
 /**
- * Lightweight refresh of model info + per-model auth into ~/.grok/config.toml.
+ * Lightweight refresh of model info + safe model auth into ~/.grok/config.toml.
  * Performs discovery (if provided) and writes lfg-owned sections (endpoints, model.*, omo.models/agents).
  * Does NOT touch the Grok plugin tree, hooks, or agents TOMLs.
  * Context windows are sourced from the discovery (proxy first, then public LiteLLM catalog enrichment, local wins).
- * Per-model api_key lines are written from the provided apiKey (typically OPENAI_API_KEY) when present.
+ * api_key is written from the provided apiKey only for single-endpoint discovery.
  */
 export async function refreshGrokModelConfig(
   discovery: ModelDiscovery | null,

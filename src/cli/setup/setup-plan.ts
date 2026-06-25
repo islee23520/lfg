@@ -68,14 +68,14 @@ export function refreshPlan(resolved: ResolveSetupDiscoveryResult, preset: Setup
     dryRun: false,
     lfgIsPlugin: false,
     selectedPreset: preset,
-    purpose: "Refresh only the model list, per-model context_window sizes, and auth (api_key) in ~/.grok/config.toml. Discovery uses the current base URL (proxy first, public LiteLLM catalog for context sizes as secondary source). Local/proxy-advertised values always win. Does not touch the Grok plugin tree, hooks, agents, or TOMLs.",
+    purpose: "Refresh only the model list, per-model context_window sizes, and safe model auth in ~/.grok/config.toml. Discovery uses the current base URL (proxy first, public LiteLLM catalog for context sizes as secondary source). Local/proxy-advertised values always win. Does not touch the Grok plugin tree, hooks, agents, or TOMLs.",
     modelDiscovery: discovery ?? modelDiscoveryPlan(),
     modelDiscoverySource: resolved.baseUrlSource,
     modelsBaseUrlUsed: resolved.baseUrlUsed,
     autoModelAliases: discovery !== null,
     steps: [
       { id: 1, status: discovery === null ? "pending" : "done", text: "Re-discover OpenAI-compatible models and context windows from CLI/env/config.toml/default proxy (public LiteLLM catalog enrichment attempted when proxy omits sizes)." },
-      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (with fresh context_window + api_key from OPENAI_API_KEY/XAI_API_KEY or the active Codex provider), and [omo.models] into ~/.grok/config.toml. Preserve prior context_window when discovery provides none for a model." },
+      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (fresh context_window plus api_key only for single-endpoint discovery), and [omo.models] into ~/.grok/config.toml. Multi-provider discovery omits the single global key from provider-scoped model sections. Preserve prior context_window when discovery provides none for a model." },
     ],
     note: "This is a config-only maintenance operation. Use --run to execute. No Grok plugin install or hook registration occurs.",
   }

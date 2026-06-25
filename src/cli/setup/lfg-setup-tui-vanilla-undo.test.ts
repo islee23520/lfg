@@ -86,6 +86,33 @@ describe("lfg-setup-tui vanilla + undo", () => {
     expect(installed?.agentConfig?.explorer?.model).toBe("grok-3-mini-fast")
   })
 
+  test("vanilla preset preserves Grok-only named agent overrides", async () => {
+    const prompts = (await import("@clack/prompts")) as any
+    prompts.__calls.length = 0
+    installerMock.runLazycodexInstaller.mockClear()
+
+    const origSelect = prompts.select
+    prompts.select = async (opts: any) => {
+      const message = String(opts.message ?? "")
+      if (/Global model preset/.test(message)) return "vanilla"
+      if (/Global reasoning effort/.test(message)) return "auto"
+      return String(opts.options?.[0]?.value ?? "auto")
+    }
+
+    await tui.runSetupTui({}, { plan: {}, resolved: { discovery: discovery() } }, {
+      prompts,
+      colors: { inverse: (s: string) => s, green: (s: string) => s },
+    })
+
+    prompts.select = origSelect
+
+    const installed = (installerMock.runLazycodexInstaller.mock.calls as unknown as ReadonlyArray<readonly unknown[]>)[0]?.[0] as Record<string, any>
+    expect(installed?.agentOverrideMap).toBeTruthy()
+    for (const override of Object.values(installed.agentOverrideMap as Record<string, { model: string }>)) {
+      expect(override.model).toMatch(/^grok[-_]/)
+    }
+  })
+
   test("auto preset works with no proxy by preserving existing model config", async () => {
     const prompts = (await import("@clack/prompts")) as any
     const calls: unknown[][] = prompts.__calls

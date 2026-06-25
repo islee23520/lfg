@@ -13,8 +13,9 @@ export function upsertModelSections(
   let next = source
   for (const alias of aliases) {
     const upstreamModelId = alias === "grok-build" ? discovery.mapping.default : canonicalModelForAlias(discovery.modelIds, alias)
-    const lines = [`model = ${tomlString(upstreamModelId)}`, `base_url = ${tomlString(baseUrlForModel(discovery, upstreamModelId, baseUrl))}`]
-    if (typeof apiKey === "string" && apiKey.length > 0) {
+    const modelBaseUrl = baseUrlForModel(discovery, upstreamModelId, baseUrl)
+    const lines = [`model = ${tomlString(upstreamModelId)}`, `base_url = ${tomlString(modelBaseUrl)}`]
+    if (typeof apiKey === "string" && apiKey.length > 0 && shouldWriteGlobalApiKey(discovery)) {
       lines.push(`api_key = ${tomlString(apiKey)}`)
     }
     const contextWindow = resolveContextWindowForModel(discovery, upstreamModelId, priorConfig, alias)
@@ -71,6 +72,13 @@ function baseUrlForModel(discovery: ModelDiscovery, modelId: string, fallbackBas
   const endpoints = discovery.providerEndpoints
   if (endpoints === undefined) return fallbackBaseUrl
   return endpoints.find((endpoint) => endpoint.modelIds.includes(modelId))?.baseUrl ?? fallbackBaseUrl
+}
+
+function shouldWriteGlobalApiKey(discovery: ModelDiscovery): boolean {
+  // A single resolved API key has no provider attribution. Once discovery includes
+  // provider-specific endpoints, omit it from every [model.*] section rather than
+  // risk sending one provider's credential to another OpenAI-compatible endpoint.
+  return discovery.providerEndpoints === undefined
 }
 
 function readPriorContextWindow(source: string, alias: string): number | null {

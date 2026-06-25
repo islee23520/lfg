@@ -111,13 +111,15 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
   if (modelMode === "vanilla") {
     const vanilla = buildVanillaGrokConfig(bundled);
     const vanillaModelIds = [...new Set([vanilla.mapping.default, vanilla.mapping.fast, vanilla.mapping.reasoning, vanilla.mapping.coding])];
-    const vanillaDiscovery = withReasoningEffort({
-      baseUrl: "",
-      modelsUrl: "",
-      modelIds: vanillaModelIds,
-      mapping: vanilla.mapping,
+    const vanillaDiscovery = {
+      ...withReasoningEffort({
+        baseUrl: "",
+        modelsUrl: "",
+        modelIds: vanillaModelIds,
+        mapping: vanilla.mapping,
+      }, reasoningEffort as ReasoningEffortChoice),
       agentOverrideMap: vanilla.agentOverrideMap,
-    }, reasoningEffort as ReasoningEffortChoice);
+    };
     configuredForInstall = vanillaDiscovery;
     resultsText = formatVanillaResults(vanilla);
     modelConfigLine = "Model config: built-in Grok defaults (no proxy)";

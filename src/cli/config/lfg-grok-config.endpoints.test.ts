@@ -60,6 +60,47 @@ describe("grok config endpoints (#24)", () => {
     expect(section(config, "endpoints")).toContain('models_base_url = "http://127.0.0.1:11434/v1"')
   })
 
+  test("does not copy one global api key into provider-specific model sections", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-multi-provider-auth-"))
+    const multi: ModelDiscovery = {
+      ...discovery,
+      modelIds: ["grok-4.3", "gpt-5.5", "glm-5.2"],
+      mapping: { default: "grok-4.3", fast: "grok-4.3", reasoning: "gpt-5.5", coding: "gpt-5.5" },
+      providerEndpoints: [
+        { id: "xai", baseUrl: "https://api.x.ai/v1", modelIds: ["grok-4.3"] },
+        { id: "openai-compatible", baseUrl: "http://127.0.0.1:8317/v1", modelIds: ["gpt-5.5"] },
+        { id: "glm", baseUrl: "https://open.bigmodel.cn/api/paas/v4", modelIds: ["glm-5.2"] },
+      ],
+    }
+
+    await writeGrokModelConfig(multi, { home, apiKey: "sk-test" })
+
+    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    expect(section(config, 'model."grok-4.3"')).not.toContain("api_key")
+    expect(section(config, 'model."gpt-5.5"')).not.toContain("api_key")
+    expect(section(config, 'model."glm-5.2"')).not.toContain("api_key")
+  })
+
+  test("does not write a global api key to fallback-base provider sections", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-fallback-provider-auth-"))
+    const multi: ModelDiscovery = {
+      ...discovery,
+      modelIds: ["grok-4.3", "custom-openai-model"],
+      mapping: { default: "custom-openai-model", fast: "custom-openai-model", reasoning: "grok-4.3", coding: "custom-openai-model" },
+      providerEndpoints: [
+        { id: "xai", baseUrl: "https://api.x.ai/v1", modelIds: ["grok-4.3"] },
+        { id: "openai-compatible", baseUrl: discovery.baseUrl, modelIds: ["custom-openai-model"] },
+      ],
+    }
+
+    await writeGrokModelConfig(multi, { home, apiKey: "sk-test" })
+
+    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    expect(section(config, 'model."grok-4.3"')).not.toContain("api_key")
+    expect(section(config, 'model."custom-openai-model"')).not.toContain("api_key")
+    expect(section(config, 'model."grok-build"')).not.toContain("api_key")
+  })
+
   test("writes discovered reasoning effort into model sections", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-reasoning-effort-config-"))
     const withReasoningEffort: ModelDiscovery = {

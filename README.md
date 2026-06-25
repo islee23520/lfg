@@ -19,7 +19,7 @@ npx @islee23520/lfg setup
 | First install | `npx @islee23520/lfg setup` |
 | Sync models / preserve healthy existing install | `npx @islee23520/lfg setup --run` |
 | Force reinstall or repair adapter tree | `npx @islee23520/lfg setup --run --force` |
-| Refresh model list + context windows + per-model auth (no plugin tree change) | `npx @islee23520/lfg --json setup --refresh --run` |
+| Refresh model list, context windows, and safe model auth (no plugin tree change) | `npx @islee23520/lfg --json setup --refresh --run` |
 | Automation | `npx @islee23520/lfg --json setup --run` |
 
 During interactive setup, `lfg` can read an OpenAI-compatible base URL, fetch `/v1/models`, map model aliases, and ask before writing files.
