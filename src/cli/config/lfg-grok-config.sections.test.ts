@@ -6,6 +6,7 @@ describe("LFG_OWNED_GROK_CONFIG_SECTIONS (#29)", () => {
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS).toContain("endpoints.models_base_url")
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS).toContain("omo.models")
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS).toContain("omo.agents")
+    expect(LFG_OWNED_GROK_CONFIG_SECTIONS).toContain("models.default")
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS.length).toBeGreaterThanOrEqual(5)
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS.join(" ")).not.toContain("api_key")
   })

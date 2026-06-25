@@ -27,6 +27,40 @@ describe("lfg-config", () => {
     expect(config?.agents?.explorer?.model).toBe("gpt-5.4-mini")
   })
 
+  test("default jsonc config accepts and applies fallback route fields", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-config-fallback-home-"))
+    await ensureLfgConfigFiles(home, {
+      explorer: {
+        model: "gpt-5.4-mini-fast",
+        reasoningLevel: "low",
+        serviceTier: "fast",
+        modelFallback: "grok-3-mini-fast",
+        modelFallbackReasoningLevel: "low",
+        modelFallbackServiceTier: "default",
+      },
+    })
+
+    const config = await readLfgConfigFile(home)
+    expect(config?.agents?.explorer).toMatchObject({
+      model: "gpt-5.4-mini-fast",
+      reasoning_level: "low",
+      service_tier: "fast",
+      model_fallback: "grok-3-mini-fast",
+      model_fallback_reasoning_effort: "low",
+      model_fallback_service_tier: "default",
+    })
+
+    const resolved = await resolveLazycodexAgentOverrides(home, defaultLazycodexAgentConfig(discovery))
+    expect(resolved.explorer).toMatchObject({
+      model: "gpt-5.4-mini-fast",
+      reasoningLevel: "low",
+      serviceTier: "fast",
+      modelFallback: "grok-3-mini-fast",
+      modelFallbackReasoningLevel: "low",
+      modelFallbackServiceTier: "default",
+    })
+  })
+
   test("writes opencode-shaped lfg.json with provider-prefixed models and fallback_models", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-runtime-config-home-"))
     await ensureLfgConfigFiles(home, {

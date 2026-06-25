@@ -30,7 +30,7 @@ Internal Grok installer engine: materializes the adapter payload, merges hooks, 
 - Keep installer operations scoped to lfg-owned paths and config sections.
 - Preserve healthy stamped installs by default; `--force` is the explicit replacement path.
 - Make hook normalization repeat-safe. Multiple setup runs must not stack bridge wrappers.
-- Keep bundled overrides Grok-first and deterministic.
+- Keep bundled overrides deterministic: OMO-equivalent primaries are allowed when discovered/configured, but Grok-compatible fallbacks must stay explicit.
 - Fixture trees should stay minimal; add only files required by install/acceptance tests.
 - Do not log secrets from env, config, or generated JSON.
 

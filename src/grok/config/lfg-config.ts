@@ -9,11 +9,17 @@ export { applyLfgRuntimeConfigToAgentOverrides, lfgRuntimeConfigPath, readLfgRun
 
 const ReasoningLevelSchema = z.union([z.literal("low"), z.literal("medium"), z.literal("high"), z.literal("xhigh")])
 
+const ServiceTierSchema = z.union([z.literal("default"), z.literal("fast")])
+
 const AgentConfigSchema = z
   .object({
     model: z.string().min(1).optional(),
     reasoning_level: ReasoningLevelSchema.optional(),
     enabled: z.boolean().optional(),
+    service_tier: ServiceTierSchema.optional(),
+    model_fallback: z.string().min(1).optional(),
+    model_fallback_reasoning_effort: ReasoningLevelSchema.optional(),
+    model_fallback_service_tier: ServiceTierSchema.optional(),
   })
   .strict()
 
@@ -95,10 +101,10 @@ export function applyLfgConfigToAgentOverrides(
       merged[name] = {
         model,
         reasoningLevel,
-        ...(existing?.serviceTier !== undefined ? { serviceTier: existing.serviceTier } : {}),
-        ...(existing?.modelFallback !== undefined ? { modelFallback: existing.modelFallback } : {}),
-        ...(existing?.modelFallbackReasoningLevel !== undefined ? { modelFallbackReasoningLevel: existing.modelFallbackReasoningLevel } : {}),
-        ...(existing?.modelFallbackServiceTier !== undefined ? { modelFallbackServiceTier: existing.modelFallbackServiceTier } : {}),
+        ...(agent.service_tier !== undefined || existing?.serviceTier !== undefined ? { serviceTier: agent.service_tier ?? existing?.serviceTier } : {}),
+        ...(agent.model_fallback !== undefined || existing?.modelFallback !== undefined ? { modelFallback: agent.model_fallback ?? existing?.modelFallback } : {}),
+        ...(agent.model_fallback_reasoning_effort !== undefined || existing?.modelFallbackReasoningLevel !== undefined ? { modelFallbackReasoningLevel: agent.model_fallback_reasoning_effort ?? existing?.modelFallbackReasoningLevel } : {}),
+        ...(agent.model_fallback_service_tier !== undefined || existing?.modelFallbackServiceTier !== undefined ? { modelFallbackServiceTier: agent.model_fallback_service_tier ?? existing?.modelFallbackServiceTier } : {}),
       }
     }
   }
@@ -122,6 +128,8 @@ function renderDefaultLfgConfig(seed: LazycodexAgentOverrideMap): string {
         enabled: true,
         ...(value.serviceTier !== undefined ? { service_tier: value.serviceTier } : {}),
         ...(value.modelFallback !== undefined ? { model_fallback: value.modelFallback } : {}),
+        ...(value.modelFallbackReasoningLevel !== undefined ? { model_fallback_reasoning_effort: value.modelFallbackReasoningLevel } : {}),
+        ...(value.modelFallbackServiceTier !== undefined ? { model_fallback_service_tier: value.modelFallbackServiceTier } : {}),
       },
     ]),
   )

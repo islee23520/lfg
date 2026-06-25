@@ -2,9 +2,9 @@
 
 ## Overview
 
-LFG manages agents across two systems: **Codex** (`~/.codex/agents/`) and **Grok** (`~/.grok/agents/`). The sync pipeline copies + transforms Codex agent TOMLs into Grok-compatible role TOMLs, applying Grok-first model overrides.
+LFG manages agents across two systems: **Codex** (`~/.codex/agents/`) and **Grok** (`~/.grok/agents/`). The sync pipeline copies + transforms Codex agent TOMLs into Grok-compatible role TOMLs, applying deterministic OMO-equivalent model routing with Grok-compatible fallbacks.
 
-All defaults are **Grok-first**: every role prefers the best-performing Grok model, with GPT/Gemini/Cloude equivalents shown as alternatives.
+Defaults may prefer the best discovered OMO-equivalent GPT/Gemini/Claude/GLM model for a role, while preserving explicit Grok fallbacks so the installed Grok surface remains usable when those primaries are unavailable.
 
 ---
 
@@ -13,7 +13,7 @@ All defaults are **Grok-first**: every role prefers the best-performing Grok mod
 ```mermaid
 erDiagram
     CODEX_AGENTS ||--o{ GROK_AGENTS : "sync-lazycodex-agents-to-grok"
-    OMO_BUNDLED_OVERRIDES ||--o{ OVERRIDE_MAP : "bundled Grok-first defaults"
+    OMO_BUNDLED_OVERRIDES ||--o{ OVERRIDE_MAP : "bundled OMO-equivalent defaults"
     GROK_CONFIG_TOML ||--o{ OVERRIDE_MAP : "lazycodex.agents.*"
     USER_OVERRIDES_FILE ||--o{ OVERRIDE_MAP : "user file wins"
     FLAVOUR_PACK ||--o{ GROK_AGENTS : "artistry + visual agents"
@@ -34,7 +34,7 @@ erDiagram
 
     OMO_BUNDLED_OVERRIDES {
         string path "flavour/omo-agent-overrides.json"
-        string source "Grok-first defaults with perf rationale"
+        string source "OMO-equivalent primaries with Grok fallback rationale"
     }
 
     USER_OVERRIDES_FILE {
@@ -63,7 +63,7 @@ erDiagram
     }
 
     OVERRIDE_MAP {
-        string resolution "user file > role discovery config > bundled Grok-first defaults"
+        string resolution "user file > role discovery config > bundled OMO-equivalent defaults"
     }
 ```
 
@@ -111,11 +111,11 @@ erDiagram
 
 ---
 
-## Agent Inventory (Grok-first)
+## Agent Inventory (Grok-compatible fallbacks)
 
 ### Core OMO/Ultrawork Agents
 
-| Agent | Grok Recommended | Latency | Effort | Role | Alt Models |
+| Agent | Grok Fallback | Latency | Effort | Role | Primary/Alt Models |
 |-------|-----------------|---------|--------|------|-----------|
 | explorer | `grok-3-mini-fast` | 1.96s | low | Codebase search | grok-3-mini, gpt-5.4-mini |
 | librarian | `grok-3-mini` | 3.36s | low | External research | grok-3-mini-fast, gpt-5.4-mini |
@@ -167,10 +167,10 @@ flowchart TD
     D3 -->|Missing| D4[FALLBACK: grok-3-mini-fast / grok-4.20-0309-reasoning / grok-4.20-0309-non-reasoning]
 
     B --> E[resolveLazycodexAgentOverrides]
-    E --> E1[loadBundledDefaultOmoOverrides - Grok-first]
+    E --> E1[loadBundledDefaultOmoOverrides - OMO-equivalent defaults]
     E --> E2[readLazycodexAgentOverridesFile from ~/.grok]
     E --> E3[mergeLazycodexAgentOverrides]
-    E3 --> E4[Priority: user file > role config > bundled Grok-first]
+    E3 --> E4[Priority: user file > role config > bundled OMO-equivalent defaults]
 
     B --> F[syncLazycodexAgentsToGrokLedger]
     F --> F1[Read ultrawork agents TOMLs]
@@ -199,7 +199,7 @@ flowchart TD
     DISC --> REC[Show recommendation table with benchmarks]
     REC --> ROLE{Configure role agents?}
     ROLE -->|Yes| CFG[Show recommended model per agent + alternatives]
-    ROLE -->|No| DEF[Use Grok-first defaults]
+    ROLE -->|No| DEF[Use bundled OMO-equivalent defaults with Grok fallbacks]
     CFG --> AGT{Configure other agents?}
     AGT -->|Yes| WIZ[Per-agent wizard with recommendations]
     AGT -->|No| DEF2[Use bundled overrides]
@@ -209,7 +209,7 @@ flowchart TD
     CONF{Install now?}
     CONF -->|Yes| INSTALL[runGrokInstall]
     CONF -->|No| SKIP[Nothing changed]
-    INSTALL --> DONE[~/.grok updated with Grok-first agents]
+    INSTALL --> DONE[~/.grok updated with OMO-equivalent agent routes and Grok fallbacks]
 ```
 
 ---
@@ -243,10 +243,10 @@ After `lfg setup --run`, Grok Build could not use lazycodex/omo agents properly.
 - Codex originals used `gpt-5.5`/`gpt-5.3-codex-spark` etc.; Grok proxy had those, but they were not the optimal or "native" Grok models.
 - Result: agents existed in `~/.grok/agents/*.toml`, but the models were either slow, low-quality, or unfamiliar.
 - **Fix**:
-  - Rewrote `omo-agent-overrides.json` to Grok-first equivalents based on live proxy benchmarking (see tables above).
+  - Rewrote `omo-agent-overrides.json` to OMO-equivalent primaries with Grok fallbacks based on live proxy benchmarking (see tables above).
   - Updated `FALLBACK_GLOBAL_LAZYCODEX_AGENTS`.
   - Added `model-recommendations.ts` + recommendation table in interactive `lfg setup`.
-  - Forced live `~/.grok/agents/*.toml` + overrides + `config.toml` sections to the Grok-first set (`grok-3-mini-fast` for explorer, `grok-4.20-0309-reasoning` for plan/reasoning/momus, `grok-4.20-0309-non-reasoning` for coding/metis, `grok-4.3` for reviewer).
+  - Forced live `~/.grok/agents/*.toml` + overrides + `config.toml` sections to deterministic role routes with explicit Grok fallbacks.
   - Also fixed flavour-pack agents (artistry, visual-*) to be synced into `~/.grok/agents/`.
 
 ### Why the Combination Felt Like "Grok is Broken"
@@ -256,8 +256,8 @@ After `lfg setup --run`, Grok Build could not use lazycodex/omo agents properly.
 
 ### Current Live State (after fixes, before Grok restart)
 - `~/.grok/installed-plugins/lfg/hooks/hooks.json`: clean, single bridge per component hook, Grok event map, all expected events present.
-- Core agents (`explorer`, `plan`, `coding`, `reasoning`, `librarian`, `metis`, `momus`, `codex-ultrawork-reviewer`): all use `grok-*` models with correct reasoning effort.
-- `lazycodex-agent-overrides.json`: Grok-first.
+- Core agents (`explorer`, `plan`, `coding`, `reasoning`, `librarian`, `metis`, `momus`, `codex-ultrawork-reviewer`): use deterministic role routes with correct reasoning effort and explicit Grok-compatible fallbacks.
+- `omo-agent-overrides.json`: OMO-equivalent primaries with Grok fallbacks.
 - `config.toml` lazycodex agent sections: consistent with above.
 - `lfg-install.json` stamp present; plugin dir is real (not symlink).
 - Flavour-pack vision agents also present in `~/.grok/agents/`.

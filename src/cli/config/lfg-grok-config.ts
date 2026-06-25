@@ -20,7 +20,7 @@ export type GrokConfigOptions = {
   readonly fullAgentModels?: Readonly<Record<string, { model: string; reasoningLevel: string }>>
 }
 
-/** Sections lfg merges in ~/.grok/config.toml (single writer: runGrokInstall → writeGrokModelConfig). */
+/** Sections lfg merges in ~/.grok/config.toml. writeGrokModelConfig owns install-time writes; the SessionStart config-loader may only repair models.default from omo.models.default. */
 export const LFG_OWNED_GROK_CONFIG_SECTIONS = [
   "endpoints.models_base_url",
   "models.default",
