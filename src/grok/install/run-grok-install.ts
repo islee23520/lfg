@@ -2,11 +2,13 @@ import type { JsonObject } from "../../shared/json"
 import { grokConfigJson, writeGrokModelConfig } from "../../cli/config/lfg-grok-config"
 import type { ModelDiscovery, SetupPreset } from "../../cli/models/lfg-models"
 import { modelDiscoveryEnv } from "../../cli/models/lfg-models"
+import { grokRoutedOverrideMap } from "../../cli/models/resolve-tier-model"
 import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentModels } from "./grok-plugins-enable"
 import { ensureLfgConfigFiles } from "../config/lfg-config"
 import {
   resolveLazycodexAgentOverrides,
   writeOmoAgentOverridesFile,
+  type LazycodexAgentModelOverride,
 } from "../agents/lazycodex-agent-overrides"
 import { resolveGlobalLazycodexAgentConfig } from "./resolve-global-agent-config"
 import { resolveGrokAdapterPluginRoot } from "../payload/grok-adapter-paths"
@@ -39,7 +41,7 @@ export type GrokInstallRunResult = {
 
 export type GrokInstallRunOptions = {
   readonly force?: boolean
-  readonly fullAgentModels?: Readonly<Record<string, { model: string; reasoningLevel: string }>>
+  readonly fullAgentModels?: Readonly<Record<string, LazycodexAgentModelOverride>>
   readonly installOnly?: boolean
 }
 
@@ -89,7 +91,7 @@ export async function runGrokInstall(
           discovery?.modelIds ?? [],
           recommendationPreset(discovery?.preset),
         )
-    const fullAgentModels = options.fullAgentModels ?? overrideMap
+    const fullAgentModels = grokRoutedOverrideMap(options.fullAgentModels ?? overrideMap, discovery)
     const configUpdate =
       discovery !== null
         ? await writeGrokModelConfig(discovery, {
@@ -99,9 +101,9 @@ export async function runGrokInstall(
             fullAgentModels,
           })
         : null
-    const overridesPath = await writeOmoAgentOverridesFile(home, overrideMap)
-    const configFiles = await ensureLfgConfigFiles(home, overrideMap)
-    const omoAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
+    const overridesPath = await writeOmoAgentOverridesFile(home, fullAgentModels)
+    const configFiles = await ensureLfgConfigFiles(home, fullAgentModels)
+    const omoAgents = await syncLazycodexAgentsToGrokLedger(home, fullAgentModels)
     const pluginsEnabled = await ensureLfgPluginsEnabled(home)
     await ensureLfgAgentsPreferred(home)
     const subagentModels = await ensureLfgSubagentModels(
@@ -159,7 +161,7 @@ export async function runGrokInstall(
         discovery?.modelIds ?? [],
         recommendationPreset(discovery?.preset),
       )
-  const fullAgentModels = options.fullAgentModels ?? overrideMap
+  const fullAgentModels = grokRoutedOverrideMap(options.fullAgentModels ?? overrideMap, discovery)
   const configUpdate =
     discovery !== null
       ? await writeGrokModelConfig(discovery, {

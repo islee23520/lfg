@@ -77,7 +77,7 @@ erDiagram
 |-------|---------|-----|---------|-------|
 | grok-4.20-0309-non-reasoning | **0.68s** | 63 | 2/2 | Fastest overall |
 | grok-3-mini-fast | 1.96s | **147** | 2/2 | Best throughput |
-| gpt-5.3-codex-spark | 2.10s | **219** | 2/2 | Highest t/s |
+| gpt-5.3-codex-spark | 2.10s | 219 | 2/2 | Benchmark only; not recommended for OMO agent roles |
 | grok-3-mini | 3.36s | 147 | 2/2 | Balanced |
 | codex-auto-review | 3.40s | 13 | 2/2 | Reliable |
 | gpt-5.5 | 3.47s | 13 | 2/2 | Compact output |
@@ -92,7 +92,7 @@ erDiagram
 | Model | Latency | t/s | Quality | Notes |
 |-------|---------|-----|---------|-------|
 | grok-4.20-0309-non-reasoning | **1.96s** | 93 | 2/2 | Fast analysis |
-| gpt-5.3-codex-spark | 2.06s | **370** | 2/2 | High throughput |
+| gpt-5.3-codex-spark | 2.06s | 370 | 2/2 | Benchmark only; not recommended for OMO agent roles |
 | grok-4.3 | 4.26s | 155 | 2/2 | Deep reasoning |
 | grok-4.20-0309-reasoning | 6.30s | **163** | 2/2 | Structured output |
 | grok-4.20-multi-agent-0309 | 6.58s | **544** | 2/2 | Multi-agent |
@@ -122,9 +122,9 @@ erDiagram
 | plan | `grok-4.20-0309-reasoning` | 6.30s | xhigh | Strategic planner | grok-4.3, gpt-5.5, claude-opus-4-6-thinking |
 | metis | `grok-4.20-0309-non-reasoning` | 1.96s | high | Pre-planning analyst | grok-3-mini-fast, gpt-5.5 |
 | momus | `grok-4.20-0309-reasoning` | 6.30s | xhigh | Plan reviewer | grok-4.3, gpt-5.5 |
-| codex-ultrawork-reviewer | `grok-4.3` | 8.48s | high | ULW verification | grok-4.20-0309-reasoning, gpt-5.3-codex-spark, claude-opus-4-6-thinking |
+| codex-ultrawork-reviewer | `grok-4.3` | 8.48s | high | ULW verification | grok-4.20-0309-reasoning, gpt-5.5, claude-opus-4-6-thinking |
 | reasoning (role) | `grok-4.20-0309-reasoning` | 6.30s | high | General reasoning | grok-4.3, gpt-5.5 |
-| coding (role) | `grok-4.20-0309-non-reasoning` | 0.68s | medium | Coding | grok-build-0.1, gpt-5.3-codex-spark, codex-auto-review |
+| coding (role) | `grok-4.20-0309-non-reasoning` | 0.68s | medium | Coding | grok-build-0.1, glm-5-turbo, codex-auto-review |
 
 ### Flavour-Pack Agents (Vision/Multimodal — non-Grok by design)
 
@@ -144,7 +144,7 @@ erDiagram
 |---------------------|----------------|---------|
 | gpt-5.4-mini (explorer) | grok-3-mini-fast | 2.8x faster |
 | gpt-5.5 (plan/momus) | grok-4.20-0309-reasoning | Similar latency, 7x throughput |
-| gpt-5.3-codex-spark (reviewer) | grok-4.3 | Deeper analysis, slower |
+| gpt-5.5 (reviewer) | grok-4.3 | Deeper analysis fallback |
 | custom-metis-model (metis) | grok-4.20-0309-non-reasoning | 3.8x faster |
 | gpt-5.5 (reasoning) | grok-4.20-0309-reasoning | Similar quality, 12x throughput |
 
@@ -240,7 +240,7 @@ After `lfg setup --run`, Grok Build could not use lazycodex/omo agents properly.
 #### 2. Model Assignment Mismatch (the "unknown models" part)
 - Bundled `omo-agent-overrides.json` had Codex-era defaults (`grok-4.20-0309-non-reasoning` for explorer, `gpt-5.4-mini` for librarian) plus no entries for plan/metis/momus.
 - Discovery + interactive wizard + user overrides file on disk ended up writing `glm-5.2` (and other non-Grok models) for planning agents.
-- Codex originals used `gpt-5.5`/`gpt-5.3-codex-spark` etc.; Grok proxy had those, but they were not the optimal or "native" Grok models.
+- Codex originals used `gpt-5.5`/legacy Codex-family models; Grok proxy exposed some of them, but Codex Spark is not recommended for OMO agent roles and they were not the optimal or native Grok models.
 - Result: agents existed in `~/.grok/agents/*.toml`, but the models were either slow, low-quality, or unfamiliar.
 - **Fix**:
   - Rewrote `omo-agent-overrides.json` to OMO-equivalent primaries with Grok fallbacks based on live proxy benchmarking (see tables above).

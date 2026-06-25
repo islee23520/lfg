@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest"
 
 import {
   defaultTierPromptForAgent,
+  grokRoutedOverrideMap,
   resolveDefaultModelId,
   resolveFastModelId,
   resolveModelForServiceTier,
@@ -37,5 +38,27 @@ describe("resolve-tier-model", () => {
   test("resolveModelForServiceTier", () => {
     expect(resolveModelForServiceTier(ids, "grok-3-mini", "fast")).toBe("grok-3-mini-fast")
     expect(resolveModelForServiceTier(ids, "grok-3-mini-fast", "default")).toBe("grok-3-mini")
+  })
+
+  test("grokRoutedOverrideMap turns service tier into model aliases", () => {
+    const routed = grokRoutedOverrideMap({
+      explorer: {
+        model: "gpt-4.1-mini",
+        reasoningLevel: "low",
+        serviceTier: "fast",
+        modelFallback: "grok-3-mini-fast",
+        modelFallbackReasoningLevel: "low",
+        modelFallbackServiceTier: "default",
+      },
+    }, {
+      baseUrl: "http://127.0.0.1:8317/v1",
+      modelsUrl: "http://127.0.0.1:8317/v1/models",
+      modelIds: ids,
+      mapping: { default: "grok-3-mini", fast: "grok-3-mini-fast", reasoning: "grok-3-mini", coding: "grok-3-mini" },
+    })
+
+    expect(routed.explorer?.model).toBe("grok-3-mini-fast")
+    expect(routed.explorer?.serviceTier).toBe("fast")
+    expect(routed.explorer?.modelFallback).toBe("grok-3-mini")
   })
 })

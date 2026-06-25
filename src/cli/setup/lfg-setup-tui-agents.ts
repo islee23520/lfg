@@ -47,7 +47,7 @@ export async function configureRoleAgents(
 ): Promise<readonly [AgentTuiResult, AgentTuiResult, AgentTuiResult]> {
   const explorer = await configureAgent(prompts, discovery, "explorer", discovery?.mapping.fast ?? discovery?.mapping.default ?? "grok-3-mini-fast", "low", choices, selectors, bundledOverrideMap)
   const reasoning = await configureAgent(prompts, discovery, "reasoning", discovery?.mapping.reasoning ?? "grok-4.20-0309-reasoning", "high", choices, selectors, bundledOverrideMap)
-  const coding = await configureAgent(prompts, discovery, "coding", discovery?.mapping.coding ?? "gpt-5.3-codex-spark", "medium", choices, selectors, bundledOverrideMap)
+  const coding = await configureAgent(prompts, discovery, "coding", discovery?.mapping.coding ?? "grok-4.20-0309-non-reasoning", "medium", choices, selectors, bundledOverrideMap)
   return [explorer, reasoning, coding]
 }
 

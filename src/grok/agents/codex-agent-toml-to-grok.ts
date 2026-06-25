@@ -127,20 +127,14 @@ function writeInlinePromptRef(_prompt: string): string {
   return ".grok/prompts/lazycodex-agent.md"
 }
 
-/** Append service_tier and model_fallback fields from an override to a TOML lines array. */
+/** Append fallback fields from an override to a Grok role TOML. Fast tier is represented by the selected model alias/id, not service_tier. */
 function appendFallbackLines(lines: string[], override: { readonly serviceTier?: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string; readonly modelFallbackServiceTier?: string } | undefined): void {
   if (override === undefined) return
-  if (override.serviceTier !== undefined) {
-    lines.push(`service_tier = ${tomlQuote(override.serviceTier)}`)
-  }
   if (override.modelFallback !== undefined) {
     lines.push(`model_fallback = ${tomlQuote(override.modelFallback)}`)
   }
   if (override.modelFallbackReasoningLevel !== undefined) {
     lines.push(`model_fallback_reasoning_effort = ${tomlQuote(override.modelFallbackReasoningLevel)}`)
-  }
-  if (override.modelFallbackServiceTier !== undefined) {
-    lines.push(`model_fallback_service_tier = ${tomlQuote(override.modelFallbackServiceTier)}`)
   }
 }
 

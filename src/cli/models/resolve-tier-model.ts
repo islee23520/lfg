@@ -1,4 +1,5 @@
-import type { ServiceTier } from "../../grok/agents/lazycodex-agent-overrides"
+import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap, ServiceTier } from "../../grok/agents/lazycodex-agent-overrides"
+import type { ModelDiscovery } from "./lfg-models"
 
 /** Grok Build routes by model id, not Codex-style service_tier. Map tier choice to catalog ids. */
 export function serviceTierFromChoice(tier: string): ServiceTier {
@@ -23,6 +24,37 @@ export function resolveModelForServiceTier(
     return resolveFastModelId(modelIds, selectedModel, options?.mappingFast)
   }
   return resolveDefaultModelId(modelIds, selectedModel, options?.mappingDefault)
+}
+
+export function grokRoutedOverrideMap(
+  overrides: Readonly<Record<string, LazycodexAgentModelOverride>>,
+  discovery: ModelDiscovery | null,
+): LazycodexAgentOverrideMap {
+  if (discovery === null) return overrides
+  return Object.fromEntries(
+    Object.entries(overrides).map(([agentName, setting]) => [agentName, grokRoutedOverride(setting, discovery)]),
+  )
+}
+
+function grokRoutedOverride(setting: LazycodexAgentModelOverride, discovery: ModelDiscovery): LazycodexAgentModelOverride {
+  if (setting.serviceTier === undefined && setting.modelFallbackServiceTier === undefined) return setting
+  return {
+    ...setting,
+    model: setting.serviceTier === undefined
+      ? setting.model
+      : resolveModelForServiceTier(discovery.modelIds, setting.model, setting.serviceTier, {
+          mappingFast: discovery.mapping.fast,
+          mappingDefault: discovery.mapping.default,
+        }),
+    ...(setting.modelFallback !== undefined && setting.modelFallbackServiceTier !== undefined
+      ? {
+          modelFallback: resolveModelForServiceTier(discovery.modelIds, setting.modelFallback, setting.modelFallbackServiceTier, {
+            mappingFast: discovery.mapping.fast,
+            mappingDefault: discovery.mapping.default,
+          }),
+        }
+      : {}),
+  }
 }
 
 /** Prefer a `-fast` sibling in the catalog, then discovery mapping.fast. */

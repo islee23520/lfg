@@ -44,7 +44,7 @@ Supported presets:
 - `auto` (default): choose the best available routes from the discovered proxy catalog.
 - `balanced`: GPT default, Gemini fast, Grok reasoning/coding when available.
 - `grok`: prefer Grok routes.
-- `gpt`: prefer GPT/Codex routes.
+- `gpt`: prefer GPT routes for default/reasoning while coding stays on recommended agent routes.
 - `gemini`: prefer Gemini long-context routes.
 - `glm`: prefer GLM routes.
 - `multi`: balanced routing plus provider-scoped `[model.*].base_url` values.

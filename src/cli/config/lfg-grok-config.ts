@@ -136,7 +136,7 @@ function upsertOmoAgentSections(source: string, agentConfig: LazycodexAgentConfi
 
 function upsertAllOmoAgentSections(
   source: string,
-  full: Readonly<Record<string, { readonly model: string; readonly reasoningLevel: string; readonly serviceTier?: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string; readonly modelFallbackServiceTier?: string }>>,
+  full: Readonly<Record<string, { readonly model: string; readonly reasoningLevel: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string }>>,
 ): string {
   return Object.entries(full).reduce(
     (next, [agentName, setting]) =>
@@ -147,22 +147,16 @@ function upsertAllOmoAgentSections(
   )
 }
 
-function agentOverrideTomlLines(setting: { readonly model: string; readonly reasoningLevel: string; readonly serviceTier?: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string; readonly modelFallbackServiceTier?: string }): readonly string[] {
+function agentOverrideTomlLines(setting: { readonly model: string; readonly reasoningLevel: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string }): readonly string[] {
   const lines: string[] = [
     `model = ${tomlString(setting.model)}`,
     `reasoning_level = ${tomlString(setting.reasoningLevel)}`,
   ]
-  if (setting.serviceTier !== undefined) {
-    lines.push(`service_tier = ${tomlString(setting.serviceTier)}`)
-  }
   if (setting.modelFallback !== undefined) {
     lines.push(`model_fallback = ${tomlString(setting.modelFallback)}`)
   }
   if (setting.modelFallbackReasoningLevel !== undefined) {
     lines.push(`model_fallback_reasoning_level = ${tomlString(setting.modelFallbackReasoningLevel)}`)
-  }
-  if (setting.modelFallbackServiceTier !== undefined) {
-    lines.push(`model_fallback_service_tier = ${tomlString(setting.modelFallbackServiceTier)}`)
   }
   return lines
 }

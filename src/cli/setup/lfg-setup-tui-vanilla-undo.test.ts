@@ -41,8 +41,8 @@ function discovery() {
   return {
     baseUrl: "http://127.0.0.1:8317/v1",
     modelsUrl: "http://127.0.0.1:8317/v1/models",
-    modelIds: ["grok-3-mini-fast", "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark"],
-    mapping: { default: "grok-3-mini-fast", fast: "grok-3-mini-fast", reasoning: "grok-4.20-0309-reasoning", coding: "gpt-5.3-codex-spark" },
+    modelIds: ["grok-3-mini-fast", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning"],
+    mapping: { default: "grok-3-mini-fast", fast: "grok-3-mini-fast", reasoning: "grok-4.20-0309-reasoning", coding: "grok-4.20-0309-non-reasoning" },
   }
 }
 

@@ -35,8 +35,9 @@ describe("model mapping catalog", () => {
       default: "gpt-5.5",
       fast: "gpt-5.4-mini-fast",
       reasoning: "gpt-5.5",
-      coding: "gpt-5.3-codex-spark",
+      coding: "grok-4.20-0309-non-reasoning",
     })
+    expect(applyModelPreset(discovery, "gpt").mapping.coding).not.toBe("gpt-5.3-codex-spark")
   })
 
   test("gpt preset keeps gpt-5.4-mini-fast distinct from gpt-5.4-mini", async () => {

@@ -28,7 +28,7 @@ function grokBinaryAvailable(bin: string): boolean {
 
 describe.skipIf(!grokBinaryAvailable(GROK_BIN))("fast tier → Grok-visible explorer model (live harness)", () => {
   test("install writes grok-3-mini-fast to roles/overrides; grok inspect lists lfg:explorer", async () => {
-    const modelIds = ["grok-3-mini", "grok-3-mini-fast", "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark"] as const
+    const modelIds = ["grok-3-mini", "grok-3-mini-fast", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning"] as const
     await withModelServer(modelIds, async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-fast-tier-grok-"))
       try {
@@ -45,12 +45,12 @@ describe.skipIf(!grokBinaryAvailable(GROK_BIN))("fast tier → Grok-visible expl
             default: "grok-3-mini",
             fast: "grok-3-mini-fast",
             reasoning: "grok-4.20-0309-reasoning",
-            coding: "gpt-5.3-codex-spark",
+            coding: "grok-4.20-0309-non-reasoning",
           },
           agentConfig: {
             explorer: { model: resolvedModel, reasoningLevel: "low" as const, serviceTier: serviceTierFromChoice(tier) },
             reasoning: { model: "grok-4.20-0309-reasoning", reasoningLevel: "high" as const },
-            coding: { model: "gpt-5.3-codex-spark", reasoningLevel: "medium" as const },
+            coding: { model: "grok-4.20-0309-non-reasoning", reasoningLevel: "medium" as const },
           },
           agentOverrideMap: {
             explorer: {
@@ -69,7 +69,7 @@ describe.skipIf(!grokBinaryAvailable(GROK_BIN))("fast tier → Grok-visible expl
 
           const roleToml = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
           expect(roleToml).toContain('model = "grok-3-mini-fast"')
-          expect(roleToml).toContain('service_tier = "fast"')
+          expect(roleToml).not.toContain("service_tier")
 
           const overridesRaw = await readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")
           expect(overridesRaw).toContain("grok-3-mini-fast")

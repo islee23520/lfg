@@ -24,7 +24,7 @@ export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPr
       { id: "auto", label: "Auto best available", text: "Choose the best global model routes from the discovered CLI proxy catalog." },
       { id: "balanced", label: "Balanced multi-provider", text: "Use GPT default, Gemini fast, and Grok reasoning/coding when available." },
       { id: "grok", label: "Grok-specialized", text: "Prefer Grok model ids for global routes." },
-      { id: "gpt", label: "GPT-centered", text: "Prefer GPT/Codex model ids for default, reasoning, and coding aliases." },
+      { id: "gpt", label: "GPT-centered", text: "Prefer GPT model ids for default and reasoning while coding stays on recommended agent routes." },
       { id: "gemini", label: "Gemini-centered", text: "Prefer Gemini for default, fast, and long-context routes." },
       { id: "glm", label: "GLM-centered", text: "Prefer GLM for default and reasoning routes." },
       { id: "multi", label: "Provider-scoped", text: "Use balanced global routing while writing provider-scoped model sections for mixed xAI/Gemini/GLM/GPT catalogs." },

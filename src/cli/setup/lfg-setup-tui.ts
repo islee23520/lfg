@@ -75,7 +75,7 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
       { value: "auto", label: "Auto best available (recommended)", hint: "GPT/GLM orchestration, Composer coding, Gemini visual" },
       { value: "balanced", label: "Balanced multi-provider", hint: "GPT default, Gemini fast, Grok reasoning/coding" },
       { value: "grok", label: "Grok-specialized", hint: "Prefer Grok models for all global routes" },
-      { value: "gpt", label: "GPT-centered", hint: "Prefer GPT/Codex models for default/reasoning/coding" },
+      { value: "gpt", label: "GPT-centered", hint: "Prefer GPT for default/reasoning while keeping coding on recommended agent routes" },
       { value: "gemini", label: "Gemini-centered", hint: "Prefer Gemini for long-context exploration and summaries" },
       { value: "glm", label: "GLM-centered", hint: "Prefer GLM for default/reasoning with Grok/GPT fallback" },
       { value: "multi", label: "Provider-scoped config", hint: "Balanced routes plus provider base URLs for xAI/Gemini/GLM/GPT" },

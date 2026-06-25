@@ -177,8 +177,8 @@ describe("runGrokInstall", () => {
     const discovery: ModelDiscovery = {
       baseUrl: "http://127.0.0.1:11434/v1",
       modelsUrl: "http://127.0.0.1:11434/v1/models",
-      modelIds: ["gpt-5.5", "gpt-5.4-mini"],
-      mapping: { default: "gpt-5.4-mini", fast: "gpt-5.4-mini", reasoning: "gpt-5.5", coding: "gpt-5.5" },
+      modelIds: ["gpt-5.5", "gpt-5.4-mini", "gpt-5.4-mini-fast"],
+      mapping: { default: "gpt-5.4-mini", fast: "gpt-5.4-mini-fast", reasoning: "gpt-5.5", coding: "gpt-5.5" },
       agentConfig: {
         explorer: { model: "gpt-5.4-mini", reasoningLevel: "low" },
         reasoning: { model: "gpt-5.5", reasoningLevel: "high" },
@@ -188,7 +188,7 @@ describe("runGrokInstall", () => {
         explorer: { model: "gpt-5.4-mini", reasoningLevel: "low" },
         reasoning: { model: "gpt-5.5", reasoningLevel: "high" },
         coding: { model: "gpt-5.5", reasoningLevel: "medium" },
-        librarian: { model: "custom-librarian", reasoningLevel: "low" },
+        librarian: { model: "gpt-5.4-mini", reasoningLevel: "low", serviceTier: "fast" },
         plan: { model: "custom-plan", reasoningLevel: "xhigh" },
       },
     }
@@ -198,11 +198,16 @@ describe("runGrokInstall", () => {
     expect(run.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
     const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
     expect(config).toContain("[omo.agents.librarian]")
-    expect(config).toContain('model = "custom-librarian"')
+    expect(config).toContain('model = "gpt-5.4-mini-fast"')
+    expect(config).not.toContain("service_tier")
     expect(config).toContain("[omo.agents.plan]")
     expect(config).toContain('model = "custom-plan"')
-    await expect(readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")).resolves.toContain("custom-librarian")
-    await expect(readFile(join(home, ".grok", "roles", "librarian.toml"), "utf8")).resolves.toContain('model = "custom-librarian"')
+    const overridesRaw = await readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")
+    expect(overridesRaw).toContain("gpt-5.4-mini-fast")
+    expect(overridesRaw).toContain('"service_tier": "fast"')
+    const librarianRole = await readFile(join(home, ".grok", "roles", "librarian.toml"), "utf8")
+    expect(librarianRole).toContain('model = "gpt-5.4-mini-fast"')
+    expect(librarianRole).not.toContain("service_tier")
   })
 
   test("existing stamped setup with no discovery keeps user config unchanged", async () => {

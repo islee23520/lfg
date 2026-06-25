@@ -1,14 +1,13 @@
 {
   "source": {
     "agentsDir": "${CODEX_HOME}/agents",
-    "description": "Upstream OMO agent-model matching guide aligned defaults. Primary models follow the OMO agent-model-requirements.ts fallback chains (GPT/Claude/GLM primary); Grok models serve as availability fallback for the Grok Build adapter environment."
+    "description": "Upstream OMO agent-model matching guide aligned defaults. Primary models follow OMO role intent with Grok-compatible fallbacks; coding intentionally uses Grok non-reasoning because GPT-5.3 Codex Spark is not recommended for OMO agents."
   },
   "equivalents": {
     "_comment": "Upstream OMO model family -> cliproxy available equivalent",
     "gpt-5.5": "gpt-5.5",
     "gpt-5.4-mini-fast": "gpt-5.4-mini-fast",
     "gpt-5.4-mini": "gpt-5.4-mini",
-    "gpt-5.3-codex-spark": "gpt-5.3-codex-spark",
     "claude-sonnet-4-6": "claude-sonnet-4-6",
     "claude-haiku-4-5": "claude-haiku-4-5",
     "glm-5": "glm-5.2",
@@ -94,13 +93,13 @@
       "role_rationale": "General reasoning role aligned with OMO deep chain: GPT-5.5 high primary, Grok deep reasoning fallback"
     },
     "coding": {
-      "model": "gpt-5.3-codex-spark",
+      "model": "grok-4.20-0309-non-reasoning",
       "model_reasoning_effort": "medium",
       "service_tier": "default",
-      "model_fallback": "grok-4.20-0309-non-reasoning",
+      "model_fallback": "glm-5-turbo",
       "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Coding role: GPT codex-spark primary, Grok non-reasoning as fast availability fallback"
+      "role_rationale": "Coding role: upstream marks GPT-5.3 Codex Spark as not recommended for OMO agents; use Grok non-reasoning primary with GLM turbo fallback"
     },
     "default": {
       "model": "gpt-5.5",

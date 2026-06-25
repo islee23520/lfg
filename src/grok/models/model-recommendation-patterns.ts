@@ -99,7 +99,6 @@ export const REASONING_MODEL_PATTERNS: readonly RegExp[] = [
   /glm-5\.2/i,
   /gpt-5(?!.*mini)/i,
   /glm-5/i,
-  /gpt-5\.3.*codex/i,
   /grok-4\.3/i,
   /grok-4\.[0-9]+.*reasoning/i,
   /grok-4\.[0-9]+/i,
@@ -131,7 +130,6 @@ export const UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
   /grok-build/i,
   /gemini-3.*pro.*low/i,
   /gemini-3.*pro.*high/i,
-  /gpt-5\.3.*codex/i,
   /glm-5\.2/i,
   /mini/i,
   /fast/i,
@@ -143,7 +141,6 @@ export const UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
 export const CRITICAL_MODEL_PATTERNS: readonly RegExp[] = [
   /gpt-5\.5/i,
   /glm-5\.2/i,
-  /gpt-5\.3.*codex/i,
   /grok-4\.3/i,
   /grok-4\.[0-9]+.*reasoning/i,
   /glm-5.*turbo/i,
@@ -165,7 +162,6 @@ export const VISUAL_MODEL_PATTERNS: readonly RegExp[] = [
 export const CODING_MODEL_PATTERNS: readonly RegExp[] = [
   /grok-composer-2\.5.*fast/i,
   /grok-composer/i,
-  /gpt-5\.3.*codex/i,
   /grok-4\.[0-9]+.*non-reasoning/i,
   /grok-build/i,
   /glm-5.*turbo/i,
@@ -176,7 +172,6 @@ export const CODING_MODEL_PATTERNS: readonly RegExp[] = [
 // GPT-first variant patterns (used when preset === "gpt").
 export const GPT_REASONING_MODEL_PATTERNS: readonly RegExp[] = [
   /gpt-5\.5/i,
-  /gpt-5\.3.*codex/i,
   /gpt-5(?!.*mini)/i,
   /grok-4\.[0-9]+.*reasoning/i,
   /grok-4\.3/i,
@@ -189,7 +184,6 @@ export const GPT_REASONING_MODEL_PATTERNS: readonly RegExp[] = [
 ]
 
 export const GPT_UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
-  /gpt-5\.3.*codex/i,
   /gpt-5\.[0-9]+-mini/i,
   /gpt-5\.[0-9]+.*mini/i,
   /gpt.*mini/i,

@@ -75,7 +75,7 @@ describe("lfg-setup-tui model routing", () => {
     expect(installerMock.runLazycodexInstaller).toHaveBeenCalledTimes(1)
     const installerCalls = installerMock.runLazycodexInstaller.mock.calls as unknown as readonly [ModelDiscovery][]
     const configuredDiscovery = installerCalls[0]?.[0]
-    expect(configuredDiscovery?.mapping.default).toBe("gpt-5.3-codex-spark")
+    expect(configuredDiscovery?.mapping.default).toBe("grok-4.3")
     expect(configuredDiscovery?.agentConfig?.explorer.model).toBe(configuredDiscovery?.mapping.fast)
     expect(configuredDiscovery?.agentConfig?.reasoning.model).toBe(configuredDiscovery?.mapping.reasoning)
     expect(configuredDiscovery?.agentConfig?.coding.model).toBe(configuredDiscovery?.mapping.coding)
@@ -133,12 +133,12 @@ function discovery(modelIds: readonly string[]): ModelDiscovery {
   return {
     baseUrl: "http://127.0.0.1:8317/v1",
     modelsUrl: "http://127.0.0.1:8317/v1/models",
-    modelIds: [...modelIds, "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark"],
+    modelIds: [...modelIds, "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "gpt-5.3-codex-spark"],
     mapping: {
       default: modelIds[0] ?? "grok-3-mini-fast",
       fast: modelIds.find((id) => id.endsWith("-fast")) ?? modelIds[0] ?? "grok-3-mini-fast",
       reasoning: "grok-4.20-0309-reasoning",
-      coding: "gpt-5.3-codex-spark",
+      coding: "grok-4.20-0309-non-reasoning",
     },
   }
 }

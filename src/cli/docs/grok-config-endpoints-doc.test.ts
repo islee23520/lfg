@@ -17,6 +17,8 @@ describe("docs/grok-config-endpoints.md (#24)", () => {
     expect(text).toContain("single global `api_key`")
     expect(text).toContain("provider-specific endpoints")
     expect(text).toContain("auto` keeps role defaults")
+    expect(text).toContain("coding stays on recommended agent routes")
+    expect(text).not.toMatch(/GPT\/Codex routes/)
     expect(text).not.toMatch(/sk-[a-zA-Z0-9]{10,}/)
   })
 })

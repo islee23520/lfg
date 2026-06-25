@@ -178,7 +178,7 @@ async function configureLazycodexAgentsFull(reader: LineReader, discovery: Model
   output.write("  1) auto: best available global routes (recommended)\n")
   output.write("  2) balanced: GPT default, Gemini fast, Grok reasoning/coding\n")
   output.write("  3) grok: prefer Grok for all routes\n")
-  output.write("  4) gpt: prefer GPT/Codex for default/reasoning/coding\n")
+  output.write("  4) gpt: prefer GPT for default/reasoning while coding stays on recommended agent routes\n")
   output.write("  5) gemini: prefer Gemini for long-context exploration\n")
   output.write("  6) glm: prefer GLM for default/reasoning\n")
   output.write("  7) multi: balanced routes plus provider-scoped base URLs\n")
