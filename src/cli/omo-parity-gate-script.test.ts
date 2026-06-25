@@ -29,6 +29,7 @@ describe("scripts/assert-omo-parity.mjs", () => {
     expect(script).toContain('"lazycodex-executor-verify"')
     expect(script).toContain('"converted:lfg-doctor"')
     expect(script).toContain("syncOmoSkillsToGrok({ allowExistingFallback: true, includeCache: false })")
+    expect(script).toContain("checkOmoParityUpkeep")
     expect(script).toContain("UPSTREAM_OMO_VERSION")
   })
 })

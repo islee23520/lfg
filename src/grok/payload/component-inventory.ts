@@ -7,7 +7,7 @@ export const UPSTREAM_OMO_VERSION = "4.12.1" as const
 export const UPSTREAM_OMO_TAG = "v4.12.1" as const
 export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.12.1" as const
 
-const COMPONENTS = [
+export const COMPONENTS = [
   { id: "comment-checker", status: "Deferred", evidence: "Codex PostToolUse hook behavior has no Grok-native equivalent wired by lfg yet." },
   { id: "git-bash", status: "Manifest-only", evidence: "git_bash MCP is disabled on macOS/Linux and Windows-unverified. lfg can copy the upstream 4.12.1 git-bash-mcp runtime from a package-shaped source, but behavior-level Windows support remains unverified." },
   { id: "rules", status: "Grok-adapted", evidence: "Component hooks are bridged through lfg-grok-hook-bridge.mjs when present in the installed payload." },

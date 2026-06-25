@@ -97,6 +97,8 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.12.1")
     expect(text).toContain("split hook JSON files under `packages/omo-codex/plugin/hooks/`")
     expect(text).toContain("package-level MCP runtimes for")
+    expect(text).toContain("scripts/omo-parity-upkeep.mjs")
+    expect(text).toContain("unclassified upstream skill, component, or hook-referenced component")
     for (const [component, status] of [
       ["bootstrap", "Deferred"],
       ["auto-update", "Unsupported"],

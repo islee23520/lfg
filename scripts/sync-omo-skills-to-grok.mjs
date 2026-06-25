@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)))
-const managedSkillSources = [
+export const managedSkillSources = [
   ["ast-grep", "skills/ast-grep"],
   ["comment-checker", "components/comment-checker/skills/comment-checker"],
   ["debugging", "skills/debugging"],

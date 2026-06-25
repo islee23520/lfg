@@ -48,6 +48,8 @@ Upstream component inventory is from
 plus the local owner/test surface. The status vocabulary for this table is:
 `Implemented`, `Grok-adapted`, `Manifest-only`, `Remote URL manifest-only`, `Unsupported`, or `Deferred`.
 
+Automatic upkeep is enforced by `scripts/omo-parity-upkeep.mjs`, which scans a configured OMO/LazyCodex source tree for aggregate skills, shared-skills package entries, component-local skills, plugin components, split hook JSON component references, and package inventory. `npm run assert-omo-parity` invokes that scanner in local generated-payload mode on every parity gate, and the scanner can be pointed at a fresh upstream checkout with `npm run omo-parity-upkeep -- --source <oh-my-openagent-or-lazycodex-ai-root>` to fail on any unclassified upstream skill, component, or hook-referenced component before `lfg-component-inventory.json` and this table are updated.
+
 The `v4.12.1` refresh adds upstream package-layout skills, `teammode`,
 `lazycodex-executor-verify`, split hook JSON files under
 `packages/omo-codex/plugin/hooks/`, and package-level MCP runtimes for

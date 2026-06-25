@@ -3,6 +3,8 @@ import { access, readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
+import { checkOmoParityUpkeep } from "./omo-parity-upkeep.mjs"
+
 const repoRoot = fileURLToPath(new URL("..", import.meta.url))
 const expectedVersion = "4.12.1"
 const expectedGeneratedBy = "scripts/sync-omo-skills-to-grok.mjs"
@@ -71,6 +73,7 @@ await assertTextContains("AGENTS.md", [
   "`lazycodex-executor-verify` | Codex `lazycodex-executor` SubagentStop verifier not Grok-adapted | Deferred",
 ])
 await assertTextContains("scripts/build.mjs", ["syncOmoSkillsToGrok({ allowExistingFallback: true, includeCache: false })"])
+await assertParityUpkeep()
 
 if (failures.length > 0) {
   process.stderr.write(`assert-omo-parity: ${failures.length} failure(s)\n`)
@@ -116,6 +119,15 @@ async function assertSkillRoot(root) {
   await assertMissing(join(root, "ulw-plan", "agents", "openai.yaml"))
   await assertExists(join(root, "git-master", "agents", "grok.yaml"))
   await assertMissing(join(root, "git-master", "agents", "openai.yaml"))
+}
+
+async function assertParityUpkeep() {
+  const report = await checkOmoParityUpkeep()
+  if (!report.ok) {
+    for (const item of report.findings) {
+      failures.push(`omo-parity-upkeep:${item.kind}:${item.id}: ${item.message}`)
+    }
+  }
 }
 
 async function readJson(path) {
