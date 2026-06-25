@@ -9,6 +9,10 @@ const C001_MODEL_IDS = [
   "grok-4.20-0309-non-reasoning",
   "grok-3-mini-fast",
   "gpt-5.5",
+  "glm-5.2",
+  "glm-5-turbo",
+  "grok-composer-2.5-fast",
+  "gemini-3-pro-high",
 ] as const
 
 describe("applyRecommendationsToOverrideMap", () => {
@@ -26,7 +30,7 @@ describe("applyRecommendationsToOverrideMap", () => {
         model: "gpt-5.5",
         reasoningLevel: "xhigh",
         serviceTier: "default",
-        modelFallback: "glm-5.1",
+        modelFallback: "glm-5.2",
         modelFallbackReasoningLevel: "high",
         modelFallbackServiceTier: "default",
       },
@@ -56,11 +60,23 @@ describe("applyRecommendationsToOverrideMap", () => {
 
     expect(out.default).toEqual(bundled.default)
     expect(out.prometheus).toMatchObject({ model: "gpt-5.5", reasoningLevel: "xhigh" })
-    expect(out.prometheus?.modelFallback).toBeUndefined()
+    expect(out.prometheus?.modelFallback).toBe("glm-5.2")
     expect(out.sisyphus).toEqual(bundled.sisyphus)
     expect(out.atlas).toEqual(bundled.atlas)
-    expect(out.plan?.model).toBe("grok-4.20-0309-reasoning")
-    expect(out.librarian?.model).toBe("grok-4.20-0309-non-reasoning")
+    expect(out.plan?.model).toBe("gpt-5.5")
+    expect(out.librarian?.model).toBe("glm-5-turbo")
+  })
+
+  test("auto recommends Composer for coding and Gemini for visual agents", () => {
+    const bundled: LazycodexAgentOverrideMap = {
+      coding: { model: "old-coding", reasoningLevel: "medium", serviceTier: "default" },
+      "visual-engineering": { model: "old-visual", reasoningLevel: "high", serviceTier: "default" },
+    }
+
+    const out = applyRecommendationsToOverrideMap(bundled, [...C001_MODEL_IDS], "grok")
+
+    expect(out.coding?.model).toBe("grok-composer-2.5-fast")
+    expect(out["visual-engineering"]?.model).toBe("gemini-3-pro-high")
   })
 
   test("replaces unavailable curated routes with available fallback models", () => {

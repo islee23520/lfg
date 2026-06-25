@@ -12,6 +12,7 @@ vi.mock("@clack/prompts", () => {
     select: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[] }) => {
       if (/Global model preset/i.test(String(opts.message ?? ""))) return "grok";
       if (/Global reasoning effort/i.test(String(opts.message ?? ""))) return "auto";
+      if (/Model customization/i.test(String(opts.message ?? ""))) return "none";
       return opts.options?.[0]?.value ?? "auto";
     },
     autocomplete: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[]; readonly initialValue?: string }) => {

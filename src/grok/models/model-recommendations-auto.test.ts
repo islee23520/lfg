@@ -17,18 +17,23 @@ describe("pattern-based model auto-assignment", () => {
     expect(REASONING_AGENT_NAMES.has("review-work")).toBe(true)
     expect(REASONING_AGENT_NAMES.has("codex-ultrawork-reviewer")).toBe(true)
     expect(REASONING_AGENT_NAMES.has("reasoning")).toBe(true)
+    expect(REASONING_AGENT_NAMES.has("oracle")).toBe(true)
+    expect(REASONING_AGENT_NAMES.has("hephaestus")).toBe(true)
+    expect(REASONING_AGENT_NAMES.has("atlas")).toBe(true)
+    expect(REASONING_AGENT_NAMES.has("deep")).toBe(true)
+    expect(REASONING_AGENT_NAMES.has("ultrabrain")).toBe(true)
   })
 
-  test("selectModelForPatterns picks Grok reasoning model first", () => {
-    const models = ["gpt-5.4-mini", "grok-4.20-0309-reasoning", "grok-3-mini-fast"]
+  test("selectModelForPatterns picks GPT or GLM reasoning before Grok", () => {
+    const models = ["gpt-5.5", "glm-5.2", "grok-4.20-0309-reasoning", "grok-3-mini-fast"]
     const selected = selectModelForPatterns(models, "reasoning")
-    expect(selected).toBe("grok-4.20-0309-reasoning")
+    expect(selected).toBe("gpt-5.5")
   })
 
-  test("selectModelForPatterns picks fast utility model for explorer", () => {
-    const models = ["gpt-5.5", "grok-3-mini-fast", "grok-4.3"]
+  test("selectModelForPatterns picks fast GPT/GLM utility before Grok mini", () => {
+    const models = ["gpt-5.4-mini", "glm-5-turbo", "grok-3-mini-fast", "grok-4.3"]
     const selected = selectModelForPatterns(models, "utility")
-    expect(selected).toBe("grok-3-mini-fast")
+    expect(selected).toBe("gpt-5.4-mini")
   })
 
   test("selectModelForPatterns falls back to first model when no pattern matches", () => {
@@ -48,12 +53,12 @@ describe("pattern-based model auto-assignment", () => {
       plan: { model: "grok-4.3", reasoningLevel: "high" },
       coding: { model: "grok-4.20-0309-non-reasoning", reasoningLevel: "medium" },
     }
-    const models = ["grok-3-mini-fast", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5"]
+    const models = ["grok-3-mini-fast", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5", "glm-5.2"]
     const recs = buildRecommendedModelOverrides(overrides, models)
     const planRec = recs.get("plan")
     expect(planRec).toBeDefined()
-    expect(planRec!.model).toBe("grok-4.20-0309-reasoning")
-    expect(planRec!.reasoningLevel).toBe("high")
+    expect(planRec!.model).toBe("gpt-5.5")
+    expect(planRec!.reasoningLevel).toBe("xhigh")
     expect(planRec!.serviceTier).toBe("default")
   })
 
@@ -66,7 +71,7 @@ describe("pattern-based model auto-assignment", () => {
     const explorerRec = recs.get("explorer")
     expect(explorerRec).toBeDefined()
     expect(explorerRec!.model).toBe("grok-3-mini-fast")
-    expect(explorerRec!.reasoningLevel).toBe("medium")
+    expect(explorerRec!.reasoningLevel).toBe("low")
     expect(explorerRec!.serviceTier).toBe("fast")
   })
 
@@ -87,15 +92,27 @@ describe("pattern-based model auto-assignment", () => {
     expect(overrides.explorer.serviceTier).toBe("fast")
   })
 
-  test("reasoning patterns prefer grok over gpt", () => {
+  test("reasoning patterns prefer GPT over Grok", () => {
     const models = ["gpt-5.5", "grok-4.20-0309-reasoning"]
     const selected = selectModelForPatterns(models, "reasoning")
-    expect(selected).toBe("grok-4.20-0309-reasoning")
+    expect(selected).toBe("gpt-5.5")
   })
 
-  test("utility patterns prefer grok mini/fast over gpt mini", () => {
+  test("utility patterns prefer GPT mini over Grok mini", () => {
     const models = ["gpt-5.4-mini", "grok-3-mini-fast"]
     const selected = selectModelForPatterns(models, "utility")
-    expect(selected).toBe("grok-3-mini-fast")
+    expect(selected).toBe("gpt-5.4-mini")
+  })
+
+  test("coding patterns prefer Composer 2.5", () => {
+    const models = ["gpt-5.3-codex-spark", "grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning"]
+    const selected = selectModelForPatterns(models, "coding")
+    expect(selected).toBe("grok-composer-2.5-fast")
+  })
+
+  test("visual patterns prefer Gemini", () => {
+    const models = ["gpt-5.5", "grok-4.3", "gemini-3-pro-high"]
+    const selected = selectModelForPatterns(models, "visual")
+    expect(selected).toBe("gemini-3-pro-high")
   })
 })

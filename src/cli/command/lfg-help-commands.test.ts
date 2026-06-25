@@ -7,6 +7,7 @@ describe("lfg help", () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain("lfg --json setup")
     expect(result.stdout).toContain("lfg --json setup --run --force")
+    expect(result.stdout).toContain("lfg setup config")
     expect(result.stdout).toContain("Setup run implementation:")
     expect(result.stdout).toContain("@islee23520/lfg internal grok-install")
     expect(result.stdout).not.toContain("npx lazycodex-ai install")

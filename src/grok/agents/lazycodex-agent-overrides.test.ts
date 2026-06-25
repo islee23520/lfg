@@ -43,7 +43,7 @@ describe("lazycodex-agent-overrides", () => {
     expect(merged.reasoning.model).toBe(role.reasoning.model)
   })
 
-  test("default agent config uses advertised reasoning effort for selected discovered models", () => {
+  test("default agent config uses fixed role defaults, ignoring model-advertised reasoning effort", () => {
     const role = defaultLazycodexAgentConfig({
       ...discovery,
       modelIds: ["grok-3-mini-fast", "gpt-5.5", "codex-auto-review"],
@@ -60,15 +60,17 @@ describe("lazycodex-agent-overrides", () => {
       },
     })
 
+    // auto uses role defaults (explorer=low, reasoning=high, coding=medium),
+    // NOT the model-advertised metadata (which would be low/xhigh/high).
     expect(role.explorer.reasoningLevel).toBe("low")
-    expect(role.reasoning.reasoningLevel).toBe("xhigh")
-    expect(role.coding.reasoningLevel).toBe("high")
+    expect(role.reasoning.reasoningLevel).toBe("high")
+    expect(role.coding.reasoningLevel).toBe("medium")
   })
 
   test("bundled defaults include default, prometheus, sisyphus, and atlas agents", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()
     expect(bundled.default?.model).toBe("gpt-5.5")
-    expect(bundled.default?.reasoningLevel).toBe("high")
+    expect(bundled.default?.reasoningLevel).toBe("medium")
     expect(bundled.prometheus?.model).toBe("gpt-5.5")
     expect(bundled.prometheus?.reasoningLevel).toBe("xhigh")
     expect(bundled.sisyphus?.model).toBe("gpt-5.5")
@@ -92,7 +94,7 @@ describe("lazycodex-agent-overrides", () => {
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("sisyphus-junior")
   })
 
-  test("bundled defaults include OMO category agents (ultrabrain, deep, quick, unspecified-low, unspecified-high, writing)", async () => {
+  test("bundled defaults include OMO and Grok category agents", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()
     expect(bundled.ultrabrain?.model).toBe("gpt-5.5")
     expect(bundled.ultrabrain?.reasoningLevel).toBe("xhigh")
@@ -106,12 +108,30 @@ describe("lazycodex-agent-overrides", () => {
     expect(bundled["unspecified-high"]?.reasoningLevel).toBe("high")
     expect(bundled.writing?.model).toBe("gemini-3.1-pro-low")
     expect(bundled.writing?.reasoningLevel).toBe("low")
+    expect(bundled["visual-engineering"]?.model).toBe("gemini-3.1-pro-low")
+    expect(bundled["visual-engineering"]?.reasoningLevel).toBe("high")
+    expect(bundled.artistry?.model).toBe("gemini-3.1-pro-low")
+    expect(bundled.artistry?.reasoningLevel).toBe("high")
+    expect(bundled["artistry-gen"]?.model).toBe("gemini-3.1-pro-low")
+    expect(bundled["artistry-gen"]?.reasoningLevel).toBe("medium")
+    expect(bundled["artistry-qa"]?.model).toBe("gemini-3.1-pro-low")
+    expect(bundled["artistry-qa"]?.reasoningLevel).toBe("high")
+    expect(bundled["visual-looker"]?.model).toBe("gpt-5.5")
+    expect(bundled["visual-looker"]?.reasoningLevel).toBe("medium")
+    expect(bundled.ulw?.model).toBe("gpt-5.5")
+    expect(bundled.ulw?.reasoningLevel).toBe("high")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("ultrabrain")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("deep")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("quick")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("unspecified-low")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("unspecified-high")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("writing")
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("visual-engineering")
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("artistry")
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("artistry-gen")
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("artistry-qa")
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("visual-looker")
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("ulw")
   })
 
   test("bundled fast utility agents use upstream gpt-5.4-mini-fast ids", async () => {

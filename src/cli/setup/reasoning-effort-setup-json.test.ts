@@ -36,13 +36,8 @@ describe("setup JSON reasoning effort contract", () => {
         companionPackage: "lfg-grok-install",
         agentReasoning: {
           explorer: "low",
-          reasoning: "xhigh",
-          coding: "xhigh",
-        },
-        modelDiscovery: {
-          modelFeatureMetadata: {
-            "gpt-5.5": { reasoningEffort: "xhigh" },
-          },
+          reasoning: "high",
+          coding: "medium",
         },
       })
       expect(json).not.toContain("@islee23520/lfp")

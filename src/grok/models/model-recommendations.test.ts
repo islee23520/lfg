@@ -87,7 +87,7 @@ describe("model-recommendations", () => {
       sisyphus: {
         model: "gpt-5.5",
         model_reasoning_effort: "medium",
-        model_fallback: "glm-5",
+        model_fallback: "glm-5.2",
         role_rationale: "OMO Sisyphus orchestrator",
       },
       atlas: {
@@ -104,11 +104,11 @@ describe("model-recommendations", () => {
       },
     }
 
-    expect(getAgentRecommendation("sisyphus", ["glm-5"], overrides)).toMatchObject({
-      recommended: "glm-5",
+    expect(getAgentRecommendation("sisyphus", ["glm-5.2"], overrides)).toMatchObject({
+      recommended: "glm-5.2",
       variant: "medium",
       alternatives: [],
-      fullChain: ["gpt-5.5", "glm-5"],
+      fullChain: ["gpt-5.5", "glm-5.2"],
     })
 
     const table = formatRecommendationTable(["gpt-5.5", "gemini-3-pro-high"], overrides)

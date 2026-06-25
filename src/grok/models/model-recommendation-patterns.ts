@@ -4,14 +4,14 @@
  * these functions scan the actually-discovered model IDs and pattern-match
  * to assign the best available model per agent.
  *
- * Patterns are Grok-first: Grok model IDs are preferred over GPT/Gemini/Claude
- * equivalents at the same tier.
+ * Patterns are role-first: GPT/GLM are preferred for orchestration and reasoning,
+ * Composer is preferred for pure coding, and Gemini is preferred for visual work.
  */
 
 import type { LazycodexAgentOverrideMap, ServiceTier } from "../agents/lazycodex-agent-overrides"
 import type { ReasoningLevel } from "../../cli/models/lfg-models"
 
-export type PatternKind = "reasoning" | "utility" | "critical" | "coding"
+export type PatternKind = "reasoning" | "utility" | "critical" | "coding" | "visual"
 
 export type RecommendedModelFields = {
   readonly model: string
@@ -29,6 +29,12 @@ export const REASONING_AGENT_NAMES: ReadonlySet<string> = new Set([
   "review-work",
   "codex-ultrawork-reviewer",
   "reasoning",
+  "oracle",
+  "hephaestus",
+  "atlas",
+  "deep",
+  "ultrabrain",
+  "unspecified-high",
 ])
 
 const CRITICAL_REVIEW_AGENT_NAMES: ReadonlySet<string> = new Set([
@@ -43,20 +49,61 @@ const CODING_AGENT_NAMES: ReadonlySet<string> = new Set([
   "grok-build",
 ])
 
+const VISUAL_AGENT_NAMES: ReadonlySet<string> = new Set([
+  "multimodal-looker",
+  "visual-looker",
+  "visual-engineering",
+  "artistry",
+  "artistry-gen",
+  "artistry-qa",
+])
+
+/** Per-agent optimal reasoning levels for auto preset.
+ * Agents not listed here fall back to the kind-based default (high for reasoning, medium for utility).
+ */
+const AGENT_REASONING_LEVEL: Readonly<Record<string, ReasoningLevel>> = {
+  // xhigh: strategic planning, adversarial review, deepest reasoning
+  oracle: "xhigh",
+  prometheus: "xhigh",
+  plan: "xhigh",
+  momus: "xhigh",
+  ultrabrain: "xhigh",
+  // high: deep execution, analysis, review
+  atlas: "high",
+  hephaestus: "high",
+  deep: "high",
+  metis: "high",
+  reasoning: "high",
+  reviewer: "high",
+  "codex-ultrawork-reviewer": "high",
+  "unspecified-high": "high",
+  // medium: orchestration, coding, balanced
+  sisyphus: "medium",
+  default: "medium",
+  coding: "medium",
+  "sisyphus-junior": "medium",
+  // low: search, retrieval, simple tasks
+  explorer: "low",
+  librarian: "low",
+  quick: "low",
+  "multimodal-looker": "low",
+  "unspecified-low": "low",
+  writing: "low",
+}
+
 /** Pattern arrays ordered by preference. Grok IDs first, then GPT/Gemini/Claude fallbacks. */
 
 // Reasoning-capable models: deep-chain-of-thought models for planning/analysis/review.
 export const REASONING_MODEL_PATTERNS: readonly RegExp[] = [
-  /grok-4\.[0-9]+.*reasoning/i,
+  /gpt-5\.5/i,
+  /glm-5\.2/i,
+  /gpt-5(?!.*mini)/i,
+  /glm-5/i,
+  /gpt-5\.3.*codex/i,
   /grok-4\.3/i,
+  /grok-4\.[0-9]+.*reasoning/i,
   /grok-4\.[0-9]+/i,
   /grok.*reasoning/i,
-  /gpt-5\.5/i,
-  /gpt-5\.3.*codex/i,
-  /gpt-5(?!.*mini)/i,
-  /glm-5\.2/i,
-  /glm-5.*turbo/i,
-  /glm-5/i,
   /gemini-3.*pro.*high/i,
   /gemini.*pro/i,
   /claude.*opus/i,
@@ -66,10 +113,18 @@ export const REASONING_MODEL_PATTERNS: readonly RegExp[] = [
 ]
 
 // Utility models: fast, cheap, high-volume agents (explorer, librarian, coding non-reasoning).
+// grok-composer is preferred for orchestrator roles (sisyphus/default) due to strong
+// task-decomposition and context-maintenance characteristics at fast tier.
 export const UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
-  /grok-4\.[0-9]+.*non-reasoning/i,
-  /grok-composer.*fast/i,
+  /gpt-5\.[0-9]+-mini.*fast/i,
+  /gpt-5\.[0-9]+.*mini/i,
+  /glm-5.*turbo/i,
+  /gemini-3\.1-flash-lite/i,
+  /gemini-3.*flash/i,
+  /gpt.*mini/i,
   /grok-3-mini-fast/i,
+  /grok-composer.*fast/i,
+  /grok-4\.[0-9]+.*non-reasoning/i,
   /grok-3-mini/i,
   /grok.*mini/i,
   /grok.*fast/i,
@@ -77,11 +132,6 @@ export const UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
   /gemini-3.*pro.*low/i,
   /gemini-3.*pro.*high/i,
   /gpt-5\.3.*codex/i,
-  /glm-5.*turbo/i,
-  /gemini-3\.1-flash-lite/i,
-  /gpt-5\.[0-9]+-mini/i,
-  /gpt-5\.[0-9]+.*mini/i,
-  /gpt.*mini/i,
   /glm-5\.2/i,
   /mini/i,
   /fast/i,
@@ -92,19 +142,31 @@ export const UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
 
 export const CRITICAL_MODEL_PATTERNS: readonly RegExp[] = [
   /gpt-5\.5/i,
+  /glm-5\.2/i,
   /gpt-5\.3.*codex/i,
   /grok-4\.3/i,
   /grok-4\.[0-9]+.*reasoning/i,
-  /glm-5\.2/i,
   /glm-5.*turbo/i,
   /gemini-3.*pro.*high/i,
   /gemini.*pro/i,
 ]
 
+export const VISUAL_MODEL_PATTERNS: readonly RegExp[] = [
+  /gemini-3.*pro.*high/i,
+  /gemini-3\.1.*pro/i,
+  /gemini.*pro/i,
+  /gemini.*vision/i,
+  /gemini/i,
+  /gpt-5\.5/i,
+  /glm-5\.2/i,
+  /grok-4\.3/i,
+]
+
 export const CODING_MODEL_PATTERNS: readonly RegExp[] = [
-  /grok-4\.[0-9]+.*non-reasoning/i,
+  /grok-composer-2\.5.*fast/i,
+  /grok-composer/i,
   /gpt-5\.3.*codex/i,
-  /grok-4\.[0-9]+.*reasoning/i,
+  /grok-4\.[0-9]+.*non-reasoning/i,
   /grok-build/i,
   /glm-5.*turbo/i,
   /gemini-3.*pro.*low/i,
@@ -152,10 +214,12 @@ function patternsForKind(kind: PatternKind, preset?: RecommendationPreset): read
   if (preset === "gpt") {
     if (kind === "critical" || kind === "reasoning") return GPT_REASONING_MODEL_PATTERNS
     if (kind === "coding") return CODING_MODEL_PATTERNS
+    if (kind === "visual") return VISUAL_MODEL_PATTERNS
     return GPT_UTILITY_MODEL_PATTERNS
   }
   if (kind === "critical") return CRITICAL_MODEL_PATTERNS
   if (kind === "coding") return CODING_MODEL_PATTERNS
+  if (kind === "visual") return VISUAL_MODEL_PATTERNS
   return kind === "reasoning" ? REASONING_MODEL_PATTERNS : UTILITY_MODEL_PATTERNS
 }
 
@@ -168,15 +232,34 @@ export function selectModelForPatterns(
   const patterns = patternsForKind(kind, preset)
   for (const pattern of patterns) {
     const matches = models.filter((model) => pattern.test(model))
-    if (matches.length > 0) {
+    // Filter out negated matches: e.g. a "reasoning" pattern must not match
+    // "grok-4.20-0309-non-reasoning", and a "non-reasoning" utility pattern
+    // must not be picked when the kind is "reasoning".
+    const positive = matches.filter((model) => !isNegatedMatch(model, pattern, kind))
+    if (positive.length > 0) {
       // Prefer lowercase canonical id when multiple aliases match the same pattern
-      return matches.find((m) => m === m.toLowerCase()) ?? matches[0]
+      return positive.find((m) => m === m.toLowerCase()) ?? positive[0]
     }
+    // If only negated matches exist, fall through to next pattern
   }
   return models[0]
 }
 
-/** Build recommended model fields for a single agent based on whether it needs reasoning. */
+/** Check if a model id is a negated match for the given kind.
+ *  "non-reasoning" in a model id negates any reasoning-kind pattern match.
+ *  "non-fast"/"slow" in a model id negates any utility-kind pattern match.
+ */
+function isNegatedMatch(model: string, _pattern: RegExp, kind: PatternKind): boolean {
+  const lower = model.toLowerCase()
+  if (lower.includes("non-reasoning") && (kind === "reasoning" || kind === "critical")) {
+    return true
+  }
+  return false
+}
+
+/** Build recommended model fields for a single agent based on whether it needs reasoning.
+ * Uses per-agent optimal reasoning levels for the auto preset; falls back to kind-based defaults.
+ */
 export function recommendAgentModelFields(
   agentName: string,
   models: readonly string[],
@@ -185,12 +268,14 @@ export function recommendAgentModelFields(
   const isCritical = CRITICAL_REVIEW_AGENT_NAMES.has(agentName)
   const isReasoning = REASONING_AGENT_NAMES.has(agentName)
   const isCoding = CODING_AGENT_NAMES.has(agentName)
-  const kind: PatternKind = isCritical ? "critical" : isCoding ? "coding" : isReasoning ? "reasoning" : "utility"
+  const isVisual = VISUAL_AGENT_NAMES.has(agentName)
+  const kind: PatternKind = isCritical ? "critical" : isCoding ? "coding" : isVisual ? "visual" : isReasoning ? "reasoning" : "utility"
   const model = selectModelForPatterns(models, kind, preset)
   if (model === undefined) return undefined
+  const optimalLevel = AGENT_REASONING_LEVEL[agentName]
   return {
     model,
-    reasoningLevel: isCritical || isReasoning ? "high" : "medium",
+    reasoningLevel: optimalLevel ?? (isCritical || isReasoning ? "high" : "medium"),
     serviceTier: kind === "utility" ? "fast" : "default",
   }
 }

@@ -186,13 +186,14 @@ async function configureLazycodexAgentsFull(reader: LineReader, discovery: Model
   const reasoningEffort = await readReasoningEffort(reader)
   const presetDiscovery = withReasoningEffort(applyModelPreset(discovery, preset), reasoningEffort)
   const roleConfig = defaultLazycodexAgentConfig(presetDiscovery)
-  const agentOverrideMap = presetDiscovery.agentOverrideMap ?? {}
   output.write("Global model mapping:\n")
   output.write(`  default: ${presetDiscovery.mapping.default}\n`)
   output.write(`  fast: ${presetDiscovery.mapping.fast}\n`)
   output.write(`  reasoning: ${presetDiscovery.mapping.reasoning}\n`)
   output.write(`  coding: ${presetDiscovery.mapping.coding}\n\n`)
-  return { ...presetDiscovery, agentConfig: roleConfig, agentOverrideMap }
+  // Do not set agentOverrideMap — the install path resolves per-agent overrides from
+  // bundled JSON + availability checking. Setting {} would bypass that resolution.
+  return { ...presetDiscovery, agentConfig: roleConfig }
 }
 
 async function readSetupPreset(reader: LineReader): Promise<SetupPreset> {

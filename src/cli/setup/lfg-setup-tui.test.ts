@@ -16,6 +16,7 @@ vi.mock("@clack/prompts", () => {
       calls.push(["select", opts?.message, opts?.options?.length, opts?.initialValue]);
       if (/Global model preset/i.test(String(opts?.message ?? ""))) return "auto";
       if (/Global reasoning effort/i.test(String(opts?.message ?? ""))) return "high";
+      if (/Model customization/i.test(String(opts?.message ?? ""))) return "none";
       return opts?.options?.[0]?.value ?? "grok-3-mini-fast";
     },
     autocomplete: async (opts: any) => {
@@ -70,7 +71,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
       lineLogs.push("legacy-runLineSetup-called-with-noTui=" + String(args?.noTui));
     };
 
-    await tui.runSetupTui({}, { plan: {}, resolved: { discovery: { baseUrl: "http://127.0.0.1:8317/v1", modelsUrl: "http://127.0.0.1:8317/v1/models", modelIds: ["grok-3-mini-fast", "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark"], mapping: { default: "grok-3-mini-fast", fast: "grok-3-mini-fast", reasoning: "grok-4.20-0309-reasoning", coding: "gpt-5.3-codex-spark" } } } }, {
+    await tui.runSetupTui({}, { plan: {}, resolved: { discovery: { baseUrl: "http://127.0.0.1:8317/v1", modelsUrl: "http://127.0.0.1:8317/v1/models", modelIds: ["gpt-5.5", "glm-5-turbo", "grok-composer-2.5-fast", "grok-3-mini-fast", "grok-4.20-0309-reasoning", "gpt-5.3-codex-spark"], mapping: { default: "gpt-5.5", fast: "glm-5-turbo", reasoning: "gpt-5.5", coding: "grok-composer-2.5-fast" } } } }, {
       prompts: prompts as any,
       colors: { inverse: (s: string) => s, green: (s: string) => s },
       runLineSetup,
@@ -86,7 +87,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
 
     const selectCalls = calls.filter((c: any[]) => c[0] === "select");
     const autocompleteCalls = calls.filter((c: any[]) => c[0] === "autocomplete");
-    expect(selectCalls.map((c: any[]) => String(c[1]))).toEqual(expect.arrayContaining(["Global model preset", "Global reasoning effort"]));
+    expect(selectCalls.map((c: any[]) => String(c[1]))).toEqual(expect.arrayContaining(["Global model preset", "Global reasoning effort", "Model customization"]));
     expect(autocompleteCalls).toHaveLength(0);
 
     expect(calls.some((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])))).toBe(true);

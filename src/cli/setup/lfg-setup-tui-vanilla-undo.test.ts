@@ -11,6 +11,7 @@ vi.mock("@clack/prompts", () => {
     },
     select: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[] }) => {
       calls.push(["select", opts.message])
+      if (/Model customization/i.test(String(opts.message ?? ""))) return "none"
       return opts.options?.[0]?.value ?? "grok-3-mini-fast"
     },
     autocomplete: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[]; readonly initialValue?: string }) => {
@@ -68,7 +69,7 @@ describe("lfg-setup-tui vanilla + undo", () => {
       const msg = String(c[1] ?? "")
       return (c[0] === "autocomplete" || c[0] === "select") &&
         /model|service tier|reasoning/i.test(msg) &&
-        !/Global model preset/.test(msg) && !/Global reasoning effort/.test(msg)
+        !/Global model preset/.test(msg) && !/Global reasoning effort/.test(msg) && !/Model customization/.test(msg)
     })
     expect(perAgentModelPrompts.length).toBe(0)
 
@@ -81,7 +82,7 @@ describe("lfg-setup-tui vanilla + undo", () => {
     expect(calls.some((c) => c[0] === "note" && /Install Summary/.test(String(c[1])))).toBe(true)
     expect(installerMock.runLazycodexInstaller).toHaveBeenCalledTimes(1)
     const installed = (installerMock.runLazycodexInstaller.mock.calls as unknown as ReadonlyArray<readonly unknown[]>)[0]?.[0] as Record<string, any>
-    expect(installed?.agentOverrideMap?.sisyphus?.model).toBe("gpt-5.3-codex-spark")
+    // agentOverrideMap is no longer set on discovery; install path resolves per-agent overrides from bundled JSON.
     expect(installed?.agentConfig?.explorer?.model).toBe("grok-3-mini-fast")
   })
 

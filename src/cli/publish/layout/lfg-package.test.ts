@@ -21,7 +21,7 @@ describe("lfg package contract", () => {
       build: "node scripts/build.mjs",
       prepublishOnly: "npm run verify",
       prepack: "npm run build",
-      "assert-pack": "node scripts/assert-npm-pack-bin.mjs",
+      "assert-pack": "npm run build && node scripts/assert-npm-pack-bin.mjs",
       "assert-omo-parity": "npm run build && node scripts/assert-omo-parity.mjs",
       verify: "npm run assert-pack && npm run assert-omo-parity && npm test && npm run typecheck && npm run self-test",
       "pre-publish-check": "npm run build && node scripts/pre-publish-check.mjs",
@@ -78,8 +78,7 @@ describe("lfg package contract", () => {
     expect(files).toContain("README.md")
     expect(files).toContain("dist/lfg.js")
     expect(files).toContain("dist/self-test.js")
-    expect(files).toContain("skills/lazycodex/SKILL.md")
-    expect(files).toContain("skills/lfp/SKILL.md")
+    expect(files).not.toContain("skills/lazycodex/SKILL.md")
     expect(files).toContain("skills/ulw-plan/references/full-workflow.md")
     expect(files).toContain("skills/ulw-plan/scripts/scaffold-plan.mjs")
     expect(files).toContain("skills/ulw-loop/references/full-workflow.md")

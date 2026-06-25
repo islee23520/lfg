@@ -56,6 +56,7 @@ describe("lfg-setup-tui model routing", () => {
       const message = String(options.message ?? "")
       if (/Global model preset/i.test(message)) return "balanced"
       if (/Global reasoning effort/i.test(message)) return "auto"
+      if (/Model customization/i.test(message)) return "none"
       return String(options.options?.[0]?.value ?? "auto")
     }
     prompts.autocomplete = async (options: any) => String(options.initialValue ?? options.options?.[0]?.value ?? "grok-3-mini-fast")
@@ -75,7 +76,11 @@ describe("lfg-setup-tui model routing", () => {
     const installerCalls = installerMock.runLazycodexInstaller.mock.calls as unknown as readonly [ModelDiscovery][]
     const configuredDiscovery = installerCalls[0]?.[0]
     expect(configuredDiscovery?.mapping.default).toBe("gpt-5.3-codex-spark")
-    expect(configuredDiscovery?.agentOverrideMap?.sisyphus?.model).toBe("gpt-5.3-codex-spark")
+    expect(configuredDiscovery?.agentConfig?.explorer.model).toBe(configuredDiscovery?.mapping.fast)
+    expect(configuredDiscovery?.agentConfig?.reasoning.model).toBe(configuredDiscovery?.mapping.reasoning)
+    expect(configuredDiscovery?.agentConfig?.coding.model).toBe(configuredDiscovery?.mapping.coding)
+    // agentOverrideMap is no longer set on discovery; the install path resolves
+    // per-agent overrides from bundled JSON + availability checking at install time.
   })
 
   test("fast tier maps to fast model id for Grok routing", async () => {
@@ -90,6 +95,7 @@ describe("lfg-setup-tui model routing", () => {
       const message = String(options.message ?? "")
       if (/Global model preset/i.test(message)) return "grok"
       if (/Global reasoning effort/i.test(message)) return "auto"
+      if (/Model customization/i.test(message)) return "none"
       return String(options.options?.[0]?.value ?? "auto")
     }
     prompts.autocomplete = async (options: any) => {
@@ -97,7 +103,12 @@ describe("lfg-setup-tui model routing", () => {
       return String(options.initialValue ?? options.options?.[0]?.value ?? "grok-3-mini-fast")
     }
     const origConfirm = prompts.confirm
-    prompts.confirm = async (options: any) => !/Install now\?|Core \+ ULW/i.test(String(options.message ?? ""))
+    prompts.confirm = async (options: any) => {
+      const msg = String(options.message ?? "")
+      // Decline install and choose no customization so the per-preset flow is tested.
+      if (/Install now\?|Core \+ ULW/i.test(msg)) return false
+      return true
+    }
 
     await tui.runSetupTui({}, { plan: {}, resolved: { discovery: discovery(["grok-3-mini", "grok-3-mini-fast"]) } }, {
       prompts,

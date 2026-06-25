@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
+import { LFG_SUBAGENT_TOGGLES, lfgOwnedSubagentModels, lfgOwnedSubagentReasoningEffort, type SubagentModelMapping } from "./subagent-routing"
 
 const PLUGIN_IDS = ["lfg", "lazycodex"] as const
 
@@ -32,7 +33,7 @@ export async function ensureLfgAgentsPreferred(home: string = homedir()): Promis
 /** T2: Ensures LFG-owned [subagents.models] routing (plan/metis/etc -> reasoning, explore->explorer, coding/grok-build/builder->coding; preserves non-LFG keys). Uses existing TOML upsert. */
 export async function ensureLfgSubagentModels(
   home: string = homedir(),
-  mapping: { readonly default?: string; readonly fast?: string; readonly reasoning?: string; readonly coding?: string; readonly fastReasoning?: string; readonly reasoningReasoning?: string; readonly codingReasoning?: string } = {},
+  mapping: SubagentModelMapping = {},
 ): Promise<{ readonly path: string; readonly changed: boolean }> {
   const path = join(home, ".grok", "config.toml")
   const current = await readTextIfExists(path)
@@ -107,27 +108,7 @@ function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
 }
 
 function upsertSubagentToggles(source: string): string {
-  const toggles = new Map<string, boolean>([
-    ["cursor", false],
-    ["general-purpose", false],
-    ["explore", false],
-    ["browser-use", false],
-    ["grok-build", false],
-    ["builder", false],
-    ["sisyphus", true],
-    ["prometheus", true],
-    ["atlas", true],
-    ["reasoning", true],
-    ["coding", true],
-    ["explorer", true],
-    ["plan", true],
-    ["librarian", true],
-    ["metis", true],
-    ["momus", true],
-    ["reviewer", true],
-    ["multimodal-looker", true],
-  ])
-  const block = [...toggles.entries()].map(([name, enabled]) => `${name} = ${enabled ? "true" : "false"}`).join("\n")
+  const block = LFG_SUBAGENT_TOGGLES.map(([name, enabled]) => `${name} = ${enabled ? "true" : "false"}`).join("\n")
   return upsertTomlSection(source, "subagents.toggle", block)
 }
 
@@ -148,53 +129,15 @@ function upsertAgentPreference(source: string): string {
  */
 export function upsertSubagentModels(
   source: string,
-  mapping: { readonly default?: string; readonly fast?: string; readonly reasoning?: string; readonly coding?: string; readonly fastReasoning?: string; readonly reasoningReasoning?: string; readonly codingReasoning?: string } = {},
+  mapping: SubagentModelMapping = {},
 ): string {
-  const fastRoute = mapping.fast || mapping.default || "grok-3-mini-fast"
-  const lfgOwned: Record<string, string> = {
-    "general-purpose": fastRoute,
-    "prometheus": mapping.reasoning || "grok-4.20-0309-reasoning",
-    "atlas": mapping.reasoning || "grok-4.20-0309-reasoning",
-    "plan": mapping.reasoning || "grok-4.20-0309-reasoning",
-    "metis": mapping.reasoning || "grok-4.20-0309-non-reasoning",
-    "momus": mapping.reasoning || "grok-4.20-0309-reasoning",
-    "reasoning": mapping.reasoning || "grok-4.20-0309-reasoning",
-    "multimodal-looker": fastRoute,
-    "explore": fastRoute,
-    "explorer": fastRoute,
-    "librarian": fastRoute,
-    "coding": mapping.coding || "grok-4.20-0309-non-reasoning",
-    "grok-build": mapping.coding || "grok-4.20-0309-non-reasoning",
-    "builder": mapping.coding || "grok-4.20-0309-non-reasoning",
-    "reviewer": mapping.coding || "grok-4.3",
-  }
-  const block = mergeSubagentModelBody(source, lfgOwned)
+  const block = mergeSubagentModelBody(source, lfgOwnedSubagentModels(mapping))
   const withModels = upsertTomlSection(source, "subagents.models", block)
   return upsertTomlSection(withModels, "subagents.reasoning_effort", subagentReasoningBody(mapping))
 }
 
-function subagentReasoningBody(mapping: { readonly fastReasoning?: string; readonly reasoningReasoning?: string; readonly codingReasoning?: string }): string {
-  const fast = mapping.fastReasoning ?? "low"
-  const reasoning = mapping.reasoningReasoning ?? "high"
-  const coding = mapping.codingReasoning ?? "medium"
-  const entries: Readonly<Record<string, string>> = {
-    "general-purpose": fast,
-    "prometheus": reasoning,
-    "atlas": reasoning,
-    "plan": reasoning,
-    "metis": reasoning,
-    "momus": reasoning,
-    "reasoning": reasoning,
-    "multimodal-looker": fast,
-    "explore": fast,
-    "explorer": fast,
-    "librarian": fast,
-    "coding": coding,
-    "grok-build": coding,
-    "builder": coding,
-    "reviewer": coding,
-  }
-  return Object.entries(entries).map(([key, effort]) => `${key} = ${tomlString(effort)}`).join("\n")
+function subagentReasoningBody(mapping: SubagentModelMapping): string {
+  return Object.entries(lfgOwnedSubagentReasoningEffort(mapping)).map(([key, effort]) => `${key} = ${tomlString(effort)}`).join("\n")
 }
 
 function mergeSubagentModelBody(source: string, lfgOwned: Readonly<Record<string, string>>): string {

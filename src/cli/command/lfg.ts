@@ -90,11 +90,21 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     return help()
   }
   const isForceOnly = (subcommand === "--force" || subcommand === "force")
-  if (command !== "setup" || (subcommand && !isForceOnly)) {
+  const isConfigTui = subcommand === "config" || subcommand === "tui"
+  if (command !== "setup" || (subcommand && !isForceOnly && !isConfigTui)) {
     return unsupportedCommand(args.positional)
   }
   const home = resolveGrokSetupHome(process.env)
   const resolved = await resolveSetupDiscovery({ home, cliBaseUrl: args.baseUrl })
+  if (isConfigTui) {
+    if (args.json) {
+      return { ok: false, status: "tui_requires_terminal", command: "setup config", error: "Use bare `lfg setup config` to edit model routing in the TUI." }
+    }
+    const { runSetupTui } = await import("../setup/lfg-setup-tui.js")
+    const discoveryForConfig = resolved.discovery === null ? null : withReasoningEffort(applyModelPreset(resolved.discovery, args.preset), args.reasoningEffort)
+    const configResult = await runSetupTui(args, { plan: {}, resolved: { ...resolved, discovery: discoveryForConfig }, configOnly: true })
+    return configResult ?? { ok: true, status: "tui_config_completed", executed: true }
+  }
   const discovery = resolved.discovery === null ? null : withReasoningEffort(applyModelPreset(resolved.discovery, args.preset), args.reasoningEffort)
   const presetResolved = { ...resolved, discovery }
 
@@ -255,6 +265,7 @@ function help(): string {
     "",
     "Commands:",
     "  lfg setup",
+    "  lfg setup config",
     "",
     "Package execution:",
     "  npx @islee23520/lfg setup",
@@ -274,6 +285,7 @@ function help(): string {
     "  lfg --json setup --refresh --run",
     "  lfg setup --refresh --run",
     "  lfg setup --no-tui",
+    "  lfg setup config  # TUI for per-agent model routing overrides",
     "  (models auto: ~/.grok [endpoints].models_base_url or http://127.0.0.1:8317/v1)",
     "  TTY bare setup uses a Clack-based TUI (LFP-style framing) with line fallback; --no-tui forces classic readline.",
     "",

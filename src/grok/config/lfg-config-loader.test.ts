@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
@@ -44,6 +44,50 @@ describe("lfg-config-loader project .omo context", () => {
     expect(output.hookSpecificOutput?.additionalContext).not.toContain("ledger two")
     expect(output.hookSpecificOutput?.additionalContext).toContain("ulw-loop: none")
     expect(output.hookSpecificOutput?.additionalContext.length).toBeLessThanOrEqual(2048)
+  })
+
+  test("restores Grok default model from lfg-owned omo.models on SessionStart", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-loader-model-home-"))
+    await mkdir(join(home, ".grok"), { recursive: true })
+    const configPath = join(home, ".grok", "config.toml")
+    await writeFile(
+      configPath,
+      '[models]\ndefault = "grok-build"\n\n[omo.models]\ndefault = "gpt-5.5"\nreasoning = "gpt-5.5"\n',
+      "utf8",
+    )
+
+    const result = await runLoader({
+      home,
+      payload: {
+        hookEventName: "SessionStart",
+        sessionId: "session-123",
+        cwd: await mkdtemp(join(tmpdir(), "lfg-loader-model-project-")),
+      },
+    })
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" })
+    const output = parseHookOutput(result.stdout)
+    expect(output.hookSpecificOutput?.additionalContext).toContain("LFG session model default: gpt-5.5 (restored in config.toml).")
+    await expect(readFile(configPath, "utf8")).resolves.toContain('[models]\ndefault = "gpt-5.5"')
+  })
+
+  test("does not rewrite model defaults for non-SessionStart hooks", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-loader-prompt-model-home-"))
+    await mkdir(join(home, ".grok"), { recursive: true })
+    const configPath = join(home, ".grok", "config.toml")
+    await writeFile(configPath, '[models]\ndefault = "grok-build"\n\n[omo.models]\ndefault = "gpt-5.5"\n', "utf8")
+
+    const result = await runLoader({
+      home,
+      payload: {
+        hookEventName: "UserPromptSubmit",
+        sessionId: "session-123",
+        cwd: await mkdtemp(join(tmpdir(), "lfg-loader-prompt-model-project-")),
+      },
+    })
+
+    expect(result.exitCode).toBe(0)
+    await expect(readFile(configPath, "utf8")).resolves.toContain('[models]\ndefault = "grok-build"')
   })
 
   test("omits secret-like ledger text from rendered project .omo awareness", async () => {

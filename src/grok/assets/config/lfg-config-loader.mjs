@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
 import { join } from "node:path";
 const { inspectProjectOmoLedger } = await importFirst(["./lfg-project-omo-ledger.mjs", "../ledger/lfg-project-omo-ledger.mjs"]);
@@ -13,7 +13,9 @@ const input = parseJson(await readStdin());
 const event = normalizeHookEventName(input);
 const home = resolveGrokHome(process.env);
 const configPath = join(home, ".grok", "lfg-config.jsonc");
+const grokConfigPath = join(home, ".grok", "config.toml");
 const config = await readConfig(configPath);
+const modelRestore = event === "SessionStart" ? await restoreSessionDefaultModel(grokConfigPath) : null;
 const projectRoot = projectRootFromInput(input);
 const sessionId = sessionIdFromInput(input);
 const ledger = await inspectProjectOmoLedger({ projectRoot, sessionId });
@@ -22,7 +24,7 @@ if (ledger.status === "malformed") {
   process.stderr.write(`LFG-OMO-LEDGER-ERROR: malformed project .omo state at ${ledger.boulderPath}\n`);
   process.exit(1);
 }
-const context = renderContext(configPath, config, ledger);
+const context = renderContext(configPath, config, ledger, modelRestore);
 
 await devLog({
   event,
@@ -36,6 +38,7 @@ await devLog({
       Object.entries(config.agents).map(([name, a]) => [name, { model: a?.model, reasoning: a?.reasoning_level, enabled: a?.enabled }])
     ) : null,
     ledgerStatus: ledger.status,
+    modelRestore,
   },
 });
 
@@ -64,6 +67,91 @@ async function readConfig(path) {
   }
 }
 
+async function restoreSessionDefaultModel(path) {
+  try {
+    const raw = await readFile(path, "utf8");
+    const targetModel = readTomlStringKey(raw, "omo.models", "default") ?? readTomlStringKey(raw, "models", "default");
+    if (targetModel === null) return null;
+    const currentDefault = readTomlStringKey(raw, "models", "default");
+    if (currentDefault === targetModel) return { targetModel, restored: false };
+    const next = upsertTomlStringKey(raw, "models", "default", targetModel);
+    await writeFile(path, next, "utf8");
+    return { targetModel, restored: true };
+  } catch {
+    return null;
+  }
+}
+
+function readTomlStringKey(source, section, key) {
+  const lines = tomlSectionLines(source, section);
+  if (lines === null) return null;
+  for (const line of lines) {
+    const match = line.match(new RegExp(`^\\s*${escapeRegExp(key)}\\s*=\\s*([\"'])(.*?)\\1\\s*(?:#.*)?$`));
+    if (match) return match[2] ?? null;
+  }
+  return null;
+}
+
+function upsertTomlStringKey(source, section, key, value) {
+  const lines = source.split(/(?<=\n)/);
+  const header = `[${section}]`;
+  let sectionStart = -1;
+  let sectionEnd = lines.length;
+  for (let index = 0; index < lines.length; index++) {
+    if (lines[index]?.trim() === header) {
+      sectionStart = index;
+      break;
+    }
+  }
+  if (sectionStart === -1) {
+    const prefix = source.length > 0 && !source.endsWith("\n") ? "\n" : "";
+    return `${source}${prefix}\n${header}\n${key} = ${tomlString(value)}\n`;
+  }
+  for (let index = sectionStart + 1; index < lines.length; index++) {
+    if (/^\s*\[[^\]]+\]\s*(?:#.*)?$/.test(lines[index] ?? "")) {
+      sectionEnd = index;
+      break;
+    }
+  }
+  const keyPattern = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=`);
+  for (let index = sectionStart + 1; index < sectionEnd; index++) {
+    if (keyPattern.test(lines[index] ?? "")) {
+      lines[index] = `${key} = ${tomlString(value)}\n`;
+      return lines.join("");
+    }
+  }
+  lines.splice(sectionEnd, 0, `${key} = ${tomlString(value)}\n`);
+  return lines.join("");
+}
+
+function tomlSectionLines(source, section) {
+  const lines = source.split(/\r?\n/);
+  const header = `[${section}]`;
+  let start = -1;
+  for (let index = 0; index < lines.length; index++) {
+    if (lines[index]?.trim() === header) {
+      start = index + 1;
+      break;
+    }
+  }
+  if (start === -1) return null;
+  const sectionLines = [];
+  for (let index = start; index < lines.length; index++) {
+    const line = lines[index] ?? "";
+    if (/^\s*\[[^\]]+\]\s*(?:#.*)?$/.test(line)) break;
+    sectionLines.push(line);
+  }
+  return sectionLines;
+}
+
+function tomlString(value) {
+  return JSON.stringify(value);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function resolveGrokHome(env) {
   if (env.LFG_ALLOW_TEST_GROK_HOME === TEST_HOME_ENABLED) {
     const explicitTestHome = env.LFG_TEST_GROK_HOME?.trim();
@@ -80,8 +168,11 @@ function resolveGrokHome(env) {
   return homedir();
 }
 
-function renderContext(path, config, ledger) {
+function renderContext(path, config, ledger, modelRestore) {
   const lines = [];
+  if (modelRestore?.targetModel) {
+    lines.push(`LFG session model default: ${sanitizeField(modelRestore.targetModel)}${modelRestore.restored ? " (restored in config.toml)" : ""}.`);
+  }
   if (ledger.status === "present" && ledger.work !== null) {
     lines.push(...renderProjectOmoLedger(ledger));
   }

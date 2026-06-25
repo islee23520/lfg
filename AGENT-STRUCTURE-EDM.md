@@ -105,7 +105,7 @@ erDiagram
 | Model | Issue |
 |-------|-------|
 | gemini-3-pro-high | Quality 0/2 (vision-only, no code) |
-| glm-5.1 | Quality 0/2, slow (14.87s) |
+| glm-5.2 | Quality 0/2, slow (14.87s) |
 | glm-5-turbo | Quality 0/2, slow (13.43s) |
 | gpt-5.3-codex | HTTP 402 (payment required) |
 
@@ -217,7 +217,7 @@ flowchart TD
 ## Root Cause Analysis: Why Grok "Stopped Working" After LFG Install
 
 ### Primary Symptom
-After `lfg setup --run`, Grok Build could not use lazycodex/omo agents properly. Agents appeared, but hooks were broken (duplicated bridge wrappers) and model assignments were wrong or used unknown models (`glm-5.1` etc.).
+After `lfg setup --run`, Grok Build could not use lazycodex/omo agents properly. Agents appeared, but hooks were broken (duplicated bridge wrappers) and model assignments were wrong or used unknown models (`glm-5.2` etc.).
 
 ### Two Independent Failure Modes Discovered
 
@@ -239,7 +239,7 @@ After `lfg setup --run`, Grok Build could not use lazycodex/omo agents properly.
 
 #### 2. Model Assignment Mismatch (the "unknown models" part)
 - Bundled `omo-agent-overrides.json` had Codex-era defaults (`grok-4.20-0309-non-reasoning` for explorer, `gpt-5.4-mini` for librarian) plus no entries for plan/metis/momus.
-- Discovery + interactive wizard + user overrides file on disk ended up writing `glm-5.1` (and other non-Grok models) for planning agents.
+- Discovery + interactive wizard + user overrides file on disk ended up writing `glm-5.2` (and other non-Grok models) for planning agents.
 - Codex originals used `gpt-5.5`/`gpt-5.3-codex-spark` etc.; Grok proxy had those, but they were not the optimal or "native" Grok models.
 - Result: agents existed in `~/.grok/agents/*.toml`, but the models were either slow, low-quality, or unfamiliar.
 - **Fix**:

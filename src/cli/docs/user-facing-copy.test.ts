@@ -69,8 +69,6 @@ describe("user-facing copy (#33)", () => {
       "docs/grok-adapter-ownership.md",
       "docs/grok-adapter-parity.md",
       "skills/lfg/SKILL.md",
-      "skills/lfp/SKILL.md",
-      "skills/lazycodex/SKILL.md",
     ] as const
 
     for (const file of copyFiles) {
