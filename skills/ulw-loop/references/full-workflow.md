@@ -61,6 +61,18 @@ Codex subagent reliability:
 - After any compaction or context loss, re-read brief + goals + ledger FIRST via `omo sparkshell cat .omo/ulw-loop/ledger.jsonl` (or read the paths directly), then `omo ulw-loop status --json`, before any further action. Recover state from these artifacts; never re-plan from scratch or repeat completed work (re-hypothesizing inside a research goal is not a re-plan).
 - Never invent state outside `.omo/ulw-loop` artifacts or `omo ulw-loop status --json`.
 
+## GrokBuild `/goal` state
+
+Use GrokBuild's `/goal` command as the host goal-state surface. Do not call Codex-only goal tools such as `get_goal`, `create_goal`, `update_goal`, or `update_plan`; they are not available in GrokBuild.
+
+- Before execution, run `/goal` (or inspect the active goal shown by the host) and confirm whether a goal is active.
+- If no active goal exists, create one with `/goal <aggregate objective from the ulw-loop handoff>`.
+- If the active goal is the same aggregate objective, continue the current ulw-loop story.
+- If a different goal is active, STOP: checkpoint the ulw-loop item as blocked and surface the conflict instead of overwriting it.
+- Track step-level progress with the host-visible plan/todo facility available in this session; in GrokBuild this is `todo_write`, not `update_plan`.
+- Only mark the final host goal complete after the final quality gate passes. In GrokBuild, report completion through the active `/goal` flow or the host-provided goal completion mechanism; never complete it mid-aggregate.
+- After completing an aggregate ulw-loop run, clear the host goal with `/goal clear` before starting another unrelated aggregate in the same session.
+
 ## Bootstrap
 Do all three steps before execution. No edits, goal tools, or checkpointing before bootstrap completes.
 
@@ -137,20 +149,20 @@ Loop per goal. Cap at 5 cycles per goal. Cap identical same-criterion failures a
 
 ### Acquire Next Goal
 1. Run `omo ulw-loop complete-goals --json` and read the handoff, including criteria.
-2. Call `get_goal` and inspect active Codex state.
+2. Inspect the active GrokBuild `/goal` state.
 3. Apply this table exactly:
 
-| get_goal result | action |
-|-----------------|--------|
-| no active goal | Call `create_goal` with objective only from `instruction.json.objective`; do not copy lifecycle fields such as `status`. |
+| `/goal` result | action |
+|----------------|--------|
+| no active goal | Create one with `/goal <objective>` using only `instruction.json.objective`; do not copy lifecycle fields such as `status`. |
 | same aggregate objective active | Continue the current ulw-loop story. |
 | different goal active | STOP. Checkpoint blocked and surface the conflict. |
 4. If retrying failed work, run `omo ulw-loop complete-goals --retry-failed --json`.
-5. Never create a second Codex goal for the same aggregate objective.
+5. Never create a second host goal for the same aggregate objective.
 
 ### Per-Criterion Cycle
 1. PLAN: read `criterion.scenario`, `criterion.expectedEvidence`, prior ledger entries, and safety bounds. Identify which tasks in the current wave are independent.
-2. Register atomic todos via `update_plan` — one ultra-granular step per action, `path: <action> for <criterion> - verify by <check>`. Call `update_plan` on every transition (start → `in_progress`, finish → `completed`); exactly one `in_progress`, mark completed immediately, never batch, never let the rendered plan lag behind reality.
+2. Register atomic todos via the host-visible plan/todo facility — in GrokBuild, use `todo_write`. Track one ultra-granular step per action, `path: <action> for <criterion> - verify by <check>`. Update status on every transition (start → `in_progress`, finish → `completed`); exactly one `in_progress`, mark completed immediately, never batch, never let the rendered plan lag behind reality.
 3. DELEGATE-IN-PARALLEL: dispatch every independent task in the wave at once via right-sized `multi_agent_v1.spawn_agent` workers (Delegation table). Each worker captures evidence failing-first: when the task touches EXISTING behavior, PIN it FIRST — a characterization test that asserts the current observable behavior and PASSES on the unchanged code, as rigorous as the new-behavior scenario (exact inputs, exact observable, exact assertion). Then RED through the cheapest faithful channel — a unit test where a seam exists, an integration/e2e test where the behavior lives in wiring, or the criterion's scenario captured failing when no test seam exists — failing for the RIGHT reason (no syntax/import error). A test that mirrors its implementation (mock-call assertions, pinned constants, cannot fail under plausible regression) is not evidence; use the scenario as the failing proof instead. Then the SMALLEST GREEN change; before GREEN work that depends on external review, PR, issue, or branch state, refresh current branch/PR/issue state, preserve existing ordering/policy, and separate compatibility detection from policy changes unless the goal explicitly asks to change policy. A GREEN far larger than the criterion implies means the proof was too coarse — instruct a split. Serialize only on a NAMED dependency.
 4. INTEGRATE + CRITICAL SELF-QA + GIT CHECKPOINT (EVERY WORKER RETURN): do NOT trust the worker's report. Read the diff yourself, re-run its tests, and run LSP diagnostics on the changed files. Treat "done" as a claim to disprove. If the diff drifts, the test is hollow, or evidence is missing, RESPAWN the worker with the specific failure context. Once the work unit is verified, use `git-master` before staging: inspect recent repository commits and touched-path history to infer commit language, Conventional Commit scope, message shape, and unit size. Stage only that unit's files and commit in the observed style; do not carry verified work forward into a later omnibus commit. If no git-tracked files changed or committing is unsafe, record the no-commit reason as evidence. Forward every finding/learning to subsequent workers.
 5. EXECUTE-AS-SCENARIO: ACTUALLY run the Manual-QA scenario the criterion named (channel table above). Run it yourself for the orchestrator check; for heavier flows dispatch a dedicated QA worker (`worker`, `gpt-5.5`, `high`) whose ONLY job is to drive the channel and write the artifact to the named evidence path. If the scenario FAILS, respawn the implementing worker with the captured failure — do not hand-patch around it.
@@ -167,8 +179,8 @@ Loop per goal. Cap at 5 cycles per goal. Cap identical same-criterion failures a
 
 ### Goal Completion
 1. Non-final aggregate goal: confirm every `essential` criterion is `pass`; non-essential criteria may remain pending. Final aggregate goal: confirm every criterion across the whole plan is `pass`.
-2. Call `get_goal` for a fresh snapshot.
-3. Run `omo ulw-loop checkpoint --goal-id <id> --status complete --evidence "<criteria evidence summary>" --codex-goal-json <snapshot> --json`.
+2. Inspect the active GrokBuild `/goal` state for a fresh snapshot or note that no machine-readable snapshot is available.
+3. Run `omo ulw-loop checkpoint --goal-id <id> --status complete --evidence "<criteria evidence summary>" --codex-goal-json <snapshot-or-host-goal-summary-json> --json`.
 4. If blocked or failed, checkpoint with `--status blocked` or `--status failed` and include diagnosis evidence.
 5. If this is the final goal, run the final quality gate first and pass `--quality-gate-json`.
 
@@ -212,18 +224,18 @@ Command form: `omo ulw-loop steer --kind <kind> [<kind-specific-fields>] --evide
 Structured prompt directives accepted: `OMO_ULW_LOOP_STEER: { ... }`, `omo.ulw-loop.steer: {...}`, `omo ulw-loop steer: {...}`.
 
 ## Constraints
-1. NEVER call `update_goal` mid-aggregate; only on final story after the quality gate passes.
-2. NEVER call `create_goal` when `get_goal` shows a different active goal.
+1. NEVER complete the host `/goal` mid-aggregate; only complete the final story after the quality gate passes.
+2. NEVER create a new `/goal` when the host already shows a different active goal.
 3. NEVER mark `criterion.status == "pass"` without captured observable evidence in `record-evidence`.
 4. NEVER bypass the criteria gate: non-final aggregate completion requires all essential criteria; final aggregate completion requires all criteria across the whole plan.
 5. Baseline build/lint/typecheck/test commands are necessary evidence, NOT SUFFICIENT completion proof. Criteria coverage with observable evidence is the gate.
 6. Treat `.omo/ulw-loop/ledger.jsonl` as the durable audit trail; checkpoint after every success or failure.
-7. Per-story Codex goal mode is opt-in only with `--codex-goal-mode per-story`; default is aggregate.
+7. Per-story host goal mode is opt-in only with `--codex-goal-mode per-story`; default is aggregate.
 8. Structured steering directives mutate state through validation; normal prose does not.
 9. Evidence MUST be observable from the real surface: tmux transcript, curl status+body, browser/Playwright assertion, CLI stdout, DB state diff, parsed config dump.
 10. Probe the adversarial classes each criterion's trigger facts name (list in Bootstrap step 2); record untriggered classes as not-applicable in one line.
-11. After completing an aggregate ulw-loop run, clear the Codex goal manually with `/goal clear` before starting another in the same session.
-12. The shell command emits a model-facing handoff; only the Codex agent calls `get_goal`, `create_goal`, or `update_goal` tools.
+11. After completing an aggregate ulw-loop run, clear the host goal manually with `/goal clear` before starting another in the same session.
+12. The shell command emits a model-facing handoff; in GrokBuild, use `/goal` plus the host-visible todo/plan tool instead of Codex-only `get_goal`, `create_goal`, `update_goal`, or `update_plan` APIs.
 13. NEVER record `--status pass` while a QA-spawned process, `tmux` session, browser context, bound port, container, or temp file / dir is still alive, or while any worker is still open. The evidence string MUST include the cleanup receipt. Leftover runtime state = BLOCKED, not PASS.
 14. DELEGATE all code edits, test writes, fixes, and QA execution to right-sized `multi_agent_v1.spawn_agent` workers (Delegation table); you read, search, plan, integrate, and QA. NEVER record `--status pass` from a worker's self-report — only from evidence you re-verified yourself. Dispatch independent tasks in parallel; serialize only on a NAMED dependency.
 15. Every verified work unit that touched git-tracked files must leave either an atomic `git-master`-style commit hash or explicit no-commit blocker evidence before the next unit starts.
@@ -233,6 +245,6 @@ Structured prompt directives accepted: `OMO_ULW_LOOP_STEER: { ... }`, `omo.ulw-l
 - 3x same criterion failure: checkpoint failed, surface diagnosis.
 - 5 cycles on one goal without required criteria passing: checkpoint failed, surface.
 - Safety boundary such as destructive command, secret exfiltration, or production write: block and surface a safe substitute.
-- Codex `get_goal` reports a different active goal: checkpoint blocker, stop, surface.
+- Host `/goal` reports a different active goal: checkpoint blocker, stop, surface.
 - Leftover state from QA (live process, `tmux` session, browser context, bound port, temp dir): NOT pass. Clean up, append the receipt, then continue.
 - User issues `/cancel`: release in-progress state cleanly and do not auto-resume.

@@ -40,13 +40,15 @@ describe("materializeGrokMcpRuntimes", () => {
     const mcp = JSON.parse(
       await readFile(join(pluginRoot, ".mcp.json"), "utf8"),
     ) as { mcpServers: Record<string, { args?: readonly string[]; cwd?: string; url?: string }>; disabled_mcp_servers?: readonly string[] }
-    expect(Object.keys(mcp.mcpServers).sort()).toEqual(["ast_grep", "context7", "git_bash", "grep_app", "lsp"])
+    expect(Object.keys(mcp.mcpServers).sort()).toEqual(["ast_grep", "context7", "git_bash", "grep_app", "lsp", "xai_grok"])
     expect(mcp.mcpServers.ast_grep?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "ast-grep-mcp", "dist", "cli.js"))
     expect(mcp.mcpServers.ast_grep?.cwd).toBe(pluginRoot)
     expect(mcp.mcpServers.git_bash?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "git-bash-mcp", "dist", "cli.js"))
     expect(mcp.disabled_mcp_servers).toEqual(["git_bash"])
     expect(mcp.mcpServers.lsp?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "lsp-daemon", "dist", "cli.js"))
     expect(mcp.mcpServers.lsp?.cwd).toBe(pluginRoot)
+    expect(mcp.mcpServers.xai_grok?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "xai-grok-mcp", "dist", "cli.js"))
+    expect(mcp.mcpServers.xai_grok?.cwd).toBe(pluginRoot)
     expect(mcp.mcpServers.grep_app?.url).toBe("https://mcp.grep.app")
     expect(mcp.mcpServers.context7?.url).toBe("https://mcp.context7.com/mcp")
     expect(JSON.stringify(mcp)).not.toContain("installed-src")
@@ -217,6 +219,36 @@ describe("materializeGrokMcpRuntimes", () => {
       )
       expect(responses.messages).toContainEqual({ jsonrpc: "2.0", id: 2, result: { tools: [] } })
     }
+  })
+
+  test("starts bundled xAI Grok MCP runtime with six tools and safe auth-missing errors", async () => {
+    const cli = join(process.cwd(), "dist", "grok-install", "mcp-runtimes", "xai-grok-mcp", "dist", "cli.js")
+    const probe = spawnSync(
+      process.execPath,
+      [cli, "mcp"],
+      {
+        encoding: "utf8",
+        input: [
+          JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
+          JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }),
+          JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "xai_generate_text", arguments: { prompt: "hello" } } }),
+          "",
+        ].join("\n"),
+        env: { PATH: process.env.PATH ?? "", HOME: await mkdtemp(join(tmpdir(), "lfg-xai-mcp-home-")) },
+      },
+    )
+    expect(probe.status, probe.stderr).toBe(0)
+    const messages = probe.stdout.trim().split(/\n+/).map((line) => JSON.parse(line) as { id: number; result?: { tools?: readonly { name: string }[] }; error?: { message: string } })
+    expect(messages.find((message) => message.id === 2)?.result?.tools?.map((tool) => tool.name).sort()).toEqual([
+      "xai_generate_text",
+      "xai_image_generate",
+      "xai_tts",
+      "xai_video_generate",
+      "xai_web_search",
+      "xai_x_search",
+    ])
+    expect(messages.find((message) => message.id === 3)?.error?.message).toContain("xAI credentials not found")
+    expect(messages.find((message) => message.id === 3)?.error?.message).not.toContain("Bearer")
   })
 
   test("package-shaped MCP hook shims exit 0 silently for deferred hook subcommands", () => {

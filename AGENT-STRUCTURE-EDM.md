@@ -29,7 +29,7 @@ erDiagram
     GROK_AGENTS {
         string path "~/.grok/agents/*.toml"
         string format "Grok role TOML (description, model, reasoning_effort, prompt_file)"
-        string prompts "~/.grok/prompts/lazycodex/*.md"
+        string prompts "~/.grok/prompts/omo/*.md"
     }
 
     OMO_BUNDLED_OVERRIDES {

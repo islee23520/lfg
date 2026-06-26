@@ -138,11 +138,13 @@ function subagentStopContext() {
   const lines = [
     "<sisyphus-delegation-result>",
     "Subagent completed. Before proceeding:",
-    "- Collect the result via background_output or task return value.",
+    "- Collect the result via get_command_or_subagent_output or the subagent return value.",
+    "- For Grok todo continuation, store the subagent id and use resume_from for follow-up turns instead of Codex task(task_id=ses_...).",
     "- Verify: does the result match expected outcome?",
     "- Does it follow existing codebase patterns?",
     "- Did the agent follow MUST DO and MUST NOT DO requirements?",
-    "- If verification failed -> continue session with specific fix request.",
+    "- If verification failed -> resume the completed subagent with specific fix context or spawn a smaller follow-up.",
+    "- This is todo/delegation continuation guidance only; start-work-continuation remains Deferred and is not automatic Stop/SubagentStop reinjection.",
     "",
     "</sisyphus-delegation-result>",
   ];
@@ -179,12 +181,15 @@ function stopContext() {
 function preCompactContext() {
   const lines = [
     "<sisyphus-state-preservation>",
-    "Compaction imminent. Preserve critical state:",
-    "- Todo list (current item + remaining items)",
+    "Compaction imminent. Preserve Grok todo continuation state:",
+    "- Todo list from todo_write (current item + remaining items)",
     "- Active plan / work breakdown",
     "- .omo/boulder.json and ledger state",
-    "- Any pending background task IDs (bg_...)",
-    "- Continuation session IDs (ses_...)",
+    "- Pending background task IDs for get_command_or_subagent_output / wait_commands_or_subagents",
+    "- Subagent IDs and resume_from targets for follow-up turns",
+    "- Scheduler or /loop task IDs that may re-enter this workflow",
+    "- OMO continuation session IDs (ses_...) only as legacy/upstream evidence; map them to Grok subagent ids/resume_from when possible",
+    "- Do not confuse todo continuation with start-work-continuation; the latter remains Deferred unless a real Grok lifecycle reinjection surface is implemented.",
     "",
     "</sisyphus-state-preservation>",
   ];

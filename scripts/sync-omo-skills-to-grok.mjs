@@ -102,9 +102,12 @@ async function adaptSkillPayload(skillName, skillRoot) {
     await rewriteSkillMarkdown(skillRoot, adaptLfgContributeBugFixSkill)
     await rewriteOptionalFile(join(skillRoot, "scripts", "create-pr-body.mjs"), adaptLfgContributeBugFixScript)
   } else if (skillName === "ulw-loop") {
+    await rewriteSkillMarkdown(skillRoot, adaptUlwLoopSkill)
     await rewriteOptionalFile(join(skillRoot, "references", "full-workflow.md"), adaptUlwLoopReference)
   } else if (skillName === "ulw-plan") {
     await rewriteOptionalFile(join(skillRoot, "references", "full-workflow.md"), adaptUlwPlanReference)
+  } else if (skillName === "start-work") {
+    await rewriteSkillMarkdown(skillRoot, adaptStartWorkSkill)
   } else if (skillName === "ultraresearch") {
     await rewriteSkillMarkdown(skillRoot, adaptUltraresearchSkill)
   }
@@ -375,6 +378,42 @@ function adaptLfgContributeBugFixScript(content) {
     .replaceAll("lazycodex-generated", "lfg-generated")
 }
 
+function adaptUlwLoopSkill(content) {
+  return content.replace(
+    "Read through **Bootstrap** (including its tier triage), **Execution Loop**, and the **Manual-QA channels** table before running any ULW command or recording evidence.",
+    "Read through **Bootstrap** (including its tier triage), **GrokBuild `/goal` state**, **Execution Loop**, and the **Manual-QA channels** table before running any ULW command or recording evidence.",
+  )
+}
+
+function adaptStartWorkSkill(content) {
+  return content
+    .replace(
+      'description: "Execute a Prometheus work plan in Codex with Boulder state, evidence ledger updates, worktree discipline, parallel subagents, and Stop-hook continuation. Use after planning when the user says start work, execute plan, continue plan, resume plan, or asks to run a .omo/plans plan."',
+      'description: "Execute a Prometheus work plan in GrokBuild with `/goal` state, Boulder state, evidence ledger updates, worktree discipline, parallel subagents, and explicit continuation. Use after planning when the user says start work, execute plan, continue plan, resume plan, or asks to run a .omo/plans plan."',
+    )
+    .replace(
+      "Execute a Prometheus work plan until every top-level checkbox is complete. This skill pairs with the Codex `Stop` / `SubagentStop` continuation hook (`components/start-work-continuation`), which re-injects the next turn while `.omo/boulder.json` says this `codex:<session_id>` still has unchecked plan work.",
+      "Execute a Prometheus work plan until every top-level checkbox is complete. Use GrokBuild's `/goal` command as the host goal-state surface for the aggregate objective. The upstream Codex `Stop` / `SubagentStop` continuation hook (`components/start-work-continuation`) is not a GrokBuild runtime contract, so do not depend on automatic hook reinjection; preserve state in `.omo/boulder.json` and continue explicitly from that durable state.",
+    )
+    .replace(
+      "## Phase 1: Select the plan\n\n1. Read `.omo/boulder.json` if it exists.",
+      "## Phase 1: Select the plan\n\n0. Inspect GrokBuild `/goal` state. If no active goal exists, create one with `/goal <aggregate objective>` once the objective is known. If a different active goal exists, stop and surface the conflict instead of overwriting it.\n1. Read `.omo/boulder.json` if it exists.",
+    )
+    .replace(
+      "Write `.omo/boulder.json` before implementation starts. Prefix session ids with `codex:` so the continuation hook can identify its own session.",
+      "Write `.omo/boulder.json` before implementation starts. Prefix session ids with `grok:` for GrokBuild-owned work; if resuming an older `codex:<session_id>` entry, preserve it as historical state but attach the current `grok:<session_id>` before continuing.",
+    )
+    .replaceAll('"session_ids": ["codex:<session_id>"]', '"session_ids": ["grok:<session_id>"]')
+    .replace(
+      "Print an `ORCHESTRATION COMPLETE` block with the plan path, verification commands, Global Review and Debugging Gate verdict, artifacts, and cleanup receipts.",
+      "Print an `ORCHESTRATION COMPLETE` block with the plan path, verification commands, Global Review and Debugging Gate verdict, artifacts, cleanup receipts, and final `/goal` status. Clear `/goal` with `/goal clear` before starting an unrelated aggregate in the same session.",
+    )
+    .replace(
+      "- No unprefixed session ids in Boulder state. Codex sessions are always `codex:<session_id>`.",
+      "- No unprefixed session ids in Boulder state. GrokBuild sessions are `grok:<session_id>`; preserve older `codex:<session_id>` values only as historical/resume evidence.\n- Use `/goal` for the host aggregate goal. Do not rely on Codex-only goal APIs or Stop/SubagentStop continuation hooks in GrokBuild.",
+    )
+}
+
 function adaptUlwLoopReference(content) {
   return content
     .replaceAll("CODEX_HOME=\"${CODEX_HOME:-$HOME/.codex}\"", "GROK_HOME=\"${GROK_HOME:-$HOME/.grok}\"")
@@ -385,6 +424,29 @@ function adaptUlwLoopReference(content) {
     .replaceAll("lazycodex-qa-executor", "lfg-qa-executor")
     .replaceAll("lazycodex-gate-reviewer", "lfg-gate-reviewer")
     .replaceAll("packages/omo-codex/plugin/components/ulw-loop", "grok-plugin-lfg/components/ulw-loop")
+    .replace(
+      "## Bootstrap",
+      "## GrokBuild `/goal` state\n\nUse GrokBuild's `/goal` command as the host goal-state surface. Do not call Codex-only goal tools such as `get_goal`, `create_goal`, `update_goal`, or `update_plan`; they are not available in GrokBuild.\n\n- Before execution, run `/goal` (or inspect the active goal shown by the host) and confirm whether a goal is active.\n- If no active goal exists, create one with `/goal <aggregate objective from the ulw-loop handoff>`.\n- If the active goal is the same aggregate objective, continue the current ulw-loop story.\n- If a different goal is active, STOP: checkpoint the ulw-loop item as blocked and surface the conflict instead of overwriting it.\n- Track step-level progress with the host-visible plan/todo facility available in this session; in GrokBuild this is `todo_write`, not `update_plan`.\n- Only mark the final host goal complete after the final quality gate passes. In GrokBuild, report completion through the active `/goal` flow or the host-provided goal completion mechanism; never complete it mid-aggregate.\n- After completing an aggregate ulw-loop run, clear the host goal with `/goal clear` before starting another unrelated aggregate in the same session.\n\n## Bootstrap",
+    )
+    .replace(
+      "### Acquire Next Goal\n1. Run `omo ulw-loop complete-goals --json` and read the handoff, including criteria.\n2. Call `get_goal` and inspect active Codex state.\n3. Apply this table exactly:\n\n| get_goal result | action |\n|-----------------|--------|\n| no active goal | Call `create_goal` with objective only from `instruction.json.objective`; do not copy lifecycle fields such as `status`. |\n| same aggregate objective active | Continue the current ulw-loop story. |\n| different goal active | STOP. Checkpoint blocked and surface the conflict. |\n4. If retrying failed work, run `omo ulw-loop complete-goals --retry-failed --json`.\n5. Never create a second Codex goal for the same aggregate objective.\n\n### Per-Criterion Cycle\n1. PLAN: read `criterion.scenario`, `criterion.expectedEvidence`, prior ledger entries, and safety bounds. Identify which tasks in the current wave are independent.\n2. Register atomic todos via `update_plan` — one ultra-granular step per action, `path: <action> for <criterion> - verify by <check>`. Call `update_plan` on every transition (start → `in_progress`, finish → `completed`); exactly one `in_progress`, mark completed immediately, never batch, never let the rendered plan lag behind reality.",
+      "### Acquire Next Goal\n1. Run `omo ulw-loop complete-goals --json` and read the handoff, including criteria.\n2. Inspect the active GrokBuild `/goal` state.\n3. Apply this table exactly:\n\n| `/goal` result | action |\n|----------------|--------|\n| no active goal | Create one with `/goal <objective>` using only `instruction.json.objective`; do not copy lifecycle fields such as `status`. |\n| same aggregate objective active | Continue the current ulw-loop story. |\n| different goal active | STOP. Checkpoint blocked and surface the conflict. |\n4. If retrying failed work, run `omo ulw-loop complete-goals --retry-failed --json`.\n5. Never create a second host goal for the same aggregate objective.\n\n### Per-Criterion Cycle\n1. PLAN: read `criterion.scenario`, `criterion.expectedEvidence`, prior ledger entries, and safety bounds. Identify which tasks in the current wave are independent.\n2. Register atomic todos via the host-visible plan/todo facility — in GrokBuild, use `todo_write`. Track one ultra-granular step per action, `path: <action> for <criterion> - verify by <check>`. Update status on every transition (start → `in_progress`, finish → `completed`); exactly one `in_progress`, mark completed immediately, never batch, never let the rendered plan lag behind reality.",
+    )
+    .replace(
+      "### Goal Completion\n1. Non-final aggregate goal: confirm every `essential` criterion is `pass`; non-essential criteria may remain pending. Final aggregate goal: confirm every criterion across the whole plan is `pass`.\n2. Call `get_goal` for a fresh snapshot.\n3. Run `omo ulw-loop checkpoint --goal-id <id> --status complete --evidence \"<criteria evidence summary>\" --codex-goal-json <snapshot> --json`.",
+      "### Goal Completion\n1. Non-final aggregate goal: confirm every `essential` criterion is `pass`; non-essential criteria may remain pending. Final aggregate goal: confirm every criterion across the whole plan is `pass`.\n2. Inspect the active GrokBuild `/goal` state for a fresh snapshot or note that no machine-readable snapshot is available.\n3. Run `omo ulw-loop checkpoint --goal-id <id> --status complete --evidence \"<criteria evidence summary>\" --codex-goal-json <snapshot-or-host-goal-summary-json> --json`.",
+    )
+    .replace(
+      "## Constraints\n1. NEVER call `update_goal` mid-aggregate; only on final story after the quality gate passes.\n2. NEVER call `create_goal` when `get_goal` shows a different active goal.",
+      "## Constraints\n1. NEVER complete the host `/goal` mid-aggregate; only complete the final story after the quality gate passes.\n2. NEVER create a new `/goal` when the host already shows a different active goal.",
+    )
+    .replace("Per-story Codex goal mode", "Per-story host goal mode")
+    .replace("clear the Codex goal manually", "clear the host goal manually")
+    .replace(
+      "The shell command emits a model-facing handoff; only the Codex agent calls `get_goal`, `create_goal`, or `update_goal` tools.",
+      "The shell command emits a model-facing handoff; in GrokBuild, use `/goal` plus the host-visible todo/plan tool instead of Codex-only `get_goal`, `create_goal`, `update_goal`, or `update_plan` APIs.",
+    )
+    .replace("Codex `get_goal` reports a different active goal", "Host `/goal` reports a different active goal")
 }
 
 function adaptUlwPlanReference(content) {
@@ -396,7 +458,7 @@ function adaptUlwPlanReference(content) {
 }
 
 function adaptUltraresearchSkill(content) {
-  if (content.includes("Grok native x_search")) return content
+  if (content.includes("xai-x-search") && content.includes("Hermes-agent research references")) return content
 
   return content
     .replace(
@@ -405,11 +467,11 @@ function adaptUltraresearchSkill(content) {
     )
     .replace(
       "- **Web (librarian), 3-6 workers.** At least 10 distinct websearch queries per worker, each with a different operator or angle (see Search craft); fetch the full page for every result that matters — snippets lie. Context7 with 3+ queries per known library. grep.app and `gh search code|repos|issues` for real-world usage. Official docs via sitemap discovery (`<base>/sitemap.xml`), then targeted pages.\n",
-      "- **Web (librarian), 3-6 workers.** At least 10 distinct websearch queries per worker, each with a different operator or angle (see Search craft); fetch the full page for every result that matters — snippets lie. Context7 with 3+ queries per known library. grep.app and `gh search code|repos|issues` for real-world usage. Official docs via sitemap discovery (`<base>/sitemap.xml`), then targeted pages.\n- **Grok native x_search, 1-3 workers.** When the Grok host exposes `x_search`, use it aggressively as a first-class real-time/social source lane, especially for breaking news, product launches, incidents, funding, sentiment, community reports, and claims where primary actors publish on X first. Run multiple query phrasings with handles, hashtags, exact product names, error strings, and date windows. Treat X posts as leads or primary-source statements only when the account identity is relevant and cited; corroborate factual claims through the Phase 3b claim ledger before asserting them.\n",
+      "- **Web (librarian), 3-6 workers.** At least 10 distinct websearch queries per worker, each with a different operator or angle (see Search craft); fetch the full page for every result that matters — snippets lie. Context7 with 3+ queries per known library. grep.app and `gh search code|repos|issues` for real-world usage. Official docs via sitemap discovery (`<base>/sitemap.xml`), then targeted pages.\n- **Grok native x_search / `xai-x-search`, 1-3 workers.** When the Grok host exposes `x_search` directly or via the installed `xai-x-search` skill, use it aggressively as a first-class real-time/social source lane, especially for breaking news, product launches, incidents, funding, sentiment, community reports, and claims where primary actors publish on X first. Run multiple query phrasings with handles, hashtags, exact product names, error strings, and date windows. Treat X posts as leads or primary-source statements only when the account identity is relevant and cited; corroborate factual claims through the Phase 3b claim ledger before asserting them.\n",
     )
     .replace(
       "English first: run every search in English by default",
-      "Grok native x_search first when recency, primary-actor posts, or community signal matters: include an x_search lane in Phase 0, dedicate at least one first-wave worker to it when available, and promote useful posts into EXPAND leads for web/docs/repo corroboration.\n\nEnglish first: run every search in English by default",
+      "Grok native x_search first when recency, primary-actor posts, or community signal matters: include an x_search lane in Phase 0, dedicate at least one first-wave worker to it when available, and promote useful posts into EXPAND leads for web/docs/repo corroboration. Prefer the installed `xai-x-search` skill for X/Twitter source lanes and `xai-web-search` for xAI server-side web search when those Grok-connected tools are available.\n\nHermes-agent research references worth emulating: prefer agent-native structured output, async launch/status/poll patterns for long-running research tools, cite only returned source URLs, and preserve an evidence chain from raw source to claim.\n\nEnglish first: run every search in English by default",
     )
 }
 

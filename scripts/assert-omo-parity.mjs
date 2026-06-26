@@ -33,6 +33,15 @@ const requiredManagedSkills = [
   "ulw-plan",
   "visual-qa",
 ]
+const requiredSupplementalSkills = [
+  "xai-generate-text",
+  "xai-image-generate",
+  "xai-tts",
+  "xai-video-generate",
+  "xai-web-search",
+  "xai-x-search",
+]
+const excludedSupplementalSkills = ["xai-grok", "xai-login-instructions", "xai-status"]
 const generatedSkillRoots = [
   "src/grok/skills",
   "skills",
@@ -111,6 +120,14 @@ async function assertSkillRoot(root) {
   for (const skillName of requiredManagedSkills) {
     await assertExists(join(root, skillName, "SKILL.md"))
   }
+  for (const skillName of requiredSupplementalSkills) {
+    await assertExists(join(root, skillName, "SKILL.md"))
+    await assertTextContains(join(root, skillName, "SKILL.md"), ["Preferred Grok Tool Flow", "search_tool"])
+    await assertTextExcludes(join(root, skillName, "SKILL.md"), ["codex-xai-oauth", "~/.config/codex-xai-oauth"])
+  }
+  for (const skillName of excludedSupplementalSkills) {
+    await assertMissing(join(root, skillName, "SKILL.md"))
+  }
   for (const skillName of retiredSkillNames) {
     await assertMissing(join(root, skillName, "SKILL.md"))
   }
@@ -126,6 +143,16 @@ async function assertSkillRoot(root) {
   await assertMissing(join(root, "ulw-plan", "agents", "openai.yaml"))
   await assertExists(join(root, "git-master", "agents", "grok.yaml"))
   await assertMissing(join(root, "git-master", "agents", "openai.yaml"))
+  await assertTextContains(join(root, "ulw-loop", "references", "full-workflow.md"), [
+    "## GrokBuild `/goal` state",
+    "Do not call Codex-only goal tools such as `get_goal`, `create_goal`, `update_goal`, or `update_plan`",
+    "in GrokBuild this is `todo_write`, not `update_plan`",
+  ])
+  await assertTextContains(join(root, "start-work", "SKILL.md"), [
+    "Execute a Prometheus work plan in GrokBuild with `/goal` state",
+    "Inspect GrokBuild `/goal` state",
+    "GrokBuild sessions are `grok:<session_id>`",
+  ])
 }
 
 async function assertParityUpkeep() {

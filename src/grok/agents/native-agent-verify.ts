@@ -14,19 +14,11 @@ export type NativeAgentsVerifyResult = {
 export async function verifyNativeOmoAgents(pluginRoot: string, home: string): Promise<NativeAgentsVerifyResult> {
   const pluginAgents = await existingNames(pluginRoot, "agents", ".md")
   const roles = await existingNames(join(home, ".grok"), "roles", ".toml")
-  const omoPrompts = await existingNames(join(home, ".grok", "prompts"), "omo", ".md")
-  const legacyPrompts = await existingNames(join(home, ".grok", "prompts"), "lazycodex", ".md")
-  const prompts = [...new Set([...omoPrompts, ...legacyPrompts])]
+  const prompts = await existingNames(join(home, ".grok", "prompts"), "omo", ".md")
   const defaultAgent = await readSafe(join(pluginRoot, "agents", "default.md"))
-  const defaultPrompt = await readFirstSafe([
-    join(home, ".grok", "prompts", "omo", "default.md"),
-    join(home, ".grok", "prompts", "lazycodex", "default.md"),
-  ])
+  const defaultPrompt = await readSafe(join(home, ".grok", "prompts", "omo", "default.md"))
   const hephaestusAgent = await readSafe(join(pluginRoot, "agents", "hephaestus.md"))
-  const hephaestusPrompt = await readFirstSafe([
-    join(home, ".grok", "prompts", "omo", "hephaestus.md"),
-    join(home, ".grok", "prompts", "lazycodex", "hephaestus.md"),
-  ])
+  const hephaestusPrompt = await readSafe(join(home, ".grok", "prompts", "omo", "hephaestus.md"))
   const sisyphusDefaultAgent = defaultAgent.includes(NATIVE_SISYPHUS_MARKER) && defaultPrompt.includes(NATIVE_SISYPHUS_MARKER)
   const hephaestusPromptPresent = hephaestusAgent.includes(NATIVE_HEPHAESTUS_MARKER) && hephaestusPrompt.includes(NATIVE_HEPHAESTUS_MARKER)
   const allNativeAgentsPresent =
@@ -57,10 +49,3 @@ async function readSafe(path: string): Promise<string> {
   }
 }
 
-async function readFirstSafe(paths: readonly string[]): Promise<string> {
-  for (const path of paths) {
-    const text = await readSafe(path)
-    if (text.length > 0) return text
-  }
-  return ""
-}

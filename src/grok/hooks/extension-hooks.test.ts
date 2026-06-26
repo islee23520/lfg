@@ -230,6 +230,38 @@ describe("sisyphus UserPromptSubmit /ulw-plan routing", () => {
     expect(ctx).toContain("</sisyphus-planning-routing>")
     expect(ctx).toContain("</sisyphus-intent-routing>")
   })
+
+  test("PreCompact preserves Grok-native todo continuation state without overclaiming start-work continuation", async () => {
+    const result = await runSisyphusLifecycleHook("PreCompact")
+    expect(result.status).toBe(0)
+    const parsed = parseSisyphusOutput(result.stdout)
+    expect(parsed.statusMessage).toBe("Sisyphus: State preservation before compaction")
+    const ctx = parsed.hookSpecificOutput.additionalContext
+    expect(ctx).toContain("Preserve Grok todo continuation state")
+    expect(ctx).toContain("todo_write")
+    expect(ctx).toContain("get_command_or_subagent_output")
+    expect(ctx).toContain("wait_commands_or_subagents")
+    expect(ctx).toContain("resume_from")
+    expect(ctx).toContain("Scheduler or /loop task IDs")
+    expect(ctx).toContain("ses_...")
+    expect(ctx).toContain("map them to Grok subagent ids/resume_from")
+    expect(ctx).toContain("Do not confuse todo continuation with start-work-continuation")
+    expect(ctx).toContain("remains Deferred")
+  })
+
+  test("SubagentStop maps OMO delegation continuation to Grok subagent resume semantics", async () => {
+    const result = await runSisyphusLifecycleHook("SubagentStop")
+    expect(result.status).toBe(0)
+    const parsed = parseSisyphusOutput(result.stdout)
+    expect(parsed.statusMessage).toBe("Sisyphus: Delegation result verification")
+    const ctx = parsed.hookSpecificOutput.additionalContext
+    expect(ctx).toContain("get_command_or_subagent_output")
+    expect(ctx).toContain("store the subagent id")
+    expect(ctx).toContain("resume_from")
+    expect(ctx).toContain("instead of Codex task(task_id=ses_...)")
+    expect(ctx).toContain("todo/delegation continuation guidance only")
+    expect(ctx).toContain("start-work-continuation remains Deferred")
+  })
 })
 
 type SisyphusOutput = {
@@ -251,6 +283,13 @@ async function runSisyphusHook(payload: { readonly prompt: string }): Promise<Ho
   return runHookAsset(assetPath, { GROK_HOOK_EVENT: "UserPromptSubmit" }, JSON.stringify({
     hookEventName: "UserPromptSubmit",
     prompt: payload.prompt,
+  }))
+}
+
+async function runSisyphusLifecycleHook(event: string): Promise<HookAssetResult> {
+  const assetPath = join(import.meta.dirname, "..", "assets", "hooks", "lfg-sisyphus-hooks.mjs")
+  return runHookAsset(assetPath, { GROK_HOOK_EVENT: event }, JSON.stringify({
+    hookEventName: event,
   }))
 }
 

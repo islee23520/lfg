@@ -163,7 +163,7 @@ lfg-install.json, lfg-component-inventory.json
 
 Active hook registration is global: `~/.grok/hooks/lfg-hooks.json`. Plugin-local `hooks/hooks.json` is removed after normalization; `hooks/hooks.source.json` is retained only as the lfg-owned normalized source payload for idempotent repair.
 
-Adjacent `~/.grok` writes (lfg-owned): `config.toml` (`[lazycodex.agents.*]`, `[endpoints]`, `[model.*]` sections), `lazycodex-agent-overrides.json`, `~/.grok/agents/*.toml` + `~/.grok/prompts/lazycodex/*.md`.
+Adjacent `~/.grok` writes (lfg-owned): `config.toml` (`[lazycodex.agents.*]`, `[endpoints]`, `[model.*]` sections), `lazycodex-agent-overrides.json`, `~/.grok/agents/*.toml` + `~/.grok/prompts/omo/*.md`. Legacy `~/.grok/prompts/lazycodex` prompts are migrated into `omo` and removed during setup.
 
 ## Development Commands
 

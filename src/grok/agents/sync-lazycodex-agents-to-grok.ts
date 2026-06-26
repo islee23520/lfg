@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, rm, unlink, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import type { LazycodexAgentOverrideMap } from "./lazycodex-agent-overrides"
 import { overrideForAgent } from "./lazycodex-agent-overrides"
@@ -77,6 +77,7 @@ export async function syncLazycodexAgentsToGrokLedger(
   await mkdir(rolesDir, { recursive: true })
   await mkdir(personasDir, { recursive: true })
   await mkdir(promptsDir, { recursive: true })
+  await migrateLegacyLazycodexPrompts(home)
   await moveConflictingUserAgentsAside(home, conflictingUserAgentNames())
 
   const written: string[] = []
@@ -222,6 +223,46 @@ function parseScalar(text: string, key: string): string | null {
 function parseTriple(text: string, key: string): string | null {
   const match = new RegExp(`${key}\\s*=\\s*"""([\\s\\S]*?)"""`, "m").exec(text)
   return match?.[1]?.trim() ?? null
+}
+
+async function migrateLegacyLazycodexPrompts(home: string): Promise<void> {
+  const promptsRoot = join(home, ".grok", "prompts")
+  const legacyPromptsDir = join(promptsRoot, "lazycodex")
+  const omoPromptsDir = join(promptsRoot, "omo")
+  const entries = await readMarkdownEntries(legacyPromptsDir)
+  if (entries === null) return
+
+  await mkdir(omoPromptsDir, { recursive: true })
+  for (const entry of entries) {
+    const targetPath = join(omoPromptsDir, entry)
+    if (!(await fileExists(targetPath))) {
+      await writeFile(targetPath, await readFile(join(legacyPromptsDir, entry), "utf8"), "utf8")
+    }
+  }
+
+  await rewriteLegacyPromptRefs(home, legacyPromptsDir, omoPromptsDir)
+  await rm(legacyPromptsDir, { recursive: true, force: true })
+}
+
+async function rewriteLegacyPromptRefs(home: string, legacyPromptsDir: string, omoPromptsDir: string): Promise<void> {
+  const rolesDir = join(home, ".grok", "roles")
+  for (const entry of (await readTomlEntries(rolesDir)) ?? []) {
+    const rolePath = join(rolesDir, entry)
+    const text = await readFile(rolePath, "utf8")
+    const nextText = text
+      .replaceAll(legacyPromptsDir, omoPromptsDir)
+      .replaceAll(".grok/prompts/lazycodex/", ".grok/prompts/omo/")
+    if (nextText !== text) await writeFile(rolePath, nextText, "utf8")
+  }
+}
+
+async function readMarkdownEntries(dir: string): Promise<string[] | null> {
+  try {
+    const entries = await readdir(dir)
+    return entries.filter((entry) => entry.endsWith(".md")).sort()
+  } catch {
+    return null
+  }
 }
 
 async function readTomlEntries(dir: string): Promise<string[] | null> {

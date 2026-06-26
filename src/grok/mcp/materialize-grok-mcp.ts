@@ -1,4 +1,4 @@
-import { cp, mkdir, writeFile } from "node:fs/promises"
+import { chmod, cp, mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import {
   LOCAL_MCP_SERVERS,
@@ -7,6 +7,7 @@ import {
   pathExists,
   type LocalMcpServer,
 } from "./mcp-manifest-verify"
+import { fileURLToPath } from "node:url"
 import { createCodegraphMcpEntry } from "./codegraph-resolve"
 
 export { verifyPluginMcpManifest, type McpVerificationResult } from "./mcp-manifest-verify"
@@ -19,6 +20,8 @@ export type CodegraphMcpEntryInput = {
   readonly enabled: boolean
   readonly environment: Record<string, string>
 } | null
+
+const currentDir = dirname(fileURLToPath(import.meta.url))
 
 function pluginMcpJson(pluginRoot: string, platform: NodeJS.Platform, mode: McpRuntimeMode, codegraphEntry: CodegraphMcpEntryInput): object {
   const disabledServers = platform === "win32" ? [] : ["git_bash"]
@@ -34,6 +37,7 @@ function pluginMcpJson(pluginRoot: string, platform: NodeJS.Platform, mode: McpR
     context7: { url: REMOTE_MCP_SERVERS.context7 },
     git_bash: localServer(LOCAL_MCP_SERVERS[1]),
     lsp: localServer(LOCAL_MCP_SERVERS[2]),
+    xai_grok: localServer(LOCAL_MCP_SERVERS[3]),
   }
   // codegraph is an external MCP binary (Phase 0 core/adapter port). It is
   // emitted only when the entry is enabled (binary resolved via env/provisioned/PATH).
@@ -51,6 +55,7 @@ function pluginMcpJson(pluginRoot: string, platform: NodeJS.Platform, mode: McpR
 }
 
 function localServerPath(pluginRoot: string, mode: McpRuntimeMode, server: LocalMcpServer): string {
+  if (server.name === "xai_grok") return join(pluginRoot, "mcp-runtimes", server.runtimeDir, "dist", "cli.js")
   return mode === "runtime_packages"
     ? join(pluginRoot, "mcp-runtimes", server.runtimeDir, "dist", "cli.js")
     : `./components/${server.componentDir}/dist/cli.js`
@@ -72,8 +77,10 @@ export async function materializeGrokMcpRuntimes(
 
   const destRoot = join(pluginRoot, "mcp-runtimes")
   await mkdir(destRoot, { recursive: true })
+  await materializeBuiltInMcpRuntimes(destRoot, sourceRoot)
 
   for (const server of LOCAL_MCP_SERVERS) {
+    if (server.name === "xai_grok") continue
     const src = runtimeSources[server.runtimeDir]
     const destCli = join(destRoot, server.runtimeDir, "dist", "cli.js")
     if (src !== undefined && await pathExists(join(src, "dist", "cli.js"))) {
@@ -105,8 +112,10 @@ async function materializeBundledMcpComponents(
   }
   const destRoot = join(pluginRoot, "components")
   const runtimeRoot = join(pluginRoot, "mcp-runtimes")
+  await materializeBuiltInMcpRuntimes(runtimeRoot, sourceRoot)
   await mkdir(destRoot, { recursive: true })
   for (const server of LOCAL_MCP_SERVERS) {
+    if (server.name === "xai_grok") continue
     await cp(join(componentsRoot, server.componentDir), join(destRoot, server.componentDir), { recursive: true, force: true })
     const runtimeCli = join(runtimeRoot, server.runtimeDir, "dist", "cli.js")
     await mkdir(dirname(runtimeCli), { recursive: true })
@@ -115,6 +124,26 @@ async function materializeBundledMcpComponents(
   const codegraphEntry: CodegraphMcpEntryInput = options.codegraphEntry === undefined ? createCodegraphMcpEntry() : options.codegraphEntry
   await writeFile(join(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "component_shims", codegraphEntry), null, "\t")}\n`, "utf8")
   return { ok: await localRuntimeBinariesExist(runtimeRoot), runtimesRoot: componentsRoot }
+}
+
+async function materializeBuiltInMcpRuntimes(runtimeRoot: string, sourceRoot: string): Promise<void> {
+  const xaiRuntimeCli = join(runtimeRoot, "xai-grok-mcp", "dist", "cli.js")
+  await mkdir(dirname(xaiRuntimeCli), { recursive: true })
+  const assetCandidates = [
+    join(currentDir, "..", "assets", "mcp", "lfg-xai-grok-mcp.mjs"),
+    join(sourceRoot, "assets", "lfg-xai-grok-mcp.mjs"),
+    join(sourceRoot, "assets", "mcp", "lfg-xai-grok-mcp.mjs"),
+  ]
+  let source = ""
+  for (const candidate of assetCandidates) {
+    if (await pathExists(candidate)) {
+      source = await readFile(candidate, "utf8")
+      break
+    }
+  }
+  if (source.length === 0) throw new Error("lfg xAI MCP runtime asset missing")
+  await writeFile(xaiRuntimeCli, source, "utf8")
+  await chmod(xaiRuntimeCli, 0o755)
 }
 
 function fallbackRuntimeSource(serverName: string = "mcp"): string {
@@ -164,7 +193,7 @@ export async function resolveMcpPackagesRoot(sourceRoot: string): Promise<string
   }
 
   for (const root of candidates) {
-    if (await localRuntimeBinariesExist(root)) {
+    if (await sourceRuntimeBinariesExist(root)) {
       return root
     }
   }
@@ -173,9 +202,18 @@ export async function resolveMcpPackagesRoot(sourceRoot: string): Promise<string
 
 type RuntimeSources = Partial<Record<(typeof LOCAL_MCP_SERVERS)[number]["runtimeDir"], string>>
 
+async function sourceRuntimeBinariesExist(root: string): Promise<boolean> {
+  for (const server of LOCAL_MCP_SERVERS) {
+    if (server.name === "xai_grok") continue
+    if (!(await pathExists(join(root, server.runtimeDir, "dist", "cli.js")))) return false
+  }
+  return true
+}
+
 async function resolveMcpRuntimeSources(sourceRoot: string): Promise<RuntimeSources> {
   const sources: RuntimeSources = {}
   for (const server of LOCAL_MCP_SERVERS) {
+    if (server.name === "xai_grok") continue
     const root = await resolveMcpRuntimeRoot(sourceRoot, server.runtimeDir)
     if (root !== null) {
       sources[server.runtimeDir] = root
@@ -210,9 +248,10 @@ function firstRuntimeRoot(runtimeSources: RuntimeSources): string | null {
 
 async function resolveBundledMcpComponentsRoot(sourceRoot: string): Promise<string | null> {
   const candidates = [join(sourceRoot, "components"), join(sourceRoot, "..", "components"), join(sourceRoot, "..", "..", "components"), join(sourceRoot, "..", "..", "..", "components")]
+  const componentServers = LOCAL_MCP_SERVERS.filter((server) => server.name !== "xai_grok")
   for (const root of candidates) {
     let ok = true
-    for (const server of LOCAL_MCP_SERVERS) {
+    for (const server of componentServers) {
       if (!(await pathExists(join(root, server.componentDir, "dist", "cli.js")))) ok = false
     }
     if (ok) return root

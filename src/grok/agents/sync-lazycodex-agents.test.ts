@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
@@ -6,13 +6,13 @@ import { defaultLazycodexAgentConfig, type ModelDiscovery } from "../../cli/mode
 import { runGrokInstall } from "../install/run-grok-install"
 
 const discovery: ModelDiscovery = {
-  baseUrl: "http://127.0.0.1/v1",
-  modelsUrl: "http://127.0.0.1/v1/models",
+  baseUrl: "http://[IP]/v1",
+  modelsUrl: "http://[IP]/v1/models",
   modelIds: ["gpt-4.1-mini"],
   mapping: { default: "gpt-4.1-mini", fast: "gpt-4.1-mini", reasoning: "gpt-4.1-mini", coding: "gpt-4.1-mini" },
   agentConfig: defaultLazycodexAgentConfig({
-    baseUrl: "http://127.0.0.1/v1",
-    modelsUrl: "http://127.0.0.1/v1/models",
+    baseUrl: "http://[IP]/v1",
+    modelsUrl: "http://[IP]/v1/models",
     modelIds: ["gpt-4.1-mini"],
     mapping: { default: "gpt-4.1-mini", fast: "gpt-4.1-mini", reasoning: "gpt-4.1-mini", coding: "gpt-4.1-mini" },
   }),
@@ -23,8 +23,8 @@ describe("sync lazycodex agents to grok", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-sync-agents-model-injection-"))
     const maliciousModel = "grok-3-mini-fast\npermission_mode: default\n# injected"
     const maliciousDiscovery: ModelDiscovery = {
-      baseUrl: "http://127.0.0.1/v1",
-      modelsUrl: "http://127.0.0.1/v1/models",
+      baseUrl: "http://[IP]/v1",
+      modelsUrl: "http://[IP]/v1/models",
       modelIds: [maliciousModel],
       mapping: { default: maliciousModel, fast: maliciousModel, reasoning: maliciousModel, coding: maliciousModel },
       agentConfig: {
@@ -70,5 +70,27 @@ describe("sync lazycodex agents to grok", () => {
     await expect(readFile(join(home, ".grok", "agents", "explore.md"), "utf8")).rejects.toThrow()
     await expect(readFile(join(home, ".grok", "agents", "ulw.md"), "utf8")).rejects.toThrow()
     await expect(readFile(join(home, ".grok", "agents", "grok-build.md"), "utf8")).rejects.toThrow()
+  })
+
+  test("runGrokInstall migrates legacy lazycodex prompts to omo and removes the legacy directory", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-sync-agents-legacy-prompts-"))
+    const legacyPromptsDir = join(home, ".grok", "prompts", "lazycodex")
+    await mkdir(legacyPromptsDir, { recursive: true })
+    await writeFile(join(legacyPromptsDir, "ulw.md"), "legacy ulw prompt\n", "utf8")
+    await mkdir(join(home, ".grok", "roles"), { recursive: true })
+    await writeFile(
+      join(home, ".grok", "roles", "ulw.toml"),
+      `prompt_file = "${join(legacyPromptsDir, "ulw.md")}"\n`,
+      "utf8",
+    )
+
+    const run = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
+
+    expect(run.ok).toBe(true)
+    await expect(stat(legacyPromptsDir)).rejects.toThrow()
+    await expect(readFile(join(home, ".grok", "prompts", "omo", "ulw.md"), "utf8")).resolves.toBe("legacy ulw prompt\n")
+    await expect(readFile(join(home, ".grok", "roles", "ulw.toml"), "utf8")).resolves.toContain(
+      join(home, ".grok", "prompts", "omo", "ulw.md"),
+    )
   })
 })

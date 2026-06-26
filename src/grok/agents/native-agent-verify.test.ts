@@ -35,14 +35,14 @@ async function seedNativeAgents(
 ): Promise<void> {
   await mkdir(join(pluginRoot, "agents"), { recursive: true })
   await mkdir(join(home, ".grok", "roles"), { recursive: true })
-  await mkdir(join(home, ".grok", "prompts", "lazycodex"), { recursive: true })
+  await mkdir(join(home, ".grok", "prompts", "omo"), { recursive: true })
 
   for (const name of NATIVE_OMO_AGENT_NAMES) {
     const marker = name === "default" ? `${NATIVE_HEPHAESTUS_MARKER}\n` : ""
     await writeFile(join(pluginRoot, "agents", `${name}.md`), `${marker}${name} agent\n`, "utf8")
     await writeFile(join(home, ".grok", "roles", `${name}.toml`), `name = "${name}"\n`, "utf8")
     if (name !== options.skipPrompt) {
-      await writeFile(join(home, ".grok", "prompts", "lazycodex", `${name}.md`), `${marker}${name} prompt\n`, "utf8")
+      await writeFile(join(home, ".grok", "prompts", "omo", `${name}.md`), `${marker}${name} prompt\n`, "utf8")
     }
   }
 }

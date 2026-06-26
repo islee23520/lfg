@@ -1,6 +1,6 @@
 ---
 name: start-work
-description: "Execute a Prometheus work plan in Codex with Boulder state, evidence ledger updates, worktree discipline, parallel subagents, and Stop-hook continuation. Use after planning when the user says start work, execute plan, continue plan, resume plan, or asks to run a .omo/plans plan."
+description: "Execute a Prometheus work plan in GrokBuild with `/goal` state, Boulder state, evidence ledger updates, worktree discipline, parallel subagents, and explicit continuation. Use after planning when the user says start work, execute plan, continue plan, resume plan, or asks to run a .omo/plans plan."
 ---
 
 ## Codex Harness Tool Compatibility
@@ -33,7 +33,7 @@ Plan and reviewer agents may run for a long time: spawn them in the background, 
 
 # start-work
 
-Execute a Prometheus work plan until every top-level checkbox is complete. This skill pairs with the Codex `Stop` / `SubagentStop` continuation hook (`components/start-work-continuation`), which re-injects the next turn while `.omo/boulder.json` says this `codex:<session_id>` still has unchecked plan work.
+Execute a Prometheus work plan until every top-level checkbox is complete. Use GrokBuild's `/goal` command as the host goal-state surface for the aggregate objective. The upstream Codex `Stop` / `SubagentStop` continuation hook (`components/start-work-continuation`) is not a GrokBuild runtime contract, so do not depend on automatic hook reinjection; preserve state in `.omo/boulder.json` and continue explicitly from that durable state.
 
 ## Usage
 
@@ -46,6 +46,7 @@ $start-work [plan-name] [--worktree <absolute-path>]
 
 ## Phase 1: Select the plan
 
+0. Inspect GrokBuild `/goal` state. If no active goal exists, create one with `/goal <aggregate objective>` once the objective is known. If a different active goal exists, stop and surface the conflict instead of overwriting it.
 1. Read `.omo/boulder.json` if it exists.
 2. List Prometheus plan files under `.omo/plans/`.
 3. If `plan-name` was provided, select the matching plan.
@@ -66,7 +67,7 @@ When the user explicitly said `start work` / `$start-work` and no selectable pla
 
 ## Phase 2: Create or update Boulder state
 
-Write `.omo/boulder.json` before implementation starts. Prefix session ids with `codex:` so the continuation hook can identify its own session.
+Write `.omo/boulder.json` before implementation starts. Prefix session ids with `grok:` for GrokBuild-owned work; if resuming an older `codex:<session_id>` entry, preserve it as historical state but attach the current `grok:<session_id>` before continuing.
 
 ```json
 {
@@ -77,7 +78,7 @@ Write `.omo/boulder.json` before implementation starts. Prefix session ids with 
       "work_id": "<work-id>",
       "active_plan": ".omo/plans/<plan-name>.md",
       "plan_name": "<plan-name>",
-      "session_ids": ["codex:<session_id>"],
+      "session_ids": ["grok:<session_id>"],
       "status": "active",
       "worktree_path": null
     }
@@ -176,7 +177,7 @@ When all top-level checkboxes in `## TODOs` and `## Final Verification Wave` are
    - If the work includes creating, updating, or handing off a PR, refresh `git status` and the PR/branch state after the gate, and include only redacted review/debugging evidence in the PR body or handoff.
 3. If worktree mode was used, sync `.omo/` state back to the main repo, merge or hand off exactly as requested, and remove the worktree only after successful merge or explicit handoff.
 4. Remove or mark the Boulder work as completed.
-5. Print an `ORCHESTRATION COMPLETE` block with the plan path, verification commands, Global Review and Debugging Gate verdict, artifacts, and cleanup receipts.
+5. Print an `ORCHESTRATION COMPLETE` block with the plan path, verification commands, Global Review and Debugging Gate verdict, artifacts, cleanup receipts, and final `/goal` status. Clear `/goal` with `/goal clear` before starting an unrelated aggregate in the same session.
 
 ## Hard rules
 
@@ -186,5 +187,6 @@ When all top-level checkboxes in `## TODOs` and `## Final Verification Wave` are
 - **NO DIRECT IMPLEMENTATION BY THE ORCHESTRATOR.** Root NEVER edits product files, writes tests, or runs QA itself — a spawned worker does.
 - No completion claim while an applicable ultraqa adversarial class was never probed. Each applicable class needs a captured observable result; each skipped class needs a one-line not-applicable reason in the ledger.
 - No `ORCHESTRATION COMPLETE`, final response, PR creation, or PR handoff before the Global Review and Debugging Gate passes with recorded evidence.
-- No unprefixed session ids in Boulder state. Codex sessions are always `codex:<session_id>`.
+- No unprefixed session ids in Boulder state. GrokBuild sessions are `grok:<session_id>`; preserve older `codex:<session_id>` values only as historical/resume evidence.
+- Use `/goal` for the host aggregate goal. Do not rely on Codex-only goal APIs or Stop/SubagentStop continuation hooks in GrokBuild.
 - No stale-memory execution. The plan and ledger are the durable source of truth.

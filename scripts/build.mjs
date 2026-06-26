@@ -38,6 +38,7 @@ const GROK_INSTALL_FLAVOUR_PACK_DST = `${GROK_INSTALL_DIR}/flavour`
 const GROK_INSTALL_SKILLS_SRC = "src/grok/skills"
 const GROK_INSTALL_SKILLS_DST = `${GROK_INSTALL_DIR}/skills`
 const GROK_INSTALL_MCP_COMPONENT_DIRS = ["ast-grep", "git-bash", "lsp"]
+const GROK_INSTALL_BUILTIN_MCP_RUNTIME_DIRS = ["xai-grok-mcp"]
 const GROK_INSTALL_MCP_RUNTIME_DIRS = [
   ["ast-grep-mcp", "ast_grep"],
   ["git-bash-mcp", "git_bash"],
@@ -86,7 +87,23 @@ try {
     await cp(`components/${componentDir}`, `${GROK_INSTALL_DIR}/components/${componentDir}`, { recursive: true, force: true })
   }
 
+  const bridgeSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-grok-hook-bridge.mjs`
+  const configLoaderSrc = `${GROK_INSTALL_ASSETS_SRC}/config/lfg-config-loader.mjs`
+  const projectOmoLedgerSrc = `${GROK_INSTALL_ASSETS_SRC}/ledger/lfg-project-omo-ledger.mjs`
+  const sisyphusHooksSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-sisyphus-hooks.mjs`
+  const nativeRulesSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-rules.js`
+  const nativeUltraworkSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-ultrawork.js`
+  const devLoggerSrc = `${GROK_INSTALL_ASSETS_SRC}/log/lfg-dev-logger.mjs`
+  const xaiGrokMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-xai-grok-mcp.mjs`
+
   await rm(`${GROK_INSTALL_DIR}/mcp-runtimes`, { recursive: true, force: true })
+  for (const runtimeDir of GROK_INSTALL_BUILTIN_MCP_RUNTIME_DIRS) {
+    const runtimeDist = `${GROK_INSTALL_DIR}/mcp-runtimes/${runtimeDir}/dist`
+    const runtimeCli = `${runtimeDist}/cli.js`
+    await mkdir(runtimeDist, { recursive: true })
+    await cp(xaiGrokMcpSrc, runtimeCli)
+    await chmod(runtimeCli, 0o755)
+  }
   for (const [runtimeDir, serverName] of GROK_INSTALL_MCP_RUNTIME_DIRS) {
     const runtimeDist = `${GROK_INSTALL_DIR}/mcp-runtimes/${runtimeDir}/dist`
     const runtimeCli = `${runtimeDist}/cli.js`
@@ -95,13 +112,6 @@ try {
     await chmod(runtimeCli, 0o755)
   }
 
-  const bridgeSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-grok-hook-bridge.mjs`
-  const configLoaderSrc = `${GROK_INSTALL_ASSETS_SRC}/config/lfg-config-loader.mjs`
-  const projectOmoLedgerSrc = `${GROK_INSTALL_ASSETS_SRC}/ledger/lfg-project-omo-ledger.mjs`
-  const sisyphusHooksSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-sisyphus-hooks.mjs`
-  const nativeRulesSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-rules.js`
-  const nativeUltraworkSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-ultrawork.js`
-  const devLoggerSrc = `${GROK_INSTALL_ASSETS_SRC}/log/lfg-dev-logger.mjs`
   await mkdir(GROK_INSTALL_ASSETS_DST, { recursive: true })
   await cp(bridgeSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-grok-hook-bridge.mjs`)
   await cp(configLoaderSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-config-loader.mjs`)
@@ -110,6 +120,7 @@ try {
   await cp(nativeRulesSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-rules.js`)
   await cp(nativeUltraworkSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-ultrawork.js`)
   await cp(devLoggerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-dev-logger.mjs`)
+  await cp(xaiGrokMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-xai-grok-mcp.mjs`)
 
   await cp(GROK_INSTALL_FLAVOUR_PACK_SRC, GROK_INSTALL_FLAVOUR_PACK_DST, { recursive: true })
 
