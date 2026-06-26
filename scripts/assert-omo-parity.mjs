@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url"
 import { checkOmoParityUpkeep } from "./omo-parity-upkeep.mjs"
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url))
-const expectedVersion = "4.12.1"
+const expectedVersion = "4.13.0"
+const expectedSkillSourceUpstream = "@sisyphuslabs/omo-codex-plugin"
 const expectedGeneratedBy = "scripts/sync-omo-skills-to-grok.mjs"
 const requiredManagedSkills = [
   "ast-grep",
@@ -38,7 +39,8 @@ const generatedSkillRoots = [
   "dist/grok-install/skills",
 ]
 const retiredSkillNames = ["lcx-contribute-bug-fix", "lcx-doctor", "lcx-report-bug"]
-const deferredComponents = ["teammode", "lazycodex-executor-verify"]
+const deferredComponents = ["teammode", "lazycodex-executor-verify", "workflow-selector"]
+const unsupportedComponents = ["test-support"]
 const staleAgentMetadataNeedles = [
   "code-yeongyu/lfg",
   "omo-codex bug",
@@ -56,21 +58,26 @@ await assertTextContains("src/grok/payload/component-inventory.ts", [
   `UPSTREAM_OMO_VERSION = "${expectedVersion}"`,
   `UPSTREAM_OMO_TAG = "v${expectedVersion}"`,
   ...deferredComponents.map((component) => `{ id: "${component}", status: "Deferred"`),
+  ...unsupportedComponents.map((component) => `{ id: "${component}", status: "Unsupported"`),
 ])
 await assertTextContains("docs/grok-adapter-parity.md", [
-  "`lazycodex-ai` / OMO `v4.12.1`",
+  "`lazycodex-ai` / OMO `v4.13.0`",
   "Scoped Grok-first OMO parity",
   "nativeAgentsStatus: \"missing\"",
   "Full native OMO agent behavioral parity is not claimed",
   "`teammode`",
   "`lazycodex-executor-verify`",
+  "`workflow-selector`",
+  "`test-support`",
   "split hook JSON files under `packages/omo-codex/plugin/hooks/`",
   "package-level MCP runtimes",
 ])
 await assertTextContains("AGENTS.md", [
-  "upstream baseline `lazycodex-ai`/OMO `v4.12.1`",
+  "upstream baseline `lazycodex-ai`/OMO `v4.13.0`",
   "`teammode` | Skill payload installed; Codex thread orchestration hook not Grok-adapted | Deferred",
   "`lazycodex-executor-verify` | Codex `lazycodex-executor` SubagentStop verifier not Grok-adapted | Deferred",
+  "`workflow-selector` | Codex-only opt-in UserPromptSubmit workflow selector; no verified Grok-native prompt-routing hook yet | Deferred",
+  "`test-support` | Upstream package test infrastructure, not a Grok plugin runtime component | Unsupported",
 ])
 await assertTextContains("scripts/build.mjs", ["syncOmoSkillsToGrok({ allowExistingFallback: true, includeCache: false })"])
 await assertParityUpkeep()
@@ -91,7 +98,7 @@ async function assertSkillRoot(root) {
   if (manifest === null) return
 
   assertEqual(`${manifestPath}: generatedBy`, manifest.generatedBy, expectedGeneratedBy)
-  assertEqual(`${manifestPath}: source.upstream`, field(manifest, "source")?.upstream, "lazycodex-ai")
+  assertEqual(`${manifestPath}: source.upstream`, field(manifest, "source")?.upstream, expectedSkillSourceUpstream)
   assertEqual(`${manifestPath}: source.version`, field(manifest, "source")?.version, expectedVersion)
   assertArrayEqual(`${manifestPath}: managedSkills`, manifest.managedSkills, requiredManagedSkills)
 

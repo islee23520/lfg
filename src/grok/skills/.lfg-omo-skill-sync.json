@@ -1,8 +1,8 @@
 {
   "generatedBy": "scripts/sync-omo-skills-to-grok.mjs",
   "source": {
-    "upstream": "lazycodex-ai",
-    "version": "4.12.1",
+    "upstream": "@sisyphuslabs/omo-codex-plugin",
+    "version": "4.13.0",
     "sourceMap": {
       "ast-grep": "skills/ast-grep",
       "comment-checker": "components/comment-checker/skills/comment-checker",

@@ -7,7 +7,7 @@ to generate comprehensive design system recommendations.
 Usage:
     from design_system import generate_design_system
     result = generate_design_system("SaaS dashboard", "My Project")
-    
+
     # With persistence (Master + Overrides pattern)
     result = generate_design_system("SaaS dashboard", "My Project", persist=True)
     result = generate_design_system("SaaS dashboard", "My Project", persist=True, page="dashboard")
@@ -211,15 +211,25 @@ class DesignSystemGenerator:
                 "keywords": best_style.get("Keywords", ""),
                 "best_for": best_style.get("Best For", ""),
                 "performance": best_style.get("Performance", ""),
-                "accessibility": best_style.get("Accessibility", "")
+                "accessibility": best_style.get("Accessibility", ""),
+                "light_mode": best_style.get("Light Mode ✓", ""),
+                "dark_mode": best_style.get("Dark Mode ✓", ""),
             },
             "colors": {
-                "primary": best_color.get("Primary (Hex)", "#2563EB"),
-                "secondary": best_color.get("Secondary (Hex)", "#3B82F6"),
-                "cta": best_color.get("CTA (Hex)", "#F97316"),
-                "background": best_color.get("Background (Hex)", "#F8FAFC"),
-                "text": best_color.get("Text (Hex)", "#1E293B"),
-                "notes": best_color.get("Notes", "")
+                "primary": best_color.get("Primary", "#2563EB"),
+                "on_primary": best_color.get("On Primary", ""),
+                "secondary": best_color.get("Secondary", "#3B82F6"),
+                "accent": best_color.get("Accent", "#F97316"),
+                "background": best_color.get("Background", "#F8FAFC"),
+                "foreground": best_color.get("Foreground", "#1E293B"),
+                "muted": best_color.get("Muted", ""),
+                "border": best_color.get("Border", ""),
+                "destructive": best_color.get("Destructive", ""),
+                "ring": best_color.get("Ring", ""),
+                "notes": best_color.get("Notes", ""),
+                # Keep legacy keys for backward compat in MASTER.md
+                "cta": best_color.get("Accent", "#F97316"),
+                "text": best_color.get("Foreground", "#1E293B"),
             },
             "typography": {
                 "heading": best_typography.get("Heading Font", "Inter"),
@@ -239,8 +249,38 @@ class DesignSystemGenerator:
 # ============ OUTPUT FORMATTERS ============
 BOX_WIDTH = 90  # Wider box for more content
 
+
+def hex_to_ansi(hex_color: str) -> str:
+    """Convert hex color to ANSI True Color swatch (██) with fallback."""
+    if not hex_color or not hex_color.startswith('#'):
+        return ""
+    colorterm = os.environ.get('COLORTERM', '')
+    if colorterm not in ('truecolor', '24bit'):
+        return ""
+    hex_color = hex_color.lstrip('#')
+    if len(hex_color) != 6:
+        return ""
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    return f"\033[38;2;{r};{g};{b}m██\033[0m "
+
+
+def ansi_ljust(s: str, width: int) -> str:
+    """Like str.ljust but accounts for zero-width ANSI escape sequences."""
+    import re
+    visible_len = len(re.sub(r'\033\[[0-9;]*m', '', s))
+    pad = width - visible_len
+    return s + (" " * max(0, pad))
+
+
+def section_header(name: str, width: int) -> str:
+    """Create a Unicode section separator: ├─── NAME ───...┤"""
+    label = f"─── {name} "
+    fill = "─" * (width - len(label) - 1)
+    return f"├{label}{fill}┤"
+
+
 def format_ascii_box(design_system: dict) -> str:
-    """Format design system as ASCII box with emojis (MCP-style)."""
+    """Format design system as Unicode box with ANSI color swatches."""
     project = design_system.get("project_name", "PROJECT")
     pattern = design_system.get("pattern", {})
     style = design_system.get("style", {})
@@ -275,77 +315,93 @@ def format_ascii_box(design_system: dict) -> str:
     lines = []
     w = BOX_WIDTH - 1
 
-    lines.append("+" + "-" * w + "+")
-    lines.append(f"|  TARGET: {project} - RECOMMENDED DESIGN SYSTEM".ljust(BOX_WIDTH) + "|")
-    lines.append("+" + "-" * w + "+")
-    lines.append("|" + " " * BOX_WIDTH + "|")
+    # Header with double-line box
+    lines.append("╔" + "═" * w + "╗")
+    lines.append(ansi_ljust(f"║  TARGET: {project} - RECOMMENDED DESIGN SYSTEM", BOX_WIDTH) + "║")
+    lines.append("╚" + "═" * w + "╝")
+    lines.append("┌" + "─" * w + "┐")
 
     # Pattern section
-    lines.append(f"|  PATTERN: {pattern.get('name', '')}".ljust(BOX_WIDTH) + "|")
+    lines.append(section_header("PATTERN", BOX_WIDTH + 1))
+    lines.append(f"│  Name: {pattern.get('name', '')}".ljust(BOX_WIDTH) + "│")
     if pattern.get('conversion'):
-        lines.append(f"|     Conversion: {pattern.get('conversion', '')}".ljust(BOX_WIDTH) + "|")
+        lines.append(f"│     Conversion: {pattern.get('conversion', '')}".ljust(BOX_WIDTH) + "│")
     if pattern.get('cta_placement'):
-        lines.append(f"|     CTA: {pattern.get('cta_placement', '')}".ljust(BOX_WIDTH) + "|")
-    lines.append("|     Sections:".ljust(BOX_WIDTH) + "|")
+        lines.append(f"│     CTA: {pattern.get('cta_placement', '')}".ljust(BOX_WIDTH) + "│")
+    lines.append("│     Sections:".ljust(BOX_WIDTH) + "│")
     for i, section in enumerate(sections, 1):
-        lines.append(f"|       {i}. {section}".ljust(BOX_WIDTH) + "|")
-    lines.append("|" + " " * BOX_WIDTH + "|")
+        lines.append(f"│       {i}. {section}".ljust(BOX_WIDTH) + "│")
 
     # Style section
-    lines.append(f"|  STYLE: {style.get('name', '')}".ljust(BOX_WIDTH) + "|")
+    lines.append(section_header("STYLE", BOX_WIDTH + 1))
+    lines.append(f"│  Name: {style.get('name', '')}".ljust(BOX_WIDTH) + "│")
+    light = style.get("light_mode", "")
+    dark = style.get("dark_mode", "")
+    if light or dark:
+        lines.append(f"│     Mode Support: Light {light}  Dark {dark}".ljust(BOX_WIDTH) + "│")
     if style.get("keywords"):
-        for line in wrap_text(f"Keywords: {style.get('keywords', '')}", "|     ", BOX_WIDTH):
-            lines.append(line.ljust(BOX_WIDTH) + "|")
+        for line in wrap_text(f"Keywords: {style.get('keywords', '')}", "│     ", BOX_WIDTH):
+            lines.append(line.ljust(BOX_WIDTH) + "│")
     if style.get("best_for"):
-        for line in wrap_text(f"Best For: {style.get('best_for', '')}", "|     ", BOX_WIDTH):
-            lines.append(line.ljust(BOX_WIDTH) + "|")
+        for line in wrap_text(f"Best For: {style.get('best_for', '')}", "│     ", BOX_WIDTH):
+            lines.append(line.ljust(BOX_WIDTH) + "│")
     if style.get("performance") or style.get("accessibility"):
         perf_a11y = f"Performance: {style.get('performance', '')} | Accessibility: {style.get('accessibility', '')}"
-        lines.append(f"|     {perf_a11y}".ljust(BOX_WIDTH) + "|")
-    lines.append("|" + " " * BOX_WIDTH + "|")
+        lines.append(f"│     {perf_a11y}".ljust(BOX_WIDTH) + "│")
 
-    # Colors section
-    lines.append("|  COLORS:".ljust(BOX_WIDTH) + "|")
-    lines.append(f"|     Primary:    {colors.get('primary', '')}".ljust(BOX_WIDTH) + "|")
-    lines.append(f"|     Secondary:  {colors.get('secondary', '')}".ljust(BOX_WIDTH) + "|")
-    lines.append(f"|     CTA:        {colors.get('cta', '')}".ljust(BOX_WIDTH) + "|")
-    lines.append(f"|     Background: {colors.get('background', '')}".ljust(BOX_WIDTH) + "|")
-    lines.append(f"|     Text:       {colors.get('text', '')}".ljust(BOX_WIDTH) + "|")
+    # Colors section (extended palette with ANSI swatches)
+    lines.append(section_header("COLORS", BOX_WIDTH + 1))
+    color_entries = [
+        ("Primary",      "primary",      "--color-primary"),
+        ("On Primary",   "on_primary",   "--color-on-primary"),
+        ("Secondary",    "secondary",    "--color-secondary"),
+        ("Accent/CTA",   "accent",       "--color-accent"),
+        ("Background",   "background",   "--color-background"),
+        ("Foreground",   "foreground",   "--color-foreground"),
+        ("Muted",        "muted",        "--color-muted"),
+        ("Border",       "border",       "--color-border"),
+        ("Destructive",  "destructive",  "--color-destructive"),
+        ("Ring",         "ring",         "--color-ring"),
+    ]
+    for label, key, css_var in color_entries:
+        hex_val = colors.get(key, "")
+        if not hex_val:
+            continue
+        swatch = hex_to_ansi(hex_val)
+        content = f"│     {swatch}{label + ':':14s} {hex_val:10s} ({css_var})"
+        lines.append(ansi_ljust(content, BOX_WIDTH) + "│")
     if colors.get("notes"):
-        for line in wrap_text(f"Notes: {colors.get('notes', '')}", "|     ", BOX_WIDTH):
-            lines.append(line.ljust(BOX_WIDTH) + "|")
-    lines.append("|" + " " * BOX_WIDTH + "|")
+        for line in wrap_text(f"Notes: {colors.get('notes', '')}", "│     ", BOX_WIDTH):
+            lines.append(line.ljust(BOX_WIDTH) + "│")
 
     # Typography section
-    lines.append(f"|  TYPOGRAPHY: {typography.get('heading', '')} / {typography.get('body', '')}".ljust(BOX_WIDTH) + "|")
+    lines.append(section_header("TYPOGRAPHY", BOX_WIDTH + 1))
+    lines.append(f"│  {typography.get('heading', '')} / {typography.get('body', '')}".ljust(BOX_WIDTH) + "│")
     if typography.get("mood"):
-        for line in wrap_text(f"Mood: {typography.get('mood', '')}", "|     ", BOX_WIDTH):
-            lines.append(line.ljust(BOX_WIDTH) + "|")
+        for line in wrap_text(f"Mood: {typography.get('mood', '')}", "│     ", BOX_WIDTH):
+            lines.append(line.ljust(BOX_WIDTH) + "│")
     if typography.get("best_for"):
-        for line in wrap_text(f"Best For: {typography.get('best_for', '')}", "|     ", BOX_WIDTH):
-            lines.append(line.ljust(BOX_WIDTH) + "|")
+        for line in wrap_text(f"Best For: {typography.get('best_for', '')}", "│     ", BOX_WIDTH):
+            lines.append(line.ljust(BOX_WIDTH) + "│")
     if typography.get("google_fonts_url"):
-        lines.append(f"|     Google Fonts: {typography.get('google_fonts_url', '')}".ljust(BOX_WIDTH) + "|")
+        lines.append(f"│     Google Fonts: {typography.get('google_fonts_url', '')}".ljust(BOX_WIDTH) + "│")
     if typography.get("css_import"):
-        lines.append(f"|     CSS Import: {typography.get('css_import', '')[:70]}...".ljust(BOX_WIDTH) + "|")
-    lines.append("|" + " " * BOX_WIDTH + "|")
+        lines.append(f"│     CSS Import: {typography.get('css_import', '')[:70]}...".ljust(BOX_WIDTH) + "│")
 
     # Key Effects section
     if effects:
-        lines.append("|  KEY EFFECTS:".ljust(BOX_WIDTH) + "|")
-        for line in wrap_text(effects, "|     ", BOX_WIDTH):
-            lines.append(line.ljust(BOX_WIDTH) + "|")
-        lines.append("|" + " " * BOX_WIDTH + "|")
+        lines.append(section_header("KEY EFFECTS", BOX_WIDTH + 1))
+        for line in wrap_text(effects, "│     ", BOX_WIDTH):
+            lines.append(line.ljust(BOX_WIDTH) + "│")
 
     # Anti-patterns section
     if anti_patterns:
-        lines.append("|  AVOID (Anti-patterns):".ljust(BOX_WIDTH) + "|")
-        for line in wrap_text(anti_patterns, "|     ", BOX_WIDTH):
-            lines.append(line.ljust(BOX_WIDTH) + "|")
-        lines.append("|" + " " * BOX_WIDTH + "|")
+        lines.append(section_header("AVOID", BOX_WIDTH + 1))
+        for line in wrap_text(anti_patterns, "│     ", BOX_WIDTH):
+            lines.append(line.ljust(BOX_WIDTH) + "│")
 
     # Pre-Delivery Checklist section
-    lines.append("|  PRE-DELIVERY CHECKLIST:".ljust(BOX_WIDTH) + "|")
+    lines.append(section_header("PRE-DELIVERY CHECKLIST", BOX_WIDTH + 1))
     checklist_items = [
         "[ ] No emojis as icons (use SVG: Heroicons/Lucide)",
         "[ ] cursor-pointer on all clickable elements",
@@ -356,10 +412,9 @@ def format_ascii_box(design_system: dict) -> str:
         "[ ] Responsive: 375px, 768px, 1024px, 1440px"
     ]
     for item in checklist_items:
-        lines.append(f"|     {item}".ljust(BOX_WIDTH) + "|")
-    lines.append("|" + " " * BOX_WIDTH + "|")
+        lines.append(f"│     {item}".ljust(BOX_WIDTH) + "│")
 
-    lines.append("+" + "-" * w + "+")
+    lines.append("└" + "─" * w + "┘")
 
     return "\n".join(lines)
 
@@ -393,6 +448,10 @@ def format_markdown(design_system: dict) -> str:
     # Style section
     lines.append("### Style")
     lines.append(f"- **Name:** {style.get('name', '')}")
+    light = style.get("light_mode", "")
+    dark = style.get("dark_mode", "")
+    if light or dark:
+        lines.append(f"- **Mode Support:** Light {light} | Dark {dark}")
     if style.get('keywords'):
         lines.append(f"- **Keywords:** {style.get('keywords', '')}")
     if style.get('best_for'):
@@ -401,15 +460,26 @@ def format_markdown(design_system: dict) -> str:
         lines.append(f"- **Performance:** {style.get('performance', '')} | **Accessibility:** {style.get('accessibility', '')}")
     lines.append("")
 
-    # Colors section
+    # Colors section (extended palette)
     lines.append("### Colors")
-    lines.append(f"| Role | Hex |")
-    lines.append(f"|------|-----|")
-    lines.append(f"| Primary | {colors.get('primary', '')} |")
-    lines.append(f"| Secondary | {colors.get('secondary', '')} |")
-    lines.append(f"| CTA | {colors.get('cta', '')} |")
-    lines.append(f"| Background | {colors.get('background', '')} |")
-    lines.append(f"| Text | {colors.get('text', '')} |")
+    lines.append("| Role | Hex | CSS Variable |")
+    lines.append("|------|-----|--------------|")
+    md_color_entries = [
+        ("Primary",      "primary",      "--color-primary"),
+        ("On Primary",   "on_primary",   "--color-on-primary"),
+        ("Secondary",    "secondary",    "--color-secondary"),
+        ("Accent/CTA",   "accent",       "--color-accent"),
+        ("Background",   "background",   "--color-background"),
+        ("Foreground",   "foreground",   "--color-foreground"),
+        ("Muted",        "muted",        "--color-muted"),
+        ("Border",       "border",       "--color-border"),
+        ("Destructive",  "destructive",  "--color-destructive"),
+        ("Ring",         "ring",         "--color-ring"),
+    ]
+    for label, key, css_var in md_color_entries:
+        hex_val = colors.get(key, "")
+        if hex_val:
+            lines.append(f"| {label} | `{hex_val}` | `{css_var}` |")
     if colors.get("notes"):
         lines.append(f"\n*Notes: {colors.get('notes', '')}*")
     lines.append("")
@@ -459,7 +529,7 @@ def format_markdown(design_system: dict) -> str:
 
 
 # ============ MAIN ENTRY POINT ============
-def generate_design_system(query: str, project_name: str = None, output_format: str = "ascii", 
+def generate_design_system(query: str, project_name: str = None, output_format: str = "ascii",
                            persist: bool = False, page: str = None, output_dir: str = None) -> str:
     """
     Main entry point for design system generation.
@@ -477,7 +547,7 @@ def generate_design_system(query: str, project_name: str = None, output_format: 
     """
     generator = DesignSystemGenerator()
     design_system = generator.generate(query, project_name)
-    
+
     # Persist to files if requested
     if persist:
         persist_design_system(design_system, page, output_dir, query)
@@ -491,39 +561,39 @@ def generate_design_system(query: str, project_name: str = None, output_format: 
 def persist_design_system(design_system: dict, page: str = None, output_dir: str = None, page_query: str = None) -> dict:
     """
     Persist design system to design-system/<project>/ folder using Master + Overrides pattern.
-    
+
     Args:
         design_system: The generated design system dictionary
         page: Optional page name for page-specific override file
         output_dir: Optional output directory (defaults to current working directory)
         page_query: Optional query string for intelligent page override generation
-    
+
     Returns:
         dict with created file paths and status
     """
     base_dir = Path(output_dir) if output_dir else Path.cwd()
-    
+
     # Use project name for project-specific folder
     project_name = design_system.get("project_name", "default")
     project_slug = project_name.lower().replace(' ', '-')
-    
+
     design_system_dir = base_dir / "design-system" / project_slug
     pages_dir = design_system_dir / "pages"
-    
+
     created_files = []
-    
+
     # Create directories
     design_system_dir.mkdir(parents=True, exist_ok=True)
     pages_dir.mkdir(parents=True, exist_ok=True)
-    
+
     master_file = design_system_dir / "MASTER.md"
-    
+
     # Generate and write MASTER.md
     master_content = format_master_md(design_system)
     with open(master_file, 'w', encoding='utf-8') as f:
         f.write(master_content)
     created_files.append(str(master_file))
-    
+
     # If page is specified, create page override file with intelligent content
     if page:
         page_file = pages_dir / f"{page.lower().replace(' ', '-')}.md"
@@ -531,7 +601,7 @@ def persist_design_system(design_system: dict, page: str = None, output_dir: str
         with open(page_file, 'w', encoding='utf-8') as f:
             f.write(page_content)
         created_files.append(str(page_file))
-    
+
     return {
         "status": "success",
         "design_system_dir": str(design_system_dir),
@@ -548,11 +618,11 @@ def format_master_md(design_system: dict) -> str:
     typography = design_system.get("typography", {})
     effects = design_system.get("key_effects", "")
     anti_patterns = design_system.get("anti_patterns", "")
-    
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     lines = []
-    
+
     # Logic header
     lines.append("# Design System Master File")
     lines.append("")
@@ -568,26 +638,37 @@ def format_master_md(design_system: dict) -> str:
     lines.append("")
     lines.append("---")
     lines.append("")
-    
+
     # Global Rules section
     lines.append("## Global Rules")
     lines.append("")
-    
+
     # Color Palette
     lines.append("### Color Palette")
     lines.append("")
     lines.append("| Role | Hex | CSS Variable |")
     lines.append("|------|-----|--------------|")
-    lines.append(f"| Primary | `{colors.get('primary', '#2563EB')}` | `--color-primary` |")
-    lines.append(f"| Secondary | `{colors.get('secondary', '#3B82F6')}` | `--color-secondary` |")
-    lines.append(f"| CTA/Accent | `{colors.get('cta', '#F97316')}` | `--color-cta` |")
-    lines.append(f"| Background | `{colors.get('background', '#F8FAFC')}` | `--color-background` |")
-    lines.append(f"| Text | `{colors.get('text', '#1E293B')}` | `--color-text` |")
+    master_color_entries = [
+        ("Primary",      "primary",      "--color-primary"),
+        ("On Primary",   "on_primary",   "--color-on-primary"),
+        ("Secondary",    "secondary",    "--color-secondary"),
+        ("Accent/CTA",   "accent",       "--color-accent"),
+        ("Background",   "background",   "--color-background"),
+        ("Foreground",   "foreground",   "--color-foreground"),
+        ("Muted",        "muted",        "--color-muted"),
+        ("Border",       "border",       "--color-border"),
+        ("Destructive",  "destructive",  "--color-destructive"),
+        ("Ring",         "ring",         "--color-ring"),
+    ]
+    for label, key, css_var in master_color_entries:
+        hex_val = colors.get(key, "")
+        if hex_val:
+            lines.append(f"| {label} | `{hex_val}` | `{css_var}` |")
     lines.append("")
     if colors.get("notes"):
         lines.append(f"**Color Notes:** {colors.get('notes', '')}")
         lines.append("")
-    
+
     # Typography
     lines.append("### Typography")
     lines.append("")
@@ -604,7 +685,7 @@ def format_master_md(design_system: dict) -> str:
         lines.append(typography.get("css_import", ""))
         lines.append("```")
         lines.append("")
-    
+
     # Spacing Variables
     lines.append("### Spacing Variables")
     lines.append("")
@@ -618,7 +699,7 @@ def format_master_md(design_system: dict) -> str:
     lines.append("| `--space-2xl` | `48px` / `3rem` | Section margins |")
     lines.append("| `--space-3xl` | `64px` / `4rem` | Hero padding |")
     lines.append("")
-    
+
     # Shadow Depths
     lines.append("### Shadow Depths")
     lines.append("")
@@ -629,13 +710,13 @@ def format_master_md(design_system: dict) -> str:
     lines.append("| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)` | Modals, dropdowns |")
     lines.append("| `--shadow-xl` | `0 20px 25px rgba(0,0,0,0.15)` | Hero images, featured cards |")
     lines.append("")
-    
+
     # Component Specs section
     lines.append("---")
     lines.append("")
     lines.append("## Component Specs")
     lines.append("")
-    
+
     # Buttons
     lines.append("### Buttons")
     lines.append("")
@@ -669,7 +750,7 @@ def format_master_md(design_system: dict) -> str:
     lines.append("}")
     lines.append("```")
     lines.append("")
-    
+
     # Cards
     lines.append("### Cards")
     lines.append("")
@@ -689,7 +770,7 @@ def format_master_md(design_system: dict) -> str:
     lines.append("}")
     lines.append("```")
     lines.append("")
-    
+
     # Inputs
     lines.append("### Inputs")
     lines.append("")
@@ -709,7 +790,7 @@ def format_master_md(design_system: dict) -> str:
     lines.append("}")
     lines.append("```")
     lines.append("")
-    
+
     # Modals
     lines.append("### Modals")
     lines.append("")
@@ -729,7 +810,7 @@ def format_master_md(design_system: dict) -> str:
     lines.append("}")
     lines.append("```")
     lines.append("")
-    
+
     # Style section
     lines.append("---")
     lines.append("")
@@ -746,7 +827,7 @@ def format_master_md(design_system: dict) -> str:
     if effects:
         lines.append(f"**Key Effects:** {effects}")
         lines.append("")
-    
+
     # Layout Pattern
     lines.append("### Page Pattern")
     lines.append("")
@@ -758,7 +839,7 @@ def format_master_md(design_system: dict) -> str:
         lines.append(f"- **CTA Placement:** {pattern.get('cta_placement', '')}")
     lines.append(f"- **Section Order:** {pattern.get('sections', '')}")
     lines.append("")
-    
+
     # Anti-Patterns section
     lines.append("---")
     lines.append("")
@@ -779,7 +860,7 @@ def format_master_md(design_system: dict) -> str:
     lines.append("- ❌ **Instant state changes** — Always use transitions (150-300ms)")
     lines.append("- ❌ **Invisible focus states** — Focus states must be visible for a11y")
     lines.append("")
-    
+
     # Pre-Delivery Checklist
     lines.append("---")
     lines.append("")
@@ -798,7 +879,7 @@ def format_master_md(design_system: dict) -> str:
     lines.append("- [ ] No content hidden behind fixed navbars")
     lines.append("- [ ] No horizontal scroll on mobile")
     lines.append("")
-    
+
     return "\n".join(lines)
 
 
@@ -807,12 +888,12 @@ def format_page_override_md(design_system: dict, page_name: str, page_query: str
     project = design_system.get("project_name", "PROJECT")
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     page_title = page_name.replace("-", " ").replace("_", " ").title()
-    
+
     # Detect page type and generate intelligent overrides
     page_overrides = _generate_intelligent_overrides(page_name, page_query, design_system)
-    
+
     lines = []
-    
+
     lines.append(f"# {page_title} Page Overrides")
     lines.append("")
     lines.append(f"> **PROJECT:** {project}")
@@ -824,11 +905,11 @@ def format_page_override_md(design_system: dict, page_name: str, page_query: str
     lines.append("")
     lines.append("---")
     lines.append("")
-    
+
     # Page-specific rules with actual content
     lines.append("## Page-Specific Rules")
     lines.append("")
-    
+
     # Layout Overrides
     lines.append("### Layout Overrides")
     lines.append("")
@@ -839,7 +920,7 @@ def format_page_override_md(design_system: dict, page_name: str, page_query: str
     else:
         lines.append("- No overrides — use Master layout")
     lines.append("")
-    
+
     # Spacing Overrides
     lines.append("### Spacing Overrides")
     lines.append("")
@@ -850,7 +931,7 @@ def format_page_override_md(design_system: dict, page_name: str, page_query: str
     else:
         lines.append("- No overrides — use Master spacing")
     lines.append("")
-    
+
     # Typography Overrides
     lines.append("### Typography Overrides")
     lines.append("")
@@ -861,7 +942,7 @@ def format_page_override_md(design_system: dict, page_name: str, page_query: str
     else:
         lines.append("- No overrides — use Master typography")
     lines.append("")
-    
+
     # Color Overrides
     lines.append("### Color Overrides")
     lines.append("")
@@ -872,7 +953,7 @@ def format_page_override_md(design_system: dict, page_name: str, page_query: str
     else:
         lines.append("- No overrides — use Master colors")
     lines.append("")
-    
+
     # Component Overrides
     lines.append("### Component Overrides")
     lines.append("")
@@ -883,7 +964,7 @@ def format_page_override_md(design_system: dict, page_name: str, page_query: str
     else:
         lines.append("- No overrides — use Master component specs")
     lines.append("")
-    
+
     # Page-Specific Components
     lines.append("---")
     lines.append("")
@@ -896,7 +977,7 @@ def format_page_override_md(design_system: dict, page_name: str, page_query: str
     else:
         lines.append("- No unique components for this page")
     lines.append("")
-    
+
     # Recommendations
     lines.append("---")
     lines.append("")
@@ -907,36 +988,36 @@ def format_page_override_md(design_system: dict, page_name: str, page_query: str
         for rec in recommendations:
             lines.append(f"- {rec}")
     lines.append("")
-    
+
     return "\n".join(lines)
 
 
 def _generate_intelligent_overrides(page_name: str, page_query: str, design_system: dict) -> dict:
     """
     Generate intelligent overrides based on page type using layered search.
-    
+
     Uses the existing search infrastructure to find relevant style, UX, and layout
     data instead of hardcoded page types.
     """
     from core import search
-    
+
     page_lower = page_name.lower()
     query_lower = (page_query or "").lower()
     combined_context = f"{page_lower} {query_lower}"
-    
+
     # Search across multiple domains for page-specific guidance
     style_search = search(combined_context, "style", max_results=1)
     ux_search = search(combined_context, "ux", max_results=3)
     landing_search = search(combined_context, "landing", max_results=1)
-    
+
     # Extract results from search response
     style_results = style_search.get("results", [])
     ux_results = ux_search.get("results", [])
     landing_results = landing_search.get("results", [])
-    
+
     # Detect page type from search results or context
     page_type = _detect_page_type(combined_context, style_results)
-    
+
     # Build overrides from search results
     layout = {}
     spacing = {}
@@ -945,7 +1026,7 @@ def _generate_intelligent_overrides(page_name: str, page_query: str, design_syst
     components = []
     unique_components = []
     recommendations = []
-    
+
     # Extract style-based overrides
     if style_results:
         style = style_results[0]
@@ -953,7 +1034,7 @@ def _generate_intelligent_overrides(page_name: str, page_query: str, design_syst
         keywords = style.get("Keywords", "")
         best_for = style.get("Best For", "")
         effects = style.get("Effects & Animation", "")
-        
+
         # Infer layout from style keywords
         if any(kw in keywords.lower() for kw in ["data", "dense", "dashboard", "grid"]):
             layout["Max Width"] = "1400px or full-width"
@@ -966,10 +1047,10 @@ def _generate_intelligent_overrides(page_name: str, page_query: str, design_syst
         else:
             layout["Max Width"] = "1200px (standard)"
             layout["Layout"] = "Full-width sections, centered content"
-        
+
         if effects:
             recommendations.append(f"Effects: {effects}")
-    
+
     # Extract UX guidelines as recommendations
     for ux in ux_results:
         category = ux.get("Category", "")
@@ -979,32 +1060,32 @@ def _generate_intelligent_overrides(page_name: str, page_query: str, design_syst
             recommendations.append(f"{category}: {do_text}")
         if dont_text:
             components.append(f"Avoid: {dont_text}")
-    
+
     # Extract landing pattern info for section structure
     if landing_results:
         landing = landing_results[0]
         sections = landing.get("Section Order", "")
         cta_placement = landing.get("Primary CTA Placement", "")
         color_strategy = landing.get("Color Strategy", "")
-        
+
         if sections:
             layout["Sections"] = sections
         if cta_placement:
             recommendations.append(f"CTA Placement: {cta_placement}")
         if color_strategy:
             colors["Strategy"] = color_strategy
-    
+
     # Add page-type specific defaults if no search results
     if not layout:
         layout["Max Width"] = "1200px"
         layout["Layout"] = "Responsive grid"
-    
+
     if not recommendations:
         recommendations = [
             "Refer to MASTER.md for all design rules",
             "Add specific overrides as needed for this page"
         ]
-    
+
     return {
         "page_type": page_type,
         "layout": layout,
@@ -1020,7 +1101,7 @@ def _generate_intelligent_overrides(page_name: str, page_query: str, design_syst
 def _detect_page_type(context: str, style_results: list) -> str:
     """Detect page type from context and search results."""
     context_lower = context.lower()
-    
+
     # Check for common page type patterns
     page_patterns = [
         (["dashboard", "admin", "analytics", "data", "metrics", "stats", "monitor", "overview"], "Dashboard / Data View"),
@@ -1034,21 +1115,21 @@ def _detect_page_type(context: str, style_results: list) -> str:
         (["search", "results", "browse", "filter", "catalog", "list"], "Search Results"),
         (["empty", "404", "error", "not found", "zero"], "Empty State"),
     ]
-    
+
     for keywords, page_type in page_patterns:
         if any(kw in context_lower for kw in keywords):
             return page_type
-    
+
     # Fallback: try to infer from style results
     if style_results:
         style_name = style_results[0].get("Style Category", "").lower()
         best_for = style_results[0].get("Best For", "").lower()
-        
+
         if "dashboard" in best_for or "data" in best_for:
             return "Dashboard / Data View"
         elif "landing" in best_for or "marketing" in best_for:
             return "Landing / Marketing"
-    
+
     return "General"
 
 

@@ -10,7 +10,7 @@ The npm package identity is deliberately distinct from the installed plugin: `lf
 
 ## GrokBuild Parity Reference (oh-my-openagent)
 
-This section makes AGENTS.md the canonical quick-reference for **GrokBuild parity vs `https://github.com/code-yeongyu/oh-my-openagent`** (upstream baseline `lazycodex-ai`/OMO `v4.12.1`, recorded per-setup in `lfg-component-inventory.json`). For the full row-by-row matrix with test citations, see `docs/grok-adapter-parity.md`; for the core/adapter port strategy and phase roadmap, see `docs/grok-adapter-core-port-strategy.md`.
+This section makes AGENTS.md the canonical quick-reference for **GrokBuild parity vs `https://github.com/code-yeongyu/oh-my-openagent`** (upstream baseline `lazycodex-ai`/OMO `v4.13.0`, recorded per-setup in `lfg-component-inventory.json`). For the full row-by-row matrix with test citations, see `docs/grok-adapter-parity.md`; for the core/adapter port strategy and phase roadmap, see `docs/grok-adapter-core-port-strategy.md`.
 
 **Strategic posture:** upstream is a core/adapter monorepo — `omo-codex` is packaging/install reference only, `omo-opencode` is the architectural reference, and shared host-neutral `*-core` packages are the behavioral source. lfg is shifting from 1:1 `omo-codex` mapping to a thin Grok adapter that consumes cores.
 
@@ -45,7 +45,7 @@ For feature intake from a new upstream OMO/lazycodex version:
 | Autonomous permissions | Grok permissions own this | N/A |
 | Telemetry | not emitted by lfg | N/A |
 
-### Full OMO component parity (upstream `v4.12.1`)
+### Full OMO component parity (upstream `v4.13.0`)
 
 | Upstream component | lfg support | Status |
 |---|---|---|
@@ -62,8 +62,10 @@ For feature intake from a new upstream OMO/lazycodex version:
 | `start-work-continuation` | Sisyphus native Stop/SubagentStop hooks substitute | Deferred |
 | `teammode` | Skill payload installed; Codex thread orchestration hook not Grok-adapted | Deferred |
 | `lazycodex-executor-verify` | Codex `lazycodex-executor` SubagentStop verifier not Grok-adapted | Deferred |
+| `workflow-selector` | Codex-only opt-in UserPromptSubmit workflow selector; no verified Grok-native prompt-routing hook yet | Deferred |
 | `bootstrap` | lfg does not bootstrap Codex runtime deps from Grok | Deferred |
 | `auto-update` | Updates stay user-controlled; hook not generated | Unsupported |
+| `test-support` | Upstream package test infrastructure, not a Grok plugin runtime component | Unsupported |
 | `telemetry` | lfg does not emit upstream anonymous telemetry | Unsupported |
 
 ### Core/adapter port roadmap

@@ -7,7 +7,7 @@
 // macOS, Linux, and Windows.
 //
 //   node "<skill-root>/scripts/team.mjs" init        --name "<team>" --session-name "<sess>" [--session <id>] [--worktree] [--base-branch dev]
-//   node "<skill-root>/scripts/team.mjs" add-member  --team <id> --id A --focus "<part/ownership/perspective>" --lens area|ownership|perspective --deliverable "<...>" [--branch <b>]
+//   node "<skill-root>/scripts/team.mjs" add-member  --team <id> --id A --name "<short role>" --focus "<part/ownership/perspective>" --lens area|ownership|perspective --deliverable "<...>" [--branch <b>]
 //   node "<skill-root>/scripts/team.mjs" bind-thread  --team <id> --id A --thread <thread-id> [--cwd <path>]
 //   node "<skill-root>/scripts/team.mjs" member-prompt --team <id> --id A
 //   node "<skill-root>/scripts/team.mjs" set-status   --team <id> --id A --status reported|blocked|active|archived [--note "<...>"]
@@ -27,16 +27,18 @@ import {
 	assertSafeTeamDir,
 	bindThread,
 	buildTeam,
+	clearMemberWorktree,
 	ensureTeamDir,
 	isUnderstaffed,
 	MIN_MEMBERS,
 	readTeam,
-	resolveTeamDir,
 	setMemberStatus,
+	setMemberWorktree,
 	teamExists,
 	writeGuideAtomic,
 	writeTeamAtomic,
 } from "./team-state.mjs";
+import { addMemberWorktree, integrateMemberBranch, removeMemberWorktree } from "./team-worktree.mjs";
 
 function parseFlags(args) {
 	const flags = { _: [] };
@@ -69,6 +71,12 @@ async function loadTeam(cwd, sessionId) {
 	return { dir, team: await readTeam(dir) };
 }
 
+function memberOrThrow(team, id) {
+	const member = team.members.find((m) => m.id === id);
+	if (!member) throw new Error(`no member with id "${id}"`);
+	return member;
+}
+
 async function persist(team, dir) {
 	await writeTeamAtomic(team, dir);
 	await writeGuideAtomic(team, buildGuide(team), dir);
@@ -95,7 +103,7 @@ const handlers = {
 		await persist(team, dir);
 		process.stdout.write(`created: ${dir}\n`);
 		process.stdout.write(`team.json + guide.md written; artifacts/ ready. session id: ${sessionId}\n`);
-		process.stdout.write(`next: add-member --team ${sessionId} --id A --focus "<part/ownership/perspective>" --lens area|ownership|perspective --deliverable "<...>"\n`);
+		process.stdout.write(`next: add-member --team ${sessionId} --id A --name "<short role>" --focus "<part/ownership/perspective>" --lens area|ownership|perspective --deliverable "<...>"\n`);
 	},
 
 	async "add-member"(cwd, flags) {
@@ -104,13 +112,15 @@ const handlers = {
 		const memberId = requireFlag(flags, "id").trim();
 		addMember(team, {
 			id: memberId,
+			name: typeof flags.name === "string" ? flags.name : null,
 			focus: requireFlag(flags, "focus"),
 			lens: requireFlag(flags, "lens"),
 			deliverable: typeof flags.deliverable === "string" ? flags.deliverable : "",
 			branch: typeof flags.branch === "string" ? flags.branch : null,
 		});
 		await persist(team, dir);
-		process.stdout.write(`added member ${memberId} to team ${sessionId}.\n\nSend this as the new thread's first message (title it "${team.threadTitleConvention}"):\n---\n${buildMemberPrompt(team, memberId)}\n---\n`);
+		const member = team.members.find((m) => m.id === memberId);
+		process.stdout.write(`added member ${memberId} to team ${sessionId}.\n\nSend this as the new thread's first message (title the thread "${member.threadTitle}"):\n---\n${buildMemberPrompt(team, memberId)}\n---\n`);
 	},
 
 	async "bind-thread"(cwd, flags) {
@@ -142,6 +152,55 @@ const handlers = {
 		});
 		await persist(team, dir);
 		process.stdout.write(`member ${flags.id} -> ${flags.status}\n`);
+	},
+
+	async "worktree-add"(cwd, flags) {
+		const sessionId = requireFlag(flags, "team");
+		const { dir, team } = await loadTeam(cwd, sessionId);
+		const member = memberOrThrow(team, requireFlag(flags, "id"));
+		const result = addMemberWorktree(cwd, team, member, {
+			baseBranch: typeof flags["base-branch"] === "string" ? flags["base-branch"] : null,
+		});
+		setMemberWorktree(team, { id: member.id, path: result.path, branch: result.branch });
+		await persist(team, dir);
+		const note = result.created ? "" : " (already exists)";
+		process.stdout.write(
+			`worktree for member ${member.id}${note}: ${result.path} on branch ${result.branch} (off ${result.base}).\nTell that member to: cd "${result.path}"\n`,
+		);
+	},
+
+	async "worktree-remove"(cwd, flags) {
+		const sessionId = requireFlag(flags, "team");
+		const { dir, team } = await loadTeam(cwd, sessionId);
+		const member = memberOrThrow(team, requireFlag(flags, "id"));
+		removeMemberWorktree(cwd, team, member, { force: flags.force === true });
+		clearMemberWorktree(team, { id: member.id });
+		await persist(team, dir);
+		process.stdout.write(`removed worktree for member ${member.id}\n`);
+	},
+
+	async integrate(cwd, flags) {
+		const sessionId = requireFlag(flags, "team");
+		const { team } = await loadTeam(cwd, sessionId);
+		const targets = typeof flags.id === "string" ? [memberOrThrow(team, flags.id)] : team.members.filter((m) => m.worktree?.branch);
+		if (targets.length === 0) throw new Error("no member has a worktree branch to integrate; run worktree-add first");
+		for (const member of targets) {
+			const result = integrateMemberBranch(cwd, member.worktree.branch);
+			if (!result.merged) {
+				if (result.conflicts.length > 0) {
+					process.stdout.write(`member ${member.id} (${member.worktree.branch}): CONFLICT into ${result.into}\n`);
+					throw new Error(
+						`merge conflict integrating member ${member.id} (branch ${member.worktree.branch}). Resolve the conflict, commit the merge, then re-run integrate. Conflicting files: ${result.conflicts.join(", ")}`,
+					);
+				}
+				process.stdout.write(`member ${member.id} (${member.worktree.branch}): could not start merge into ${result.into}\n`);
+				throw new Error(
+					`could not integrate member ${member.id} (branch ${member.worktree.branch}): ${result.message || "git merge failed; see git status"}`,
+				);
+			}
+			process.stdout.write(`member ${member.id} (${member.worktree.branch}): merged into ${result.into}\n`);
+		}
+		process.stdout.write(`integrated ${targets.length} member branch(es) with merge commits\n`);
 	},
 
 	async archive(cwd, flags) {

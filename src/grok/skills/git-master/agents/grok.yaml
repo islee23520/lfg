@@ -1,5 +1,5 @@
 interface:
-  display_name: "git-master (lfg)"
+  display_name: "(lfg) git-master"
   short_description: "Atomic Git commits, history surgery, and source archaeology"
   search_terms:
     - "git-master"

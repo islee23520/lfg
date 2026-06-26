@@ -107,8 +107,8 @@ describe("lfg internal grok install contract", () => {
     }
     expect(inventory.packageVersion).toBe("9.8.7")
     expect(inventory.upstreamName).toBe("oh-my-openagent")
-    expect(inventory.upstreamVersion).toBe("4.12.1")
-    expect(inventory.upstreamTag).toBe("v4.12.1")
+    expect(inventory.upstreamVersion).toBe("4.13.0")
+    expect(inventory.upstreamTag).toBe("v4.13.0")
   })
 
   test("setup --run surfaces payloadSource and component inventory in postInstallVerify (supports #38/#42)", async () => {

@@ -93,8 +93,8 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("## Core Install Parity")
     expect(text).toContain("## Full OMO Component Parity")
     expect(text).toContain("`lfg-component-inventory.json`")
-    expect(text).toContain("`lazycodex-ai` / OMO `v4.12.1`")
-    expect(text).toContain("https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.12.1")
+    expect(text).toContain("`lazycodex-ai` / OMO `v4.13.0`")
+    expect(text).toContain("https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.13.0")
     expect(text).toContain("split hook JSON files under `packages/omo-codex/plugin/hooks/`")
     expect(text).toContain("package-level MCP runtimes for")
     expect(text).toContain("scripts/omo-parity-upkeep.mjs")
@@ -122,7 +122,9 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
       ["skills-loader-core", "Grok-adapted"],
       ["teammode", "Deferred"],
       ["lazycodex-executor-verify", "Deferred"],
+      ["workflow-selector", "Deferred"],
       ["telemetry", "Unsupported"],
+      ["test-support", "Unsupported"],
     ] as const) {
       expect(text).toMatch(new RegExp(`\\| \`${component}\` \\|.*\\| .*\\| .*\\| ${status} \\|`))
     }
@@ -133,6 +135,10 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("codex_app.create_thread")
     expect(text).toContain("`lazycodex-executor`")
     expect(text).toContain("subagent-stop-verifying-lazycodex-executor-evidence.json")
+    expect(text).toContain("user-prompt-submit-selecting-workflow.json")
+    expect(text).toContain("OMO_CODEX_AUTO_WORKFLOW")
+    expect(text).toContain("Upstream package test infrastructure remains Unsupported")
+    expect(text).toContain("test-only support code outside the Grok runtime payload")
     expect(text).toContain("src/grok/payload/component-inventory.ts")
     expect(text).toContain("hook-bridge.integration.test.ts")
     expect(text).toContain("sync-lazycodex-agents-to-grok.ts")

@@ -29,6 +29,8 @@ const T2_COMPONENT_IDS = [
   "skills-loader-core",
   "teammode",
   "lazycodex-executor-verify",
+  "workflow-selector",
+  "test-support",
 ] as const
 
 /** Epic #27 / plan task 3 — fixture-only, no network. */
@@ -77,9 +79,9 @@ describe("plugin cache install acceptance (#27)", () => {
       packageVersion: "5.5.5",
       platform: "grok",
       upstreamName: "oh-my-openagent",
-      upstreamVersion: "4.12.1",
-      upstreamTag: "v4.12.1",
-      upstreamReleaseUrl: "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.12.1",
+      upstreamVersion: "4.13.0",
+      upstreamTag: "v4.13.0",
+      upstreamReleaseUrl: "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.13.0",
     })
     expect(inventory.components.map((component) => component.id)).toEqual(expect.arrayContaining([...T2_COMPONENT_IDS]))
     expect(inventory.components.every((component) => component.status.length > 0)).toBe(true)
@@ -92,6 +94,8 @@ describe("plugin cache install acceptance (#27)", () => {
         expect.objectContaining({ id: "context7", status: "Remote URL manifest-only" }),
         expect.objectContaining({ id: "teammode", status: "Deferred" }),
         expect.objectContaining({ id: "lazycodex-executor-verify", status: "Deferred" }),
+        expect.objectContaining({ id: "workflow-selector", status: "Deferred" }),
+        expect.objectContaining({ id: "test-support", status: "Unsupported" }),
       ]),
     )
     expect(inventory.components.find((component) => component.id === "git-bash")?.evidence).toContain("Windows-unverified")

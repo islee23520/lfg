@@ -36,34 +36,35 @@ The T5 upstream agent/model declaration mapping is tracked in
 
 ## Full OMO Component Parity
 
-Current upstream baseline: `lazycodex-ai` / OMO `v4.12.1`
-(https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.12.1), verified
-on 2026-06-20. `lfg-component-inventory.json` records this baseline in each
+Current upstream baseline: `lazycodex-ai` / OMO `v4.13.0`
+(https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.13.0), verified
+on 2026-06-26. `lfg-component-inventory.json` records this baseline in each
 fresh Grok setup so installed support can be audited against the tracked OMO
 release while keeping lfg focused on the GrokBuild port and installed Grok plugin payload.
 
 Upstream component inventory is from
-`lazycodex-ai@4.12.1` / `oh-my-openagent` tag `v4.12.1`
-(`d0dc6f65d4e783a3bbce3f9f3e148e24e8c8f186`). Each row cites the upstream source
+`lazycodex-ai@4.13.0` / `oh-my-openagent` tag `v4.13.0`
+(`21561c205e05d394c8734a660624b31d39bd0843`). Each row cites the upstream source
 plus the local owner/test surface. The status vocabulary for this table is:
 `Implemented`, `Grok-adapted`, `Manifest-only`, `Remote URL manifest-only`, `Unsupported`, or `Deferred`.
 
 Automatic upkeep is enforced by `scripts/omo-parity-upkeep.mjs`, which scans a configured OMO/LazyCodex source tree for aggregate skills, shared-skills package entries, component-local skills, plugin components, split hook JSON component references, and package inventory. `npm run assert-omo-parity` invokes that scanner in local generated-payload mode on every parity gate, and the scanner can be pointed at a fresh upstream checkout with `npm run omo-parity-upkeep -- --source <oh-my-openagent-or-lazycodex-ai-root>` to fail on any unclassified upstream skill, component, or hook-referenced component before `lfg-component-inventory.json` and this table are updated.
 
-The `v4.12.1` refresh adds upstream package-layout skills, `teammode`,
-`lazycodex-executor-verify`, split hook JSON files under
+The `v4.13.0` refresh adds upstream package-layout skills, `teammode`,
+`lazycodex-executor-verify`, `workflow-selector`, `test-support`, split hook JSON files under
 `packages/omo-codex/plugin/hooks/`, and package-level MCP runtimes for
 `git-bash-mcp` and `lsp-daemon`. lfg now syncs package-layout skills and can
 copy available package MCP runtimes while falling back only for missing runtimes
 such as `ast-grep-mcp`. Codex/OpenCode-specific hooks remain Deferred until
 there is Grok-native host glue; manifest-only MCP entries are not behavior-adapted local MCP tools.
+Upstream package test infrastructure remains Unsupported because it is test-only support code outside the Grok runtime payload.
 
 | upstream component | upstream source | local owner / tests | Grok/lfg support | Status |
 |--------------------|-----------------|---------------------|------------------|--------|
 | `comment-checker` | `packages/omo-codex/MARKETPLACE.md`; `components/comment-checker` | `src/grok/payload/component-inventory.ts`; `plugin-cache-install.acceptance.test.ts` | Codex PostToolUse comment-checker behavior is not wired as a Grok-native post-edit workflow. | Deferred |
-| `git-bash` | `packages/omo-codex/plugin/components/git-bash`; `packages/git-bash-mcp` | `src/grok/payload/component-inventory.ts`; `plugin-cache-install.acceptance.test.ts`; `materialize-grok-mcp.test.ts` | Manifest-only for Grok parity. lfg can copy the upstream 4.12.1 `git-bash-mcp` runtime from a package-shaped source, but macOS/non-Windows installs keep it disabled through `disabled_mcp_servers`; Windows behavior remains Windows-unverified. | Manifest-only |
+| `git-bash` | `packages/omo-codex/plugin/components/git-bash`; `packages/git-bash-mcp` | `src/grok/payload/component-inventory.ts`; `plugin-cache-install.acceptance.test.ts`; `materialize-grok-mcp.test.ts` | Manifest-only for Grok parity. lfg can copy the upstream 4.13.0 `git-bash-mcp` runtime from a package-shaped source, but macOS/non-Windows installs keep it disabled through `disabled_mcp_servers`; Windows behavior remains Windows-unverified. | Manifest-only |
 | `rules` | `packages/omo-codex/MARKETPLACE.md`; `components/rules` | `src/grok/ports/vendor/rules-engine-vendored/` (vendored from `packages/rules-engine`); `src/grok/ports/rules-injector.ts` (Grok PostToolUse glue); `hook-bridge.integration.test.ts`; `post-install-ported-hooks.test.ts` | **Native first-party OMO hooks** installed by Grok `lfg setup --run` (https://github.com/code-yeongyu/oh-my-openagent codex adapter + opencode). Bridge fallback (`lfg-grok-hook-bridge.mjs`) only for legacy/imported hooks. Phase 1 of the core/adapter port strategy: `rules-engine` is vendored verbatim (host-neutral) and wired into Grok via `rules-injector.ts` (PostToolUse → discover+match rules/AGENTS.md → context block). | Grok-adapted |
-| `lsp` | `packages/omo-codex/plugin/components/lsp`; `packages/lsp-daemon`; `packages/lsp-tools-mcp` | `src/grok/payload/component-inventory.ts`; `grok-adapter-parity-doc.test.ts`; `lfg-mcp manifest in post-install-verify`; `materialize-grok-mcp.test.ts` | LSP MCP is present in plugin-root .mcp.json. lfg can copy the upstream 4.12.1 `lsp-daemon` runtime from a package-shaped source, but Grok-adapted LSP hook/tool behavior is still deferred. | Manifest-only |
+| `lsp` | `packages/omo-codex/plugin/components/lsp`; `packages/lsp-daemon`; `packages/lsp-tools-mcp` | `src/grok/payload/component-inventory.ts`; `grok-adapter-parity-doc.test.ts`; `lfg-mcp manifest in post-install-verify`; `materialize-grok-mcp.test.ts` | LSP MCP is present in plugin-root .mcp.json. lfg can copy the upstream 4.13.0 `lsp-daemon` runtime from a package-shaped source, but Grok-adapted LSP hook/tool behavior is still deferred. | Manifest-only |
 | `ast_grep` | upstream aggregate + build-bundled-mcp-runtimes | `src/grok/payload/component-inventory.ts`; MCP manifest + doctor; `materialize-grok-mcp.test.ts` | ast_grep MCP is present in .mcp.json with an lfg-owned local runtime stub. `tools/list` is intentionally empty until a real Grok-adapted runtime is packaged. | Manifest-only |
 | `codegraph` | `packages/utils/src/codegraph/`; `omo-codex/plugin/components/codegraph`; `omo-opencode/mcp/codegraph.ts` | `src/grok/payload/component-inventory.ts`; `docs/grok-adapter-core-port-strategy.md` (Phase 0) | External `@colbymchenry/codegraph` semantic-code-graph MCP binary wrapped via host-neutral `utils/codegraph` provisioning (sha256-verified download to `~/.omo/codegraph`) + Grok-native `.mcp.json` command server (`serve --mcp`). Self-contained, parallel-safe; graph intelligence lives in the external binary, not OMO. | Grok-adapted |
 | `grep_app` | upstream aggregate + remote MCP manifest | `src/grok/payload/component-inventory.ts`; MCP manifest + doctor | grep_app MCP is represented as the upstream remote URL server `https://mcp.grep.app`; lfg validates manifest shape and does not live-call it by default. | Remote URL manifest-only |
@@ -78,17 +79,19 @@ there is Grok-native host glue; manifest-only MCP entries are not behavior-adapt
 | `delegate-core` | `packages/delegate-core/src/` (upstream `oh-my-openagent`) | `src/grok/ports/vendor/delegate-core-vendored/`; `src/grok/ports/grok-delegate-adapter.ts`; `component-inventory.ts` | Phase 5 of the core/adapter port strategy: delegate-core source (model-selection, retry-patterns, retry-guidance) vendored; Grok glue maps delegate-task model selection to Grok subagent routing (docs/grok-adapter-core-port-strategy.md). | Grok-adapted |
 | `boulder-state` | `packages/boulder-state/src/` (upstream `oh-my-openagent`) | `src/grok/ports/vendor/boulder-state-vendored/`; `src/grok/ports/grok-delegate-adapter.ts`; `component-inventory.ts` | Phase 5 of the core/adapter port strategy: boulder-state source (plan-checklist, types, storage) vendored; Grok glue bridges plan-checklist to the `.omo/plans` convention (docs/grok-adapter-core-port-strategy.md). | Grok-adapted |
 | `skills-loader-core` | `packages/skills-loader-core/src/` (upstream `oh-my-openagent`) | `src/grok/ports/vendor/skills-loader-core-vendored/`; `src/grok/ports/grok-skills-loader-adapter.ts`; `component-inventory.ts` | Phase 6 of the core/adapter port strategy: skills-loader-core host-neutral primitives (config, shared, builtin-skills loader) vendored; Grok glue discovers skills from Grok skill roots. Curated port: OpenCode-bound async discovery/runtime/tool/hooks layers and bundled SKILL.md content remain deferred. | Grok-adapted |
-| `teammode` | `packages/omo-codex/plugin/components/teammode`; `packages/omo-codex/plugin/hooks/post-tool-use-checking-thread-title-hygiene.json` | `src/grok/payload/component-inventory.ts`; `scripts/sync-omo-skills-to-grok.mjs`; `omo-skill-sync-script.test.ts` | The upstream 4.12.1 teammode skill payload is installed as an upstream-derived skill. The Codex `codex_app.create_thread` thread-title hook is not Grok-adapted yet. | Deferred |
+| `teammode` | `packages/omo-codex/plugin/components/teammode`; `packages/omo-codex/plugin/hooks/post-tool-use-checking-thread-title-hygiene.json` | `src/grok/payload/component-inventory.ts`; `scripts/sync-omo-skills-to-grok.mjs`; `omo-skill-sync-script.test.ts` | The upstream 4.13.0 teammode skill payload is installed as an upstream-derived skill. The Codex `codex_app.create_thread` thread-title hook is not Grok-adapted yet. | Deferred |
 | `lazycodex-executor-verify` | `packages/omo-codex/plugin/components/lazycodex-executor-verify`; `packages/omo-codex/plugin/hooks/subagent-stop-verifying-lazycodex-executor-evidence.json` | `src/grok/payload/component-inventory.ts`; `grok-adapter-parity-doc.test.ts` | Upstream SubagentStop evidence verifier targets the Codex `lazycodex-executor` agent and writes `.omo/evidence` receipt enforcement. It needs Grok-specific agent naming/event adaptation before lfg can enable it. | Deferred |
+| `workflow-selector` | `packages/omo-codex/plugin/components/workflow-selector`; `packages/omo-codex/plugin/hooks/user-prompt-submit-selecting-workflow.json` | `src/grok/payload/component-inventory.ts`; `grok-adapter-parity-doc.test.ts`; `scripts/omo-parity-upkeep.mjs` | Upstream workflow-selector is an opt-in Codex `UserPromptSubmit` hook enabled by `OMO_CODEX_AUTO_WORKFLOW`. It emits bounded `hookSpecificOutput.additionalContext` for workflow guidance, but lfg does not enable it until a Grok-native prompt-routing hook surface is implemented and verified. | Deferred |
 | `bootstrap` | upstream SessionStart component | `src/grok/payload/component-inventory.ts`; `grok-adapter-parity-doc.test.ts` | Upstream bootstrap provisioning targets Codex runtime dependencies; lfg does not run provisioning hooks during Grok setup. | Deferred |
 | `auto-update` | upstream SessionStart component | `src/grok/payload/component-inventory.ts`; `grok-adapter-parity-doc.test.ts` | Upstream auto-update can run `npx lazycodex-ai@latest install`; lfg keeps updates user-controlled and does not enable this hook. | Unsupported |
+| `test-support` | `packages/omo-codex/plugin/components/test-support` | `src/grok/payload/component-inventory.ts`; `scripts/omo-parity-upkeep.mjs`; `plugin-cache-install.acceptance.test.ts` | Upstream test-support is package test infrastructure for component smoke tests. It stays outside the installed Grok runtime payload. | Unsupported |
 | `telemetry` | `packages/omo-codex/MARKETPLACE.md`; `components/telemetry` | `src/grok/payload/component-inventory.ts`; `plugin-cache-install.acceptance.test.ts` | lfg does not emit upstream anonymous telemetry. | Unsupported |
 
 **Native first-party OMO hooks + bridge fallback only for legacy/imported hooks** per T11 of `.omo/plans/grok-native-omo-hooks.md`. Grok-first OMO parity via **codex adapter** core + **opencode** feature (https://github.com/code-yeongyu/oh-my-openagent).
 
 ## Hook Event Matrix
 
-Upstream baseline: `lazycodex-ai@4.12.1` split hook JSON files under `packages/omo-codex/plugin/hooks/`. Local generated Grok hooks must either target an installed file under `~/.grok/plugins/lfg` or use the approved bridge command `hooks/lfg-grok-hook-bridge.mjs` with an installed child target. Telemetry stays disabled by default.
+Upstream baseline: `lazycodex-ai@4.13.0` split hook JSON files under `packages/omo-codex/plugin/hooks/`. Local generated Grok hooks must either target an installed file under `~/.grok/plugins/lfg` or use the approved bridge command `hooks/lfg-grok-hook-bridge.mjs` with an installed child target. Telemetry stays disabled by default.
 
 | Event | Upstream matcher | Upstream timeout | Upstream command | Local target decision | Local Grok behavior |
 |---|---:|---:|---|---|---|
@@ -99,6 +102,7 @@ Upstream baseline: `lazycodex-ai@4.12.1` split hook JSON files under `packages/o
 | `UserPromptSubmit` | none | 10s | `components/rules/dist/cli.js hook user-prompt-submit` | Bridge to installed `components/rules/dist/cli.js` when present. | Grok-adapted rule refresh plus lfg config loader and Sisyphus intent routing. |
 | `UserPromptSubmit` | none | 5s | `components/ultrawork/dist/cli.js hook user-prompt-submit` | Bridge to installed `components/ultrawork/dist/cli.js` when present. | Grok-adapted ultrawork trigger. |
 | `UserPromptSubmit` | none | 10s | `components/ulw-loop/dist/cli.js hook user-prompt-submit` | Deferred. | Durable `.omo` awareness is supplied by `lfg-config-loader.mjs`; no uninstalled `ulw-loop` component command is generated. |
+| `UserPromptSubmit` | none | 5s | `components/workflow-selector/dist/cli.js hook user-prompt-submit` | Deferred. | Not generated until a Grok-native prompt-routing hook surface is implemented and verified. |
 | `PreToolUse` | `^Bash$` | 5s | `components/git-bash/dist/cli.js hook pre-tool-use` | Deferred. | Not generated on macOS Grok installs. |
 | `PreToolUse` | `^create_goal$` | 5s | `components/ulw-loop/dist/cli.js hook pre-tool-use` | Deferred. | Sisyphus native hook supplies pre-tool guidance; no uninstalled `ulw-loop` command is generated. |
 | `PostToolUse` | edit/apply regex | 30s | `components/comment-checker/dist/cli.js hook post-tool-use` | Deferred. | Not generated until a Grok-native comment-checker component is packaged. |
@@ -113,5 +117,5 @@ Upstream baseline: `lazycodex-ai@4.12.1` split hook JSON files under `packages/o
 | `SubagentStop` | none | 10s | `components/start-work-continuation/dist/cli.js hook subagent-stop` | Deferred. | Sisyphus native SubagentStop hook supplies delegation-result context; start-work continuation CLI is not packaged. |
 | `SubagentStop` | `^lazycodex-executor$` | 10s | `components/lazycodex-executor-verify/dist/cli.js hook subagent-stop` | Deferred. | Not generated until the Codex `lazycodex-executor` evidence verifier is adapted to Grok subagent naming and event payloads. |
 
-**Normative port map:** `docs/lfp-capability-port.md`  
+**Normative port map:** `docs/lfp-capability-port.md`
 **Ownership:** `docs/grok-adapter-ownership.md` (ADR; tested in `grok-adapter-ownership-doc.test.ts`)

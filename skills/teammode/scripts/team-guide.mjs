@@ -8,7 +8,9 @@
 function memberLine(member) {
 	const thread = member.threadId ? ` | thread ${member.threadId}` : " | thread not created yet";
 	const wt = member.worktree?.path ? ` | worktree ${member.worktree.path}` : "";
-	return `- **${member.id}** (${member.lens}) - ${member.focus}${member.deliverable ? ` -> ${member.deliverable}` : ""}${thread}${wt} [${member.status}]`;
+	const name = member.name ? ` "${member.name}"` : "";
+	const title = member.threadTitle ? ` | thread title \`${member.threadTitle}\`` : "";
+	return `- **${member.id}**${name} (${member.lens}) - ${member.focus}${member.deliverable ? ` -> ${member.deliverable}` : ""}${title}${thread}${wt} [${member.status}]`;
 }
 
 function worktreeSection(team) {
@@ -43,7 +45,7 @@ export function buildGuide(team) {
 
 - Team: **${team.teamName}** (id \`${team.teamId}\`)
 - Team state: \`${teamJson}\`
-- Thread/session title convention (use it EXACTLY): \`${team.threadTitleConvention}\`
+- Thread title convention: \`${team.threadTitleConvention}\` - each member's thread takes its OWN title from its name (your row below shows yours); two members never share a title
 
 ## Who you are (your identity is fixed)
 
@@ -66,18 +68,17 @@ coordinate with each other, but the leader owns the final decision and integrati
   is mandatory regardless of the language the task was given in.
 - **Exception: when the END USER addresses you directly, reply in the user's own language.**
   Team-internal traffic stays English; user-facing replies match the user.
-- **Report to the leader the moment your work is complete.** A finished task that was never
-  reported does not count as done.
-- **Over-communicate relentlessly - report even the trivial.** Message constantly and
-  proactively: every finding, decision, hand-off, and even the smallest or most trivial step, the
-  moment it happens, in short lean notes. Never save it up for one final report. When in doubt,
-  send the message - far more and far smaller updates always beats going quiet. The instant
-  anything changes a peer's assumption, push it to them. Too many messages is correct here; the
-  only failure is going quiet.
-- **Stale, stuck, and silently-blocked states are NOT acceptable.** During long work send
-  \`WORKING: <your focus> - <phase>\` so the leader can see you are alive. If you truly cannot
-  proceed, send \`BLOCKED: <reason>\` immediately and propose the smallest unblock - never sit
-  idle and never disappear. Being quiet is a failure, not a pause.
+- **Reach the leader and your peers with \`codex_app.send_message_to_thread\` - not by narrating in
+  your own thread, where no one reads it.** The address book is in team.json: the leader thread id
+  is \`leader.sessionId\`, and each peer thread id is its \`members[].threadId\`.
+- **Push a short message at each of these moments - never batch them into one report at the end:**
+  - to the **leader**: every finding or decision, every file or sub-task you finish, a
+    \`WORKING: <focus> - <phase>\` heartbeat every few tool calls so you never look stale, a
+    \`BLOCKED: <reason>\` the instant you cannot proceed, and your result the moment your slice is done.
+  - to a **peer**: the instant you learn anything that touches their slice - a shared finding, a
+    changed assumption, an interface they depend on. When unsure who owns it, send it to the leader.
+- **Going quiet is the only failure.** Many small lean messages beat one end-of-work dump; keep
+  every message short.
 
 ## Artifacts (how you hand work off)
 
@@ -103,9 +104,9 @@ export function buildMemberPrompt(team, id) {
 	const guide = team.paths?.guide ?? ".omo/teams/<session_id>/guide.md";
 	const teamJson = team.paths?.team ?? ".omo/teams/<session_id>/team.json";
 	const where = member.cwd ? `Work inside \`${member.cwd}\`.` : "Work from the repository root unless your manual assigns a worktree.";
-	return `You are member ${member.id} of team ${team.teamName} - owner of: ${member.focus}.
+	return `You are member ${member.id}${member.name ? ` (${member.name})` : ""} of team ${team.teamName} - owner of: ${member.focus}. Your thread title is \`${member.threadTitle}\`.
 FIRST read your field manual at \`${guide}\`, then the team state at \`${teamJson}\`; they define your scope, deliverable, the leader, the artifacts directory, and the communication rules.
 ${where}
 Communicate with the team and leader in English; reply to the end user in the user's own language.
-Start now, send WORKING/BLOCKED updates so you never look stale, and report to the leader the moment you are done.`;
+Start now. Push updates to the leader and relevant peers with \`codex_app.send_message_to_thread\` as you work - findings, \`WORKING:\` heartbeats, and \`BLOCKED:\` the instant you stall - never just one report at the end.`;
 }

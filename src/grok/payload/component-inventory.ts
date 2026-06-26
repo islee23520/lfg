@@ -3,15 +3,15 @@ import { join } from "node:path"
 
 export const COMPONENT_INVENTORY_FILE = "lfg-component-inventory.json" as const
 export const UPSTREAM_OMO_NAME = "oh-my-openagent" as const
-export const UPSTREAM_OMO_VERSION = "4.12.1" as const
-export const UPSTREAM_OMO_TAG = "v4.12.1" as const
-export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.12.1" as const
+export const UPSTREAM_OMO_VERSION = "4.13.0" as const
+export const UPSTREAM_OMO_TAG = "v4.13.0" as const
+export const UPSTREAM_OMO_RELEASE_URL = "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.13.0" as const
 
 export const COMPONENTS = [
   { id: "comment-checker", status: "Deferred", evidence: "Codex PostToolUse hook behavior has no Grok-native equivalent wired by lfg yet." },
-  { id: "git-bash", status: "Manifest-only", evidence: "git_bash MCP is disabled on macOS/Linux and Windows-unverified. lfg can copy the upstream 4.12.1 git-bash-mcp runtime from a package-shaped source, but behavior-level Windows support remains unverified." },
+  { id: "git-bash", status: "Manifest-only", evidence: "git_bash MCP is disabled on macOS/Linux and Windows-unverified. lfg can copy the upstream 4.13.0 git-bash-mcp runtime from a package-shaped source, but behavior-level Windows support remains unverified." },
   { id: "rules", status: "Grok-adapted", evidence: "Component hooks are bridged through lfg-grok-hook-bridge.mjs when present in the installed payload." },
-  { id: "lsp", status: "Manifest-only", evidence: "lsp MCP is present in plugin .mcp.json. lfg can copy the upstream 4.12.1 lsp-daemon runtime from a package-shaped source, but Grok-adapted LSP hook/tool behavior is still deferred." },
+  { id: "lsp", status: "Manifest-only", evidence: "lsp MCP is present in plugin .mcp.json. lfg can copy the upstream 4.13.0 lsp-daemon runtime from a package-shaped source, but Grok-adapted LSP hook/tool behavior is still deferred." },
   { id: "ast_grep", status: "Manifest-only", evidence: "ast_grep MCP is present in plugin .mcp.json with an lfg-owned local runtime stub; tools/list intentionally remains empty until a real Grok-adapted runtime is packaged." },
   { id: "codegraph", status: "Grok-adapted", evidence: "External @colbymchenry/codegraph semantic-code-graph MCP binary wrapped via utils/codegraph provisioning + Grok-native .mcp.json command server; Phase 0 of the core/adapter port strategy (docs/grok-adapter-core-port-strategy.md)." },
   { id: "grep_app", status: "Remote URL manifest-only", evidence: "grep_app MCP is represented as the upstream remote URL server https://mcp.grep.app; lfg validates manifest shape and does not live-call it by default." },
@@ -27,8 +27,10 @@ export const COMPONENTS = [
   { id: "delegate-core", status: "Grok-adapted", evidence: "Phase 5 of the core/adapter port strategy: delegate-core source (model-selection, retry-patterns, retry-guidance) vendored under src/grok/ports/vendor/delegate-core-vendored/; Grok glue in ports/grok-delegate-adapter.ts maps delegate-task model selection to Grok subagent routing (docs/grok-adapter-core-port-strategy.md)." },
   { id: "boulder-state", status: "Grok-adapted", evidence: "Phase 5 of the core/adapter port strategy: boulder-state source (plan-checklist, types, storage) vendored under src/grok/ports/vendor/boulder-state-vendored/; Grok glue in ports/grok-delegate-adapter.ts bridges plan-checklist to the .omo/plans convention (docs/grok-adapter-core-port-strategy.md)." },
   { id: "skills-loader-core", status: "Grok-adapted", evidence: "Phase 6 of the core/adapter port strategy: skills-loader-core host-neutral primitives (config, shared, builtin-skills loader) vendored under src/grok/ports/vendor/skills-loader-core-vendored/; Grok glue in ports/grok-skills-loader-adapter.ts discovers skills from Grok skill roots (OpenCode-bound discovery layers deferred). See docs/grok-adapter-core-port-strategy.md." },
-  { id: "teammode", status: "Deferred", evidence: "Upstream 4.12.1 teammode skill payload is installed as an upstream-derived skill, but the Codex codex_app thread orchestration hook is not Grok-adapted yet." },
-  { id: "lazycodex-executor-verify", status: "Deferred", evidence: "Upstream 4.12.1 SubagentStop evidence verifier targets the Codex lazycodex-executor agent and requires Grok-specific agent naming/event adaptation before it can be enabled." },
+  { id: "teammode", status: "Deferred", evidence: "Upstream 4.13.0 teammode skill payload is installed as an upstream-derived skill, but the Codex codex_app thread orchestration hook is not Grok-adapted yet." },
+  { id: "lazycodex-executor-verify", status: "Deferred", evidence: "Upstream 4.13.0 SubagentStop evidence verifier targets the Codex lazycodex-executor agent and requires Grok-specific agent naming/event adaptation before it can be enabled." },
+  { id: "workflow-selector", status: "Deferred", evidence: "Upstream 4.13.0 workflow-selector is an opt-in Codex UserPromptSubmit hook that emits hookSpecificOutput.additionalContext. lfg does not enable it until a Grok-native prompt-routing hook surface is implemented and verified." },
+  { id: "test-support", status: "Unsupported", evidence: "Upstream test-support is package test infrastructure for component smoke tests, not a user-facing runtime component to install into the Grok plugin payload." },
   { id: "telemetry", status: "Unsupported", evidence: "lfg does not emit upstream anonymous telemetry." },
 ] as const
 
