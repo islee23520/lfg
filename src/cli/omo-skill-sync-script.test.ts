@@ -60,6 +60,7 @@ describe("sync-omo-skills-to-grok", () => {
       await expect(readFile(join(target, "lsp", "SKILL.md"), "utf8")).resolves.toContain("component lsp source")
       await expect(readFile(join(target, "debugging", "SKILL.md"), "utf8")).resolves.toContain("aggregate debugging source")
       await expect(readFile(join(target, "review-work", "SKILL.md"), "utf8")).resolves.toContain("aggregate review-work source")
+      await expect(readFile(join(target, "ultraresearch", "SKILL.md"), "utf8")).resolves.toContain("Grok native x_search")
       await expect(readFile(join(target, "git-master", "agents", "grok.yaml"), "utf8")).resolves.toContain("git-master (lfg)")
       await expect(readFile(join(target, "ulw-plan", "agents", "grok.yaml"), "utf8")).resolves.toContain("Use $ulw-plan")
       await expect(readFile(join(target, "ulw-plan", "agents", "openai.yaml"), "utf8")).rejects.toThrow()
@@ -109,6 +110,12 @@ async function writeUpstreamSkillSource(source: string): Promise<void> {
   for (const [skillName, sourcePath] of Object.entries(managedSourceMap)) {
     await writeSkillFile(source, sourcePath, skillName, `${sourcePath.startsWith("components/") ? "component" : "aggregate"} ${skillName} source\n`)
   }
+  await writeSkillFile(
+    source,
+    managedSourceMap.ultraresearch,
+    "ultraresearch",
+    'description: "Maximum-saturation research orchestration: parallel explore+librarian swarms across codebase, web, official docs, and OSS repos;"\n\nRole protocols — embed the relevant one in each spawn message; every worker gets a unique angle:\n\n- **Web (librarian), 3-6 workers.** At least 10 distinct websearch queries per worker, each with a different operator or angle (see Search craft); fetch the full page for every result that matters — snippets lie. Context7 with 3+ queries per known library. grep.app and `gh search code|repos|issues` for real-world usage. Official docs via sitemap discovery (`<base>/sitemap.xml`), then targeted pages.\n\n## Search craft\n\nEnglish first: run every search in English by default\n',
+  )
   await writeSkillFile(
     source,
     managedSourceMap["ulw-plan"],

@@ -105,6 +105,8 @@ async function adaptSkillPayload(skillName, skillRoot) {
     await rewriteOptionalFile(join(skillRoot, "references", "full-workflow.md"), adaptUlwLoopReference)
   } else if (skillName === "ulw-plan") {
     await rewriteOptionalFile(join(skillRoot, "references", "full-workflow.md"), adaptUlwPlanReference)
+  } else if (skillName === "ultraresearch") {
+    await rewriteSkillMarkdown(skillRoot, adaptUltraresearchSkill)
   }
 }
 
@@ -391,6 +393,24 @@ function adaptUlwPlanReference(content) {
     .replaceAll("Codex CLI review", "GrokBuild adapter review")
     .replaceAll("`CODEX_HOME`", "`GROK_HOME`")
     .replaceAll("Codex-native", "GrokBuild-native")
+}
+
+function adaptUltraresearchSkill(content) {
+  if (content.includes("Grok native x_search")) return content
+
+  return content
+    .replace(
+      "codebase, web, official docs, and OSS repos",
+      "codebase, web, Grok native x_search, official docs, and OSS repos",
+    )
+    .replace(
+      "- **Web (librarian), 3-6 workers.** At least 10 distinct websearch queries per worker, each with a different operator or angle (see Search craft); fetch the full page for every result that matters — snippets lie. Context7 with 3+ queries per known library. grep.app and `gh search code|repos|issues` for real-world usage. Official docs via sitemap discovery (`<base>/sitemap.xml`), then targeted pages.\n",
+      "- **Web (librarian), 3-6 workers.** At least 10 distinct websearch queries per worker, each with a different operator or angle (see Search craft); fetch the full page for every result that matters — snippets lie. Context7 with 3+ queries per known library. grep.app and `gh search code|repos|issues` for real-world usage. Official docs via sitemap discovery (`<base>/sitemap.xml`), then targeted pages.\n- **Grok native x_search, 1-3 workers.** When the Grok host exposes `x_search`, use it aggressively as a first-class real-time/social source lane, especially for breaking news, product launches, incidents, funding, sentiment, community reports, and claims where primary actors publish on X first. Run multiple query phrasings with handles, hashtags, exact product names, error strings, and date windows. Treat X posts as leads or primary-source statements only when the account identity is relevant and cited; corroborate factual claims through the Phase 3b claim ledger before asserting them.\n",
+    )
+    .replace(
+      "English first: run every search in English by default",
+      "Grok native x_search first when recency, primary-actor posts, or community signal matters: include an x_search lane in Phase 0, dedicate at least one first-wave worker to it when available, and promote useful posts into EXPAND leads for web/docs/repo corroboration.\n\nEnglish first: run every search in English by default",
+    )
 }
 
 async function resolveOmoPluginSource(explicitSource, options = {}) {
