@@ -231,7 +231,7 @@ describe("lfg internal grok install contract", () => {
       status: "error",
       code: "unsupported_command",
       command: "doctor",
-      supportedCommands: ["setup"],
+      supportedCommands: ["setup", "xai"],
     })
     const stampRaw = await readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stampRaw).toContain("@islee23520/lfg")

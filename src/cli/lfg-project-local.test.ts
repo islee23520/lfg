@@ -16,7 +16,7 @@ describe("lfg project-local (#28)", () => {
       status: "error",
       code: "unsupported_command",
       command: "project-local",
-      supportedCommands: ["setup"],
+      supportedCommands: ["setup", "xai"],
     })
   })
 })

@@ -9,6 +9,30 @@
 
 const { devLog } = await importFirst(["./lfg-dev-logger.mjs", "../log/lfg-dev-logger.mjs"]);
 
+const MODEL_EXPLICIT_NO_VISION = [
+  /non-reasoning/,
+  /grok-composer/,
+  /grok-3-mini/,
+  /grok-build/,
+  /codex-auto/,
+  /embedding/,
+  /imagine-image/,
+  /imagine-video/,
+  /tts/,
+  /whisper/,
+];
+
+const MODEL_EXPLICIT_VISION = [
+  /gemini/,
+  /gpt-5/,
+  /gpt-4o/,
+  /gpt-4\.1/,
+  /vision/,
+  /glm-4\.6v/,
+  /kimi-k2\.6/,
+  /multimodal/,
+];
+
 const input = parseJson(await readStdin());
 const event = normalizeHookEventName(input);
 const context = renderSisyphusContext(event, input);
@@ -300,6 +324,134 @@ function planningRoutingBlock(intentKind) {
     "After /ulw-plan produces an approved plan, execution begins via $start-work or delegation.",
     "</sisyphus-planning-routing>",
   ].join("\n");
+}
+
+/**
+ * Detect when the user prompt includes image attachments (or image placeholders)
+ * but the active session model cannot accept image inputs. In that case Sisyphus
+ * must force-delegate to multimodal-looker via spawn_subagent so the main turn
+ * never hits the "Image inputs are not supported" 400 error.
+ */
+function detectImageDelegationNeed(input, prompt) {
+  const hasImages = promptHasImageAttachments(input, prompt);
+  if (!hasImages) return null;
+
+  const model = stringField(input ?? {}, ["model"]) ?? stringField(process.env, ["GROK_MODEL", "GROK_DEFAULT_MODEL"]) ?? "";
+  if (modelSupportsImageInputs(model)) return null;
+
+  const modelNote = model.length > 0 ? model.replace(/[\r\n<>]/g, " ").slice(0, 80) : "current session default";
+  const lines = [
+    "<sisyphus-image-delegation>",
+    `IMAGE ATTACHMENTS DETECTED — main model (${modelNote}) does not support images.`,
+    "The orchestrator MUST delegate visual inspection immediately to prevent API 400.",
+    "",
+    "FORCED DELEGATION (execute this BEFORE any other work):",
+    "1. Call: spawn_subagent({ subagent_type: \"multimodal-looker\", background: false, prompt: <user goal + image refs> })",
+    "2. Prompt for the subagent MUST include every [Image #N] token and/or filesystem image path from the user message.",
+    "3. DO NOT call read_file on image paths yourself; multimodal-looker handles the visual read.",
+    "4. Wait for subagent result (structured evidence). Only then synthesize the final answer.",
+    "5. Never retry the same image-bearing prompt on the main model — it will fail.",
+    "",
+    "image_gen/image_edit are for CREATING art, not for READING user screenshots.",
+    "</sisyphus-image-delegation>",
+  ];
+  return lines.join("\n");
+}
+
+function promptHasImageAttachments(record, promptText) {
+  const count = numberField(record ?? {}, ["attachmentCount", "attachment_count", "imageCount", "image_count"]);
+  if (count !== null && count > 0) return true;
+
+  const hasImage = booleanField(record ?? {}, ["hasImages", "has_images", "hasImageAttachments", "has_image_attachments"]);
+  if (hasImage === true) return true;
+
+  for (const key of ["attachments", "images", "imageAttachments", "image_attachments"]) {
+    const list = record?.[key];
+    if (Array.isArray(list) && list.some((item) => isImageAttachment(item))) return true;
+  }
+
+  const p = promptText ?? stringField(record ?? {}, ["prompt", "userQuery", "user_query"]) ?? "";
+  if (/\[Image\s*#\d+\]/i.test(p)) return true;
+  if (/\b(data:image\/[a-z0-9.+-]+;base64,)/i.test(p)) return true;
+
+  if (contentPartsHaveImages(record?.content)) return true;
+  if (contentPartsHaveImages(record?.message)) return true;
+  if (Array.isArray(record?.messages)) {
+    for (const message of record.messages) {
+      if (contentPartsHaveImages(message?.content)) return true;
+    }
+  }
+  return false;
+}
+
+function contentPartsHaveImages(content) {
+  if (!Array.isArray(content)) return false;
+  return content.some((part) => {
+    if (typeof part !== "object" || part === null) return false;
+    const type = String(part.type ?? "").toLowerCase();
+    if (type === "image" || type === "image_url" || type === "input_image") return true;
+    if (part.image_url !== undefined || part.imageUrl !== undefined) return true;
+    if (part.source !== undefined && typeof part.source === "object") {
+      const media = String(part.source.media_type ?? part.source.mediaType ?? "").toLowerCase();
+      if (media.startsWith("image/")) return true;
+    }
+    return false;
+  });
+}
+
+function isImageAttachment(item) {
+  if (typeof item === "string") {
+    return /\.(png|jpe?g|gif|webp|bmp|heic|svg)(\?|$)/i.test(item) || item.startsWith("data:image/");
+  }
+  if (typeof item !== "object" || item === null) return false;
+  const mime = String(item.mimeType ?? item.mime_type ?? item.contentType ?? item.content_type ?? "").toLowerCase();
+  if (mime.startsWith("image/")) return true;
+  const kind = String(item.type ?? item.kind ?? "").toLowerCase();
+  if (kind === "image" || kind === "image_url") return true;
+  const path = stringField(item, ["path", "filePath", "file_path", "url"]);
+  if (path !== null && (/\.(png|jpe?g|gif|webp|bmp|heic|svg)(\?|$)/i.test(path) || path.startsWith("data:image/"))) {
+    return true;
+  }
+  return false;
+}
+
+function numberField(record, keys) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
+function booleanField(record, keys) {
+  for (const key of keys) {
+    const value = record[key];
+    if (value === true || value === false) return value;
+    if (value === "true") return true;
+    if (value === "false") return false;
+  }
+  return null;
+}
+
+function modelSupportsImageInputs(modelId) {
+  const id = modelId.trim();
+  if (id.length === 0) return false;
+  const lower = id.toLowerCase();
+  if (MODEL_EXPLICIT_NO_VISION.some((re) => re.test(lower))) return false;
+  if (MODEL_EXPLICIT_VISION.some((re) => re.test(lower))) return true;
+  if (/^xai\//i.test(id)) {
+    const bare = id.replace(/^xai\//i, "");
+    if (MODEL_EXPLICIT_NO_VISION.some((re) => re.test(bare))) return false;
+    if (MODEL_EXPLICIT_VISION.some((re) => re.test(bare))) return true;
+    if (/grok-4/i.test(bare) && !/non-reasoning|composer|mini/i.test(bare)) return true;
+    return false;
+  }
+  if (/grok-4/i.test(lower) && !/non-reasoning|composer|mini/i.test(lower)) return true;
+  return false;
 }
 
 function normalizeHookEventName(record) {

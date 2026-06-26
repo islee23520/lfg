@@ -10,7 +10,7 @@ describe("lfg interactive setup", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-ux-"))
 
     // When: the user accepts defaults until the final install confirmation and declines.
-    const result = await runLfgText(["setup"], "\n\nn\n", {
+    const result = await runLfgText(["setup", "--no-tui"], "\n\n\n\nn\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
     })
@@ -35,7 +35,7 @@ describe("lfg interactive setup", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-star-"))
 
     // When: the user installs, then declines the optional GitHub star action.
-    const result = await runLfgText(["setup"], "\ny\nn\n", {
+    const result = await runLfgText(["setup", "--no-tui"], "\ny\nn\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
     })

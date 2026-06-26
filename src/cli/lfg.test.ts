@@ -131,7 +131,11 @@ describe("lfg CLI", () => {
   test("interactive setup only confirms the upstream installer run", async () => {
     await withModelServer(["gpt-4.1-mini", "o3-mini"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-interactive-skip."))
-      const result = await runLfgText(["setup"], `${baseUrl}\nn\n`, { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
+      const result = await runLfgText(
+        ["setup", "--no-tui"],
+        `${baseUrl}\n\n\n\nn\n`,
+        { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" },
+      )
 
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain("lfg setup")
@@ -150,7 +154,7 @@ describe("lfg CLI", () => {
     await withModelServer(["grok-3-mini-fast"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-interactive-model-rec."))
       const input = `${baseUrl}\n\n\n\nn\n`
-      const result = await runLfgText(["setup"], input, { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
+      const result = await runLfgText(["setup", "--no-tui"], input, { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
 
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain("grok-3-mini-fast")
@@ -170,7 +174,7 @@ describe("lfg CLI", () => {
         ok: false,
         status: "error",
         code: "unsupported_command",
-        supportedCommands: ["setup"],
+        supportedCommands: ["setup", "xai"],
       })
     }
   })

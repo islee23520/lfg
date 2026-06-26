@@ -10,6 +10,7 @@ import { refreshGrokModelConfig } from "../config/lfg-grok-config"
 import { resolveGrokApiKey } from "../../grok/install/grok-api-key"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
 import { buildRefreshExecutedJson, refreshPlan, runRefreshWizard, setupPlan } from "../setup/setup-plan"
+import { dispatchXaiAuthCommand } from "../xai/xai-auth-command"
 
 type ParsedArgs = {
   readonly json: boolean
@@ -23,6 +24,7 @@ type ParsedArgs = {
   readonly reasoningEffort: ReasoningEffortChoice
   readonly reasoningEffortError: string | null
   readonly baseUrl: string | null
+  readonly xaiApiKey: string | null
   readonly positional: readonly string[]
 }
 
@@ -84,10 +86,15 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   // Tolerate TUI flags (and --force) that may appear as extra positionals from shell invocation
   // (e.g. `lfg setup --no-tui`, `lfg --no-tui setup`). We already parse them into args.noTui etc.,
   // but we keep the positional list stable for error messages and JSON contracts.
-  const effectivePos = (args.positional || []).filter((p) => !["--no-tui", "no-tui", "--force", "force", "--install-only", "install-only"].includes(p as string))
-  const [command, subcommand] = effectivePos
+  const effectivePos = (args.positional || []).filter((p) =>
+    !["--no-tui", "no-tui", "--force", "force", "--install-only", "install-only", "--update-only", "update-only"].includes(p as string),
+  )
+  const [command, subcommand, third] = effectivePos
   if (!command || command === "help" || command === "--help" || command === "-h") {
     return help()
+  }
+  if (command === "xai" && subcommand === "auth") {
+    return dispatchXaiAuthCommand(third, { json: args.json, apiKeyFlag: args.xaiApiKey })
   }
   const isForceOnly = (subcommand === "--force" || subcommand === "force")
   const isConfigTui = subcommand === "config" || subcommand === "tui"
@@ -176,6 +183,7 @@ function isSetupForceShortcut(args: ParsedArgs): boolean {
 function parseArgs(argv: readonly string[]): ParsedArgs {
   const positional: string[] = []
   let baseUrl: string | null = null
+  let xaiApiKey: string | null = null
   let preset: SetupPreset = DEFAULT_SETUP_PRESET
   let presetError: string | null = null
   let reasoningEffort: ReasoningEffortChoice = DEFAULT_REASONING_EFFORT
@@ -219,6 +227,14 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         continue
       }
     }
+    if (arg === "--api-key") {
+      const value = argv[index + 1]
+      if (typeof value === "string") {
+        xaiApiKey = value
+        index += 1
+        continue
+      }
+    }
     if (typeof arg === "string") {
       positional.push(arg)
     }
@@ -235,6 +251,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     reasoningEffort,
     reasoningEffortError,
     baseUrl,
+    xaiApiKey,
     positional,
   }
 }
@@ -266,6 +283,9 @@ function help(): string {
     "Commands:",
     "  lfg setup",
     "  lfg setup config",
+    "  lfg xai auth status",
+    "  lfg xai auth set-api-key [--api-key KEY]",
+    "  lfg xai auth logout",
     "",
     "Package execution:",
     "  npx @islee23520/lfg setup",

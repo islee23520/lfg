@@ -1,0 +1,44 @@
+import { mkdtemp } from "node:fs/promises"
+import { join } from "node:path"
+import { tmpdir } from "node:os"
+import { describe, expect, test } from "vitest"
+import { dispatchXaiAuthCommand } from "./xai-auth-command"
+import { readXaiMcpPackageAuth, resolveXaiMcpAuthPath } from "../../grok/mcp/xai-mcp-auth"
+
+describe("xai auth command", () => {
+  test("set-api-key writes dedicated file without touching grok auth", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-xai-cli-"))
+    const env = { HOME: home, LFG_ALLOW_TEST_GROK_HOME: "1" }
+    const prevHome = process.env.HOME
+    const prevGate = process.env.LFG_ALLOW_TEST_GROK_HOME
+    Object.assign(process.env, env)
+    try {
+      const result = await dispatchXaiAuthCommand("set-api-key", { json: true, apiKeyFlag: "sk-test-cli" })
+      expect(result).toMatchObject({ ok: true, status: "xai_auth_saved" })
+      const path = resolveXaiMcpAuthPath(process.env, home)
+      const auth = await readXaiMcpPackageAuth(path)
+      expect(auth?.apiKey).toBe("sk-test-cli")
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME
+      else process.env.HOME = prevHome
+      if (prevGate === undefined) delete process.env.LFG_ALLOW_TEST_GROK_HOME
+      else process.env.LFG_ALLOW_TEST_GROK_HOME = prevGate
+    }
+  })
+
+  test("status reports grokHostAuthUntouched", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-xai-cli-"))
+    const prevHome = process.env.HOME
+    const prevGate = process.env.LFG_ALLOW_TEST_GROK_HOME
+    Object.assign(process.env, { HOME: home, LFG_ALLOW_TEST_GROK_HOME: "1" })
+    try {
+      const result = await dispatchXaiAuthCommand("status", { json: true, apiKeyFlag: null })
+      expect(result).toMatchObject({ grokHostAuthUntouched: true, status: "xai_auth_status" })
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME
+      else process.env.HOME = prevHome
+      if (prevGate === undefined) delete process.env.LFG_ALLOW_TEST_GROK_HOME
+      else process.env.LFG_ALLOW_TEST_GROK_HOME = prevGate
+    }
+  })
+})

@@ -118,8 +118,13 @@ const tools = [
   },
 ]
 
-if (process.argv[2] !== "mcp") {
-  process.stderr.write("lfg xai runtime supports only the mcp subcommand\n")
+const cliCommand = process.argv[2]
+if (cliCommand === "auth") {
+  process.stderr.write("Use lfg xai auth to configure xai_grok MCP credentials.\n")
+  process.exit(2)
+}
+if (cliCommand !== "mcp") {
+  process.stderr.write("lfg xai runtime supports the mcp subcommand (auth via lfg xai auth)\n")
   process.exit(2)
 }
 if (stdin.isTTY) process.exit(0)
@@ -231,42 +236,114 @@ async function xaiFetch(path, init) {
   return fetch(`${creds.baseUrl}${path}`, { method: "POST", ...init, headers: { ...init.headers, authorization: `Bearer ${creds.apiKey}`, "user-agent": "lfg-xai-grok-mcp/0.0.0" } })
 }
 
-async function resolveXaiCredentials() {
-  const stored = readStoredAuth()
-  if (stored && stored.access) {
-    const current = stored.expires - Date.now() <= REFRESH_SKEW_MS || accessTokenIsExpiring(stored.access) ? await refreshStoredAuth(stored) : stored
-    return { provider: current.provider, apiKey: current.access, baseUrl: XAI_BASE_URL }
-  }
-  const apiKey = (process.env.XAI_API_KEY || "").trim()
-  if (apiKey) return { provider: "xai", apiKey, baseUrl: XAI_BASE_URL }
-  throw new Error("xAI credentials not found. Sign in through Grok/xAI so ~/.grok/auth.json contains an xAI OIDC entry, or set XAI_API_KEY.")
+const LFG_XAI_MCP_AUTH_BASENAME = "xai-grok-mcp-auth.json"
+const DEDICATED_AUTH_ENV = "LFG_XAI_MCP_AUTH_FILE"
+
+function dedicatedAuthPath() {
+  const explicit = (process.env[DEDICATED_AUTH_ENV] || "").trim()
+  if (explicit) return explicit
+  return join(homedir(), ".grok", LFG_XAI_MCP_AUTH_BASENAME)
 }
 
-async function refreshStoredAuth(auth) {
-  const response = await fetch(auth.tokenEndpoint || XAI_OAUTH_TOKEN_URL, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": "lfg-xai-grok-mcp/0.0.0" },
-    body: new URLSearchParams({ grant_type: "refresh_token", client_id: XAI_OAUTH_CLIENT_ID, refresh_token: auth.refresh }),
-  })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok || !data.access_token) throw new Error("xAI OAuth refresh failed")
-  const refreshed = { provider: auth.provider, access: data.access_token, refresh: data.refresh_token || auth.refresh, expires: Date.now() + Number(data.expires_in || 3600) * 1000, tokenEndpoint: auth.tokenEndpoint || XAI_OAUTH_TOKEN_URL, tokenType: data.token_type || auth.tokenType || "Bearer" }
-  writeStoredAuth(refreshed)
-  return refreshed
-}
-
-function authPath() {
-  return process.env.LFG_XAI_AUTH_FILE || process.env.CODEX_XAI_OAUTH_AUTH_FILE || process.env.CODEX_XAI_OAUTH_GROK_AUTH_FILE || join(homedir(), ".grok", "auth.json")
+function grokHostAuthPath() {
+  return join(homedir(), ".grok", "auth.json")
 }
 
 function legacyAuthPath() {
   return join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "codex-xai-oauth", "auth.json")
 }
 
+async function resolveXaiCredentials() {
+  const dedicated = readDedicatedMcpAuth(dedicatedAuthPath())
+  if (dedicated && dedicated.access) {
+    const current =
+      dedicated.refresh &&
+      (dedicated.expires - Date.now() <= REFRESH_SKEW_MS || accessTokenIsExpiring(dedicated.access))
+        ? await refreshStoredAuth(dedicated)
+        : dedicated
+    return { provider: current.provider, apiKey: current.access, baseUrl: XAI_BASE_URL }
+  }
+  const apiKey = (process.env.XAI_API_KEY || "").trim()
+  if (apiKey) return { provider: "xai", apiKey, baseUrl: XAI_BASE_URL }
+  const grokOidc = readGrokStoredAuth(grokHostAuthPath())
+  if (grokOidc && grokOidc.access) {
+    const current =
+      grokOidc.expires - Date.now() <= REFRESH_SKEW_MS || accessTokenIsExpiring(grokOidc.access)
+        ? await refreshGrokHostOidcToDedicated(grokOidc)
+        : grokOidc
+    return { provider: current.provider, apiKey: current.access, baseUrl: XAI_BASE_URL }
+  }
+  throw new Error(
+    "xAI credentials not found. Run: lfg xai auth set-api-key (dedicated ~/.grok/xai-grok-mcp-auth.json), set XAI_API_KEY, or sign in to Grok for read-only host fallback.",
+  )
+}
+
+async function refreshStoredAuth(auth) {
+  const response = await fetch(auth.tokenEndpoint || XAI_OAUTH_TOKEN_URL, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": "lfg-xai-grok-mcp/0.0.0" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: XAI_OAUTH_CLIENT_ID,
+      refresh_token: auth.refresh,
+    }),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok || !data.access_token) throw new Error("xAI OAuth refresh failed")
+  const refreshed = {
+    provider: auth.provider === "grok-oauth" ? "lfg-xai-mcp" : auth.provider,
+    access: data.access_token,
+    refresh: data.refresh_token || auth.refresh,
+    expires: Date.now() + Number(data.expires_in || 3600) * 1000,
+    tokenEndpoint: auth.tokenEndpoint || XAI_OAUTH_TOKEN_URL,
+    tokenType: auth.tokenType || "Bearer",
+  }
+  writeDedicatedMcpAuth(refreshed)
+  return refreshed
+}
+
+async function refreshGrokHostOidcToDedicated(auth) {
+  const refreshed = await refreshStoredAuth({ ...auth, provider: "lfg-xai-mcp" })
+  return refreshed
+}
+
+function readDedicatedMcpAuth(path) {
+  if (!existsSync(path)) return undefined
+  try {
+    const data = JSON.parse(readFileSync(path, "utf8"))
+    if (!isRecord(data)) return undefined
+    if (typeof data.apiKey === "string" && data.apiKey.trim().length > 0) {
+      return {
+        provider: "lfg-xai-mcp",
+        access: data.apiKey.trim(),
+        refresh: "",
+        expires: Number.MAX_SAFE_INTEGER,
+        tokenEndpoint: XAI_OAUTH_TOKEN_URL,
+        tokenType: "Bearer",
+      }
+    }
+    if (data.access && data.refresh && data.expires) {
+      return {
+        provider: typeof data.provider === "string" ? data.provider : "xai-oauth",
+        access: String(data.access),
+        refresh: String(data.refresh),
+        expires: Number(data.expires),
+        tokenEndpoint: typeof data.tokenEndpoint === "string" ? data.tokenEndpoint : XAI_OAUTH_TOKEN_URL,
+        tokenType: typeof data.tokenType === "string" ? data.tokenType : "Bearer",
+      }
+    }
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
 function readStoredAuth() {
-  const primary = authPath()
-  const auth = primary.endsWith(join(".grok", "auth.json")) ? readGrokStoredAuth(primary) : readPackageStoredAuth(primary)
-  return auth || readPackageStoredAuth(legacyAuthPath())
+  const dedicated = readDedicatedMcpAuth(dedicatedAuthPath())
+  if (dedicated) return dedicated
+  const legacy = readPackageStoredAuth(legacyAuthPath())
+  if (legacy) return legacy
+  return undefined
 }
 
 function readPackageStoredAuth(path) {
@@ -274,7 +351,14 @@ function readPackageStoredAuth(path) {
   try {
     const data = JSON.parse(readFileSync(path, "utf8"))
     if (!isRecord(data) || !data.access || !data.refresh || !data.expires) return undefined
-    return { provider: "xai-oauth", access: String(data.access), refresh: String(data.refresh), expires: Number(data.expires), tokenEndpoint: typeof data.tokenEndpoint === "string" ? data.tokenEndpoint : XAI_OAUTH_TOKEN_URL, tokenType: typeof data.tokenType === "string" ? data.tokenType : "Bearer" }
+    return {
+      provider: "xai-oauth",
+      access: String(data.access),
+      refresh: String(data.refresh),
+      expires: Number(data.expires),
+      tokenEndpoint: typeof data.tokenEndpoint === "string" ? data.tokenEndpoint : XAI_OAUTH_TOKEN_URL,
+      tokenType: typeof data.tokenType === "string" ? data.tokenType : "Bearer",
+    }
   } catch {
     return undefined
   }
@@ -287,11 +371,20 @@ function readGrokStoredAuth(path) {
     if (!isRecord(data)) return undefined
     for (const value of Object.values(data)) {
       if (!isRecord(value)) continue
-      if (value.auth_mode !== "oidc" || value.oidc_issuer !== XAI_OAUTH_ISSUER || value.oidc_client_id !== XAI_OAUTH_CLIENT_ID) continue
+      if (value.auth_mode !== "oidc" || value.oidc_issuer !== XAI_OAUTH_ISSUER || value.oidc_client_id !== XAI_OAUTH_CLIENT_ID)
+        continue
       const access = typeof value.key === "string" ? value.key : ""
       const refresh = typeof value.refresh_token === "string" ? value.refresh_token : ""
       const expiresAt = typeof value.expires_at === "string" ? Date.parse(value.expires_at) : Number.NaN
-      if (access && refresh && !Number.isNaN(expiresAt)) return { provider: "grok-oauth", access, refresh, expires: expiresAt, tokenEndpoint: XAI_OAUTH_TOKEN_URL, tokenType: "Bearer" }
+      if (access && refresh && !Number.isNaN(expiresAt))
+        return {
+          provider: "grok-oauth",
+          access,
+          refresh,
+          expires: expiresAt,
+          tokenEndpoint: XAI_OAUTH_TOKEN_URL,
+          tokenType: "Bearer",
+        }
     }
     return undefined
   } catch {
@@ -299,17 +392,28 @@ function readGrokStoredAuth(path) {
   }
 }
 
-function writeStoredAuth(auth) {
-  const path = authPath()
-  if (path.endsWith(join(".grok", "auth.json"))) {
-    const data = existsSync(path) ? safeJson(readFileSync(path, "utf8"), {}) : {}
-    data[`${XAI_OAUTH_ISSUER}::${XAI_OAUTH_CLIENT_ID}`] = { auth_mode: "oidc", expires_at: new Date(auth.expires).toISOString(), key: auth.access, oidc_client_id: XAI_OAUTH_CLIENT_ID, oidc_issuer: XAI_OAUTH_ISSUER, refresh_token: auth.refresh }
-    mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
-    writeFileSync(path, JSON.stringify(data, null, 2), { mode: 0o600 })
-    return
-  }
+function writeDedicatedMcpAuth(auth) {
+  const path = dedicatedAuthPath()
+  const body =
+    auth.refresh && auth.refresh.length > 0
+      ? {
+          provider: "lfg-xai-mcp",
+          auth_mode: "oauth",
+          access: auth.access,
+          refresh: auth.refresh,
+          expires: auth.expires,
+          tokenEndpoint: auth.tokenEndpoint || XAI_OAUTH_TOKEN_URL,
+          tokenType: auth.tokenType || "Bearer",
+          updated_at: new Date().toISOString(),
+        }
+      : {
+          provider: "lfg-xai-mcp",
+          auth_mode: "api_key",
+          apiKey: auth.access,
+          updated_at: new Date().toISOString(),
+        }
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
-  writeFileSync(path, JSON.stringify(auth, null, 2), { mode: 0o600 })
+  writeFileSync(path, JSON.stringify(body, null, 2), { mode: 0o600 })
 }
 
 function extractResponseText(data) {

@@ -4,7 +4,8 @@ import { isGrokEventHooksJson, validateGrokHooksJson } from "../hooks/hook-trust
 import { legacyInstalledGrokPluginRoot, nativeGrokPluginRoot } from "./install"
 import { activeGrokHooksPath } from "../hooks/normalize-plugin-hooks-active"
 
-export const GROK_ADAPTER_PLUGIN_DIR_CANDIDATES = ["lfg", "lazycodex"] as const
+/** Prefer lfg; keep lazycodex + lazygrok-ai as fallbacks for legacy/other-session installs. */
+export const GROK_ADAPTER_PLUGIN_DIR_CANDIDATES = ["lfg", "lazycodex", "lazygrok-ai"] as const
 
 export type ResolvedGrokAdapter = {
   readonly pluginDirName: (typeof GROK_ADAPTER_PLUGIN_DIR_CANDIDATES)[number]

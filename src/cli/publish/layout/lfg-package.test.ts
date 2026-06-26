@@ -138,7 +138,7 @@ describe("lfg package contract", () => {
     const doctor = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, { HOME: home })
     expect(doctor.exitCode).toBe(1)
     const unsupported = JSON.parse(doctor.stdout) as { readonly ok?: boolean; readonly code?: string; readonly supportedCommands?: readonly string[] }
-    expect(unsupported).toMatchObject({ ok: false, code: "unsupported_command", supportedCommands: ["setup"] })
+    expect(unsupported).toMatchObject({ ok: false, code: "unsupported_command", supportedCommands: ["setup", "xai"] })
     await rm(installDir, { recursive: true, force: true })
     await rm(packDir, { recursive: true, force: true })
   }, 120_000)

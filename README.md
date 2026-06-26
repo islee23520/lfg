@@ -24,6 +24,16 @@ npx @islee23520/lfg setup
 
 During interactive setup, `lfg` can read an OpenAI-compatible base URL, fetch `/v1/models`, map model aliases, and ask before writing files.
 
+## xai_grok MCP auth
+
+Dedicated credentials (does not modify Grok host `~/.grok/auth.json`):
+
+```sh
+lfg xai auth status
+lfg xai auth set-api-key --api-key "$XAI_API_KEY"
+lfg xai auth logout
+```
+
 ## Commands
 
 ```sh
