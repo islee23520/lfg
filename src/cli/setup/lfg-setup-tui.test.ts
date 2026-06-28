@@ -5,15 +5,18 @@ import { describe, expect, test, vi } from "vitest";
 
 vi.mock("@clack/prompts", () => {
   const calls: any[] = [];
+  let codingToolAdapterChoice = "grok";
   const prompts: any = {
     intro: (m: string) => calls.push(["intro", m]),
     note: (m: string, title?: string) => calls.push(["note", title, m]),
     confirm: async (opts: any) => {
       calls.push(["confirm", opts?.message]);
+      if (/Modify recommended model settings/i.test(String(opts?.message ?? ""))) return false;
       return true;
     },
     select: async (opts: any) => {
-      calls.push(["select", opts?.message, opts?.options?.length, opts?.initialValue]);
+      calls.push(["select", opts?.message, opts?.options?.length, opts?.initialValue, opts?.options]);
+      if (/Coding tool adapter/i.test(String(opts?.message ?? ""))) return codingToolAdapterChoice;
       if (/Global model preset/i.test(String(opts?.message ?? ""))) return "auto";
       if (/Global reasoning effort/i.test(String(opts?.message ?? ""))) return "high";
       if (/Model customization/i.test(String(opts?.message ?? ""))) return "none";
@@ -30,6 +33,9 @@ vi.mock("@clack/prompts", () => {
   return {
     ...prompts,
     __calls: calls,
+    __setCodingToolAdapterChoice: (value: string) => {
+      codingToolAdapterChoice = value;
+    },
     default: prompts,
   };
 });
@@ -57,10 +63,11 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(tui.shouldUseSetupTui({}, { check: true, input: { isTTY: true }, output: { isTTY: true } })).toBe(false);
   });
 
-  test("runSetupTui shows global preset and reasoning-effort selects without per-agent model prompts", async () => {
+  test("runSetupTui accepts LLM recommendations without per-agent model prompts", async () => {
     const prompts = await import("@clack/prompts") as any;
     const calls: any[] = prompts.__calls;
     calls.length = 0;
+    installerMock.runLazycodexInstaller.mockClear();
 
     // For the self-contained TUI we do not need (and do not primarily use) a runLineSetup
     // for the role questioning phase. The runner does the three Clack selects itself
@@ -85,15 +92,21 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     const confirmCalls = calls.filter((c: any[]) => c[0] === "confirm");
     expect(confirmCalls.length).toBeGreaterThanOrEqual(2);
 
+    const confirmMessages = confirmCalls.map((c: any[]) => String(c[1]));
+    expect(confirmMessages).toEqual(expect.arrayContaining([
+      "Use LLM recommendations from your available models?",
+      "Modify recommended model settings?",
+    ]));
+
     const selectCalls = calls.filter((c: any[]) => c[0] === "select");
     const autocompleteCalls = calls.filter((c: any[]) => c[0] === "autocomplete");
-    expect(selectCalls.map((c: any[]) => String(c[1]))).toEqual(expect.arrayContaining(["Global model preset", "Global reasoning effort", "Model customization"]));
+    expect(selectCalls.map((c: any[]) => String(c[1]))).not.toEqual(expect.arrayContaining(["Global model preset", "Global reasoning effort", "Model customization"]));
     expect(autocompleteCalls).toHaveLength(0);
 
     expect(calls.some((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])))).toBe(true);
     const resultsNote = calls.find((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])));
     const resultsBody = resultsNote ? String(resultsNote[2] || "") : "";
-    expect(resultsBody).toContain("Preset: auto");
+    expect(resultsBody).toContain("LLM recommendation: auto");
     expect(resultsBody).toContain("default:");
     expect(resultsBody).toContain("fast:");
     expect(resultsBody).toContain("reasoning:");
@@ -109,6 +122,9 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
 
     // The TUI shows its own clean "Install Summary" (not the classic printInstallPlan + Magic Word)
     expect(calls.some((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])))).toBe(true);
+    const installSummary = calls.find((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])));
+    expect(String(installSummary?.[2] ?? "")).toContain("Coding adapter: grok -> grok");
+    expect(installerMock.runLazycodexInstaller).toHaveBeenCalledWith(expect.anything(), { codingToolAdapter: "grok" });
 
     // Final outro from the TUI
     expect(calls.some((c: any[]) => c[0] === "outro")).toBe(true);
@@ -119,6 +135,60 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     // If a legacy runLineSetup was supplied it may have been called (for compatibility),
     // but it is not the source of the "Setup results" content for the primary TUI path.
     // We only assert it didn't blow up.
+  });
+
+  test("runSetupTui lets setup choose pi-agent coding adapter", async () => {
+    const prompts = await import("@clack/prompts") as any;
+    const calls: any[] = prompts.__calls;
+    calls.length = 0;
+    prompts.__setCodingToolAdapterChoice("pi-agent");
+    installerMock.runLazycodexInstaller.mockClear();
+
+    await tui.runSetupTui({ codingToolAdapter: "grok" }, { plan: {}, resolved: null }, {
+      prompts: prompts as any,
+      colors: { inverse: (s: string) => s, green: (s: string) => s },
+    });
+
+    const adapterSelect = calls.find((c: any[]) => c[0] === "select" && /Coding tool adapter/.test(String(c[1])));
+    expect(adapterSelect).toBeTruthy();
+    expect(adapterSelect?.[3]).toBe("grok");
+    const adapterValues = (adapterSelect?.[4] ?? []).map((option: { readonly value: string }) => option.value);
+    expect(adapterValues).toEqual(["grok", "pi-agent"]);
+
+    const installSummary = calls.find((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])));
+    const installSummaryBody = String(installSummary?.[2] ?? "");
+    expect(installSummaryBody).toContain("Coding adapter: pi-agent -> pi-agent run");
+    expect(installSummaryBody).toContain("fallback: none");
+    expect(installerMock.runLazycodexInstaller).toHaveBeenCalledWith(null, { codingToolAdapter: "pi-agent" });
+
+    prompts.__setCodingToolAdapterChoice("grok");
+  });
+
+  test("runSetupTui cancels before install when coding adapter selection is cancelled", async () => {
+    const prompts = await import("@clack/prompts") as any;
+    const calls: any[] = prompts.__calls;
+    calls.length = 0;
+    installerMock.runLazycodexInstaller.mockClear();
+
+    const CANCEL = Symbol.for("clack-cancel");
+    const origSelect = prompts.select;
+    prompts.select = async (opts: any) => {
+      calls.push(["select", opts?.message, opts?.options?.length, opts?.initialValue, opts?.options]);
+      if (/Coding tool adapter/i.test(String(opts?.message ?? ""))) return CANCEL;
+      return origSelect(opts);
+    };
+
+    await expect(
+      tui.runSetupTui({}, { plan: {}, resolved: null }, {
+        prompts: prompts as any,
+        colors: { inverse: (s: string) => s, green: (s: string) => s },
+      }),
+    ).rejects.toThrow(/cancelled/);
+
+    prompts.select = origSelect;
+
+    expect(calls.some((c: any[]) => c[0] === "cancel")).toBe(true);
+    expect(installerMock.runLazycodexInstaller).not.toHaveBeenCalled();
   });
 
   test("runSetupTui cancel path throws and shows cancel framing (no line setup side effects)", async () => {

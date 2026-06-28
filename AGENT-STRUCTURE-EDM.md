@@ -134,7 +134,7 @@ erDiagram
 | artistry-gen | `gemini-3.1-pro-preview` | Art production | Computer Use + vision |
 | artistry-qa | `gemini-3.1-pro-preview` | Art QA | Vision verification |
 | visual-engineering | `gemini-3.1-pro-preview` | Vision specialist | Visual QA |
-| visual-looker | `gemini-3.1-pro-preview` | Vision evidence | Raw evidence extraction |
+| multimodal-looker | `gemini-3.1-pro-preview` | Vision evidence | Raw evidence extraction |
 
 ---
 
@@ -267,4 +267,3 @@ After `lfg setup --run`, Grok Build could not use lazycodex/omo agents properly.
 2. Open a new session.
 3. Optionally run `lfg doctor` or just start using; the first SessionStart + UserPromptSubmit should fire the cleaned hooks.
 4. If you still see odd behavior, share the exact error or the output of the hook status lines that appear in the UI.
-

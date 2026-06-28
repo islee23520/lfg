@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises"
+import { mkdtemp, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
@@ -47,5 +47,24 @@ describe("lfg interactive setup", () => {
     expect(result.stdout).toContain("code-yeongyu/oh-my-openagent")
     expect(result.stdout).toContain("islee23520/lfg")
     expect(result.stdout).toContain("Skipped GitHub starring.")
+  })
+
+  test("preserves selected coding tool adapter through no-tui install", async () => {
+    // Given: classic line-mode setup is forced and the user selects pi-agent on the CLI.
+    const home = await mkdtemp(join(tmpdir(), "lfg-interactive-adapter-"))
+
+    // When: the user installs, then declines the optional GitHub star action.
+    const result = await runLfgText(["setup", "--no-tui", "--coding-tool-adapter", "pi-agent"], "\ny\nn\n", {
+      HOME: home,
+      LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
+      PATH: "/usr/bin:/bin",
+    })
+
+    // Then: the line-mode install persists the selected adapter instead of falling back to grok.
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain("Installation complete!")
+    const runtimeRaw = await readFile(join(home, ".grok", "lfg.json"), "utf8")
+    const runtimeConfig = JSON.parse(runtimeRaw) as { readonly coding_tool_adapter?: string }
+    expect(runtimeConfig.coding_tool_adapter).toBe("pi-agent")
   })
 })

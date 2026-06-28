@@ -1,4 +1,3 @@
-import { createInterface } from "node:readline/promises"
 import { stdin as input, stdout as output } from "node:process"
 import { runLazycodexInstaller } from "./lfg-installer"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../../grok/install/run-grok-install"
@@ -10,6 +9,7 @@ import { formatRecommendationTable } from "../../grok/models/model-recommendatio
 import { maybeRequestGitHubStars } from "../publish/github/lfg-github-stars"
 import { printCancelled, printCompleted, printInstallIntro, printInstallPlan, printMagicWord, printStep } from "./lfg-interactive-ui"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
+import type { CodingToolAdapterId } from "../../shared/coding-tool-adapter"
 import {
   fallbackModelDiscovery,
   loadBundledDefaultOmoOverridesForInteractive,
@@ -26,6 +26,7 @@ export type InstallWizardOptions = {
   readonly skipFinalGate?: boolean;
   // Internal for TUI path: skip the "Configure default / ULW target models and other LazyCodex agents?" long tail so it does not leak raw prompts.
   readonly skipOtherAgents?: boolean;
+  readonly codingToolAdapter?: CodingToolAdapterId;
 };
 
 export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetupDiscoveryResult, options: InstallWizardOptions = {}): Promise<JsonObject> {
@@ -83,7 +84,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
 
     output.write(`\nRunning Grok install: ${INTERNAL_GROK_INSTALL_COMMAND}\n`)
     output.write("(Codex-home bootstrap is not used on this path.)\n\n")
-    const result = await runLazycodexInstaller(configuredDiscovery)
+    const result = await runLazycodexInstaller(configuredDiscovery, { codingToolAdapter: options.codingToolAdapter })
     writeOutput(result.stdout)
     writeOutput(result.stderr)
     if (result.configUpdated === true) {
@@ -174,6 +175,16 @@ async function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): Promis
 
 
 async function configureLazycodexAgentsFull(reader: LineReader, discovery: ModelDiscovery, _options: InstallWizardOptions = {}): Promise<ModelDiscovery> {
+  const wantsRecommendations = await confirmDefaultYes(reader, "Use LLM recommendations from your available models? [Y/n] ")
+  if (wantsRecommendations) {
+    const recommendedDiscovery = withReasoningEffort(applyModelPreset(discovery, "auto"), "auto")
+    printRecommendedModelSettings(recommendedDiscovery)
+    const wantsModify = await confirm(reader, "Modify recommended model settings? [y/N] ")
+    if (!wantsModify) {
+      return recommendedDiscovery
+    }
+  }
+
   output.write("Choose one global model preset. Individual agent model prompts have been removed.\n")
   output.write("  1) auto: best available global routes (recommended)\n")
   output.write("  2) balanced: GPT default, Gemini fast, Grok reasoning/coding\n")
@@ -194,6 +205,19 @@ async function configureLazycodexAgentsFull(reader: LineReader, discovery: Model
   // Do not set agentOverrideMap — the install path resolves per-agent overrides from
   // bundled JSON + availability checking. Setting {} would bypass that resolution.
   return { ...presetDiscovery, agentConfig: roleConfig }
+}
+
+function printRecommendedModelSettings(discovery: ModelDiscovery): void {
+  const agents = defaultLazycodexAgentConfig(discovery)
+  output.write("Recommended model settings:\n")
+  output.write(`  default: ${discovery.mapping.default}\n`)
+  output.write(`  fast: ${discovery.mapping.fast}\n`)
+  output.write(`  reasoning: ${discovery.mapping.reasoning}\n`)
+  output.write(`  coding: ${discovery.mapping.coding}\n`)
+  output.write("Core agents:\n")
+  output.write(`  explorer: ${agents.explorer.model} / ${agents.explorer.reasoningLevel}\n`)
+  output.write(`  reasoning: ${agents.reasoning.model} / ${agents.reasoning.reasoningLevel}\n`)
+  output.write(`  coding: ${agents.coding.model} / ${agents.coding.reasoningLevel}\n\n`)
 }
 
 async function readSetupPreset(reader: LineReader): Promise<SetupPreset> {
@@ -227,10 +251,76 @@ async function confirm(reader: LineReader, prompt: string): Promise<boolean> {
   return ["y", "yes"].includes(answer.done === true ? "" : answer.value.trim().toLowerCase())
 }
 
+async function confirmDefaultYes(reader: LineReader, prompt: string): Promise<boolean> {
+  output.write(prompt)
+  const answer = await reader.next()
+  const value = answer.done === true ? "" : answer.value.trim().toLowerCase()
+  return value.length === 0 || value === "y" || value === "yes"
+}
+
 function createLineReader(): LineReader {
-  const reader = createInterface({ input, output, terminal: false })
-  const iterator = reader[Symbol.asyncIterator]()
-  return { next: () => iterator.next(), close: () => reader.close() }
+  const lines: string[] = []
+  let buffer = ""
+  let closed = false
+  let pending: ((result: IteratorResult<string>) => void) | null = null
+
+  const emitLine = (line: string): void => {
+    if (pending === null) {
+      lines.push(line)
+      return
+    }
+    const resolve = pending
+    pending = null
+    resolve({ value: line, done: false })
+  }
+  const onData = (chunk: string | Buffer): void => {
+    buffer += String(chunk)
+    for (;;) {
+      const newline = buffer.indexOf("\n")
+      if (newline < 0) {
+        return
+      }
+      const line = buffer.slice(0, newline).replace(/\r$/, "")
+      buffer = buffer.slice(newline + 1)
+      emitLine(line)
+    }
+  }
+  const onEnd = (): void => {
+    if (buffer.length > 0) {
+      emitLine(buffer.replace(/\r$/, ""))
+      buffer = ""
+    }
+    closed = true
+    if (pending !== null) {
+      const resolve = pending
+      pending = null
+      resolve({ value: "", done: true })
+    }
+  }
+
+  input.setEncoding("utf8")
+  input.on("data", onData)
+  input.on("end", onEnd)
+  input.resume()
+
+  return {
+    next: () => {
+      const line = lines.shift()
+      if (line !== undefined) {
+        return Promise.resolve({ value: line, done: false })
+      }
+      if (closed) {
+        return Promise.resolve({ value: "", done: true })
+      }
+      return new Promise<IteratorResult<string>>((resolve) => {
+        pending = resolve
+      })
+    },
+    close: () => {
+      input.off("data", onData)
+      input.off("end", onEnd)
+    },
+  }
 }
 
 function writeOutput(value: unknown): void {

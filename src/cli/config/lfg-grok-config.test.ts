@@ -102,7 +102,7 @@ describe("lfg Grok config persistence", () => {
     const apiKey = "sk-agent-key"
     await withModelServer(["gpt-5.5", "gemini-3-flash", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "codex-auto-review"], { requiredApiKey: apiKey }, async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-      const input = "balanced\nhigh\ny\n"
+      const input = "n\nbalanced\nhigh\ny\n"
 
       const result = await runLfgText(["setup", "--no-tui", "--base-url", baseUrl], input, {
         HOME: home,

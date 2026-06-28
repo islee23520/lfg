@@ -11,6 +11,8 @@ import {
 } from "../../grok/install/run-grok-install"
 import { verifyGrokInstallSurface } from "../../grok/doctor/post-install-verify"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
+import { readLfgRuntimeConfigFile } from "../../grok/models/lfg-runtime-config"
+import { codingToolAdapterSelectionJson, DEFAULT_CODING_TOOL_ADAPTER, type CodingToolAdapterId } from "../../shared/coding-tool-adapter"
 
 /** Legacy Codex installer; not run on default Grok setup path. */
 export const LAZYCODEX_INSTALLER_ARGS = ["lazycodex-ai", "install"] as const
@@ -31,6 +33,7 @@ type InstallerStepResult = {
 export type LazycodexInstallerOptions = {
   readonly force?: boolean
   readonly installOnly?: boolean
+  readonly codingToolAdapter?: CodingToolAdapterId
 }
 
 /** Grok-first setup: materialize lazycodex under ~/.grok via internal grok-install (no Codex npx). */
@@ -40,15 +43,18 @@ export async function runLazycodexInstaller(
 ): Promise<JsonObject> {
   const agentConfig = discovery?.agentConfig ?? null
   const env = mergeStringEnv(process.env, modelDiscoveryEnv(discovery, agentConfig))
+  const home = resolveGrokSetupHome(env)
+  const priorRuntimeConfig = options.codingToolAdapter === undefined ? await readLfgRuntimeConfigFile(home) : null
+  const codingToolAdapter = options.codingToolAdapter ?? priorRuntimeConfig?.coding_tool_adapter ?? DEFAULT_CODING_TOOL_ADAPTER
   const grokOptions: GrokInstallRunOptions = {
     ...(options.force === undefined ? {} : { force: options.force }),
     ...(options.installOnly === undefined ? {} : { installOnly: options.installOnly }),
+    codingToolAdapter,
     ...(discovery?.agentOverrideMap === undefined ? {} : { fullAgentModels: discovery.agentOverrideMap }),
   }
   const grokRun = await runGrokInstall(discovery, env, grokOptions)
   const internalResult = grokInstallStepJson(grokRun.internalStep) as InstallerStepResult
   const ok = grokRun.ok
-  const home = resolveGrokSetupHome(env)
   const postInstallVerify = await verifyGrokInstallSurface({ home })
   const agentPaths = grokRun.omoAgents?.written ?? grokRun.lazycodexAgents?.written ?? []
   const agentOverridesPath = grokRun.agentOverridesPath ?? null
@@ -63,6 +69,7 @@ export async function runLazycodexInstaller(
     ...configFieldsFromRun(grokRun.configUpdate),
     internalStep: internalResult,
     postInstallVerify,
+    codingToolAdapter: codingToolAdapterSelectionJson(codingToolAdapter),
     agentPaths,
     agentTomlPaths: agentPaths,
     agentOverridesPath,

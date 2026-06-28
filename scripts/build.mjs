@@ -122,6 +122,7 @@ try {
   await cp(devLoggerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-dev-logger.mjs`)
   await cp(xaiGrokMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-xai-grok-mcp.mjs`)
 
+  await rm(GROK_INSTALL_FLAVOUR_PACK_DST, { recursive: true, force: true })
   await cp(GROK_INSTALL_FLAVOUR_PACK_SRC, GROK_INSTALL_FLAVOUR_PACK_DST, { recursive: true })
 
   await syncOmoSkillsToGrok({ allowExistingFallback: true, includeCache: false })

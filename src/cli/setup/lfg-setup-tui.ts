@@ -13,6 +13,9 @@ import {
 } from "./lfg-setup-tui-data";
 import { createSetupSelectors, buildModelChoicesForTui, type ModelChoice } from "./lfg-setup-tui-selectors";
 import { configureAgentOverrides, configureRoleAgents, type AgentTuiResult } from "./lfg-setup-tui-agents";
+import { formatRecommendationTable } from "../../grok/models/model-recommendations";
+import { DEFAULT_CODING_TOOL_ADAPTER, isCodingToolAdapterId, type CodingToolAdapterId } from "../../shared/coding-tool-adapter";
+import { codingToolAdapterTuiOptions, formatCodingToolAdapterSummary } from "./lfg-setup-tui-adapter";
 
 export function shouldUseSetupTui(args: { readonly noTui?: boolean }, options: { readonly check?: boolean; readonly input?: { readonly isTTY?: boolean }; readonly output?: { readonly isTTY?: boolean } }): boolean {
   if (options.check || args.noTui === true) return false;
@@ -35,7 +38,7 @@ export type RunSetupTuiOptions = {
   ) => Promise<void>;
 };
 
-export async function runSetupTui(_args: { readonly noTui?: boolean }, context: unknown, deps: RunSetupTuiOptions = {}) {
+export async function runSetupTui(args: { readonly noTui?: boolean; readonly codingToolAdapter?: CodingToolAdapterId }, context: unknown, deps: RunSetupTuiOptions = {}) {
   const prompts = deps.prompts ?? clack;
   const colors = deps.colors ?? pc;
 
@@ -67,109 +70,157 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
     throw new Error("lfg setup cancelled");
   }
 
+  const adapterChoice = await prompts.select({
+    message: "Coding tool adapter",
+    options: [...codingToolAdapterTuiOptions()],
+    initialValue: args.codingToolAdapter ?? DEFAULT_CODING_TOOL_ADAPTER,
+  });
+  if (prompts.isCancel(adapterChoice) || !isCodingToolAdapterId(adapterChoice)) {
+    prompts.cancel("lfg setup cancelled.");
+    throw new Error("lfg setup cancelled");
+  }
+
   const bundled = await loadBundledDefaultOmoOverrides();
+  const baseDiscovery = readDiscoveryFromContext(context);
 
-  const modelMode = await prompts.select({
-    message: "Global model preset",
-    options: [
-      { value: "auto", label: "Auto best available (recommended)", hint: "GPT/GLM orchestration, Composer coding, Gemini visual" },
-      { value: "balanced", label: "Balanced multi-provider", hint: "GPT default, Gemini fast, Grok reasoning/coding" },
-      { value: "grok", label: "Grok-specialized", hint: "Prefer Grok models for all global routes" },
-      { value: "gpt", label: "GPT-centered", hint: "Prefer GPT for default/reasoning while keeping coding on recommended agent routes" },
-      { value: "gemini", label: "Gemini-centered", hint: "Prefer Gemini for long-context exploration and summaries" },
-      { value: "glm", label: "GLM-centered", hint: "Prefer GLM for default/reasoning with Grok/GPT fallback" },
-      { value: "multi", label: "Provider-scoped config", hint: "Balanced routes plus provider base URLs for xAI/Gemini/GLM/GPT" },
-      { value: "vanilla", label: "Vanilla Grok models", hint: "built-in Grok defaults, no proxy discovery" },
-    ],
-    initialValue: "auto",
-  });
-  if (prompts.isCancel(modelMode)) {
-    prompts.cancel("lfg setup cancelled.");
-    throw new Error("lfg setup cancelled");
-  }
+  let configuredForInstall: ModelDiscovery | null = null;
+  let resultsText = "No model discovery was available. Installer will preserve existing model configuration.";
+  let modelConfigLine = "Model config: preserved existing settings";
+  let shouldUseManualFlow = true;
 
-  const reasoningEffort = await prompts.select({
-    message: "Global reasoning effort",
-    options: [
-      { value: "auto", label: "Auto (role defaults: low/medium/high) (recommended)", hint: "explorer=low, coding=medium, reasoning=high" },
-      { value: "low", label: "Low", hint: "fast/cheap" },
-      { value: "medium", label: "Medium", hint: "balanced" },
-      { value: "high", label: "High", hint: "deeper planning/review" },
-      { value: "xhigh", label: "Extra high", hint: "maximum reasoning where supported" },
-    ],
-    initialValue: "auto",
-  });
-  if (prompts.isCancel(reasoningEffort)) {
-    prompts.cancel("lfg setup cancelled.");
-    throw new Error("lfg setup cancelled");
-  }
-
-  let configuredForInstall: ModelDiscovery | null;
-  let resultsText: string;
-  let modelConfigLine: string;
-
-  if (modelMode === "vanilla") {
-    const vanilla = buildVanillaGrokConfig(bundled);
-    const vanillaModelIds = [...new Set([vanilla.mapping.default, vanilla.mapping.fast, vanilla.mapping.reasoning, vanilla.mapping.coding])];
-    const vanillaDiscovery = {
-      ...withReasoningEffort({
-        baseUrl: "",
-        modelsUrl: "",
-        modelIds: vanillaModelIds,
-        mapping: vanilla.mapping,
-      }, reasoningEffort as ReasoningEffortChoice),
-      agentOverrideMap: vanilla.agentOverrideMap,
-    };
-    configuredForInstall = vanillaDiscovery;
-    resultsText = formatVanillaResults(vanilla);
-    modelConfigLine = "Model config: built-in Grok defaults (no proxy)";
-    prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models");
-  } else {
-    const baseDiscovery = readDiscoveryFromContext(context);
-    const selectedPreset = modelMode as SetupPreset;
-    const discovery = baseDiscovery === null ? null : withReasoningEffort(applyModelPreset(baseDiscovery, selectedPreset), reasoningEffort as ReasoningEffortChoice);
-
-    // Offer per-role customization when we have discovered models to choose from.
-    if (discovery !== null && discovery.modelIds.length > 0) {
-      const customMode = await prompts.select({
-        message: "Model customization",
-        options: [
-          { value: "none", label: "Use auto routing (recommended)", hint: "GPT/GLM orchestration, Composer coding, Gemini visual" },
-          { value: "roles", label: "Customize core roles", hint: "edit explorer / reasoning / coding" },
-          { value: "all", label: "Customize all named agents", hint: "edit core roles and every OMO/ULW override" },
-        ],
-        initialValue: "none",
+  if (baseDiscovery !== null && baseDiscovery.modelIds.length > 0) {
+    const wantsRecommendations = await prompts.confirm({
+      message: "Use LLM recommendations from your available models?",
+      initialValue: true,
+    });
+    if (prompts.isCancel(wantsRecommendations)) {
+      prompts.cancel("lfg setup cancelled.");
+      throw new Error("lfg setup cancelled");
+    }
+    if (wantsRecommendations === true) {
+      const recommendedDiscovery = withReasoningEffort(applyModelPreset(baseDiscovery, "auto"), "auto");
+      prompts.note(formatRecommendedResults(recommendedDiscovery, bundled), "LLM recommendations");
+      const wantsModify = await prompts.confirm({
+        message: "Modify recommended model settings?",
+        initialValue: false,
       });
-      if (prompts.isCancel(customMode)) {
+      if (prompts.isCancel(wantsModify)) {
         prompts.cancel("lfg setup cancelled.");
         throw new Error("lfg setup cancelled");
       }
-      if (customMode === "roles" || customMode === "all") {
-        const choices = buildModelChoicesForTui(discovery.modelIds);
-        const selectors = createSetupSelectors(prompts);
-        const roleResults = await configureRoleAgents(prompts, discovery, choices, selectors, bundled);
-        const explorerModel = roleResults.find((r) => r.name === "explorer")?.model ?? discovery.mapping.fast;
-        const reasoningModel = roleResults.find((r) => r.name === "reasoning")?.model ?? discovery.mapping.reasoning;
-        const codingModel = roleResults.find((r) => r.name === "coding")?.model ?? discovery.mapping.coding;
-        const customDiscovery = {
-          ...discovery,
-          mapping: {
-            ...discovery.mapping,
-            fast: explorerModel,
-            reasoning: reasoningModel,
-            coding: codingModel,
-          },
-        };
-        const agents = defaultLazycodexAgentConfig(customDiscovery);
-        if (customMode === "all") {
-          const overrideResult = await configureAgentOverrides(prompts, customDiscovery, choices, selectors, roleResults, agents, bundled, toRecommendationOverrideMap(bundled));
-          configuredForInstall = { ...customDiscovery, agentConfig: agents, agentOverrideMap: overrideResult.agentOverrideMap };
-          resultsText = formatCustomResults(selectedPreset, configuredForInstall, roleResults, agents, overrideResult.extraResults);
-          modelConfigLine = `Model config: ${selectedPreset} preset (customized all named agents)`;
+      if (wantsModify !== true) {
+        configuredForInstall = recommendedDiscovery;
+        resultsText = formatRecommendedResults(recommendedDiscovery, bundled);
+        modelConfigLine = "Model config: LLM recommendation from discovered models";
+        shouldUseManualFlow = false;
+      }
+    }
+  }
+
+  if (shouldUseManualFlow) {
+    const modelMode = await prompts.select({
+      message: "Global model preset",
+      options: [
+        { value: "auto", label: "Auto best available (recommended)", hint: "GrokBuild orchestration, GLM fast, Composer coding when available" },
+        { value: "balanced", label: "Balanced multi-provider", hint: "GPT default, Gemini fast, Grok reasoning/coding" },
+        { value: "grok", label: "Grok-specialized", hint: "Prefer Grok models for all global routes" },
+        { value: "gpt", label: "GPT-centered", hint: "Prefer GPT for default/reasoning while keeping coding on recommended agent routes" },
+        { value: "gemini", label: "Gemini-centered", hint: "Prefer Gemini for long-context exploration and summaries" },
+        { value: "glm", label: "GLM-centered", hint: "Prefer GLM for default/reasoning with Grok/GPT fallback" },
+        { value: "multi", label: "Provider-scoped config", hint: "Balanced routes plus provider base URLs for xAI/Gemini/GLM/GPT" },
+        { value: "vanilla", label: "Vanilla Grok models", hint: "built-in Grok defaults, no proxy discovery" },
+      ],
+      initialValue: "auto",
+    });
+    if (prompts.isCancel(modelMode)) {
+      prompts.cancel("lfg setup cancelled.");
+      throw new Error("lfg setup cancelled");
+    }
+
+    const reasoningEffort = await prompts.select({
+      message: "Global reasoning effort",
+      options: [
+        { value: "auto", label: "Auto (role defaults: low/medium/high) (recommended)", hint: "explorer=low, coding=medium, reasoning=high" },
+        { value: "low", label: "Low", hint: "fast/cheap" },
+        { value: "medium", label: "Medium", hint: "balanced" },
+        { value: "high", label: "High", hint: "deeper planning/review" },
+        { value: "xhigh", label: "Extra high", hint: "maximum reasoning where supported" },
+      ],
+      initialValue: "auto",
+    });
+    if (prompts.isCancel(reasoningEffort)) {
+      prompts.cancel("lfg setup cancelled.");
+      throw new Error("lfg setup cancelled");
+    }
+
+    if (modelMode === "vanilla") {
+      const vanilla = buildVanillaGrokConfig(bundled);
+      const vanillaModelIds = [...new Set([vanilla.mapping.default, vanilla.mapping.fast, vanilla.mapping.reasoning, vanilla.mapping.coding])];
+      const vanillaDiscovery = {
+        ...withReasoningEffort({
+          baseUrl: "",
+          modelsUrl: "",
+          modelIds: vanillaModelIds,
+          mapping: vanilla.mapping,
+        }, reasoningEffort as ReasoningEffortChoice),
+        agentOverrideMap: vanilla.agentOverrideMap,
+      };
+      configuredForInstall = vanillaDiscovery;
+      resultsText = formatVanillaResults(vanilla);
+      modelConfigLine = "Model config: built-in Grok defaults (no proxy)";
+      prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models");
+    } else {
+      const selectedPreset = modelMode as SetupPreset;
+      const discovery = baseDiscovery === null ? null : withReasoningEffort(applyModelPreset(baseDiscovery, selectedPreset), reasoningEffort as ReasoningEffortChoice);
+
+      // Offer per-role customization when we have discovered models to choose from.
+      if (discovery !== null && discovery.modelIds.length > 0) {
+        const customMode = await prompts.select({
+          message: "Model customization",
+          options: [
+            { value: "none", label: "Use auto routing (recommended)", hint: "GrokBuild orchestration, GLM fast, Composer coding when available" },
+            { value: "roles", label: "Customize core roles", hint: "edit explorer / reasoning / coding" },
+            { value: "all", label: "Customize all named agents", hint: "edit core roles and every OMO/ULW override" },
+          ],
+          initialValue: "none",
+        });
+        if (prompts.isCancel(customMode)) {
+          prompts.cancel("lfg setup cancelled.");
+          throw new Error("lfg setup cancelled");
+        }
+        if (customMode === "roles" || customMode === "all") {
+          const choices = buildModelChoicesForTui(discovery.modelIds);
+          const selectors = createSetupSelectors(prompts);
+          const roleResults = await configureRoleAgents(prompts, discovery, choices, selectors, bundled);
+          const explorerModel = roleResults.find((r) => r.name === "explorer")?.model ?? discovery.mapping.fast;
+          const reasoningModel = roleResults.find((r) => r.name === "reasoning")?.model ?? discovery.mapping.reasoning;
+          const codingModel = roleResults.find((r) => r.name === "coding")?.model ?? discovery.mapping.coding;
+          const customDiscovery = {
+            ...discovery,
+            mapping: {
+              ...discovery.mapping,
+              fast: explorerModel,
+              reasoning: reasoningModel,
+              coding: codingModel,
+            },
+          };
+          const agents = defaultLazycodexAgentConfig(customDiscovery);
+          if (customMode === "all") {
+            const overrideResult = await configureAgentOverrides(prompts, customDiscovery, choices, selectors, roleResults, agents, bundled, toRecommendationOverrideMap(bundled));
+            configuredForInstall = { ...customDiscovery, agentConfig: agents, agentOverrideMap: overrideResult.agentOverrideMap };
+            resultsText = formatCustomResults(selectedPreset, configuredForInstall, roleResults, agents, overrideResult.extraResults);
+            modelConfigLine = `Model config: ${selectedPreset} preset (customized all named agents)`;
+          } else {
+            configuredForInstall = { ...customDiscovery, agentConfig: agents };
+            resultsText = formatCustomResults(selectedPreset, configuredForInstall, roleResults, agents);
+            modelConfigLine = `Model config: ${selectedPreset} preset (customized roles)`;
+          }
         } else {
-          configuredForInstall = { ...customDiscovery, agentConfig: agents };
-          resultsText = formatCustomResults(selectedPreset, configuredForInstall, roleResults, agents);
-          modelConfigLine = `Model config: ${selectedPreset} preset (customized roles)`;
+          configuredForInstall = discovery;
+          resultsText = discovery === null
+            ? "No model discovery was available. Installer will preserve existing model configuration."
+            : formatPresetResults(selectedPreset, discovery);
+          modelConfigLine = `Model config: ${selectedPreset} global preset${selectedPreset === "multi" ? " with provider-scoped base URLs" : ""}`;
         }
       } else {
         configuredForInstall = discovery;
@@ -178,12 +229,6 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
           : formatPresetResults(selectedPreset, discovery);
         modelConfigLine = `Model config: ${selectedPreset} global preset${selectedPreset === "multi" ? " with provider-scoped base URLs" : ""}`;
       }
-    } else {
-      configuredForInstall = discovery;
-      resultsText = discovery === null
-        ? "No model discovery was available. Installer will preserve existing model configuration."
-        : formatPresetResults(selectedPreset, discovery);
-      modelConfigLine = `Model config: ${selectedPreset} global preset${selectedPreset === "multi" ? " with provider-scoped base URLs" : ""}`;
     }
   }
 
@@ -194,6 +239,7 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
     [
       configOnly ? "Config path: ~/.grok" : "Install path: grok",
       configOnly ? "Updater: idempotent lfg Grok config sync" : "Installer: @islee23520/lfg internal grok-install",
+      formatCodingToolAdapterSummary(adapterChoice),
       modelConfigLine,
       "Writes: hooks, agents, overrides, lfg config, Grok plugin enablement",
       "",
@@ -215,7 +261,7 @@ export async function runSetupTui(_args: { readonly noTui?: boolean }, context: 
 
   try {
     const { runLazycodexInstaller } = await import("./lfg-installer.js");
-    const installRes: Record<string, unknown> = await runLazycodexInstaller(configuredForInstall);
+    const installRes: Record<string, unknown> = await runLazycodexInstaller(configuredForInstall, { codingToolAdapter: adapterChoice });
     if (installRes?.stdout) {
       const stdout = String(installRes.stdout);
       process.stdout.write(stdout.endsWith("\n") ? stdout : `${stdout}\n`);
@@ -254,6 +300,14 @@ function formatPresetResults(preset: SetupPreset, discovery: ModelDiscovery): st
     `  explorer: ${agents.explorer.model} / ${agents.explorer.reasoningLevel}`,
     `  reasoning: ${agents.reasoning.model} / ${agents.reasoning.reasoningLevel}`,
     `  coding: ${agents.coding.model} / ${agents.coding.reasoningLevel}`,
+  ].join("\n");
+}
+
+function formatRecommendedResults(discovery: ModelDiscovery, bundled: Parameters<typeof toRecommendationOverrideMap>[0]): string {
+  return [
+    formatPresetResults("auto", discovery).replace("Preset: auto", "LLM recommendation: auto"),
+    "",
+    formatRecommendationTable(discovery.modelIds, toRecommendationOverrideMap(bundled), { condensed: true }),
   ].join("\n");
 }
 function formatCustomResults(

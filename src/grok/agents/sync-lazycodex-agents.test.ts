@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { describe, expect, test } from "vitest"
 import { defaultLazycodexAgentConfig, type ModelDiscovery } from "../../cli/models/lfg-models"
 import { runGrokInstall } from "../install/run-grok-install"
@@ -70,6 +70,30 @@ describe("sync lazycodex agents to grok", () => {
     await expect(readFile(join(home, ".grok", "agents", "explore.md"), "utf8")).rejects.toThrow()
     await expect(readFile(join(home, ".grok", "agents", "ulw.md"), "utf8")).rejects.toThrow()
     await expect(readFile(join(home, ".grok", "agents", "grok-build.md"), "utf8")).rejects.toThrow()
+  })
+
+  test("runGrokInstall removes retired visual-looker generated surfaces", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-sync-retired-visual-looker-"))
+    const stalePaths = [
+      join(home, ".grok", "plugins", "lfg", "agents", "visual-looker.md"),
+      join(home, ".grok", "roles", "visual-looker.toml"),
+      join(home, ".grok", "personas", "visual-looker.toml"),
+      join(home, ".grok", "prompts", "omo", "visual-looker.md"),
+    ] as const
+    for (const stalePath of stalePaths) {
+      await mkdir(dirname(stalePath), { recursive: true })
+      await writeFile(stalePath, "stale lfg visual-looker surface\n", "utf8")
+    }
+
+    const run = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
+
+    expect(run.ok).toBe(true)
+    for (const stalePath of stalePaths) {
+      await expect(readFile(stalePath, "utf8")).rejects.toThrow()
+    }
+    await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "multimodal-looker.md"), "utf8")).resolves.toContain(
+      "multimodal-looker",
+    )
   })
 
   test("runGrokInstall migrates legacy lazycodex prompts to omo and removes the legacy directory", async () => {

@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { z } from "zod"
 import type { ReasoningLevel } from "../../cli/models/lfg-models"
 import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap } from "../agents/lazycodex-agent-overrides"
+import { DEFAULT_CODING_TOOL_ADAPTER, type CodingToolAdapterId } from "../../shared/coding-tool-adapter"
 import { stripJsonComments } from "../config/json-comments"
 
 const ReasoningLevelSchema = z.union([z.literal("low"), z.literal("medium"), z.literal("high"), z.literal("xhigh")])
@@ -30,6 +31,7 @@ export const LfgRuntimeConfigSchema = z
   .object({
     $schema: z.string().optional(),
     version: z.literal(1).default(1),
+    coding_tool_adapter: z.union([z.literal("grok"), z.literal("pi-agent")]).default(DEFAULT_CODING_TOOL_ADAPTER),
     agents: z.record(z.string(), LfgRuntimeRouteSchema).optional(),
     categories: z.record(z.string(), LfgRuntimeRouteSchema).optional(),
     model_fallback: z.boolean().default(true),
@@ -99,7 +101,10 @@ export function applyLfgRuntimeConfigToAgentOverrides(
   return merged
 }
 
-export function renderDefaultLfgRuntimeConfig(seed: LazycodexAgentOverrideMap): string {
+export function renderDefaultLfgRuntimeConfig(
+  seed: LazycodexAgentOverrideMap,
+  codingToolAdapter: CodingToolAdapterId = DEFAULT_CODING_TOOL_ADAPTER,
+): string {
   const agents: Record<string, unknown> = {}
   const categories: Record<string, unknown> = {}
   for (const [name, value] of Object.entries(seed)) {
@@ -108,6 +113,7 @@ export function renderDefaultLfgRuntimeConfig(seed: LazycodexAgentOverrideMap): 
   }
   return `${JSON.stringify({
     version: 1,
+    coding_tool_adapter: codingToolAdapter,
     agents,
     categories,
     model_fallback: true,

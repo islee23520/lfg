@@ -29,7 +29,6 @@ export const CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
   "atlas",
   "oracle",
   "multimodal-looker",
-  "visual-looker",
   "sisyphus-junior",
   "explorer",
   "reasoning",

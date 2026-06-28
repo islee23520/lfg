@@ -9,8 +9,16 @@ import { isRecord, type JsonObject } from "../../shared/json"
 import { refreshGrokModelConfig } from "../config/lfg-grok-config"
 import { resolveGrokApiKey } from "../../grok/install/grok-api-key"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
+import { readLfgRuntimeConfigFile } from "../../grok/models/lfg-runtime-config"
 import { buildRefreshExecutedJson, refreshPlan, runRefreshWizard, setupPlan } from "../setup/setup-plan"
 import { dispatchXaiAuthCommand } from "../xai/xai-auth-command"
+import { codingToolLaunchPlan, formatLaunchError, launchCodingToolAdapter } from "./coding-tool-launcher"
+import {
+  CODING_TOOL_ADAPTER_IDS,
+  DEFAULT_CODING_TOOL_ADAPTER,
+  isCodingToolAdapterId,
+  type CodingToolAdapterId,
+} from "../setup/coding-tool-adapter"
 
 type ParsedArgs = {
   readonly json: boolean
@@ -21,6 +29,9 @@ type ParsedArgs = {
   readonly noTui: boolean
   readonly preset: SetupPreset
   readonly presetError: string | null
+  readonly codingToolAdapter: CodingToolAdapterId
+  readonly codingToolAdapterExplicit: boolean
+  readonly codingToolAdapterError: string | null
   readonly reasoningEffort: ReasoningEffortChoice
   readonly reasoningEffortError: string | null
   readonly baseUrl: string | null
@@ -34,6 +45,24 @@ const DEFAULT_REASONING_EFFORT: ReasoningEffortChoice = "auto"
 async function main(argv: readonly string[]): Promise<number> {
   const parsed = parseArgs(argv)
   try {
+    if (isBareLaunch(parsed)) {
+      if (parsed.codingToolAdapterError !== null) {
+        const errorResult = invalidCodingToolAdapterJson(parsed.codingToolAdapterError)
+        emit(errorResult, true)
+        return 1
+      }
+      const cliAdapter = parsed.codingToolAdapterExplicit ? parsed.codingToolAdapter : null
+      if (parsed.json) {
+        emit(await codingToolLaunchPlan(cliAdapter), true)
+        return 0
+      }
+      const launchResult = await launchCodingToolAdapter(cliAdapter)
+      if (!launchResult.ok) {
+        process.stderr.write(`${formatLaunchError(launchResult)}\n`)
+      }
+      return launchResult.exitCode
+    }
+
     const result = await dispatch(parsed)
 
     // Bare `lfg setup` (the human guided command, no --json no --run) must never dump a raw
@@ -80,6 +109,9 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   if (args.presetError !== null) {
     return { ok: false, status: "invalid_preset", error: args.presetError, supportedPresets: ["auto", "balanced", "grok", "gpt", "gemini", "glm", "multi"] }
   }
+  if (args.codingToolAdapterError !== null) {
+    return invalidCodingToolAdapterJson(args.codingToolAdapterError)
+  }
   if (args.reasoningEffortError !== null) {
     return { ok: false, status: "invalid_reasoning_effort", error: args.reasoningEffortError, supportedReasoningEffort: ["auto", "low", "medium", "high", "xhigh"] }
   }
@@ -102,6 +134,7 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     return unsupportedCommand(args.positional)
   }
   const home = resolveGrokSetupHome(process.env)
+  const setupCodingToolAdapter = await resolveSetupCodingToolAdapter(args, home)
   const resolved = await resolveSetupDiscovery({ home, cliBaseUrl: args.baseUrl })
   if (isConfigTui) {
     if (args.json) {
@@ -131,9 +164,13 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   }
 
   if (args.run || isForceOnly) {
-    return runLazycodexInstaller(discovery, { force: args.force || isForceOnly, installOnly: args.installOnly })
+    return runLazycodexInstaller(discovery, {
+      force: args.force || isForceOnly,
+      installOnly: args.installOnly,
+      codingToolAdapter: setupCodingToolAdapter,
+    })
   }
-  const plan = setupPlan(presetResolved, args.preset)
+  const plan = setupPlan(presetResolved, args.preset, setupCodingToolAdapter)
   if (args.json) {
     return plan
   }
@@ -149,7 +186,7 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     // legacy readline wizard so that stdout contains only the classic oMo... steps
     // with no Clack framing or @clack/prompts calls. This is required for C002 parity.
     if (args.noTui) {
-      return runInstallWizard(plan, presetResolved)
+      return runInstallWizard(plan, presetResolved, { codingToolAdapter: setupCodingToolAdapter })
     }
     const { shouldUseSetupTui, runSetupTui } = await import("../setup/lfg-setup-tui.js")
     if (shouldUseSetupTui(args, { check: false, input: process.stdin, output: process.stdout })) {
@@ -167,7 +204,7 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     }
   }
 
-  return runInstallWizard(plan, presetResolved)
+  return runInstallWizard(plan, presetResolved, { codingToolAdapter: setupCodingToolAdapter })
 }
 
 function isInteractiveInstall(args: ParsedArgs): boolean {
@@ -180,12 +217,36 @@ function isSetupForceShortcut(args: ParsedArgs): boolean {
   return !args.json && !args.run && args.positional[0] === "setup" && (args.positional[1] === "--force" || args.positional[1] === "force")
 }
 
+async function resolveSetupCodingToolAdapter(args: ParsedArgs, home: string): Promise<CodingToolAdapterId> {
+  if (args.codingToolAdapterExplicit) {
+    return args.codingToolAdapter
+  }
+  const config = await readLfgRuntimeConfigFile(home)
+  return config?.coding_tool_adapter ?? DEFAULT_CODING_TOOL_ADAPTER
+}
+
+function isBareLaunch(args: ParsedArgs): boolean {
+  return args.positional.length === 0 && !args.run && !args.force && !args.refresh && !args.installOnly
+}
+
+function invalidCodingToolAdapterJson(error: string): JsonObject {
+  return {
+    ok: false,
+    status: "invalid_coding_tool_adapter",
+    error,
+    supportedCodingToolAdapters: [...CODING_TOOL_ADAPTER_IDS],
+  }
+}
+
 function parseArgs(argv: readonly string[]): ParsedArgs {
   const positional: string[] = []
   let baseUrl: string | null = null
   let xaiApiKey: string | null = null
   let preset: SetupPreset = DEFAULT_SETUP_PRESET
   let presetError: string | null = null
+  let codingToolAdapter: CodingToolAdapterId = DEFAULT_CODING_TOOL_ADAPTER
+  let codingToolAdapterExplicit = false
+  let codingToolAdapterError: string | null = null
   let reasoningEffort: ReasoningEffortChoice = DEFAULT_REASONING_EFFORT
   let reasoningEffortError: string | null = null
   for (let index = 0; index < argv.length; index += 1) {
@@ -201,6 +262,20 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         continue
       }
       presetError = `Unsupported setup preset: ${typeof value === "string" ? value : ""}`
+      if (typeof value === "string") {
+        index += 1
+      }
+      continue
+    }
+    if (arg === "--coding-tool-adapter") {
+      const value = argv[index + 1]
+      if (isCodingToolAdapterId(value)) {
+        codingToolAdapter = value
+        codingToolAdapterExplicit = true
+        index += 1
+        continue
+      }
+      codingToolAdapterError = `Unsupported coding tool adapter: ${typeof value === "string" ? value : ""}`
       if (typeof value === "string") {
         index += 1
       }
@@ -248,6 +323,9 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     noTui: argv.includes("--no-tui"),
     preset,
     presetError,
+    codingToolAdapter,
+    codingToolAdapterExplicit,
+    codingToolAdapterError,
     reasoningEffort,
     reasoningEffortError,
     baseUrl,
@@ -278,9 +356,10 @@ function isFailure(value: JsonObject | string): boolean {
 
 function help(): string {
   return [
-    "lfg - setup lazycodex-ai and Grok adapter extensions for Grok Build",
+    "lfg - launch the selected coding tool with lfg Grok adapter support",
     "",
     "Commands:",
+    "  lfg",
     "  lfg setup",
     "  lfg setup config",
     "  lfg xai auth status",
@@ -288,7 +367,14 @@ function help(): string {
     "  lfg xai auth logout",
     "",
     "Package execution:",
+    "  npx @islee23520/lfg",
     "  npx @islee23520/lfg setup",
+    "",
+    "Launch:",
+    "  lfg                         # launches the selected adapter from ~/.grok/lfg.json",
+    "  lfg --coding-tool-adapter grok",
+    "  lfg --coding-tool-adapter pi-agent",
+    "  lfg --json                  # prints the selected launch plan without spawning",
     "",
     "Automation:",
     "  lfg --json setup",

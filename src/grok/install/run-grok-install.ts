@@ -5,6 +5,7 @@ import { modelDiscoveryEnv } from "../../cli/models/lfg-models"
 import { grokRoutedOverrideMap } from "../../cli/models/resolve-tier-model"
 import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentModels } from "./grok-plugins-enable"
 import { ensureLfgConfigFiles } from "../config/lfg-config"
+import { DEFAULT_CODING_TOOL_ADAPTER, type CodingToolAdapterId } from "../../shared/coding-tool-adapter"
 import {
   resolveLazycodexAgentOverrides,
   writeOmoAgentOverridesFile,
@@ -43,6 +44,7 @@ export type GrokInstallRunOptions = {
   readonly force?: boolean
   readonly fullAgentModels?: Readonly<Record<string, LazycodexAgentModelOverride>>
   readonly installOnly?: boolean
+  readonly codingToolAdapter?: CodingToolAdapterId
 }
 
 type SubagentModelMapping = NonNullable<Parameters<typeof ensureLfgSubagentModels>[1]>
@@ -54,6 +56,7 @@ export async function runGrokInstall(
   options: GrokInstallRunOptions = {},
 ): Promise<GrokInstallRunResult> {
   const home = resolveGrokSetupHome(env)
+  const codingToolAdapter = options.codingToolAdapter ?? DEFAULT_CODING_TOOL_ADAPTER
   const homeEnv = { ...env, HOME: home }
   const apiKey = await resolveGrokApiKey(homeEnv)
   if (options.installOnly === true) {
@@ -102,7 +105,7 @@ export async function runGrokInstall(
           })
         : null
     const overridesPath = await writeOmoAgentOverridesFile(home, fullAgentModels)
-    const configFiles = await ensureLfgConfigFiles(home, fullAgentModels)
+    const configFiles = await ensureLfgConfigFiles(home, fullAgentModels, codingToolAdapter)
     const omoAgents = await syncLazycodexAgentsToGrokLedger(home, fullAgentModels)
     const pluginsEnabled = await ensureLfgPluginsEnabled(home)
     await ensureLfgAgentsPreferred(home)
@@ -172,7 +175,7 @@ export async function runGrokInstall(
         })
       : null
   const overridesPath = await writeOmoAgentOverridesFile(home, overrideMap)
-  const configFiles = await ensureLfgConfigFiles(home, overrideMap)
+  const configFiles = await ensureLfgConfigFiles(home, overrideMap, codingToolAdapter)
   const omoAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
   const pluginsEnabled = await ensureLfgPluginsEnabled(home)
   await ensureLfgAgentsPreferred(home)

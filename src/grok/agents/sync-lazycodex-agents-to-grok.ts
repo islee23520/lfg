@@ -48,6 +48,8 @@ const READ_ONLY_AGENT_NAMES = new Set([
   "codex-ultrawork-reviewer",
 ])
 
+const RETIRED_GROK_AGENT_NAMES = ["visual-looker"] as const
+
 export type SyncLazycodexAgentsResult = {
   readonly ok: true
   readonly agentsDir: string
@@ -78,6 +80,7 @@ export async function syncLazycodexAgentsToGrokLedger(
   await mkdir(personasDir, { recursive: true })
   await mkdir(promptsDir, { recursive: true })
   await migrateLegacyLazycodexPrompts(home)
+  await removeRetiredGrokAgentSurfaces({ agentsDir, rolesDir, personasDir, promptsDir })
   await moveConflictingUserAgentsAside(home, conflictingUserAgentNames())
 
   const written: string[] = []
@@ -286,6 +289,20 @@ function conflictingUserAgentNames(): string[] {
   return [...Object.values(GROK_AGENT_NAMES)]
 }
 
+async function removeRetiredGrokAgentSurfaces(dirs: {
+  readonly agentsDir: string
+  readonly rolesDir: string
+  readonly personasDir: string
+  readonly promptsDir: string
+}): Promise<void> {
+  for (const name of RETIRED_GROK_AGENT_NAMES) {
+    await removeIfExists(join(dirs.agentsDir, `${name}.md`))
+    await removeIfExists(join(dirs.rolesDir, `${name}.toml`))
+    await removeIfExists(join(dirs.personasDir, `${name}.toml`))
+    await removeIfExists(join(dirs.promptsDir, `${name}.md`))
+  }
+}
+
 async function moveConflictingMarkdownAgentsAside(home: string, names: readonly string[]): Promise<void> {
   const userAgentsDir = join(home, ".grok", "agents")
   const mdBackupDir = join(home, ".grok", "agents-user-backup-lfg")
@@ -298,6 +315,14 @@ async function moveIfExists(source: string, dest: string): Promise<void> {
     const text = await readFile(source, "utf8")
     if (!(await fileExists(dest))) await writeFile(dest, text, "utf8")
     await unlink(source)
+  } catch (error) {
+    if (!isNodeError(error) || error.code !== "ENOENT") throw error
+  }
+}
+
+async function removeIfExists(path: string): Promise<void> {
+  try {
+    await unlink(path)
   } catch (error) {
     if (!isNodeError(error) || error.code !== "ENOENT") throw error
   }

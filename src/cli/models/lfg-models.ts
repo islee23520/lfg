@@ -331,17 +331,12 @@ function mapModels(modelIds: readonly string[]): ModelMapping {
 }
 
 function autoBestMapping(modelIds: readonly string[]): ModelMapping {
-  // "auto / best available" picks models by CAPABILITY, not by provider.
-  // Generic capability keywords (reasoning/codex/fast) are tried first, so the
-  // result depends on what models are available and what their names signal —
-  // not on a hardcoded provider preference. Only when no capability match exists
-  // does it fall back to known model names.
   const first = modelIds[0]
   if (typeof first !== "string") {
     throw new ModelDiscoveryError("Cannot map an empty model list")
   }
   return {
-    default: findModel(modelIds, ["gpt-5.5", "glm-5.2", "gpt-5", "glm", "grok-4.3", "gemini-3.1-pro-preview", "gemini-3-pro-preview", "grok-4.20-0309-reasoning", "grok-4", "grok-build"]) ?? canonicalModelFor(modelIds, first),
+    default: findModel(modelIds, ["grok-build-0.1", "grok-build", "gpt-5.5", "glm-5.2", "gpt-5", "glm", "grok-4.3", "gemini-3.1-pro-preview", "gemini-3-pro-preview", "grok-4.20-0309-reasoning", "grok-4"]) ?? canonicalModelFor(modelIds, first),
     fast: findModel(modelIds, ["gpt-5.4-mini-fast", "gpt-5.4-mini", "glm-5-turbo", "gemini-3-flash", "gemini-3.1-flash-lite", "fast", "mini", "flash", "lite", "turbo", "air", "grok-3-mini-fast", "grok-composer"]) ?? canonicalModelFor(modelIds, first),
     reasoning: findModel(modelIds, ["gpt-5.5", "glm-5.2", "gpt-5", "glm", "reasoning", "think", "o1", "o3", "o4", "r1", "grok-4.3", "grok-4.20-0309-reasoning", "gemini-3-pro-high", "grok-4"]) ?? canonicalModelFor(modelIds, first),
     coding: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "code", "coder", "coding", "build", "grok-4.20-0309-non-reasoning", "grok-build", "glm-5-turbo", "gpt", "grok"]) ?? canonicalModelFor(modelIds, first),

@@ -43,12 +43,12 @@ Never skip the post-action snapshot. It is how you know the action actually happ
 ## When to use this skill
 
 - User says "click the ... button in <App>", "type ... into the field in Photoshop/Figma/Blender/...", "save the document", "export as PNG", "draw this shape", "navigate the UI of ...", "fill this form in the desktop app", control any native macOS GUI tool while the user keeps working elsewhere.
-- Vision / screenshot inspection agents (visual-looker, artistry-qa, etc.) can request actions via this skill (or delegate to a worker persona that holds the cua loop).
+- Vision / screenshot inspection agents (multimodal-looker, artistry-qa, etc.) can request actions via this skill (or delegate to a worker persona that holds the cua loop).
 - Any workflow that needs reliable desktop automation with before/after evidence.
 
 ## Relation to other skills / personas (LFG flavour)
 
-The LFG-bundled "artistry" family (artistry, artistry-gen, artistry-qa, visual-looker, visual-engineering, ...) are pre-configured to delegate actual Computer Use execution to a worker that uses this skill. The "gen" worker does the observe → act → verify loop via cua-driver; the QA worker only looks at screenshots and gives verdicts.
+The LFG-bundled "artistry" family (artistry, artistry-gen, artistry-qa, multimodal-looker, visual-engineering, ...) are pre-configured to delegate actual Computer Use execution to a worker that uses this skill. The "gen" worker does the observe → act → verify loop via cua-driver; the QA worker only looks at screenshots and gives verdicts.
 
 You (the current agent) can do the same: when you need to drive the UI, invoke the cua-driver skill (or spawn a sub-task that uses it).
 

@@ -51,7 +51,6 @@ const CODING_AGENT_NAMES: ReadonlySet<string> = new Set([
 
 const VISUAL_AGENT_NAMES: ReadonlySet<string> = new Set([
   "multimodal-looker",
-  "visual-looker",
   "visual-engineering",
   "artistry",
   "artistry-gen",

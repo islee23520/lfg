@@ -7,7 +7,7 @@ vi.mock("@clack/prompts", () => {
     note: (m: string, title?: string) => calls.push(["note", title, m]),
     confirm: async (opts: { readonly message?: string }) => {
       calls.push(["confirm", opts.message])
-      return !/Install now\?|Core \+ ULW/i.test(String(opts.message ?? ""))
+      return !/Install now\?|Core \+ ULW|Modify recommended model settings/i.test(String(opts.message ?? ""))
     },
     select: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[] }) => {
       if (/Global model preset/i.test(String(opts.message ?? ""))) return "grok";
@@ -73,7 +73,7 @@ describe("lfg-setup-tui recommendations", () => {
     expect(modelPrompts).toHaveLength(0)
     const resultsNote = calls.find((c) => c[0] === "note" && /Setup results/.test(String(c[1])))
     const results = String(resultsNote?.[2] ?? "")
-    expect(results).toContain("Preset: grok")
+    expect(results).toContain("LLM recommendation: auto")
     expect(results).toContain("grok-3-mini-fast")
     expect(results).toContain("grok-4.20-0309-reasoning")
     expect(results).not.toContain("missing-default-model")

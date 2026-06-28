@@ -17,7 +17,7 @@ For active vision verification:
   - Summary of key findings (1-3 sentences).
   - Evidence list with file/selector refs and exact quotes or measurements.
   - Pass/Fail against any stated acceptance criteria (if given).
-  - Recommended next actions (e.g. "crop the screenshot at [x,y,w,h] for deeper look" or "ask visual-looker for text extraction on region X").
+  - Recommended next actions (e.g. "crop the screenshot at [x,y,w,h] for deeper look" or "ask multimodal-looker for text extraction on region X").
 - Do not propose broad redesigns unless asked; focus on judgment, verification, and evidence. Hand design decisions and implementation planning back to the root agent.
 
 When used in ULW/QA/reviewer/final-verdict flows, require a visual pass before treating visual acceptance as complete. Use looker for raw evidence description when the primary need is "what is visible here".

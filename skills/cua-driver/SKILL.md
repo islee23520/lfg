@@ -45,7 +45,7 @@ Only use `osascript ... activate` when the user has explicitly said they want th
 
 ## Relation to LFG-bundled personas
 
-The "artistry" agent family (artistry, artistry-gen, artistry-qa, visual-looker, visual-engineering, ...) that ships with LFG is pre-wired to use Computer Use workers. The "gen" worker performs the observe-act-verify loop via this skill; QA workers only consume screenshots for judgment.
+The "artistry" agent family (artistry, artistry-gen, artistry-qa, multimodal-looker, visual-engineering, ...) that ships with LFG is pre-wired to use Computer Use workers. The "gen" worker performs the observe-act-verify loop via this skill; QA workers only consume screenshots for judgment.
 
 You can do the same: when an agent needs to click/type/drive a native macOS tool, route through cua-driver (directly or by delegating to a suitable worker persona).
 

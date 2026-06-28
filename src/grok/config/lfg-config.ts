@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { z } from "zod"
 import type { LazycodexAgentConfig, ReasoningLevel } from "../../cli/models/lfg-models"
 import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap } from "../agents/lazycodex-agent-overrides"
+import { DEFAULT_CODING_TOOL_ADAPTER, type CodingToolAdapterId } from "../../shared/coding-tool-adapter"
 import { stripJsonComments } from "./json-comments"
 import { lfgRuntimeConfigPath, renderDefaultLfgRuntimeConfig } from "../models/lfg-runtime-config"
 export { applyLfgRuntimeConfigToAgentOverrides, lfgRuntimeConfigPath, readLfgRuntimeConfigFile } from "../models/lfg-runtime-config"
@@ -27,6 +28,7 @@ export const LfgConfigSchema = z
   .object({
     $schema: z.string().optional(),
     version: z.literal(1).default(1),
+    coding_tool_adapter: z.union([z.literal("grok"), z.literal("pi-agent")]).default(DEFAULT_CODING_TOOL_ADAPTER),
     models: z
       .object({
         default: z.string().min(1).optional(),
@@ -72,17 +74,18 @@ export async function readLfgConfigFile(home: string): Promise<LfgConfig | null>
 export async function ensureLfgConfigFiles(
   home: string,
   seed: LazycodexAgentOverrideMap,
+  codingToolAdapter: CodingToolAdapterId = DEFAULT_CODING_TOOL_ADAPTER,
 ): Promise<{ readonly configPath: string; readonly schemaPath: string; readonly runtimeConfigPath: string }> {
   const configPath = lfgConfigPath(home)
   const runtimeConfigPath = lfgRuntimeConfigPath(home)
   const schemaPath = lfgConfigSchemaPath(home)
   await mkdir(join(home, ".grok"), { recursive: true })
   await writeFile(schemaPath, `${JSON.stringify(z.toJSONSchema(LfgConfigSchema), null, 2)}\n`, "utf8")
-  await writeFile(runtimeConfigPath, renderDefaultLfgRuntimeConfig(seed), "utf8")
+  await writeFile(runtimeConfigPath, renderDefaultLfgRuntimeConfig(seed, codingToolAdapter), "utf8")
   try {
     await readFile(configPath, "utf8")
   } catch {
-    await writeFile(configPath, renderDefaultLfgConfig(seed), "utf8")
+    await writeFile(configPath, renderDefaultLfgConfig(seed, codingToolAdapter), "utf8")
   }
   return { configPath, schemaPath, runtimeConfigPath }
 }
@@ -118,7 +121,7 @@ function agentFallback(name: string, roleConfig: LazycodexAgentConfig): { readon
   return undefined
 }
 
-function renderDefaultLfgConfig(seed: LazycodexAgentOverrideMap): string {
+function renderDefaultLfgConfig(seed: LazycodexAgentOverrideMap, codingToolAdapter: CodingToolAdapterId): string {
   const agents = Object.fromEntries(
     Object.entries(seed).map(([name, value]) => [
       name,
@@ -133,5 +136,5 @@ function renderDefaultLfgConfig(seed: LazycodexAgentOverrideMap): string {
       },
     ]),
   )
-  return `${JSON.stringify({ $schema: `./${LFG_CONFIG_SCHEMA_FILENAME}`, version: 1, agents, subagents: { disableBuiltins: true } }, null, 2)}\n`
+  return `${JSON.stringify({ $schema: `./${LFG_CONFIG_SCHEMA_FILENAME}`, version: 1, coding_tool_adapter: codingToolAdapter, agents, subagents: { disableBuiltins: true } }, null, 2)}\n`
 }

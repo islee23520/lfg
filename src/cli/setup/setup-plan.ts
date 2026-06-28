@@ -5,8 +5,9 @@ import { resolveGrokApiKey } from "../../grok/install/grok-api-key"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../../grok/install/run-grok-install"
 import type { ResolveSetupDiscoveryResult } from "../../grok/install/resolve-setup-discovery"
+import { codingToolAdapterSelectionJson, type CodingToolAdapterId } from "./coding-tool-adapter"
 
-export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPreset): JsonObject {
+export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPreset, codingToolAdapter?: CodingToolAdapterId): JsonObject {
   const discovery = resolved.discovery
   return {
     ok: true,
@@ -33,6 +34,7 @@ export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPr
     dryRun: false,
     lfgIsPlugin: false,
     installPath: "grok",
+    codingToolAdapter: codingToolAdapterSelectionJson(codingToolAdapter),
     purpose: "Grok-first direct install of the OMO adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). Supported hooks, Sisyphus, ultrawork context, ulw skills, agents, and manifest-only MCP entries are materialized under ~/.grok/plugins/lfg; deferred OMO components stay documented as deferred or unsupported.",
     modelDiscovery: discovery ?? modelDiscoveryPlan(),
     ...(discovery === null ? {} : { agentReasoning: agentReasoningSummary(discovery) }),
