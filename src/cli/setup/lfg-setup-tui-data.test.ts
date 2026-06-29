@@ -1,12 +1,13 @@
 import { describe, expect, test } from "vitest"
 
-import { buildVanillaGrokConfig, isGrokModel, pickGrokModel } from "./lfg-setup-tui-data"
+import { buildVanillaGrokConfig, formatVanillaSummary, isGrokModel, pickGrokModel } from "./lfg-setup-tui-data"
+import type { ModelDiscovery } from "../models/lfg-models"
 import { loadBundledDefaultOmoOverrides } from "../../grok/agents/lazycodex-agent-overrides"
 
 describe("buildVanillaGrokConfig", () => {
   test("every agent resolves to a Grok-native model even when bundled primaries are GPT", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()
-    const cfg = buildVanillaGrokConfig(bundled)
+    const cfg = buildVanillaGrokConfig(bundled, undefined)
 
     // Role agents are Grok.
     expect(isGrokModel(cfg.agentConfig.explorer.model)).toBe(true)
@@ -27,14 +28,33 @@ describe("buildVanillaGrokConfig", () => {
 
   test("explorer defaults to a fast Grok model and reasoning to a deep Grok model", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()
-    const cfg = buildVanillaGrokConfig(bundled)
+    const cfg = buildVanillaGrokConfig(bundled, undefined)
     expect(cfg.mapping.fast).toBe(cfg.agentConfig.explorer.model)
     expect(cfg.mapping.reasoning).toBe(cfg.agentConfig.reasoning.model)
   })
 
-  test("pickGrokModel prefers grok primary, then grok fallback, then role default", () => {
-    expect(pickGrokModel("grok-3-mini-fast", "gpt-5.4-mini", "grok-4.20-0309-reasoning")).toBe("grok-3-mini-fast")
+  test("vanilla dynamically selects best grok-4/grok-3 models when discovery provided (OAuth optimized)", async () => {
+    const bundled = await loadBundledDefaultOmoOverrides()
+    const discoveryWithGrok3And4: ModelDiscovery = {
+      baseUrl: "https://api.x.ai/v1",
+      modelsUrl: "https://api.x.ai/v1/models",
+      modelIds: ["grok-4", "grok-4.3", "grok-3-mini-fast", "grok-build-0.1", "grok-4.20-0309-reasoning"],
+      mapping: { default: "grok-4", fast: "grok-3-mini-fast", reasoning: "grok-4.3", coding: "grok-4" },
+    }
+    const cfg = buildVanillaGrokConfig(bundled, discoveryWithGrok3And4)
+
+    // Dynamic selection prefers grok-4 family for reasoning/default, grok-3-mini-fast for fast
+    expect(["grok-4", "grok-4.3", "grok-4.20-0309-reasoning"].includes(cfg.mapping.reasoning)).toBe(true)
+    expect(cfg.mapping.fast).toBe("grok-3-mini-fast")
+    expect(cfg.mapping.default).toBe("grok-4")
+    expect(formatVanillaSummary(cfg)).toContain("grok-4")
+    expect(formatVanillaSummary(cfg)).toContain("grok-3-mini-fast")
+  })
+
+  test("pickGrokModel prefers usable grok primary, then usable grok fallback, then role default", () => {
+    expect(pickGrokModel("grok-4.3", "gpt-5.4-mini", "grok-4.20-0309-reasoning")).toBe("grok-4.3")
     expect(pickGrokModel("gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning")).toBe("grok-4.20-0309-reasoning")
+    expect(pickGrokModel("grok-3-mini-fast", "gpt-5.4-mini", "grok-4.20-0309-reasoning")).toBe("grok-3-mini-fast")  // now fully supported in optimized vanilla
     expect(pickGrokModel("gpt-5.5", "glm-5", "grok-4.20-0309-reasoning")).toBe("grok-4.20-0309-reasoning")
     expect(pickGrokModel(undefined, undefined, "grok-4.3")).toBe("grok-4.3")
   })

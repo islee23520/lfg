@@ -13,6 +13,8 @@ import { readLfgRuntimeConfigFile } from "../../grok/models/lfg-runtime-config"
 import { buildRefreshExecutedJson, refreshPlan, runRefreshWizard, setupPlan } from "../setup/setup-plan"
 import { dispatchXaiAuthCommand } from "../xai/xai-auth-command"
 import { codingToolLaunchPlan, formatLaunchError, launchCodingToolAdapter } from "./coding-tool-launcher"
+import { loadBundledDefaultOmoOverrides } from "../../grok/agents/lazycodex-agent-overrides"
+import { buildVanillaGrokDiscovery } from "../setup/lfg-setup-tui-data"
 import {
   CODING_TOOL_ADAPTER_IDS,
   DEFAULT_CODING_TOOL_ADAPTER,
@@ -36,6 +38,12 @@ type ParsedArgs = {
   readonly reasoningEffortError: string | null
   readonly baseUrl: string | null
   readonly xaiApiKey: string | null
+  readonly xaiOauthAccessToken: string | null
+  readonly xaiOauthRefreshToken: string | null
+  readonly xaiOauthExpiresAt: string | null
+  readonly xaiOauthExpiresIn: string | null
+  readonly xaiOauthTokenEndpoint: string | null
+  readonly xaiOauthTokenType: string | null
   readonly positional: readonly string[]
 }
 
@@ -126,7 +134,16 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     return help()
   }
   if (command === "xai" && subcommand === "auth") {
-    return dispatchXaiAuthCommand(third, { json: args.json, apiKeyFlag: args.xaiApiKey })
+    return dispatchXaiAuthCommand(third, {
+      json: args.json,
+      apiKeyFlag: args.xaiApiKey,
+      oauthAccessToken: args.xaiOauthAccessToken,
+      oauthRefreshToken: args.xaiOauthRefreshToken,
+      oauthExpiresAt: args.xaiOauthExpiresAt,
+      oauthExpiresIn: args.xaiOauthExpiresIn,
+      oauthTokenEndpoint: args.xaiOauthTokenEndpoint,
+      oauthTokenType: args.xaiOauthTokenType,
+    })
   }
   const isForceOnly = (subcommand === "--force" || subcommand === "force")
   const isConfigTui = subcommand === "config" || subcommand === "tui"
@@ -135,18 +152,30 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   }
   const home = resolveGrokSetupHome(process.env)
   const setupCodingToolAdapter = await resolveSetupCodingToolAdapter(args, home)
-  const resolved = await resolveSetupDiscovery({ home, cliBaseUrl: args.baseUrl })
+  const hostAuthOnly = setupCodingToolAdapter === "grok" && args.baseUrl === null && !args.refresh && !args.installOnly && !isConfigTui
+  const resolved = args.installOnly
+    ? { discovery: null, baseUrlUsed: null, baseUrlSource: "none" as const, autoDiscovered: false }
+    : await resolveSetupDiscovery({ home, cliBaseUrl: args.baseUrl, hostAuthOnly })
+  const resolvedDiscovery =
+    hostAuthOnly && resolved.discovery === null
+      ? buildVanillaGrokDiscovery(await loadBundledDefaultOmoOverrides(), undefined, args.reasoningEffort)
+      : resolved.discovery
+  const resolvedForSetup = { ...resolved, discovery: resolvedDiscovery }
   if (isConfigTui) {
     if (args.json) {
       return { ok: false, status: "tui_requires_terminal", command: "setup config", error: "Use bare `lfg setup config` to edit model routing in the TUI." }
     }
     const { runSetupTui } = await import("../setup/lfg-setup-tui.js")
-    const discoveryForConfig = resolved.discovery === null ? null : withReasoningEffort(applyModelPreset(resolved.discovery, args.preset), args.reasoningEffort)
-    const configResult = await runSetupTui(args, { plan: {}, resolved: { ...resolved, discovery: discoveryForConfig }, configOnly: true })
+    const discoveryForConfig = resolvedForSetup.discovery === null ? null : withReasoningEffort(applyModelPreset(resolvedForSetup.discovery, args.preset), args.reasoningEffort)
+    const configResult = await runSetupTui(args, { plan: {}, resolved: { ...resolvedForSetup, discovery: discoveryForConfig }, configOnly: true })
     return configResult ?? { ok: true, status: "tui_config_completed", executed: true }
   }
-  const discovery = resolved.discovery === null ? null : withReasoningEffort(applyModelPreset(resolved.discovery, args.preset), args.reasoningEffort)
-  const presetResolved = { ...resolved, discovery }
+  const discovery = resolvedForSetup.discovery === null
+    ? null
+    : hostAuthOnly
+      ? resolvedForSetup.discovery
+      : withReasoningEffort(applyModelPreset(resolvedForSetup.discovery, args.preset), args.reasoningEffort)
+  const presetResolved = { ...resolvedForSetup, discovery }
 
   // --refresh path: lightweight re-sync of model list + per-model context_window + auth into ~/.grok/config.toml.
   // Does not mutate the Grok plugin tree, hooks, or agent TOMLs. Always attempts public LiteLLM catalog enrichment
@@ -242,6 +271,12 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   const positional: string[] = []
   let baseUrl: string | null = null
   let xaiApiKey: string | null = null
+  let xaiOauthAccessToken: string | null = null
+  let xaiOauthRefreshToken: string | null = null
+  let xaiOauthExpiresAt: string | null = null
+  let xaiOauthExpiresIn: string | null = null
+  let xaiOauthTokenEndpoint: string | null = null
+  let xaiOauthTokenType: string | null = null
   let preset: SetupPreset = DEFAULT_SETUP_PRESET
   let presetError: string | null = null
   let codingToolAdapter: CodingToolAdapterId = DEFAULT_CODING_TOOL_ADAPTER
@@ -310,6 +345,54 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         continue
       }
     }
+    if (arg === "--access-token") {
+      const value = argv[index + 1]
+      if (typeof value === "string") {
+        xaiOauthAccessToken = value
+        index += 1
+        continue
+      }
+    }
+    if (arg === "--refresh-token") {
+      const value = argv[index + 1]
+      if (typeof value === "string") {
+        xaiOauthRefreshToken = value
+        index += 1
+        continue
+      }
+    }
+    if (arg === "--expires-at") {
+      const value = argv[index + 1]
+      if (typeof value === "string") {
+        xaiOauthExpiresAt = value
+        index += 1
+        continue
+      }
+    }
+    if (arg === "--expires-in") {
+      const value = argv[index + 1]
+      if (typeof value === "string") {
+        xaiOauthExpiresIn = value
+        index += 1
+        continue
+      }
+    }
+    if (arg === "--token-endpoint") {
+      const value = argv[index + 1]
+      if (typeof value === "string") {
+        xaiOauthTokenEndpoint = value
+        index += 1
+        continue
+      }
+    }
+    if (arg === "--token-type") {
+      const value = argv[index + 1]
+      if (typeof value === "string") {
+        xaiOauthTokenType = value
+        index += 1
+        continue
+      }
+    }
     if (typeof arg === "string") {
       positional.push(arg)
     }
@@ -330,6 +413,12 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     reasoningEffortError,
     baseUrl,
     xaiApiKey,
+    xaiOauthAccessToken,
+    xaiOauthRefreshToken,
+    xaiOauthExpiresAt,
+    xaiOauthExpiresIn,
+    xaiOauthTokenEndpoint,
+    xaiOauthTokenType,
     positional,
   }
 }
@@ -364,6 +453,7 @@ function help(): string {
     "  lfg setup config",
     "  lfg xai auth status",
     "  lfg xai auth set-api-key [--api-key KEY]",
+    "  lfg xai auth set-oauth --access-token TOKEN --refresh-token TOKEN --expires-at ISO_TIME",
     "  lfg xai auth logout",
     "",
     "Package execution:",

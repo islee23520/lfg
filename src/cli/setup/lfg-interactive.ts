@@ -15,6 +15,7 @@ import {
   loadBundledDefaultOmoOverridesForInteractive,
   mergeLazycodexAgentOverrides,
 } from "./lfg-interactive-agent-config"
+import { buildVanillaGrokDiscovery, formatVanillaResults, formatVanillaSummary, type VanillaGrokConfig } from "./lfg-setup-tui-data"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
 
@@ -43,6 +44,8 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     printStep(1, "Discovering Grok model endpoint")
     if (discovery === null) {
       discovery = await discoverModelsInteractively(reader)
+    } else if (isHostAuthOnlyDiscovery(discovery)) {
+      printVanillaDiscovery(discovery)
     } else {
       await printAutoDiscovery(resolved ?? { discovery, baseUrlUsed: null, baseUrlSource: "none", autoDiscovered: false })
     }
@@ -64,11 +67,11 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     // === Classic readline conversational path ONLY (no TUI indicators) ===
     printStep(2, "Configuring LazyCodex agents")
     const configuredDiscovery =
-      discovery === null ? null : await configureLazycodexAgentsFull(reader, discovery, options)
+      discovery === null ? null : isHostAuthOnlyDiscovery(discovery) ? discovery : await configureLazycodexAgentsFull(reader, discovery, options)
 
     // This is the interactive gate for bare `lfg setup` (classic path only).
     printStep(3, "Reviewing install plan")
-    printInstallPlan(plan, configuredDiscovery !== null)
+    printInstallPlan(plan, modelConfigLabel(configuredDiscovery))
     printMagicWord()
     const confirmed = await confirm(reader, "Install now? [y/N] ")
     if (!confirmed) {
@@ -112,6 +115,17 @@ function printInstallHeader(): void {
 
 async function discoverModelsInteractively(reader: LineReader): Promise<ModelDiscovery | null> {
   const home = resolveGrokSetupHome(process.env)
+
+  output.write("Use OpenAI-compatible CLI proxy for model routing? [y/N] ")
+  const proxyAns = await reader.next()
+  const wantsProxy = ["y", "yes"].includes((proxyAns.done === true ? "" : proxyAns.value).trim().toLowerCase())
+  if (!wantsProxy) {
+    // Optimized vanilla with OAuth: pass null discovery for dynamic Grok model selection
+    const vanilla = buildVanillaGrokDiscovery(await loadBundledDefaultOmoOverridesForInteractive(), undefined)
+    printVanillaDiscovery(vanilla)
+    return vanilla
+  }
+
   const auto = await resolveSetupDiscovery({ home, cliBaseUrl: null })
   if (auto && auto.discovery !== null && auto.discovery !== undefined) {
     await printAutoDiscovery(auto)
@@ -131,6 +145,36 @@ async function discoverModelsInteractively(reader: LineReader): Promise<ModelDis
   }
   await printAutoDiscovery({ ...manual, baseUrlSource: "cli" })
   return manual.discovery
+}
+
+function isHostAuthOnlyDiscovery(discovery: ModelDiscovery): boolean {
+  return discovery.baseUrl.trim().length === 0 && discovery.modelsUrl.trim().length === 0
+}
+
+function modelConfigLabel(discovery: ModelDiscovery | null): string {
+  if (discovery === null) {
+    return "skipped unless discovered later"
+  }
+  return isHostAuthOnlyDiscovery(discovery) ? "vanilla Grok host auth" : "auto-mapped from /v1/models"
+}
+
+function printVanillaDiscovery(discovery: ModelDiscovery): void {
+  output.write(`${formatVanillaSummaryForLineSetup(discovery)}\n\n`)
+  output.write(`${formatVanillaResults(vanillaConfigFromDiscovery(discovery))}\n\n`)
+}
+
+function formatVanillaSummaryForLineSetup(discovery: ModelDiscovery): string {
+  // Use updated vanilla summary for OAuth + dynamic grok-3/grok-4 optimization
+  return formatVanillaSummary(vanillaConfigFromDiscovery(discovery))
+}
+
+function vanillaConfigFromDiscovery(discovery: ModelDiscovery): VanillaGrokConfig {
+  const agentConfig = discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
+  return {
+    agentConfig,
+    agentOverrideMap: discovery.agentOverrideMap ?? {},
+    mapping: discovery.mapping,
+  }
 }
 
 async function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): Promise<void> {

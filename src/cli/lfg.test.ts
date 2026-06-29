@@ -28,8 +28,13 @@ describe("lfg CLI", () => {
         supported: ["grok", "pi-agent"],
       },
       modelDiscovery: {
-        required: false,
-        endpoint: "OpenAI-compatible /v1/models",
+        baseUrl: "",
+        mapping: {
+          default: expect.stringMatching(/^grok/),
+          fast: expect.stringMatching(/^grok/),
+          reasoning: expect.stringMatching(/^grok/),
+          coding: expect.stringMatching(/^grok/),
+        },
       },
     })
   })
@@ -265,14 +270,13 @@ describe("lfg CLI", () => {
     await withModelServer(["grok-build-0.1", "glm-5-turbo", "grok-composer-2.5-fast", "grok-4.20-0309-reasoning"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-interactive-skip."))
       const result = await runLfgText(
-        ["setup", "--no-tui"],
-        `${baseUrl}\n\nn\nn\n`,
+        ["setup", "--no-tui", "--base-url", baseUrl],
+        "\n\nn\n",
         { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" },
       )
 
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain("lfg setup")
-      expect(result.stdout).toContain("OpenAI-compatible base URL")
       expect(result.stdout).toContain("Found 4 models")
       expect(result.stdout).toContain("Use LLM recommendations from your available models? [Y/n]")
       expect(result.stdout).toContain("Recommended model settings:")
@@ -292,8 +296,8 @@ describe("lfg CLI", () => {
   test("interactive role recommendations only show available models", async () => {
     await withModelServer(["grok-3-mini-fast"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-interactive-model-rec."))
-      const input = `${baseUrl}\nn\n\n\nn\n`
-      const result = await runLfgText(["setup", "--no-tui"], input, { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
+      const input = "n\n\n\nn\n"
+      const result = await runLfgText(["setup", "--no-tui", "--base-url", baseUrl], input, { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
 
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain("grok-3-mini-fast")
@@ -304,6 +308,24 @@ describe("lfg CLI", () => {
       expect(result.stdout).not.toContain("Recommended: gpt-5.5")
       expect(result.stdout).not.toContain("Recommended: grok-4.20-0309-reasoning")
     })
+  })
+
+  test("interactive setup without proxy uses vanilla Grok without model optimization prompts", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-interactive-vanilla."))
+    const result = await runLfgText(["setup", "--no-tui"], "n\nn\n", {
+      HOME: home,
+      LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain("Vanilla GrokBuild with xAI OAuth")
+    expect(result.stdout).toContain("native models from discovery (grok-4 preferred, grok-3 for fast)")
+    expect(result.stdout).not.toContain("Use LLM recommendations from your available models?")
+    expect(result.stdout).not.toContain("Choose one global model preset")
+    expect(result.stdout).not.toContain("Global reasoning effort")
+    expect(result.stdout).toContain("Model config: vanilla Grok host auth")  // --no-tui interactive path
+    expect(result.stdout).toContain("Install now? [y/N]")
+    expect(result.stdout).toContain("Skipped install")
   })
 
   test("unsupported commands advertise setup only", async () => {

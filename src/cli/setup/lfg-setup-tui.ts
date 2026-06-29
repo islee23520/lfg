@@ -6,6 +6,7 @@ import type { ModelSelector, ReasoningSelector, TierSelector } from "./lfg-setup
 import { loadBundledDefaultOmoOverrides } from "../../grok/agents/lazycodex-agent-overrides";
 import {
   buildVanillaGrokConfig,
+  buildVanillaGrokDiscovery,
   formatVanillaResults,
   formatVanillaSummary,
   readDiscoveryFromContext,
@@ -80,13 +81,32 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     throw new Error("lfg setup cancelled");
   }
 
+  // Explicit opt-in for OpenAI-compatible CLI proxy; default is vanilla Grok Build auth.
+  const wantsProxy = await prompts.confirm({
+    message: "Use OpenAI-compatible CLI proxy for model routing? (default: no = vanilla Grok Build auth)",
+    initialValue: false,
+  });
+  if (prompts.isCancel(wantsProxy)) {
+    prompts.cancel("lfg setup cancelled.");
+    throw new Error("lfg setup cancelled");
+  }
+
   const bundled = await loadBundledDefaultOmoOverrides();
-  const baseDiscovery = readDiscoveryFromContext(context);
+  const baseDiscovery = wantsProxy ? readDiscoveryFromContext(context) : null;
 
   let configuredForInstall: ModelDiscovery | null = null;
   let resultsText = "No model discovery was available. Installer will preserve existing model configuration.";
   let modelConfigLine = "Model config: preserved existing settings";
-  let shouldUseManualFlow = true;
+  let shouldUseManualFlow = wantsProxy === true;
+
+  if (wantsProxy !== true) {
+    // Vanilla mode now uses real discovery (with OAuth) for best native Grok models (grok-4/grok-3)
+    const vanilla = buildVanillaGrokConfig(bundled, baseDiscovery || undefined);
+    configuredForInstall = buildVanillaGrokDiscovery(bundled, baseDiscovery || undefined);
+    resultsText = formatVanillaResults(vanilla);
+    modelConfigLine = "Model config: native Grok models via OAuth (dynamic selection)";
+    prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models (optimized)");
+  }
 
   if (baseDiscovery !== null && baseDiscovery.modelIds.length > 0) {
     const wantsRecommendations = await prompts.confirm({
@@ -154,21 +174,12 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     }
 
     if (modelMode === "vanilla") {
-      const vanilla = buildVanillaGrokConfig(bundled);
-      const vanillaModelIds = [...new Set([vanilla.mapping.default, vanilla.mapping.fast, vanilla.mapping.reasoning, vanilla.mapping.coding])];
-      const vanillaDiscovery = {
-        ...withReasoningEffort({
-          baseUrl: "",
-          modelsUrl: "",
-          modelIds: vanillaModelIds,
-          mapping: vanilla.mapping,
-        }, reasoningEffort as ReasoningEffortChoice),
-        agentOverrideMap: vanilla.agentOverrideMap,
-      };
-      configuredForInstall = vanillaDiscovery;
+      // Optimized vanilla: use discovery if available (OAuth provides real model list)
+      const vanilla = buildVanillaGrokConfig(bundled, baseDiscovery || undefined);
+      configuredForInstall = buildVanillaGrokDiscovery(bundled, baseDiscovery || undefined, reasoningEffort as ReasoningEffortChoice);
       resultsText = formatVanillaResults(vanilla);
-      modelConfigLine = "Model config: built-in Grok defaults (no proxy)";
-      prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models");
+      modelConfigLine = "Model config: native Grok models via OAuth (dynamic selection)";
+      prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models (optimized)");
     } else {
       const selectedPreset = modelMode as SetupPreset;
       const discovery = baseDiscovery === null ? null : withReasoningEffort(applyModelPreset(baseDiscovery, selectedPreset), reasoningEffort as ReasoningEffortChoice);

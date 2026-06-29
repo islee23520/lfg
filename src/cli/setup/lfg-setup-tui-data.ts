@@ -1,5 +1,5 @@
 import { isRecord } from "../../shared/json"
-import type { LazycodexAgentConfig, ModelDiscovery, ReasoningLevel } from "../models/lfg-models"
+import { withReasoningEffort, type LazycodexAgentConfig, type ModelDiscovery, type ReasoningEffortChoice, type ReasoningLevel } from "../models/lfg-models"
 import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap } from "../../grok/agents/lazycodex-agent-overrides"
 import { getAgentRecommendation, type AgentRecommendationOverride } from "../../grok/models/model-recommendations"
 
@@ -71,10 +71,46 @@ export function isGrokModel(model: string | undefined): boolean {
   return typeof model === "string" && (/^grok[-_/]/i.test(model) || model === "grok-build")
 }
 
-/** Pick a Grok model: prefer the primary if Grok, else the fallback if Grok, else a role default. */
+/** Select best available Grok models from discovery list (dynamic vanilla optimization).
+ * Prioritizes latest grok-4 family for reasoning/default, grok-3-mini-fast for speed. */
+function selectBestGrokModels(modelIds: readonly string[]): {
+  default: string
+  fast: string
+  reasoning: string
+  coding: string
+} {
+  const grokModels = modelIds.filter(isGrokModel)
+  if (grokModels.length === 0) {
+    return {
+      default: VANILLA_DEFAULT_MODEL,
+      fast: VANILLA_FAST_MODEL,
+      reasoning: VANILLA_REASONING_MODEL,
+      coding: VANILLA_CODING_MODEL,
+    }
+  }
+
+  // Prefer grok-4.* for high quality, then grok-3, then composer/build
+  const reasoning = grokModels.find((id) => /grok-4.*(reasoning|4\.20|4\.3)/i.test(id)) ||
+                   grokModels.find((id) => /grok-4/i.test(id)) ||
+                   grokModels.find((id) => /grok-3/i.test(id)) ||
+                   VANILLA_REASONING_MODEL
+
+  const fast = grokModels.find((id) => /grok.*(fast|mini-fast|composer)/i.test(id)) ||
+               grokModels.find((id) => /grok-3.*mini.*fast/i.test(id)) ||
+               grokModels.find((id) => /grok-3/i.test(id)) ||
+               VANILLA_FAST_MODEL
+
+  const coding = grokModels.find((id) => /grok.*(composer|4.*non-reasoning|build)/i.test(id)) ||
+                 fast // fallback to fast for coding in vanilla
+
+  const defaultModel = grokModels.find((id) => /grok-4/i.test(id)) || reasoning || VANILLA_DEFAULT_MODEL
+
+  return { default: defaultModel, fast, reasoning, coding }
+}
+
 export function pickGrokModel(primary: string | undefined, fallback: string | undefined, roleDefault: string): string {
-  if (isGrokModel(primary)) return primary as string
-  if (isGrokModel(fallback)) return fallback as string
+  if (isUsableVanillaGrokModel(primary)) return primary as string
+  if (isUsableVanillaGrokModel(fallback)) return fallback as string
   return roleDefault
 }
 
@@ -84,32 +120,74 @@ export type VanillaGrokConfig = {
   readonly mapping: { readonly default: string; readonly fast: string; readonly reasoning: string; readonly coding: string }
 }
 
+const VANILLA_DEFAULT_MODEL = "grok-build-0.1"
+const VANILLA_FAST_MODEL = "grok-composer-2.5-fast"
+const VANILLA_REASONING_MODEL = "grok-4.20-0309-reasoning"
+const VANILLA_CODING_MODEL = "grok-composer-2.5-fast"
+
 const FASTISH_VANILLA_AGENTS = new Set(["explorer", "librarian", "quick", "unspecified-low", "sisyphus-junior"])
+const CODING_VANILLA_AGENTS = new Set(["coding", "builder", "grok-build"])
+const DEFAULT_VANILLA_AGENTS = new Set(["default", "sisyphus", "sisyphus-junior", "ulw"])
 
-/**
- * Build the "vanilla Grok models" config: every agent resolves to a Grok-native model with no
- * proxy discovery and no per-agent selection. Uses the grok-first role profiles
- * (getAgentRecommendation with no availability constraint), and for agents without a profile
- * prefers the Grok fallback in the bundled override.
- */
-export function buildVanillaGrokConfig(bundled: LazycodexAgentOverrideMap): VanillaGrokConfig {
+function isUsableVanillaGrokModel(model: string | undefined): boolean {
+  // Now fully supports grok-3 family for vanilla (dynamic selection prefers grok-4 > grok-3)
+  return isGrokModel(model)
+}
+
+function vanillaRoleDefault(name: string, fallbackDefault: string): string {
+  if (CODING_VANILLA_AGENTS.has(name)) return VANILLA_CODING_MODEL
+  if (FASTISH_VANILLA_AGENTS.has(name)) return VANILLA_FAST_MODEL
+  if (DEFAULT_VANILLA_AGENTS.has(name)) return VANILLA_DEFAULT_MODEL
+  return fallbackDefault
+}
+
+function hasVanillaRoleDefault(name: string): boolean {
+  return CODING_VANILLA_AGENTS.has(name) || FASTISH_VANILLA_AGENTS.has(name) || DEFAULT_VANILLA_AGENTS.has(name)
+}
+
+export function buildVanillaGrokConfig(
+  bundled: LazycodexAgentOverrideMap,
+  discovery?: ModelDiscovery,
+): VanillaGrokConfig {
+  // Dynamic selection from real discovery (OAuth-enabled xAI models) for true vanilla optimization
+  const best = discovery && discovery.modelIds.length > 0
+    ? selectBestGrokModels(discovery.modelIds)
+    : {
+        default: VANILLA_DEFAULT_MODEL,
+        fast: VANILLA_FAST_MODEL,
+        reasoning: VANILLA_REASONING_MODEL,
+        coding: VANILLA_CODING_MODEL,
+      }
+
   const grokFor = (name: string, fallbackDefault: string): string => {
-    const rec = getAgentRecommendation(name, [], undefined)
-    if (rec !== null && isGrokModel(rec.recommended)) {
-      return rec.recommended
-    }
+    const roleDefault = vanillaRoleDefault(name, fallbackDefault)
+    if (hasVanillaRoleDefault(name)) return roleDefault
     const override = bundled[name]
-    return pickGrokModel(override?.model, override?.modelFallback, fallbackDefault)
+    return pickGrokModel(override?.model, override?.modelFallback, roleDefault)
   }
-  const explorerModel = grokFor("explorer", "grok-3-mini-fast")
-  const reasoningModel = grokFor("reasoning", "grok-4.20-0309-reasoning")
-  const codingModel = grokFor("coding", "grok-4.20-0309-non-reasoning")
-  const defaultModel = grokFor("default", reasoningModel)
 
+  // Use dynamic best models where possible, fallback to role logic
+  const explorerModel = best.fast
+  const reasoningModel = best.reasoning
+  const codingModel = best.coding
+  const defaultModel = best.default
+
+  // Minimal agent overrides for vanilla (only essential roles to reduce "all that stuff")
   const agentOverrideMap: Record<string, LazycodexAgentModelOverride> = {}
-  for (const [name, override] of Object.entries(bundled)) {
-    const model = grokFor(name, FASTISH_VANILLA_AGENTS.has(name) ? explorerModel : reasoningModel)
-    agentOverrideMap[name] = { ...override, model }
+  const essentialRoles = ["explorer", "reasoning", "coding", "default", "ulw"]
+  for (const name of essentialRoles) {
+    if (bundled[name]) {
+      const model = name === "explorer" ? explorerModel : name === "reasoning" ? reasoningModel : codingModel
+      const override = bundled[name]
+      const { modelFallback, modelFallbackReasoningLevel, modelFallbackServiceTier, ...rest } = override
+      agentOverrideMap[name] = {
+        ...rest,
+        model,
+        ...(isUsableVanillaGrokModel(modelFallback) ? { modelFallback } : {}),
+        ...(isUsableVanillaGrokModel(modelFallback) && modelFallbackReasoningLevel !== undefined ? { modelFallbackReasoningLevel } : {}),
+        ...(isUsableVanillaGrokModel(modelFallback) && modelFallbackServiceTier !== undefined ? { modelFallbackServiceTier } : {}),
+      }
+    }
   }
 
   const level = (name: string, fallback: ReasoningLevel): ReasoningLevel => bundled[name]?.reasoningLevel ?? fallback
@@ -126,16 +204,37 @@ export function buildVanillaGrokConfig(bundled: LazycodexAgentOverrideMap): Vani
   }
 }
 
+export function buildVanillaGrokDiscovery(
+  bundled: LazycodexAgentOverrideMap,
+  discovery?: ModelDiscovery,
+  reasoningEffort: ReasoningEffortChoice = "auto",
+): ModelDiscovery {
+  const vanilla = buildVanillaGrokConfig(bundled, discovery)
+  const modelIds = discovery?.modelIds && discovery.modelIds.length > 0
+    ? discovery.modelIds
+    : [...new Set([vanilla.mapping.default, vanilla.mapping.fast, vanilla.mapping.reasoning, vanilla.mapping.coding])]
+
+  return {
+    ...withReasoningEffort({
+      baseUrl: discovery?.baseUrl || "",
+      modelsUrl: discovery?.modelsUrl || "",
+      modelIds,
+      mapping: vanilla.mapping,
+    }, reasoningEffort),
+    agentOverrideMap: vanilla.agentOverrideMap,
+  }
+}
+
 /** Short human note shown in the vanilla path before the install summary. */
 export function formatVanillaSummary(config: VanillaGrokConfig): string {
   return [
-    "Using built-in Grok models directly (no cli-proxy discovery, no per-agent selection).",
+    "Vanilla GrokBuild with xAI OAuth: uses native models from discovery (grok-4 preferred, grok-3 for fast).",
     `default: ${config.mapping.default}`,
     `fast: ${config.mapping.fast}`,
     `reasoning: ${config.mapping.reasoning}`,
     `coding: ${config.mapping.coding}`,
     "",
-    "Per-agent models are pinned to Grok. Re-run setup and choose cli-proxy to tune them.",
+    "Minimal overrides for essential roles only. Re-run with proxy for full custom routing.",
   ].join("\n")
 }
 
