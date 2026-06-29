@@ -14,14 +14,14 @@ export function printStep(index: number, text: string): void {
   output.write(`[${index}/${TOTAL_STEPS}] ${text}\n`)
 }
 
-export function printInstallPlan(plan: JsonObject, hasModelDiscovery: boolean): void {
+export function printInstallPlan(plan: JsonObject, modelConfigLabel: string): void {
   const installPath = typeof plan.installPath === "string" ? plan.installPath : "grok"
   const command = typeof plan.installerCommand === "string" ? plan.installerCommand : INTERNAL_GROK_INSTALL_COMMAND
   printBox(
     [
       `Install path: ${installPath}`,
       `Installer: ${command}`,
-      `Model config: ${hasModelDiscovery ? "auto-mapped from /v1/models" : "skipped unless discovered later"}`,
+      `Model config: ${modelConfigLabel}`,
       "Writes: hooks, agents, overrides, lfg config, Grok plugin enablement",
     ].join("\n"),
     "Install Summary",

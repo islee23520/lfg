@@ -125,4 +125,25 @@ export async function overlayLfgComponentShims(pluginRoot: string): Promise<void
     await rm(dst, { recursive: true, force: true })
     await cp(src, dst, { recursive: true })
   }
+  // Always ensure the plugin root declares ESM so .mjs hooks and bridge are executed correctly.
+  await ensureLfgPluginPackageManifest(pluginRoot)
+}
+
+export async function ensureLfgPluginPackageManifest(pluginRoot: string): Promise<void> {
+  const manifestPath = join(pluginRoot, "package.json")
+  let existing: any = null
+  try {
+    existing = JSON.parse(await readFile(manifestPath, "utf8"))
+  } catch {
+    existing = {}
+  }
+  const next = {
+    name: existing?.name ?? "LFG",
+    version: existing?.version ?? "0.0.0-dev",
+    description: existing?.description ?? "LFG Grok Build adapter payload.",
+    private: true,
+    ...(existing || {}),
+    type: "module",
+  }
+  await writeFile(manifestPath, `${JSON.stringify(next, null, 2)}\n`, "utf8")
 }

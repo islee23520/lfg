@@ -26,6 +26,7 @@ const managedSourceMap = {
   rules: "components/rules/skills/rules",
   "start-work": "skills/start-work",
   teammode: "components/teammode/skills/teammode",
+  "ultimate-browsing": "skills/ultimate-browsing",
   ultraresearch: "skills/ultraresearch",
   "ulw-loop": "components/ulw-loop/skills/ulw-loop",
   "ulw-plan": "components/ultrawork/skills/ulw-plan",
@@ -56,6 +57,7 @@ describe("sync-omo-skills-to-grok", () => {
       await expect(readFile(join(target, "ulw-loop", "references", "full-workflow.md"), "utf8")).resolves.not.toContain("CODEX_HOME")
       await expect(readFile(join(target, "start-work", "SKILL.md"), "utf8")).resolves.toContain("Boulder state")
       await expect(readFile(join(target, "teammode", "SKILL.md"), "utf8")).resolves.toContain("component teammode source")
+      await expect(readFile(join(target, "ultimate-browsing", "SKILL.md"), "utf8")).resolves.toContain("aggregate ultimate-browsing source")
       await expect(readFile(join(target, "rules", "SKILL.md"), "utf8")).resolves.toContain("component rules source")
       await expect(readFile(join(target, "lsp", "SKILL.md"), "utf8")).resolves.toContain("component lsp source")
       await expect(readFile(join(target, "debugging", "SKILL.md"), "utf8")).resolves.toContain("aggregate debugging source")
@@ -74,6 +76,7 @@ describe("sync-omo-skills-to-grok", () => {
       const manifest = await readFile(join(target, ".lfg-omo-skill-sync.json"), "utf8")
       expect(manifest).toContain("GrokBuild adapter payload")
       expect(manifest).toContain("visual-qa")
+      expect(manifest).toContain("ultimate-browsing")
       expect(manifest).toContain("teammode")
       expect(manifest).toContain("lfg-doctor")
       expect(manifest).not.toContain("lcx-doctor")

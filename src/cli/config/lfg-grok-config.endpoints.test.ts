@@ -118,6 +118,52 @@ describe("grok config endpoints (#24)", () => {
     expect(section(config, 'model."gpt-5.5"')).toContain('reasoning_effort = "xhigh"')
     expect(section(config, 'model."grok-build"')).toContain('reasoning_effort = "xhigh"')
   })
+
+  test("host-auth-only mode removes proxy endpoints and model base URLs", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-host-auth-only-config-"))
+    const path = join(home, ".grok", "config.toml")
+    await mkdir(join(home, ".grok"), { recursive: true })
+    await writeFile(
+      path,
+      [
+        "[endpoints]",
+        'models_base_url = "http://127.0.0.1:8317/v1"',
+        'api_key = "legacy-secret"',
+        "",
+        '[model."grok-build"]',
+        'model = "gpt-5.5"',
+        'base_url = "http://127.0.0.1:8317/v1"',
+        'api_key = "legacy-model-secret"',
+        "",
+        '[model."gpt-5.5"]',
+        'model = "gpt-5.5"',
+        'base_url = "http://127.0.0.1:8317/v1"',
+      ].join("\n"),
+      "utf8",
+    )
+    const vanillaGrok: ModelDiscovery = {
+      baseUrl: "",
+      modelsUrl: "",
+      modelIds: ["grok-build", "grok-3-mini-fast"],
+      mapping: {
+        default: "grok-build",
+        fast: "grok-3-mini-fast",
+        reasoning: "grok-build",
+        coding: "grok-build",
+      },
+    }
+
+    await writeGrokModelConfig(vanillaGrok, { home, apiKey: "sk-test", hostAuthOnly: true })
+
+    const config = await readFile(path, "utf8")
+    expect(section(config, "endpoints")).not.toContain("models_base_url")
+    expect(section(config, "endpoints")).not.toContain("api_key")
+    expect(section(config, 'model."grok-build"')).toContain('model = "grok-build"')
+    expect(section(config, 'model."grok-build"')).not.toContain("base_url")
+    expect(section(config, 'model."grok-build"')).not.toContain("api_key")
+    expect(section(config, 'model."gpt-5.5"')).toBe("")
+    expect(config).not.toContain('base_url = "http://127.0.0.1:8317/v1"')
+  })
 })
 
 function section(source: string, name: string): string {

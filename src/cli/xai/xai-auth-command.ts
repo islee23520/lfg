@@ -6,12 +6,25 @@ import {
   getXaiMcpAuthStatus,
   resolveXaiMcpAuthPath,
   writeXaiMcpApiKey,
+  writeXaiMcpOAuth,
+  XAI_OAUTH_TOKEN_URL,
 } from "../../grok/mcp/xai-mcp-auth"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
 
+type XaiAuthCommandOptions = {
+  readonly json: boolean
+  readonly apiKeyFlag: string | null
+  readonly oauthAccessToken?: string | null
+  readonly oauthRefreshToken?: string | null
+  readonly oauthExpiresAt?: string | null
+  readonly oauthExpiresIn?: string | null
+  readonly oauthTokenEndpoint?: string | null
+  readonly oauthTokenType?: string | null
+}
+
 export async function dispatchXaiAuthCommand(
   subcommand: string | undefined,
-  options: { readonly json: boolean; readonly apiKeyFlag: string | null },
+  options: XaiAuthCommandOptions,
 ): Promise<JsonObject | string> {
   const action = subcommand ?? "status"
   if (action === "status" || action === "check") {
@@ -38,12 +51,12 @@ export async function dispatchXaiAuthCommand(
       `  ${status.message}`,
       "",
       "Grok host ~/.grok/auth.json is never modified by xai_grok MCP.",
-      "Configure: lfg xai auth set-api-key   Clear: lfg xai auth logout",
+      "Configure: lfg xai auth set-api-key | set-oauth   Clear: lfg xai auth logout",
     ]
       .filter((line) => line.length > 0)
       .join("\n")
   }
-  if (action === "set-api-key" || action === "login") {
+  if (action === "set-api-key") {
     const key = options.apiKeyFlag ?? (await promptHiddenApiKey())
     if (key === null || key.trim().length === 0) {
       return options.json
@@ -64,6 +77,37 @@ export async function dispatchXaiAuthCommand(
       return payload
     }
     return `Saved xAI API key to ${path}\nReload MCP in Grok (/mcps → r) or start a new session.`
+  }
+  if (action === "set-oauth" || action === "set-oauth-token" || action === "login") {
+    const access = options.oauthAccessToken?.trim() ?? ""
+    const refresh = options.oauthRefreshToken?.trim() ?? ""
+    const expires = parseOAuthExpiry(options)
+    if (access.length === 0 || refresh.length === 0 || expires === null) {
+      const error = "OAuth setup requires --access-token, --refresh-token, and --expires-at or --expires-in."
+      return options.json ? { ok: false, status: "xai_oauth_missing_fields", error } : error
+    }
+    const path = resolveXaiMcpAuthPath(process.env, resolveGrokSetupHome(process.env))
+    await writeXaiMcpOAuth(path, {
+      provider: "xai-oauth",
+      access,
+      refresh,
+      expires,
+      tokenEndpoint: options.oauthTokenEndpoint?.trim() || XAI_OAUTH_TOKEN_URL,
+      tokenType: options.oauthTokenType?.trim() || "Bearer",
+    })
+    const status = await getXaiMcpAuthStatus(process.env)
+    const payload: JsonObject = {
+      ok: status.ok,
+      status: "xai_oauth_saved",
+      mode: status.mode,
+      authFile: path,
+      expiresAt: status.expiresAt,
+      message: "Saved OAuth tokens to dedicated xai_grok MCP auth file (Grok host auth.json unchanged).",
+    }
+    if (options.json) {
+      return payload
+    }
+    return `Saved xAI OAuth tokens to ${path}\nReload MCP in Grok (/mcps → r) or start a new session.`
   }
   if (action === "logout" || action === "clear") {
     const path = resolveXaiMcpAuthPath(process.env, resolveGrokSetupHome(process.env))
@@ -86,8 +130,22 @@ export async function dispatchXaiAuthCommand(
     ok: false,
     status: "invalid_xai_auth_subcommand",
     error: `Unknown xai auth action: ${action}`,
-    supported: ["status", "set-api-key", "logout"],
+    supported: ["status", "set-api-key", "set-oauth", "logout"],
   }
+}
+
+function parseOAuthExpiry(options: XaiAuthCommandOptions): number | null {
+  const expiresAt = options.oauthExpiresAt?.trim()
+  if (expiresAt !== undefined && expiresAt.length > 0) {
+    const parsed = Date.parse(expiresAt)
+    return Number.isNaN(parsed) ? null : parsed
+  }
+  const expiresIn = options.oauthExpiresIn?.trim()
+  if (expiresIn !== undefined && expiresIn.length > 0) {
+    const seconds = Number(expiresIn)
+    return Number.isFinite(seconds) && seconds > 0 ? Date.now() + seconds * 1000 : null
+  }
+  return null
 }
 
 async function promptHiddenApiKey(): Promise<string | null> {

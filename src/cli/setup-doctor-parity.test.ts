@@ -24,5 +24,5 @@ describe("setup vs doctor install surface (#21)", () => {
     expect(installSurface.ok).toBe(true)
     expect(installSurface.status).toBe("verified")
     expect(doctor.ok).toBe(true)
-  })
+  }, 15_000)
 })

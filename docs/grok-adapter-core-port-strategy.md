@@ -22,7 +22,7 @@ Analysis of `code-yeongyu/oh-my-openagent` (branch `dev`, `omo-codex@4.11.1`, `o
 
 ## Decision: shift from `omo-codex` 1:1 mapping to a core-consuming Grok adapter
 
-The previous parity approach mapped `omo-codex` capabilities 1:1. That produced many **Manifest-only / Deferred** entries (comment-checker, lsp, git-bash, ast_grep) — install scaffolding without behavioral substance, because the real logic was never in `omo-codex`.
+The previous parity approach mapped `omo-codex` capabilities 1:1. That initially produced many **Manifest-only / Deferred** entries (comment-checker, lsp, git-bash, ast_grep) — install scaffolding without behavioral substance, because the real logic was never in `omo-codex`. T2/T4/T5 have since moved comment-checker, ast_grep, and the LSP MCP runtime to behavior-backed Grok-adapted status; `git-bash` and host-bound lifecycle leftovers remain tracked as gaps.
 
 The strategic direction now mirrors the upstream architecture:
 

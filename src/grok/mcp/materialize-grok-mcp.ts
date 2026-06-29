@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process"
 import { chmod, cp, mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import {
@@ -84,11 +85,15 @@ export async function materializeGrokMcpRuntimes(
     const src = runtimeSources[server.runtimeDir]
     const destCli = join(destRoot, server.runtimeDir, "dist", "cli.js")
     if (src !== undefined && await pathExists(join(src, "dist", "cli.js"))) {
+      const srcCli = join(src, "dist", "cli.js")
+      if (server.name === "lsp" && !lspRuntimeHasTypeScriptDiagnostics(srcCli)) {
+        await writeFallbackRuntime(destCli, server.name, sourceRoot)
+        continue
+      }
       await cp(src, join(destRoot, server.runtimeDir), { recursive: true, force: true })
       continue
     }
-    await mkdir(dirname(destCli), { recursive: true })
-    await writeFile(destCli, fallbackRuntimeSource(server.name), "utf8")
+    await writeFallbackRuntime(destCli, server.name, sourceRoot)
   }
 
   if (!(await localRuntimeBinariesExist(destRoot))) {
@@ -118,12 +123,23 @@ async function materializeBundledMcpComponents(
     if (server.name === "xai_grok") continue
     await cp(join(componentsRoot, server.componentDir), join(destRoot, server.componentDir), { recursive: true, force: true })
     const runtimeCli = join(runtimeRoot, server.runtimeDir, "dist", "cli.js")
-    await mkdir(dirname(runtimeCli), { recursive: true })
-    await writeFile(runtimeCli, fallbackRuntimeSource(), "utf8")
+    await writeFallbackRuntime(runtimeCli, server.name, sourceRoot)
   }
   const codegraphEntry: CodegraphMcpEntryInput = options.codegraphEntry === undefined ? createCodegraphMcpEntry() : options.codegraphEntry
   await writeFile(join(pluginRoot, ".mcp.json"), `${JSON.stringify(pluginMcpJson(pluginRoot, platform, "component_shims", codegraphEntry), null, "\t")}\n`, "utf8")
   return { ok: await localRuntimeBinariesExist(runtimeRoot), runtimesRoot: componentsRoot }
+}
+
+export async function repairLspMcpRuntime(
+  pluginRoot: string,
+  sourceRoot: string = pluginRoot,
+): Promise<{ readonly path: string; readonly repaired: boolean }> {
+  const runtimeCli = join(pluginRoot, "mcp-runtimes", "lsp-daemon", "dist", "cli.js")
+  if (await pathExists(runtimeCli) && lspRuntimeHasTypeScriptDiagnostics(runtimeCli)) {
+    return { path: runtimeCli, repaired: false }
+  }
+  await writeFallbackRuntime(runtimeCli, "lsp", sourceRoot)
+  return { path: runtimeCli, repaired: true }
 }
 
 async function materializeBuiltInMcpRuntimes(runtimeRoot: string, sourceRoot: string): Promise<void> {
@@ -146,39 +162,37 @@ async function materializeBuiltInMcpRuntimes(runtimeRoot: string, sourceRoot: st
   await chmod(xaiRuntimeCli, 0o755)
 }
 
-function fallbackRuntimeSource(serverName: string = "mcp"): string {
+async function fallbackRuntimeSource(serverName: string = "mcp", sourceRoot: string = currentDir): Promise<string> {
+  if (serverName === "ast_grep") return mcpRuntimeAssetSource(sourceRoot, "lfg-ast-grep-mcp.mjs", "lfg ast-grep MCP runtime asset missing")
+  if (serverName === "lsp") return mcpRuntimeAssetSource(sourceRoot, "lfg-lsp-mcp.mjs", "lfg LSP MCP runtime asset missing")
   const runtimeName = JSON.stringify(`lfg-${serverName}`)
   return `#!/usr/bin/env node
-import { createInterface } from "node:readline"
-import { stdin, stdout } from "node:process"
-
-if (stdin.isTTY) process.exit(0)
-
-const runtimeName = ${runtimeName}
-const rl = createInterface({ input: stdin, crlfDelay: Infinity })
-
-rl.on("line", (line) => {
-  if (line.trim().length === 0) return
-  const request = JSON.parse(line)
-  if (request.method === "initialize") {
-    stdout.write(JSON.stringify({
-      jsonrpc: "2.0",
-      id: request.id,
-      result: {
-        protocolVersion: "2024-11-05",
-        capabilities: { tools: {} },
-        serverInfo: { name: runtimeName, version: "0.0.0" },
-      },
-    }) + "\\n")
-    return
-  }
-  if (request.method === "tools/list") {
-    stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: { tools: [] } }) + "\\n")
-  }
-})
-
-rl.on("close", () => process.exit(0))
+import{createInterface}from"node:readline";import{stdin,stdout}from"node:process";
+if(stdin.isTTY)process.exit(0);
+const runtimeName=${runtimeName};const rl=createInterface({input:stdin,crlfDelay:Infinity});
+rl.on("line",(line)=>{if(line.trim().length===0)return;const request=JSON.parse(line);if(request.method==="initialize"){stdout.write(JSON.stringify({jsonrpc:"2.0",id:request.id,result:{protocolVersion:"2024-11-05",capabilities:{tools:{}},serverInfo:{name:runtimeName,version:"0.0.0"}}})+"\\n");return}if(request.method==="tools/list")stdout.write(JSON.stringify({jsonrpc:"2.0",id:request.id,result:{tools:[]}})+"\\n")});
+rl.on("close",()=>process.exit(0));
 `
+}
+
+async function writeFallbackRuntime(destCli: string, serverName: string, sourceRoot: string): Promise<void> {
+  await mkdir(dirname(destCli), { recursive: true })
+  await writeFile(destCli, await fallbackRuntimeSource(serverName, sourceRoot), "utf8")
+  await chmod(destCli, 0o755)
+}
+
+async function mcpRuntimeAssetSource(sourceRoot: string, fileName: string, missingMessage: string): Promise<string> {
+  const assetCandidates = [join(currentDir, "..", "assets", "mcp", fileName), join(currentDir, "grok-install", "assets", fileName), join(sourceRoot, "assets", fileName), join(sourceRoot, "assets", "mcp", fileName)]
+  for (const candidate of assetCandidates) {
+    if (await pathExists(candidate)) return readFile(candidate, "utf8")
+  }
+  throw new Error(missingMessage)
+}
+
+function lspRuntimeHasTypeScriptDiagnostics(cli: string): boolean {
+  const input = `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} })}\n${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} })}\n`
+  const result = spawnSync(process.execPath, [cli, "mcp"], { encoding: "utf8", input, timeout: 5_000 })
+  return result.status === 0 && typeof result.stdout === "string" && result.stdout.includes("\"typescript_diagnostics\"")
 }
 
 export async function resolveMcpPackagesRoot(sourceRoot: string): Promise<string | null> {

@@ -95,13 +95,16 @@ export async function runGrokInstall(
           recommendationPreset(discovery?.preset),
         )
     const fullAgentModels = grokRoutedOverrideMap(options.fullAgentModels ?? overrideMap, discovery)
+    const hasRealProxyDiscovery = discovery !== null && typeof discovery.baseUrl === "string" && discovery.baseUrl.trim().length > 0
+    const hasHostAuthOnlyDiscovery = discovery !== null && !hasRealProxyDiscovery && codingToolAdapter === "grok"
     const configUpdate =
-      discovery !== null
+      hasRealProxyDiscovery || hasHostAuthOnlyDiscovery
         ? await writeGrokModelConfig(discovery, {
             apiKey,
             home,
             agentConfig: resolvedAgents,
             fullAgentModels,
+            hostAuthOnly: hasHostAuthOnlyDiscovery,
           })
         : null
     const overridesPath = await writeOmoAgentOverridesFile(home, fullAgentModels)
@@ -165,13 +168,16 @@ export async function runGrokInstall(
         recommendationPreset(discovery?.preset),
       )
   const fullAgentModels = grokRoutedOverrideMap(options.fullAgentModels ?? overrideMap, discovery)
+  const hasRealProxyDiscovery = discovery !== null && typeof discovery.baseUrl === "string" && discovery.baseUrl.trim().length > 0
+  const hasHostAuthOnlyDiscovery = discovery !== null && !hasRealProxyDiscovery && codingToolAdapter === "grok"
   const configUpdate =
-    discovery !== null
+    hasRealProxyDiscovery || hasHostAuthOnlyDiscovery
       ? await writeGrokModelConfig(discovery, {
           apiKey,
           home,
           agentConfig: resolvedAgents,
           fullAgentModels,
+          hostAuthOnly: hasHostAuthOnlyDiscovery,
         })
       : null
   const overridesPath = await writeOmoAgentOverridesFile(home, overrideMap)

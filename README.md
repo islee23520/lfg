@@ -31,8 +31,18 @@ Dedicated credentials (does not modify Grok host `~/.grok/auth.json`):
 ```sh
 lfg xai auth status
 lfg xai auth set-api-key --api-key "$XAI_API_KEY"
+lfg xai auth set-oauth --access-token "$XAI_ACCESS_TOKEN" --refresh-token "$XAI_REFRESH_TOKEN" --expires-at "2099-01-01T00:00:00.000Z"
 lfg xai auth logout
 ```
+
+The `xai_grok` MCP server also exposes auth tools directly: `xai_auth_status`,
+`xai_auth_set_api_key`, `xai_auth_set_oauth`, `xai_auth_refresh`, and
+`xai_auth_logout`.
+
+In Grok's `/mcps` modal, do not use the OAuth authenticate shortcut (`i`) for
+`xai_grok`: it is a local stdio MCP server, while Grok host-managed OAuth is
+only for HTTP/SSE MCP servers. Use the `xai_auth_*` MCP tools or the `lfg xai
+auth ...` CLI commands instead.
 
 ## Commands
 

@@ -62,7 +62,7 @@ describe("npm pack tarball package.json (#22)", () => {
     const packs = JSON.parse(stdout) as readonly { readonly files?: readonly { readonly path?: string }[] }[]
     const paths = packs.flatMap((p) => p.files?.map((f) => f.path).filter((x): x is string => typeof x === "string") ?? [])
     expect(paths.length).toBeGreaterThan(5)
-    expect(paths.length).toBeLessThanOrEqual(700)
+    expect(paths.length).toBeLessThanOrEqual(850)
     expect(paths).toContain("package.json")
     expect(paths).toContain("skills/ulw-plan/references/full-workflow.md")
     expect(paths).toContain("skills/ulw-plan/scripts/scaffold-plan.mjs")
@@ -70,6 +70,8 @@ describe("npm pack tarball package.json (#22)", () => {
     expect(paths).toContain("skills/rules/SKILL.md")
     expect(paths).toContain("skills/lsp/SKILL.md")
     expect(paths).toContain("skills/review-work/SKILL.md")
+    expect(paths).toContain("skills/ultimate-browsing/SKILL.md")
+    expect(paths).toContain("skills/ultimate-browsing/engine/__main__.py")
     expect(paths).toContain("skills/visual-qa/SKILL.md")
     expect(paths).toContain("skills/lfg-doctor/SKILL.md")
     expect(paths).not.toContain("skills/lcx-doctor/SKILL.md")

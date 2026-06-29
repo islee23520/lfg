@@ -16,7 +16,7 @@ describe("scripts/assert-omo-parity.mjs", () => {
     })
 
     expect(stdout).toContain("assert-omo-parity: ok upstream 4.13.0")
-    expect(stdout).toContain("skills=22")
+    expect(stdout).toContain("skills=23")
     expect(stdout).toContain("roots=3")
   })
 

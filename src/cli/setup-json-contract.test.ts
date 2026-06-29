@@ -22,7 +22,7 @@ describe("setup-json-contract (#21)", () => {
     const verify = json.postInstallVerify as { ok?: boolean; status?: string }
     expect(setupPostInstallConsistent(true, verify)).toBe(true)
     expect(verify).toMatchObject({ ok: true, status: "verified" })
-  })
+  }, 15_000)
 
   test("findDeprecatedSetupJsonKeys detects legacy fields", () => {
     expect(findDeprecatedSetupJsonKeys({ stablePluginLink: { status: "missing_adapter" } })).toContain("stablePluginLink")

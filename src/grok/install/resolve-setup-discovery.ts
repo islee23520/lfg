@@ -8,6 +8,7 @@ export type ResolveSetupDiscoveryOptions = {
   readonly home: string
   readonly cliBaseUrl: string | null
   readonly envBaseUrl?: string | null
+  readonly hostAuthOnly?: boolean
 }
 
 export type ResolveSetupDiscoveryResult = {
@@ -24,14 +25,15 @@ export type ResolveSetupDiscoveryResult = {
 export async function resolveSetupDiscovery(options: ResolveSetupDiscoveryOptions): Promise<ResolveSetupDiscoveryResult> {
   const envUrl = trimUrl(options.envBaseUrl ?? process.env.LFG_GROK_BASE_URL ?? process.env.LAZYCODEX_OPENAI_BASE_URL)
   const configUrl = await readGrokModelsBaseUrlFromConfig(options.home)
+  const usesHostAuthOnly = options.hostAuthOnly === true && options.cliBaseUrl === null
   const skipDefaultProxy =
     process.env.LFG_DISABLE_DEFAULT_MODELS_PROXY === "1" ||
     process.env.LFG_DISABLE_DEFAULT_MODELS_PROXY === "true"
   const candidates: readonly { readonly url: string; readonly source: ResolveSetupDiscoveryResult["baseUrlSource"] }[] = [
     ...(options.cliBaseUrl ? [{ url: options.cliBaseUrl, source: "cli" as const }] : []),
-    ...(envUrl ? [{ url: envUrl, source: "env" as const }] : []),
-    ...(configUrl ? [{ url: configUrl, source: "config" as const }] : []),
-    ...(skipDefaultProxy ? [] : [{ url: DEFAULT_SETUP_MODELS_BASE_URL, source: "default" as const }]),
+    ...(usesHostAuthOnly ? [] : envUrl ? [{ url: envUrl, source: "env" as const }] : []),
+    ...(usesHostAuthOnly ? [] : configUrl ? [{ url: configUrl, source: "config" as const }] : []),
+    ...(usesHostAuthOnly || skipDefaultProxy ? [] : [{ url: DEFAULT_SETUP_MODELS_BASE_URL, source: "default" as const }]),
   ]
 
   const seen = new Set<string>()

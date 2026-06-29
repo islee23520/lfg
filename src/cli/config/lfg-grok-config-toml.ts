@@ -34,6 +34,22 @@ export function removeTomlKey(source: string, section: string, key: string): str
   return `${before}${lines.join("\n")}${after}`
 }
 
+export function removeTomlSectionsByPrefix(source: string, prefix: string): string {
+  const lines = source.split("\n")
+  const kept: string[] = []
+  let dropping = false
+  for (const line of lines) {
+    const section = parseSectionHeader(line)
+    if (section !== null) {
+      dropping = section.startsWith(prefix)
+    }
+    if (!dropping) {
+      kept.push(line)
+    }
+  }
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n")
+}
+
 export function upsertTomlKey(source: string, section: string, key: string, value: string): string {
   const header = `[${section}]`
   const start = source.indexOf(header)
@@ -90,6 +106,11 @@ function makeSectionRegex(section: string, flags = ""): RegExp {
 function nextSectionStart(source: string, from: number): number {
   const match = /\n\[[^\n]+]/.exec(source.slice(from))
   return match?.index === undefined ? source.length : from + match.index + 1
+}
+
+function parseSectionHeader(line: string): string | null {
+  const match = /^\s*\[([^\]]+)]\s*$/.exec(line)
+  return match?.[1]?.replace(/\s+/g, "") ?? null
 }
 
 function upsertSectionBody(body: string, key: string, value: string): string {

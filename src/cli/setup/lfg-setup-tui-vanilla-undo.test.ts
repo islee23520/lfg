@@ -113,20 +113,36 @@ describe("lfg-setup-tui vanilla + undo", () => {
     }
   })
 
-  test("auto preset works with no proxy by preserving existing model config", async () => {
+  test("no proxy automatically installs vanilla Grok without model questions", async () => {
     const prompts = (await import("@clack/prompts")) as any
     const calls: unknown[][] = prompts.__calls
     calls.length = 0
     installerMock.runLazycodexInstaller.mockClear()
+
+    const origConfirm = prompts.confirm
+    prompts.confirm = async (opts: { readonly message?: string }) => {
+      calls.push(["confirm", opts.message])
+      if (/OpenAI-compatible CLI proxy/.test(String(opts.message ?? ""))) return false
+      return true
+    }
 
     await tui.runSetupTui({}, { plan: {}, resolved: null }, {
       prompts,
       colors: { inverse: (s: string) => s, green: (s: string) => s },
     })
 
+    prompts.confirm = origConfirm
+
     expect(installerMock.runLazycodexInstaller).toHaveBeenCalledTimes(1)
-    const installed = (installerMock.runLazycodexInstaller.mock.calls as unknown as ReadonlyArray<readonly unknown[]>)[0]?.[0]
-    expect(installed).toBeNull()
+    const installed = (installerMock.runLazycodexInstaller.mock.calls as unknown as ReadonlyArray<readonly unknown[]>)[0]?.[0] as Record<string, any>
+    expect(installed?.baseUrl).toBe("")
+    expect(installed?.agentOverrideMap).toBeTruthy()
+    expect(calls.some((c) => c[0] === "select" && /Global model preset/.test(String(c[1])))).toBe(false)
+    expect(calls.some((c) => c[0] === "select" && /Global reasoning effort/.test(String(c[1])))).toBe(false)
+    expect(calls.some((c) => c[0] === "confirm" && /Use LLM recommendations/.test(String(c[1])))).toBe(false)
+    for (const override of Object.values(installed.agentOverrideMap as Record<string, { model: string }>)) {
+      expect(override.model).toMatch(/^grok[-_]/)
+    }
   })
 
   test("global reasoning effort select applies to all derived role agents", async () => {

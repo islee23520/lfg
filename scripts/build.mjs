@@ -91,10 +91,13 @@ try {
   const configLoaderSrc = `${GROK_INSTALL_ASSETS_SRC}/config/lfg-config-loader.mjs`
   const projectOmoLedgerSrc = `${GROK_INSTALL_ASSETS_SRC}/ledger/lfg-project-omo-ledger.mjs`
   const sisyphusHooksSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-sisyphus-hooks.mjs`
-  const nativeRulesSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-rules.js`
-  const nativeUltraworkSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-ultrawork.js`
+  const nativeRulesSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-rules.mjs`
+  const nativeUltraworkSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-ultrawork.mjs`
+  const nativeCommentCheckerSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-comment-checker.mjs`
   const devLoggerSrc = `${GROK_INSTALL_ASSETS_SRC}/log/lfg-dev-logger.mjs`
   const xaiGrokMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-xai-grok-mcp.mjs`
+  const astGrepMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-ast-grep-mcp.mjs`
+  const lspMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-lsp-mcp.mjs`
 
   await rm(`${GROK_INSTALL_DIR}/mcp-runtimes`, { recursive: true, force: true })
   for (const runtimeDir of GROK_INSTALL_BUILTIN_MCP_RUNTIME_DIRS) {
@@ -108,7 +111,13 @@ try {
     const runtimeDist = `${GROK_INSTALL_DIR}/mcp-runtimes/${runtimeDir}/dist`
     const runtimeCli = `${runtimeDist}/cli.js`
     await mkdir(runtimeDist, { recursive: true })
-    await writeFile(runtimeCli, mcpRuntimeCli(serverName), "utf8")
+    if (serverName === "ast_grep") {
+      await cp(astGrepMcpSrc, runtimeCli)
+    } else if (serverName === "lsp") {
+      await cp(lspMcpSrc, runtimeCli)
+    } else {
+      await writeFile(runtimeCli, mcpRuntimeCli(serverName), "utf8")
+    }
     await chmod(runtimeCli, 0o755)
   }
 
@@ -117,10 +126,13 @@ try {
   await cp(configLoaderSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-config-loader.mjs`)
   await cp(projectOmoLedgerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-project-omo-ledger.mjs`)
   await cp(sisyphusHooksSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-sisyphus-hooks.mjs`)
-  await cp(nativeRulesSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-rules.js`)
-  await cp(nativeUltraworkSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-ultrawork.js`)
+  await cp(nativeRulesSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-rules.mjs`)
+  await cp(nativeUltraworkSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-ultrawork.mjs`)
+  await cp(nativeCommentCheckerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-comment-checker.mjs`)
   await cp(devLoggerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-dev-logger.mjs`)
   await cp(xaiGrokMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-xai-grok-mcp.mjs`)
+  await cp(astGrepMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-ast-grep-mcp.mjs`)
+  await cp(lspMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-lsp-mcp.mjs`)
 
   await rm(GROK_INSTALL_FLAVOUR_PACK_DST, { recursive: true, force: true })
   await cp(GROK_INSTALL_FLAVOUR_PACK_SRC, GROK_INSTALL_FLAVOUR_PACK_DST, { recursive: true })

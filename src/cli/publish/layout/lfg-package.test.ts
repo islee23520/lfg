@@ -85,6 +85,8 @@ describe("lfg package contract", () => {
     expect(files).toContain("skills/rules/SKILL.md")
     expect(files).toContain("skills/lsp/SKILL.md")
     expect(files).toContain("skills/review-work/SKILL.md")
+    expect(files).toContain("skills/ultimate-browsing/SKILL.md")
+    expect(files).toContain("skills/ultimate-browsing/engine/__main__.py")
     expect(files).toContain("skills/visual-qa/SKILL.md")
     expect(files).toContain("skills/lfg-doctor/SKILL.md")
     expect(files).not.toContain("skills/lcx-doctor/SKILL.md")

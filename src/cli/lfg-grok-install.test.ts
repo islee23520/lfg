@@ -167,8 +167,8 @@ describe("lfg internal grok install contract", () => {
     const pluginRoot = join(home, ".grok", "plugins", "lfg")
     await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
     const hooksRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
-    expect(hooksRaw).toContain("lfg-native-rules.js")
-    expect(hooksRaw).toContain("lfg-native-ultrawork.js")
+    expect(hooksRaw).toContain("lfg-native-rules.mjs")
+    expect(hooksRaw).toContain("lfg-native-ultrawork.mjs")
     expect(hooksRaw).toContain("lfg-config-loader.mjs") // T6 native + config loader
 
     const bridgePath = join(pluginRoot, "hooks", "lfg-grok-hook-bridge.mjs")

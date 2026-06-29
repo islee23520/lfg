@@ -18,8 +18,6 @@ function forward(realCmd) {
 if (sub === 'mcp' || sub === '') {
   forward([join(pluginRoot, 'mcp-runtimes', 'lsp-daemon', 'dist', 'cli.js'), 'mcp']);
 } else if (sub === 'hook') {
-  // LSP diagnostics are deferred until a real Grok-adapted runtime is packaged.
-  // Exit 0 silently so the hook bridge treats this as a no-op, not an error.
   process.exit(0);
 } else {
   stderr.write('lfg lsp shim: unknown subcommand ' + sub + '\n');

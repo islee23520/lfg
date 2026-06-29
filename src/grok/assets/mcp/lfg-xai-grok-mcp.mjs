@@ -2,7 +2,7 @@
 import { createInterface } from "node:readline"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import { stdin, stdout } from "node:process"
 
 const RUNTIME_NAME = "lfg-xai-grok"
@@ -116,6 +116,62 @@ const tools = [
       required: ["prompt"],
     },
   },
+  {
+    name: "xai_auth_status",
+    description: "Inspect xAI MCP credential status without revealing tokens.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+    },
+  },
+  {
+    name: "xai_auth_set_api_key",
+    description: "Save a dedicated xAI API key for this MCP runtime. Does not modify Grok host auth.json.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        api_key: { type: "string", minLength: 1 },
+      },
+      required: ["api_key"],
+    },
+  },
+  {
+    name: "xai_auth_set_oauth",
+    description: "Save dedicated xAI OAuth tokens for this MCP runtime. Does not modify Grok host auth.json.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        access_token: { type: "string", minLength: 1 },
+        refresh_token: { type: "string", minLength: 1 },
+        expires_at: { type: "string" },
+        expires_in: { type: "number", minimum: 1 },
+        token_endpoint: { type: "string" },
+        token_type: { type: "string" },
+      },
+      required: ["access_token", "refresh_token"],
+    },
+  },
+  {
+    name: "xai_auth_refresh",
+    description: "Refresh the dedicated xAI OAuth credentials and store the refreshed tokens.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+    },
+  },
+  {
+    name: "xai_auth_logout",
+    description: "Remove the dedicated xAI MCP credential file. Does not modify Grok host auth.json.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+    },
+  },
 ]
 
 const cliCommand = process.argv[2]
@@ -129,12 +185,25 @@ if (cliCommand !== "mcp") {
 }
 if (stdin.isTTY) process.exit(0)
 
+const pendingRequests = new Set()
+let stdinClosed = false
 const rl = createInterface({ input: stdin, crlfDelay: Infinity })
 rl.on("line", (line) => {
   if (line.trim().length === 0) return
-  void handleLine(line)
+  const pending = handleLine(line).finally(() => {
+    pendingRequests.delete(pending)
+    exitWhenIdle()
+  })
+  pendingRequests.add(pending)
 })
-rl.on("close", () => process.exit(0))
+rl.on("close", () => {
+  stdinClosed = true
+  exitWhenIdle()
+})
+
+function exitWhenIdle() {
+  if (stdinClosed && pendingRequests.size === 0) process.exit(0)
+}
 
 async function handleLine(line) {
   let request
@@ -185,8 +254,140 @@ async function callTool(params) {
       return textJson(await xaiAudioPost("/audio/speech", compact({ input: requiredString(args.input, "input"), voice: optionalString(args.voice), voice_id: optionalString(args.voice_id), language: optionalString(args.language), format: optionalString(args.format), codec: optionalString(args.codec), sample_rate: optionalNumber(args.sample_rate), bit_rate: optionalNumber(args.bit_rate), text_normalization: optionalBoolean(args.text_normalization) })))
     case "xai_video_generate":
       return textJson(await xaiJsonPost("/videos/generations", compact({ prompt: requiredString(args.prompt, "prompt"), model: optionalString(args.model) || "grok-imagine-video", duration: optionalNumber(args.duration), aspect_ratio: optionalString(args.aspect_ratio), resolution: optionalString(args.resolution), image_url: optionalString(args.image_url), reference_image_urls: optionalStringArray(args.reference_image_urls) })))
+    case "xai_auth_status":
+      return textJson(xaiAuthStatus())
+    case "xai_auth_set_api_key":
+      return textJson(xaiAuthSetApiKey(args))
+    case "xai_auth_set_oauth":
+      return textJson(xaiAuthSetOAuth(args))
+    case "xai_auth_refresh":
+      return textJson(await xaiAuthRefresh())
+    case "xai_auth_logout":
+      return textJson(xaiAuthLogout())
     default:
       throw new Error(`Unknown tool: ${name}`)
+  }
+}
+
+function xaiAuthStatus() {
+  const path = dedicatedAuthPath()
+  const dedicated = readDedicatedMcpAuth(path)
+  if (dedicated) {
+    const isApiKey = dedicated.refresh.length === 0
+    const expired = !isApiKey && dedicated.expires <= Date.now()
+    return {
+      ok: isApiKey || !expired,
+      status: "xai_auth_status",
+      mode: isApiKey ? "api_key" : "oauth",
+      authFile: path,
+      expiresAt: isApiKey ? null : new Date(dedicated.expires).toISOString(),
+      provider: dedicated.provider,
+      grokHostAuthUntouched: true,
+      message: expired ? "Dedicated OAuth tokens are expired." : "Using dedicated xAI MCP credentials.",
+    }
+  }
+  const apiKey = (process.env.XAI_API_KEY || "").trim()
+  if (apiKey.length > 0) {
+    return {
+      ok: true,
+      status: "xai_auth_status",
+      mode: "api_key",
+      authFile: path,
+      expiresAt: null,
+      provider: "env",
+      grokHostAuthUntouched: true,
+      message: "Using XAI_API_KEY from environment.",
+    }
+  }
+  const grokOidc = readGrokStoredAuth(grokHostAuthPath())
+  if (grokOidc) {
+    const expired = grokOidc.expires <= Date.now()
+    return {
+      ok: !expired,
+      status: "xai_auth_status",
+      mode: "grok_oidc_readonly",
+      authFile: path,
+      expiresAt: new Date(grokOidc.expires).toISOString(),
+      provider: "grok-oauth",
+      grokHostAuthUntouched: true,
+      message: expired ? "Grok host OIDC fallback is expired." : "Using read-only Grok host OIDC fallback.",
+    }
+  }
+  return {
+    ok: false,
+    status: "xai_auth_status",
+    mode: "none",
+    authFile: path,
+    expiresAt: null,
+    provider: null,
+    grokHostAuthUntouched: true,
+    message: "No xAI credentials configured.",
+  }
+}
+
+function xaiAuthSetApiKey(args) {
+  const apiKey = requiredString(args.api_key, "api_key").trim()
+  writeDedicatedMcpAuth({ provider: "lfg-xai-mcp", access: apiKey, refresh: "", expires: Number.MAX_SAFE_INTEGER, tokenEndpoint: XAI_OAUTH_TOKEN_URL, tokenType: "Bearer" })
+  return {
+    ok: true,
+    status: "xai_auth_saved",
+    mode: "api_key",
+    authFile: dedicatedAuthPath(),
+    grokHostAuthUntouched: true,
+    message: "Saved API key to dedicated xai_grok MCP auth file.",
+  }
+}
+
+function xaiAuthSetOAuth(args) {
+  const access = requiredString(args.access_token, "access_token").trim()
+  const refresh = requiredString(args.refresh_token, "refresh_token").trim()
+  const expires = oauthExpiryFromArgs(args)
+  if (expires === undefined) throw new Error("xai_auth_set_oauth requires a future expires_at or positive expires_in")
+  writeDedicatedMcpAuth({
+    provider: "xai-oauth",
+    access,
+    refresh,
+    expires,
+    tokenEndpoint: optionalString(args.token_endpoint) || XAI_OAUTH_TOKEN_URL,
+    tokenType: optionalString(args.token_type) || "Bearer",
+  })
+  return {
+    ok: true,
+    status: "xai_oauth_saved",
+    mode: "oauth",
+    authFile: dedicatedAuthPath(),
+    expiresAt: new Date(expires).toISOString(),
+    grokHostAuthUntouched: true,
+    message: "Saved OAuth tokens to dedicated xai_grok MCP auth file.",
+  }
+}
+
+async function xaiAuthRefresh() {
+  const path = dedicatedAuthPath()
+  const dedicated = readDedicatedMcpAuth(path)
+  if (!dedicated || dedicated.refresh.length === 0) throw new Error("Dedicated OAuth credentials not found")
+  const refreshed = await refreshStoredAuth(dedicated)
+  return {
+    ok: true,
+    status: "xai_oauth_refreshed",
+    mode: "oauth",
+    authFile: path,
+    expiresAt: new Date(refreshed.expires).toISOString(),
+    grokHostAuthUntouched: true,
+    message: "Refreshed dedicated xAI OAuth credentials.",
+  }
+}
+
+function xaiAuthLogout() {
+  const path = dedicatedAuthPath()
+  const removed = unlinkIfExists(path)
+  return {
+    ok: true,
+    status: "xai_auth_cleared",
+    authFile: path,
+    removed,
+    grokHostAuthUntouched: true,
+    message: removed ? "Removed dedicated xai_grok MCP credentials." : "No dedicated xai_grok MCP credentials to remove.",
   }
 }
 
@@ -274,7 +475,7 @@ async function resolveXaiCredentials() {
     return { provider: current.provider, apiKey: current.access, baseUrl: XAI_BASE_URL }
   }
   throw new Error(
-    "xAI credentials not found. Run: lfg xai auth set-api-key (dedicated ~/.grok/xai-grok-mcp-auth.json), set XAI_API_KEY, or sign in to Grok for read-only host fallback.",
+    "xAI credentials not found. Run: lfg xai auth set-api-key, lfg xai auth set-oauth, set XAI_API_KEY, or sign in to Grok for read-only host fallback.",
   )
 }
 
@@ -485,6 +686,18 @@ function optionalStringArray(value) {
   return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.length > 0) : undefined
 }
 
+function oauthExpiryFromArgs(args) {
+  const expiresAt = optionalString(args.expires_at)
+  if (expiresAt) {
+    const parsed = Date.parse(expiresAt)
+    if (!Number.isNaN(parsed) && parsed > Date.now()) return parsed
+    return undefined
+  }
+  const expiresIn = optionalNumber(args.expires_in)
+  if (expiresIn !== undefined && expiresIn > 0) return Date.now() + expiresIn * 1000
+  return undefined
+}
+
 function compact(value) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined))
 }
@@ -510,6 +723,16 @@ function safeJson(text, fallback) {
     return JSON.parse(text)
   } catch {
     return fallback
+  }
+}
+
+function unlinkIfExists(path) {
+  try {
+    unlinkSync(path)
+    return true
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") return false
+    throw error
   }
 }
 

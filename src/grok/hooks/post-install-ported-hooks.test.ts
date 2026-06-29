@@ -92,6 +92,14 @@ describe("post-install ported hooks (#32)", () => {
     )
     expect(OMO_HOOK_PARITY_MATRIX.find((row) => row.upstreamCommand.includes("telemetry"))?.status).toBe("Unsupported")
     expect(OMO_HOOK_PARITY_MATRIX.find((row) => row.upstreamCommand.includes("auto-update"))?.status).toBe("Unsupported")
+    const commentChecker = OMO_HOOK_PARITY_MATRIX.find((row) => row.upstreamCommand.includes("comment-checker"))
+    expect(commentChecker).toEqual(
+      expect.objectContaining({
+        localCommand: 'node "${GROK_PLUGIN_ROOT}/hooks/lfg-native-comment-checker.mjs"',
+        status: "Grok-adapted",
+      }),
+    )
+    expect(commentChecker?.localTargetDecision).toContain("addCommentCheckerHook")
   })
 
   test("generated hook commands resolve to installed files or approved bridge targets", async () => {

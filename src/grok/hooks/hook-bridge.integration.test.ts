@@ -62,7 +62,7 @@ process.stdin.on('end',()=>{
 
     await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
     const hooksRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
-    expect(hooksRaw).toContain("lfg-native-rules.js")
+    expect(hooksRaw).toContain("lfg-native-rules.mjs")
     expect(hooksRaw).not.toContain("lfg-grok-hook-bridge.mjs")
     expect(hooksRaw).toContain(pluginRoot)
 
@@ -152,7 +152,7 @@ process.stdin.on('end',()=>{
 
     await expect(readFile(join(pluginRoot, "hooks", "hooks.json"), "utf8")).rejects.toThrow()
     const hooksRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
-    expect(hooksRaw).toContain("lfg-native-ultrawork.js")
+    expect(hooksRaw).toContain("lfg-native-ultrawork.mjs")
     expect(hooksRaw).not.toContain("lfg-grok-hook-bridge.mjs")
 
     const bridgePath = join(pluginRoot, "hooks", "lfg-grok-hook-bridge.mjs")

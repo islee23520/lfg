@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
-import { isBareKey, removeTomlKey, tomlString, upsertSection, upsertTomlKey } from "./lfg-grok-config-toml"
+import { isBareKey, removeTomlKey, removeTomlSectionsByPrefix, tomlString, upsertSection, upsertTomlKey } from "./lfg-grok-config-toml"
 import { upsertModelSections } from "./lfg-grok-model-sections"
 import type { JsonObject } from "../../shared/json"
 import { defaultLazycodexAgentConfig, type LazycodexAgentConfig, type ModelDiscovery } from "../models/lfg-models"
@@ -16,6 +16,7 @@ export type GrokConfigOptions = {
   readonly home?: string
   readonly apiKey?: string
   readonly agentConfig?: LazycodexAgentConfig
+  readonly hostAuthOnly?: boolean
   /** Full per-agent model+reasoning map (roles + LFP/omo imported + flavour-pack). When present, used for all [lazycodex.agents.*] sections. */
   readonly fullAgentModels?: Readonly<Record<string, { model: string; reasoningLevel: string }>>
 }
@@ -34,9 +35,20 @@ export async function writeGrokModelConfig(discovery: ModelDiscovery, options: G
   const path = join(home, ".grok", "config.toml")
   const baseUrl = modelsBaseUrl(discovery)
   const current = await readTextIfExists(path)
-  const endpoints = removeTomlKey(upsertTomlKey(current, "endpoints", "models_base_url", baseUrl), "endpoints", "api_key")
+  const endpoints = options.hostAuthOnly === true
+    ? removeTomlSectionsByPrefix(
+        removeTomlKey(removeTomlKey(current, "endpoints", "models_base_url"), "endpoints", "api_key"),
+        "model.",
+      )
+    : removeTomlKey(upsertTomlKey(current, "endpoints", "models_base_url", baseUrl), "endpoints", "api_key")
   const agentConfig = options.agentConfig ?? discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
-  const modelConfig = upsertModelSections(upsertSection(endpoints, "models", [`default = ${tomlString(discovery.mapping.default)}`]), discovery, baseUrl, options.apiKey, current)
+  const modelConfig = upsertModelSections(
+    upsertSection(endpoints, "models", [`default = ${tomlString(discovery.mapping.default)}`]),
+    discovery,
+    options.hostAuthOnly === true ? null : baseUrl,
+    options.apiKey,
+    current,
+  )
   let withAgents = upsertOmoAgentSections(modelConfig, agentConfig)
   if (options.fullAgentModels && Object.keys(options.fullAgentModels).length > 0) {
     withAgents = upsertAllOmoAgentSections(withAgents, options.fullAgentModels)

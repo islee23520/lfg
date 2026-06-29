@@ -5,7 +5,7 @@ import type { ModelFeatureMetadata } from "../models/lfg-model-metadata"
 export function upsertModelSections(
   source: string,
   discovery: ModelDiscovery,
-  baseUrl: string,
+  baseUrl: string | null,
   apiKey: string | undefined,
   priorConfig: string,
 ): string {
@@ -13,9 +13,12 @@ export function upsertModelSections(
   let next = source
   for (const alias of aliases) {
     const upstreamModelId = alias === "grok-build" ? discovery.mapping.default : canonicalModelForAlias(discovery.modelIds, alias)
-    const modelBaseUrl = baseUrlForModel(discovery, upstreamModelId, baseUrl)
-    const lines = [`model = ${tomlString(upstreamModelId)}`, `base_url = ${tomlString(modelBaseUrl)}`]
-    if (typeof apiKey === "string" && apiKey.length > 0 && shouldWriteGlobalApiKey(discovery)) {
+    const modelBaseUrl = baseUrl === null ? null : baseUrlForModel(discovery, upstreamModelId, baseUrl)
+    const lines = [`model = ${tomlString(upstreamModelId)}`]
+    if (modelBaseUrl !== null) {
+      lines.push(`base_url = ${tomlString(modelBaseUrl)}`)
+    }
+    if (modelBaseUrl !== null && typeof apiKey === "string" && apiKey.length > 0 && shouldWriteGlobalApiKey(discovery)) {
       lines.push(`api_key = ${tomlString(apiKey)}`)
     }
     const contextWindow = resolveContextWindowForModel(discovery, upstreamModelId, priorConfig, alias)

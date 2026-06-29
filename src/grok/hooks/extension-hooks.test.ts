@@ -33,7 +33,7 @@ describe("extension-hooks", () => {
     const raw = await readFile(join(pluginRoot, "hooks", "hooks.source.json"), "utf8")
     expect(raw).toContain("${GROK_PLUGIN_ROOT}")
     expect(raw).not.toContain("${PLUGIN_ROOT}")
-    expect(raw).toContain("lfg-native-ultrawork.js")
+    expect(raw).toContain("lfg-native-ultrawork.mjs")
     expect(raw).toContain("lfg-config-loader.mjs")
   })
 

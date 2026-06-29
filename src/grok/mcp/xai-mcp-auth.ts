@@ -104,10 +104,21 @@ export async function writeXaiMcpApiKey(path: string, apiKey: string): Promise<v
 }
 
 export async function writeXaiMcpOAuth(path: string, auth: Omit<XaiMcpPackageAuth, "apiKey">): Promise<void> {
+  const access = auth.access.trim()
+  const refresh = auth.refresh.trim()
+  if (access.length === 0) {
+    throw new Error("OAuth access token must be non-empty")
+  }
+  if (refresh.length === 0) {
+    throw new Error("OAuth refresh token must be non-empty")
+  }
+  if (!Number.isFinite(auth.expires) || auth.expires <= Date.now()) {
+    throw new Error("OAuth expiry must be a future timestamp")
+  }
   const body = {
     provider: auth.provider,
-    access: auth.access,
-    refresh: auth.refresh,
+    access,
+    refresh,
     expires: auth.expires,
     tokenEndpoint: auth.tokenEndpoint,
     tokenType: auth.tokenType,
@@ -152,7 +163,7 @@ export async function getXaiMcpAuthStatus(env: NodeJS.ProcessEnv = process.env):
       expiresAt: new Date(dedicated.expires).toISOString(),
       provider: dedicated.provider,
       message: expired
-        ? "Dedicated OAuth tokens expired; run lfg xai auth set-api-key or refresh after re-login."
+        ? "Dedicated OAuth tokens expired; run lfg xai auth set-oauth after re-login or use lfg xai auth set-api-key."
         : "xai_grok MCP uses dedicated OAuth store (Grok host auth.json is not modified).",
     }
   }
@@ -177,7 +188,7 @@ export async function getXaiMcpAuthStatus(env: NodeJS.ProcessEnv = process.env):
       expiresAt: new Date(grokOidc.expires).toISOString(),
       provider: "grok-oauth",
       message: expired
-        ? "No dedicated xAI MCP auth; Grok host OIDC is expired. Use: lfg xai auth set-api-key"
+        ? "No dedicated xAI MCP auth; Grok host OIDC is expired. Use: lfg xai auth set-oauth or lfg xai auth set-api-key"
         : "No dedicated file; falling back to read-only Grok host ~/.grok/auth.json (host file is never written by xai_grok MCP).",
     }
   }
@@ -187,7 +198,7 @@ export async function getXaiMcpAuthStatus(env: NodeJS.ProcessEnv = process.env):
     authFile,
     expiresAt: null,
     provider: null,
-    message: "No xAI credentials. Run: lfg xai auth set-api-key (or sign in to Grok for read-only fallback).",
+    message: "No xAI credentials. Run: lfg xai auth set-api-key, lfg xai auth set-oauth, or sign in to Grok for read-only fallback.",
   }
 }
 

@@ -28,6 +28,7 @@ const requiredManagedSkills = [
   "rules",
   "start-work",
   "teammode",
+  "ultimate-browsing",
   "ultraresearch",
   "ulw-loop",
   "ulw-plan",

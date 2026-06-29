@@ -17,6 +17,21 @@ describe("resolveSetupDiscovery", () => {
       expect(resolved.discovery?.mapping.default).toBe("grok-3-mini")
     })
   })
+
+  test("host-auth-only mode ignores stale config proxy when CLI omits --base-url", async () => {
+    await withModelServer(["gpt-5.5"], async (baseUrl) => {
+      const home = await mkdtemp(join(tmpdir(), "lfg-resolve-host-only."))
+      await mkdir(join(home, ".grok"), { recursive: true })
+      await writeFile(join(home, ".grok", "config.toml"), `[endpoints]\nmodels_base_url = "${baseUrl}/v1"\n`, "utf8")
+      const resolved = await resolveSetupDiscovery({ home, cliBaseUrl: null, hostAuthOnly: true })
+      expect(resolved).toMatchObject({
+        discovery: null,
+        baseUrlUsed: null,
+        baseUrlSource: "none",
+        autoDiscovered: false,
+      })
+    })
+  })
 })
 
 async function withModelServer(modelIds: readonly string[], run: (baseUrl: string) => Promise<void>): Promise<void> {

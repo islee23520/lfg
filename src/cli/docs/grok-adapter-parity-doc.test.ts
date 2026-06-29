@@ -49,10 +49,12 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("#32")
     expect(text).toMatch(/\| Extension hooks \(LFP port\) \|.*\| Implemented/)
     expect(text).toMatch(/\| OMO skill payload sync \|.*sync-omo-skills-to-grok\.mjs.*\| Implemented/)
+    expect(text).toContain("including `ultimate-browsing` with its references/engine/scripts")
     expect(text).toContain(".lfg-omo-skill-sync.json")
     expect(text).toContain("converts OpenAI agent metadata to `agents/grok.yaml`")
     expect(text).toContain("lfg-owned `lfg-doctor`, `lfg-report-bug`, and `lfg-contribute-bug-fix`")
-    expect(text).toContain("not a claim that every deferred component runtime is behavior-adapted")
+    expect(text).toContain("not a claim that every deferred component runtime or stealth-browser surface is behavior-adapted")
+    expect(text).toMatch(/\| `ultimate-browsing` \|.*skills\/ultimate-browsing.*\| Implemented/)
     expect(text).toMatch(/\| ulw-loop \/ start-work skills \|.*project `\.omo` ledger.*\| Implemented/)
     expect(text).toContain("no ledger tail/content")
     expect(text).toContain("malformed `.omo` fails closed")
@@ -91,6 +93,9 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
   test("distinguishes core install parity from full OMO component parity for issue 36", async () => {
     const text = await readFile(join(ROOT, "docs/grok-adapter-parity.md"), "utf8")
     expect(text).toContain("## Core Install Parity")
+    expect(text).toContain("## Current Parity Score")
+    expect(text).toContain("Current score after T2/T4/T5: **88/100**")
+    expect(text).toContain("automatic LSP lifecycle hook reinjection remain unclaimed")
     expect(text).toContain("## Full OMO Component Parity")
     expect(text).toContain("`lfg-component-inventory.json`")
     expect(text).toContain("`lazycodex-ai` / OMO `v4.13.0`")
@@ -102,11 +107,11 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     for (const [component, status] of [
       ["bootstrap", "Deferred"],
       ["auto-update", "Unsupported"],
-      ["comment-checker", "Deferred"],
+      ["comment-checker", "Grok-adapted"],
       ["git-bash", "Manifest-only"],
       ["rules", "Grok-adapted"],
-      ["lsp", "Manifest-only"],
-      ["ast_grep", "Manifest-only"],
+      ["lsp", "Grok-adapted"],
+      ["ast_grep", "Grok-adapted"],
       ["codegraph", "Grok-adapted"],
       ["grep_app", "Remote URL manifest-only"],
       ["context7", "Remote URL manifest-only"],
@@ -140,10 +145,22 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("Upstream package test infrastructure remains Unsupported")
     expect(text).toContain("test-only support code outside the Grok runtime payload")
     expect(text).toContain("src/grok/payload/component-inventory.ts")
+    expect(text).toContain("T2-comment-checker-runtime.txt")
+    expect(text).toContain("T4-ast-grep-runtime.txt")
+    expect(text).toContain("T5-lsp-runtime.txt")
+    expect(text).toContain("hooks/lfg-native-comment-checker.mjs")
+    expect(text).toContain("ast_grep_search")
+    expect(text).toContain("typescript_diagnostics")
     expect(text).toContain("hook-bridge.integration.test.ts")
     expect(text).toContain("sync-lazycodex-agents-to-grok.ts")
     expect(text).toContain("the durable continuation CLI is not packaged")
     expect(text).toContain("hook-time `additionalContext` guidance only")
+    expect(text).toContain("workflow-selector`, `teammode`, `lazycodex-executor-verify`, `start-work-continuation`")
+    expect(text).toContain("Deferred for automatic lifecycle hook reinjection")
     expect(text).not.toMatch(/\| `plan-mode-interception` \|.*\| (Implemented|Grok-adapted) \|/)
+    expect(text).not.toMatch(/\| `workflow-selector` \|.*\| (Implemented|Grok-adapted) \|/)
+    expect(text).not.toMatch(/\| `teammode` \|.*\| (Implemented|Grok-adapted) \|/)
+    expect(text).not.toMatch(/\| `lazycodex-executor-verify` \|.*\| (Implemented|Grok-adapted) \|/)
+    expect(text).not.toMatch(/\| `start-work-continuation` \|.*\| (Implemented|Grok-adapted) \|/)
   })
 })

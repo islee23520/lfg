@@ -4,13 +4,14 @@ import { createNativeGrokHooksForLegacyFallback, isGrokEventHooksJson, isLegacyM
 import { normalizeHookCommandPaths, wrapLazyCodexHookCommand } from "./hook-command-normalization"
 import { materializeActiveGrokHooksJson } from "./normalize-plugin-hooks-active"
 import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset"
+import { addCommentCheckerHook, NATIVE_COMMENT_CHECKER_FILE } from "./comment-checker-hook"
 
 const BRIDGE_RELATIVE = join("hooks", "lfg-grok-hook-bridge.mjs")
 const CONFIG_LOADER_FILE = "lfg-config-loader.mjs" as const
 const PROJECT_OMO_LEDGER_FILE = "lfg-project-omo-ledger.mjs" as const
 const SISYPHUS_HOOKS_FILE = "lfg-sisyphus-hooks.mjs" as const
-const NATIVE_RULES_FILE = "lfg-native-rules.js" as const
-const NATIVE_ULTRAWORK_FILE = "lfg-native-ultrawork.js" as const
+const NATIVE_RULES_FILE = "lfg-native-rules.mjs" as const
+const NATIVE_ULTRAWORK_FILE = "lfg-native-ultrawork.mjs" as const
 const DEV_LOGGER_FILE = "lfg-dev-logger.mjs" as const
 const CONFIG_LOADER_RELATIVE = join("hooks", CONFIG_LOADER_FILE)
 const PLUGIN_HOOKS_FILE = "hooks.json" as const
@@ -28,6 +29,7 @@ export async function syncGrokHookBridgeIntoPlugin(pluginRoot: string): Promise<
   await copyFile(await resolveAssetNearBridge(assetPath, "hooks", SISYPHUS_HOOKS_FILE), join(pluginRoot, "hooks", SISYPHUS_HOOKS_FILE))
   await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_RULES_FILE), join(pluginRoot, "hooks", NATIVE_RULES_FILE))
   await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_ULTRAWORK_FILE), join(pluginRoot, "hooks", NATIVE_ULTRAWORK_FILE))
+  await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_COMMENT_CHECKER_FILE), join(pluginRoot, "hooks", NATIVE_COMMENT_CHECKER_FILE))
   await copyFile(await resolveAssetNearBridge(assetPath, "log", DEV_LOGGER_FILE), join(pluginRoot, "hooks", DEV_LOGGER_FILE))
   // .mcp.json is written by materializeGrokMcpRuntimes() during installGrokPluginFromSource — do not overwrite here with dev-only absolute paths.
   return destPath
@@ -80,7 +82,7 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
       }),
     )
   }
-  const nextPayload = { hooks: addSisyphusHooks(addLfgConfigLoaderHooks(nextBlock)) }
+  const nextPayload = { hooks: addSisyphusHooks(addCommentCheckerHook(addLfgConfigLoaderHooks(nextBlock))) }
   const trust = validateGrokHooksJson(nextPayload)
   if (!trust.ok) {
     throw new Error(trust.error ?? "invalid hooks after normalize")
@@ -171,6 +173,10 @@ function appendSisyphusHook(groups: unknown, eventName: string): readonly unknow
 }
 
 function groupHasSisyphusCommand(group: unknown, command: string): boolean {
+  return groupHasCommand(group, command)
+}
+
+function groupHasCommand(group: unknown, command: string): boolean {
   if (typeof group !== "object" || group === null) return false
   const hooks = (group as JsonRecord).hooks
   if (!Array.isArray(hooks)) return false

@@ -151,7 +151,7 @@ describe("post-install-verify", () => {
     try {
       await runInternalGrokInstall({ HOME: home, LFG_ALLOW_TEST_GROK_HOME: "1" })
       const pluginRoot = nativeGrokPluginRoot(home, "lfg")
-      const removedPath = join(pluginRoot, "hooks", "lfg-native-rules.js")
+      const removedPath = join(pluginRoot, "hooks", "lfg-native-rules.mjs")
       await rm(removedPath, { force: true })
 
       const json = await verifyGrokInstallSurface({ home })

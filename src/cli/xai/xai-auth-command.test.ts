@@ -26,6 +26,39 @@ describe("xai auth command", () => {
     }
   })
 
+  test("set-oauth writes dedicated oauth tokens without touching grok auth", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-xai-cli-"))
+    const env = { HOME: home, LFG_ALLOW_TEST_GROK_HOME: "1" }
+    const prevHome = process.env.HOME
+    const prevGate = process.env.LFG_ALLOW_TEST_GROK_HOME
+    Object.assign(process.env, env)
+    try {
+      const result = await dispatchXaiAuthCommand("set-oauth", {
+        json: true,
+        apiKeyFlag: null,
+        oauthAccessToken: "oauth-access-cli",
+        oauthRefreshToken: "oauth-refresh-cli",
+        oauthExpiresAt: "2099-01-01T00:00:00.000Z",
+        oauthTokenEndpoint: "https://auth.example.test/token",
+        oauthTokenType: "Bearer",
+      })
+      expect(result).toMatchObject({ ok: true, status: "xai_oauth_saved", mode: "oauth" })
+      const path = resolveXaiMcpAuthPath(process.env, home)
+      const auth = await readXaiMcpPackageAuth(path)
+      expect(auth).toMatchObject({
+        provider: "xai-oauth",
+        access: "oauth-access-cli",
+        refresh: "oauth-refresh-cli",
+        tokenEndpoint: "https://auth.example.test/token",
+      })
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME
+      else process.env.HOME = prevHome
+      if (prevGate === undefined) delete process.env.LFG_ALLOW_TEST_GROK_HOME
+      else process.env.LFG_ALLOW_TEST_GROK_HOME = prevGate
+    }
+  })
+
   test("status reports grokHostAuthUntouched", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-xai-cli-"))
     const prevHome = process.env.HOME

@@ -10,7 +10,8 @@ One skill for all **lfg `xai_grok` MCP** tools (`~/.grok/plugins/lfg/mcp-runtime
 ## Setup check
 
 1. Run `lfg setup --run` (or reinstall) so the plugin ships `xai_grok` in `.mcp.json` and this `skills/xai` directory under `~/.grok/plugins/lfg/skills/xai`.
-2. Credentials (priority): dedicated `~/.grok/xai-grok-mcp-auth.json` via **`lfg xai auth set-api-key`**, then `XAI_API_KEY`, then read-only Grok host `~/.grok/auth.json` (host file is never written by xai_grok MCP). Never log tokens or keys.
+2. Credentials (priority): dedicated `~/.grok/xai-grok-mcp-auth.json` via **`lfg xai auth set-api-key`**, **`lfg xai auth set-oauth`**, or the MCP tools `xai_auth_set_api_key` / `xai_auth_set_oauth`; then `XAI_API_KEY`; then read-only Grok host `~/.grok/auth.json` (host file is never written by xai_grok MCP). Never log tokens or keys.
+3. Do not use `/mcps` OAuth authenticate (`i`) for `xai_grok`: Grok only runs that host-managed OAuth flow for HTTP/SSE MCP servers, while `xai_grok` is local stdio. Use `xai_auth_*` tools instead.
 
 ## Tool flow (all capabilities)
 

@@ -25,6 +25,7 @@ export const managedSkillSources = [
   ["rules", "components/rules/skills/rules"],
   ["start-work", "skills/start-work"],
   ["teammode", "components/teammode/skills/teammode"],
+  ["ultimate-browsing", "skills/ultimate-browsing"],
   ["ultraresearch", "skills/ultraresearch"],
   ["ulw-loop", "components/ulw-loop/skills/ulw-loop"],
   ["ulw-plan", "components/ultrawork/skills/ulw-plan"],

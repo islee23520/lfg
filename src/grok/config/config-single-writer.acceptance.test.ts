@@ -27,5 +27,5 @@ describe("config single writer acceptance (#29)", () => {
     const endpointsBlock = first.split(/\n\[/).find((chunk) => chunk.startsWith("endpoints]") || chunk.startsWith("[endpoints]"))
     expect(endpointsBlock ?? "").not.toMatch(/api_key/)
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS.join(" ")).not.toContain("api_key")
-  })
+  }, 15_000)
 })

@@ -87,8 +87,9 @@ describe("plugin cache install acceptance (#27)", () => {
     expect(inventory.components.every((component) => component.status.length > 0)).toBe(true)
     expect(inventory.components).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "ast_grep", status: "Manifest-only" }),
-        expect.objectContaining({ id: "lsp", status: "Manifest-only" }),
+        expect.objectContaining({ id: "ast_grep", status: "Grok-adapted" }),
+        expect.objectContaining({ id: "lsp", status: "Grok-adapted" }),
+        expect.objectContaining({ id: "comment-checker", status: "Grok-adapted" }),
         expect.objectContaining({ id: "git-bash", status: "Manifest-only" }),
         expect.objectContaining({ id: "grep_app", status: "Remote URL manifest-only" }),
         expect.objectContaining({ id: "context7", status: "Remote URL manifest-only" }),

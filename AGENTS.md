@@ -4,7 +4,7 @@
 
 `@islee23520/lfg` is a single-purpose npm CLI (only command: `setup`) that ports **OpenCode OmO / lazycodex** behavior to **GrokBuild**. Running `setup --run` materializes an lfg-owned Grok plugin payload under `~/.grok/plugins/lfg` (with legacy `~/.grok/installed-plugins/lfg` as migration/fallback).
 
-Lineage: **codex adapter core feature + opencode feature** from `https://github.com/code-yeongyu/oh-my-openagent`. Strategic posture (ADR `docs/grok-adapter-core-port-strategy.md`): upstream is a core/adapter monorepo — `omo-codex` is packaging reference only; `omo-opencode` is the architectural reference; shared `*-core` packages are the behavioral source. Phase 0 (codegraph), Phase 1 (rules), Phase 2 (model resolution), Phase 3 (prompt variants), Phase 5 (`delegate-core`/`boulder-state`), and the host-neutral slice of Phase 6 (`skills-loader-core`) are shipped; Phase 4 is partial, and the host-bound leftovers called out below remain Deferred/Manifest-only/Unsupported.
+Lineage: **codex adapter core feature + opencode feature** from `https://github.com/code-yeongyu/oh-my-openagent`. Strategic posture (ADR `docs/grok-adapter-core-port-strategy.md`): upstream is a core/adapter monorepo — `omo-codex` is packaging reference only; `omo-opencode` is the architectural reference; shared `*-core` packages are the behavioral source. Phase 0 (codegraph), Phase 1 (rules), Phase 2 (model resolution), Phase 3 (prompt variants), Phase 5 (`delegate-core`/`boulder-state`), and the host-neutral slice of Phase 6 (`skills-loader-core`) are shipped; Phase 4 is partial. T2/T4/T5 moved `comment-checker`, `ast_grep`, and `lsp` to behavior-backed Grok-adapted status; the host-bound leftovers called out below remain Deferred/Manifest-only/Unsupported.
 
 The npm package identity is deliberately distinct from the installed plugin: `lfgIsPlugin: false` in JSON contracts (the npm package is never reported as a Grok plugin object), even though `setup --run` installs a real Grok plugin payload.
 
@@ -22,7 +22,7 @@ Run `npm run assert-omo-parity` for every OMO/lazycodex parity update, upstream 
 
 For feature intake from a new upstream OMO/lazycodex version:
 1. Inspect upstream package layout and hook/component deltas first; do not infer parity from `omo-codex` alone.
-2. Classify each upstream component with the exact status vocabulary above. `teammode`, `lazycodex-executor-verify`, `comment-checker`, `lsp`, `ast_grep`, `git-bash`, and `start-work-continuation` must stay non-behavioral unless a real Grok runtime/hook/tool surface is implemented and manually verified.
+2. Classify each upstream component with the exact status vocabulary above. `teammode`, `lazycodex-executor-verify`, `workflow-selector`, `git-bash`, and `start-work-continuation` must stay non-behavioral unless a real Grok runtime/hook/tool surface is implemented and manually verified.
 3. Sync upstream skills through `scripts/sync-omo-skills-to-grok.mjs`; do not hand-maintain copied OMO skill payloads except for explicit lfg conversions (`lfg-doctor`, `lfg-report-bug`, `lfg-contribute-bug-fix`) and Grok metadata conversion (`agents/openai.yaml` → `agents/grok.yaml`).
 4. Verify both surfaces: `npm run assert-omo-parity` for generated payload integrity, and `node dist/lfg.js --json setup --run --install-only` against a temp Grok home for the installed plugin surface.
 5. If claiming a deferred/manifest-only component became `Grok-adapted`, prove it with a non-empty runtime/hook/tool behavior test and a real setup-surface receipt. Do not mark status up based only on copied files or manifest presence.
@@ -53,12 +53,13 @@ For feature intake from a new upstream OMO/lazycodex version:
 | `rules` | `rules-engine-vendored/` (verbatim) + `rules-injector.ts` PostToolUse glue; native first-party hook | **Grok-adapted** (Phase 1, shipped) |
 | `ultrawork` | Native first-party hook + agent prompts synced | **Grok-adapted** |
 | `ulw-loop` | Project `.omo` awareness via fail-closed config loader; durable CLI stays upstream-owned | **Grok-adapted** |
+| `ultimate-browsing` | Upstream OMO skill payload installed, including references/engine/scripts and Grok-converted agent metadata; no separate Grok-native stealth-browser runtime claimed | Implemented |
 | `git-bash` | Local MCP stub, disabled on macOS via `disabled_mcp_servers` | Manifest-only |
-| `lsp` | Local runtime stub in plugin `.mcp.json`; `tools/list` empty | Manifest-only |
-| `ast_grep` | Local runtime stub; `tools/list` intentionally empty | Manifest-only |
+| `lsp` | Local MCP runtime exposes `typescript_diagnostics` (T5); upstream automatic PostToolUse/PostCompact hook reinjection remains unclaimed | Grok-adapted |
+| `ast_grep` | Local MCP runtime exposes `ast_grep_search` with `sg` and deterministic fallback behavior (T4) | Grok-adapted |
 | `grep_app` | Remote URL `https://mcp.grep.app`; shape-validated only | Remote URL manifest-only |
 | `context7` | Remote URL `https://mcp.context7.com/mcp`; shape-validated only | Remote URL manifest-only |
-| `comment-checker` | Not wired as Grok-native post-edit workflow | Deferred |
+| `comment-checker` | Native Grok PostToolUse hook emits bounded comment feedback and fail-closes on malformed JSON (T2) | Grok-adapted |
 | `start-work-continuation` | Sisyphus native Stop/SubagentStop hooks substitute | Deferred |
 | `teammode` | Skill payload installed; Codex thread orchestration hook not Grok-adapted | Deferred |
 | `lazycodex-executor-verify` | Codex `lazycodex-executor` SubagentStop verifier not Grok-adapted | Deferred |
@@ -89,10 +90,8 @@ For feature intake from a new upstream OMO/lazycodex version:
 - `experimental.session.compacting` — compaction-context preservation. Workaround: persistence-based recovery.
 
 **Behavioral ports still owed** (currently Manifest-only / Deferred, blocking full parity):
-- `comment-checker` (PostToolUse) — needs a Grok-native post-edit comment workflow.
-- `lsp` (PostToolUse / PostCompact) — needs a real non-empty `tools/list` Grok-adapted runtime.
-- `ast_grep` — needs a real Grok-adapted runtime (currently empty `tools/list`).
-- `git-bash` — Windows-unverified; macOS disabled.
+- `git-bash` — Windows behavior remains unverified; macOS disables it through `disabled_mcp_servers`.
+- `lsp` lifecycle hook automation — the MCP runtime is behavior-adapted, but upstream automatic PostToolUse/PostCompact hook reinjection is not claimed.
 - `start-work-continuation` Stop/SubagentStop — partially covered by Sisyphus native hooks, but the durable continuation CLI is not packaged.
 
 **Model-family detector gap** (Phase 2 risk, now mitigated): `model-core` family detectors (`isGptModel`, `isGeminiModel`, `isClaudeOpus*Model`, …) do not match `xai/grok-*` IDs; the Grok adapter supplies `availableModels`/`connectedProviders` normalized to `provider/model-id` and maps Grok models into variant families so they don't fall to the `default` variant.

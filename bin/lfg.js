@@ -1,7 +1,17 @@
 #!/bin/sh
 set -eu
 
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+target=$0
+while [ -L "$target" ]; do
+  target_dir=$(CDPATH= cd -- "$(dirname -- "$target")" && pwd)
+  link=$(readlink "$target")
+  case "$link" in
+    /*) target=$link ;;
+    *) target=$target_dir/$link ;;
+  esac
+done
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$target")" && pwd)
 
 if [ -f "$script_dir/../dist/lfg.js" ]; then
   exec node "$script_dir/../dist/lfg.js" "$@"
