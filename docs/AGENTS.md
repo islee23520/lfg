@@ -6,13 +6,14 @@ Adapter decision records and capability docs. Prose here is a **tested contract*
 
 ## WHERE TO LOOK
 
-Every doc has a 1:1 `*-doc.test.ts` under `src/cli/docs/` that asserts exact phrases and forbidden copy. Editing a doc means editing (or relaxing) its test in the same change.
+Every doc has a 1:1 `*-doc.test.ts` under `src/cli/docs/` (exception: `npm-publish.md` → `src/cli/publish/workflow/npm-publish-doc.test.ts`) that asserts exact phrases and forbidden copy. Editing a doc means editing its test in the same change.
 
 | Doc | Test |
 |-----|------|
 | `grok-adapter-ownership.md` | `src/cli/docs/grok-adapter-ownership-doc.test.ts` |
 | `grok-adapter-parity.md` | `src/cli/docs/grok-adapter-parity-doc.test.ts` |
 | `grok-adapter-agent-model-source-map.md` | `src/cli/docs/grok-adapter-agent-model-source-map-doc.test.ts` |
+| `omo-grokbuild-pi-agent-parity-adr.md` | `src/cli/docs/omo-grokbuild-pi-agent-parity-adr-doc.test.ts` |
 | `grok-cleanup-update.md` | `src/cli/docs/grok-cleanup-update-doc.test.ts` |
 | `grok-config-endpoints.md` | `src/cli/docs/grok-config-endpoints-doc.test.ts` |
 | `grok-host-auth.md` | `src/cli/docs/grok-host-auth-doc.test.ts` |

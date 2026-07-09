@@ -8,9 +8,9 @@ import {
   isKimiK2Model,
   resolveModelPipeline,
   transformModelForProvider,
-} from "./vendor/model-core-vendored";
+} from "./index";
 
-describe("model-core-vendored", () => {
+describe("model-core", () => {
   test("resolveModelPipeline resolves UI-selected model as override", () => {
     expect(
       resolveModelPipeline({

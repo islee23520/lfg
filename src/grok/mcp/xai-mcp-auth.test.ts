@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { afterEach, describe, expect, test } from "vitest"
@@ -10,6 +10,7 @@ import {
   writeXaiMcpApiKey,
   writeXaiMcpOAuth,
   grokHostAuthPath,
+  XAI_OAUTH_TOKEN_URL,
 } from "./xai-mcp-auth"
 
 describe("xai-mcp-auth", () => {
@@ -52,7 +53,7 @@ describe("xai-mcp-auth", () => {
       access: "oauth-access",
       refresh: "oauth-refresh",
       expires,
-      tokenEndpoint: "https://auth.example.test/token",
+      tokenEndpoint: XAI_OAUTH_TOKEN_URL,
       tokenType: "Bearer",
     })
     const parsed = await readXaiMcpPackageAuth(path)
@@ -61,13 +62,65 @@ describe("xai-mcp-auth", () => {
       access: "oauth-access",
       refresh: "oauth-refresh",
       expires,
-      tokenEndpoint: "https://auth.example.test/token",
+      tokenEndpoint: XAI_OAUTH_TOKEN_URL,
       tokenType: "Bearer",
     })
     const raw = JSON.parse(await readFile(path, "utf8")) as { auth_mode?: string; apiKey?: string }
     expect(raw.auth_mode).toBe("oauth")
     expect(raw.apiKey).toBeUndefined()
     await expect(readFile(grokHostAuthPath(home), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+  })
+
+  test("rejects arbitrary oauth token endpoints", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-xai-auth-"))
+    homes.push(home)
+    const path = join(home, ".grok", "xai-grok-mcp-auth.json")
+    await expect(
+      writeXaiMcpOAuth(path, {
+        provider: "xai-oauth",
+        access: "oauth-access",
+        refresh: "oauth-refresh",
+        expires: Date.now() + 3600_000,
+        tokenEndpoint: "https://auth.example.test/token",
+        tokenType: "Bearer",
+      }),
+    ).rejects.toThrow(`OAuth token endpoint must be ${XAI_OAUTH_TOKEN_URL}`)
+  })
+
+  test("ignores stored oauth credentials with untrusted token endpoint", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-xai-auth-"))
+    homes.push(home)
+    const path = join(home, ".grok", "xai-grok-mcp-auth.json")
+    await mkdir(join(home, ".grok"), { recursive: true })
+    await writeFile(
+      path,
+      JSON.stringify({
+        provider: "xai-oauth",
+        access: "oauth-access",
+        refresh: "oauth-refresh",
+        expires: Date.now() + 3600_000,
+        tokenEndpoint: "https://auth.example.test/token",
+        tokenType: "Bearer",
+      }),
+      "utf8",
+    )
+    await expect(readXaiMcpPackageAuth(path)).resolves.toBeNull()
+  })
+
+  test("auth writer rejects symlink and chmods existing files", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-xai-auth-"))
+    homes.push(home)
+    const path = join(home, ".grok", "xai-grok-mcp-auth.json")
+    await mkdir(join(home, ".grok"), { recursive: true })
+    await writeFile(path, "{}", { mode: 0o644 })
+    await writeXaiMcpApiKey(path, "sk-test")
+    expect((await stat(path)).mode & 0o777).toBe(0o600)
+
+    const target = join(home, "target.json")
+    const link = join(home, ".grok", "link-auth.json")
+    await writeFile(target, "{}", "utf8")
+    await symlink(target, link)
+    await expect(writeXaiMcpApiKey(link, "sk-test")).rejects.toThrow("Refusing to write xAI MCP auth through a symbolic link")
   })
 
   test("status prefers dedicated file over grok host oidc", async () => {

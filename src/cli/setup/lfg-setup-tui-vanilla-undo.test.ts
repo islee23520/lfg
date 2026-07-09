@@ -7,6 +7,7 @@ vi.mock("@clack/prompts", () => {
     note: (m: string, title?: string) => calls.push(["note", title, m]),
     confirm: async (opts: { readonly message?: string }) => {
       calls.push(["confirm", opts.message])
+      if (/Install\/update the lfg CLI globally/i.test(String(opts.message ?? ""))) return false
       return true
     },
     select: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[] }) => {
@@ -123,6 +124,7 @@ describe("lfg-setup-tui vanilla + undo", () => {
     prompts.confirm = async (opts: { readonly message?: string }) => {
       calls.push(["confirm", opts.message])
       if (/OpenAI-compatible CLI proxy/.test(String(opts.message ?? ""))) return false
+      if (/Install\/update the lfg CLI globally/.test(String(opts.message ?? ""))) return false
       return true
     }
 

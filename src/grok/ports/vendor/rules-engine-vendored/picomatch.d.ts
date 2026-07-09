@@ -4,5 +4,8 @@ declare module "picomatch" {
     readonly bash?: boolean;
   }
 
-  export default function picomatch(pattern: string, options?: PicomatchOptions): (path: string) => boolean;
+  export default function picomatch(
+    pattern: string,
+    options?: PicomatchOptions,
+  ): (path: string) => boolean;
 }

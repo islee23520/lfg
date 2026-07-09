@@ -1,4 +1,4 @@
-import { chmod, mkdir, readFile, unlink, writeFile } from "node:fs/promises"
+import { chmod, lstat, mkdir, readFile, unlink, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { isRecord } from "../../shared/json"
 import { resolveGrokSetupHome } from "../install/grok-home"
@@ -74,12 +74,16 @@ export async function readXaiMcpPackageAuth(path: string): Promise<XaiMcpPackage
       }
     }
     if (typeof data.access === "string" && typeof data.refresh === "string" && typeof data.expires === "number") {
+      const tokenEndpoint = parseXaiOAuthTokenEndpoint(data.tokenEndpoint)
+      if (tokenEndpoint === null) {
+        return null
+      }
       return {
         provider: "xai-oauth",
         access: data.access,
         refresh: data.refresh,
         expires: data.expires,
-        tokenEndpoint: typeof data.tokenEndpoint === "string" ? data.tokenEndpoint : XAI_OAUTH_TOKEN_URL,
+        tokenEndpoint,
         tokenType: typeof data.tokenType === "string" ? data.tokenType : "Bearer",
       }
     }
@@ -115,12 +119,16 @@ export async function writeXaiMcpOAuth(path: string, auth: Omit<XaiMcpPackageAut
   if (!Number.isFinite(auth.expires) || auth.expires <= Date.now()) {
     throw new Error("OAuth expiry must be a future timestamp")
   }
+  const tokenEndpoint = parseXaiOAuthTokenEndpoint(auth.tokenEndpoint)
+  if (tokenEndpoint === null) {
+    throw new Error(`OAuth token endpoint must be ${XAI_OAUTH_TOKEN_URL}`)
+  }
   const body = {
     provider: auth.provider,
     access,
     refresh,
     expires: auth.expires,
-    tokenEndpoint: auth.tokenEndpoint,
+    tokenEndpoint,
     tokenType: auth.tokenType,
     auth_mode: "oauth",
     updated_at: new Date().toISOString(),
@@ -241,8 +249,30 @@ export async function readGrokHostOidcForXai(
 
 async function writeAuthFile(path: string, body: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 })
+  await rejectUnsafeExistingAuthPath(path)
   await writeFile(path, body, { encoding: "utf8", mode: 0o600 })
   await chmod(path, 0o600)
+}
+
+export function parseXaiOAuthTokenEndpoint(value: unknown): typeof XAI_OAUTH_TOKEN_URL | null {
+  if (value === undefined || value === null || value === "") {
+    return XAI_OAUTH_TOKEN_URL
+  }
+  return value === XAI_OAUTH_TOKEN_URL ? XAI_OAUTH_TOKEN_URL : null
+}
+
+async function rejectUnsafeExistingAuthPath(path: string): Promise<void> {
+  try {
+    const stat = await lstat(path)
+    if (stat.isSymbolicLink()) {
+      throw new Error("Refusing to write xAI MCP auth through a symbolic link")
+    }
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return
+    }
+    throw error
+  }
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

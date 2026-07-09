@@ -16,6 +16,7 @@
   },
   "include": [
     "src/cli/**/*.ts",
+    "src/core/**/*.ts",
     "src/grok/**/*.ts",
     "src/test-utils/**/*.ts"
   ],

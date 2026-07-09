@@ -1,4 +1,4 @@
-import type { ModelVariant } from "../prompts-core-vendored"
+import type { ModelVariant } from "../prompts-core"
 import {
   isClaudeFable5Model,
   isClaudeOpus46Model,
@@ -11,7 +11,7 @@ import {
   isKimiK2Model,
   isKimiK27Model,
   isMiniMaxModel,
-} from "../model-core-vendored"
+} from "../model-core"
 
 export {
   isClaudeFable5Model,

@@ -11,6 +11,7 @@ vi.mock("@clack/prompts", () => {
     note: (m: string, title?: string) => calls.push(["note", title, m]),
     confirm: async (opts: any) => {
       calls.push(["confirm", opts?.message]);
+      if (/Install\/update the lfg CLI globally/i.test(String(opts?.message ?? ""))) return false;
       if (/Modify recommended model settings/i.test(String(opts?.message ?? ""))) return false;
       return true;
     },
@@ -124,6 +125,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(calls.some((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])))).toBe(true);
     const installSummary = calls.find((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])));
     expect(String(installSummary?.[2] ?? "")).toContain("Coding adapter: grok -> grok");
+    expect(String(installSummary?.[2] ?? "")).toContain("Global CLI: skip");
     expect(installerMock.runLazycodexInstaller).toHaveBeenCalledWith(expect.anything(), { codingToolAdapter: "grok" });
 
     // Final outro from the TUI
@@ -162,6 +164,43 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(installerMock.runLazycodexInstaller).toHaveBeenCalledWith(null, { codingToolAdapter: "pi-agent" });
 
     prompts.__setCodingToolAdapterChoice("grok");
+  });
+
+  test("runSetupTui can install the global lfg CLI after adapter setup", async () => {
+    const prompts = await import("@clack/prompts") as any;
+    const calls: any[] = prompts.__calls;
+    calls.length = 0;
+    installerMock.runLazycodexInstaller.mockClear();
+
+    const origConfirm = prompts.confirm;
+    prompts.confirm = async (opts: any) => {
+      calls.push(["confirm", opts?.message]);
+      if (/Install\/update the lfg CLI globally/i.test(String(opts?.message ?? ""))) return true;
+      if (/Modify recommended model settings/i.test(String(opts?.message ?? ""))) return false;
+      return true;
+    };
+    const globalInstaller = vi.fn(async () => ({
+      ok: true,
+      command: "npm",
+      args: ["install", "--global", "@islee23520/lfg@latest"],
+      stdout: "",
+      stderr: "",
+    }));
+
+    const result = await tui.runSetupTui({}, { plan: {}, resolved: null }, {
+      prompts: prompts as any,
+      colors: { inverse: (s: string) => s, green: (s: string) => s },
+      globalInstaller,
+    });
+
+    prompts.confirm = origConfirm;
+
+    expect(result).toMatchObject({ ok: true, status: "tui_installed", executed: true });
+    expect(globalInstaller).toHaveBeenCalledTimes(1);
+    const installSummary = calls.find((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])));
+    expect(String(installSummary?.[2] ?? "")).toContain("Global CLI: install/update with npm -g");
+    const globalNote = calls.find((c: any[]) => c[0] === "note" && /Global CLI/.test(String(c[1])));
+    expect(String(globalNote?.[2] ?? "")).toContain("npm install --global @islee23520/lfg@latest");
   });
 
   test("runSetupTui cancels before install when coding adapter selection is cancelled", async () => {

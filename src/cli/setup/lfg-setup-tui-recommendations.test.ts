@@ -7,6 +7,7 @@ vi.mock("@clack/prompts", () => {
     note: (m: string, title?: string) => calls.push(["note", title, m]),
     confirm: async (opts: { readonly message?: string }) => {
       calls.push(["confirm", opts.message])
+      if (/Install\/update the lfg CLI globally/i.test(String(opts.message ?? ""))) return false
       return !/Install now\?|Core \+ ULW|Modify recommended model settings/i.test(String(opts.message ?? ""))
     },
     select: async (opts: { readonly message?: string; readonly options?: readonly { readonly value: string }[] }) => {

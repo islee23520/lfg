@@ -71,15 +71,13 @@ export function isGrokModel(model: string | undefined): boolean {
   return typeof model === "string" && (/^grok[-_/]/i.test(model) || model === "grok-build")
 }
 
-/** Select best available Grok models from discovery list (dynamic vanilla optimization).
- * Prioritizes latest grok-4 family for reasoning/default, grok-3-mini-fast for speed. */
 function selectBestGrokModels(modelIds: readonly string[]): {
   default: string
   fast: string
   reasoning: string
   coding: string
 } {
-  const grokModels = modelIds.filter(isGrokModel)
+  const grokModels = modelIds.filter(isUsableVanillaGrokModel)
   if (grokModels.length === 0) {
     return {
       default: VANILLA_DEFAULT_MODEL,
@@ -89,21 +87,25 @@ function selectBestGrokModels(modelIds: readonly string[]): {
     }
   }
 
-  // Prefer grok-4.* for high quality, then grok-3, then composer/build
-  const reasoning = grokModels.find((id) => /grok-4.*(reasoning|4\.20|4\.3)/i.test(id)) ||
+  const reasoning = grokModels.find((id) => /grok-4\.3/i.test(id)) ||
+                   grokModels.find((id) => /grok-4.*reasoning/i.test(id)) ||
                    grokModels.find((id) => /grok-4/i.test(id)) ||
-                   grokModels.find((id) => /grok-3/i.test(id)) ||
                    VANILLA_REASONING_MODEL
 
-  const fast = grokModels.find((id) => /grok.*(fast|mini-fast|composer)/i.test(id)) ||
-               grokModels.find((id) => /grok-3.*mini.*fast/i.test(id)) ||
-               grokModels.find((id) => /grok-3/i.test(id)) ||
+  const fast = grokModels.find((id) => /grok-composer.*fast/i.test(id)) ||
+               grokModels.find((id) => /grok.*non-reasoning/i.test(id)) ||
+               grokModels.find((id) => /grok.*fast/i.test(id)) ||
                VANILLA_FAST_MODEL
 
-  const coding = grokModels.find((id) => /grok.*(composer|4.*non-reasoning|build)/i.test(id)) ||
-                 fast // fallback to fast for coding in vanilla
+  const coding = grokModels.find((id) => /grok.*composer/i.test(id)) ||
+                 grokModels.find((id) => /grok.*build/i.test(id)) ||
+                 grokModels.find((id) => /grok.*non-reasoning/i.test(id)) ||
+                 fast
 
-  const defaultModel = grokModels.find((id) => /grok-4/i.test(id)) || reasoning || VANILLA_DEFAULT_MODEL
+  const defaultModel = grokModels.find((id) => /grok.*build/i.test(id)) ||
+                       grokModels.find((id) => /grok-composer/i.test(id)) ||
+                       reasoning ||
+                       VANILLA_DEFAULT_MODEL
 
   return { default: defaultModel, fast, reasoning, coding }
 }
@@ -130,8 +132,7 @@ const CODING_VANILLA_AGENTS = new Set(["coding", "builder", "grok-build"])
 const DEFAULT_VANILLA_AGENTS = new Set(["default", "sisyphus", "sisyphus-junior", "ulw"])
 
 function isUsableVanillaGrokModel(model: string | undefined): boolean {
-  // Now fully supports grok-3 family for vanilla (dynamic selection prefers grok-4 > grok-3)
-  return isGrokModel(model)
+  return isGrokModel(model) && model !== "grok-3-mini-fast" && model !== "grok-3-mini"
 }
 
 function vanillaRoleDefault(name: string, fallbackDefault: string): string {
@@ -149,7 +150,6 @@ export function buildVanillaGrokConfig(
   bundled: LazycodexAgentOverrideMap,
   discovery?: ModelDiscovery,
 ): VanillaGrokConfig {
-  // Dynamic selection from real discovery (OAuth-enabled xAI models) for true vanilla optimization
   const best = discovery && discovery.modelIds.length > 0
     ? selectBestGrokModels(discovery.modelIds)
     : {
@@ -166,27 +166,21 @@ export function buildVanillaGrokConfig(
     return pickGrokModel(override?.model, override?.modelFallback, roleDefault)
   }
 
-  // Use dynamic best models where possible, fallback to role logic
   const explorerModel = best.fast
   const reasoningModel = best.reasoning
   const codingModel = best.coding
   const defaultModel = best.default
 
-  // Minimal agent overrides for vanilla (only essential roles to reduce "all that stuff")
   const agentOverrideMap: Record<string, LazycodexAgentModelOverride> = {}
-  const essentialRoles = ["explorer", "reasoning", "coding", "default", "ulw"]
-  for (const name of essentialRoles) {
-    if (bundled[name]) {
-      const model = name === "explorer" ? explorerModel : name === "reasoning" ? reasoningModel : codingModel
-      const override = bundled[name]
-      const { modelFallback, modelFallbackReasoningLevel, modelFallbackServiceTier, ...rest } = override
-      agentOverrideMap[name] = {
-        ...rest,
-        model,
-        ...(isUsableVanillaGrokModel(modelFallback) ? { modelFallback } : {}),
-        ...(isUsableVanillaGrokModel(modelFallback) && modelFallbackReasoningLevel !== undefined ? { modelFallbackReasoningLevel } : {}),
-        ...(isUsableVanillaGrokModel(modelFallback) && modelFallbackServiceTier !== undefined ? { modelFallbackServiceTier } : {}),
-      }
+  for (const [name, override] of Object.entries(bundled)) {
+    const model = grokFor(name, FASTISH_VANILLA_AGENTS.has(name) ? explorerModel : reasoningModel)
+    const { modelFallback, modelFallbackReasoningLevel, modelFallbackServiceTier, ...rest } = override
+    agentOverrideMap[name] = {
+      ...rest,
+      model,
+      ...(isUsableVanillaGrokModel(modelFallback) ? { modelFallback } : {}),
+      ...(isUsableVanillaGrokModel(modelFallback) && modelFallbackReasoningLevel !== undefined ? { modelFallbackReasoningLevel } : {}),
+      ...(isUsableVanillaGrokModel(modelFallback) && modelFallbackServiceTier !== undefined ? { modelFallbackServiceTier } : {}),
     }
   }
 
@@ -228,13 +222,13 @@ export function buildVanillaGrokDiscovery(
 /** Short human note shown in the vanilla path before the install summary. */
 export function formatVanillaSummary(config: VanillaGrokConfig): string {
   return [
-    "Vanilla GrokBuild with xAI OAuth: uses native models from discovery (grok-4 preferred, grok-3 for fast).",
+    "Using built-in Grok models directly (no cli-proxy discovery, no per-agent selection).",
     `default: ${config.mapping.default}`,
     `fast: ${config.mapping.fast}`,
     `reasoning: ${config.mapping.reasoning}`,
     `coding: ${config.mapping.coding}`,
     "",
-    "Minimal overrides for essential roles only. Re-run with proxy for full custom routing.",
+    "Per-agent models are pinned to Grok. Re-run setup and choose cli-proxy to tune them.",
   ].join("\n")
 }
 

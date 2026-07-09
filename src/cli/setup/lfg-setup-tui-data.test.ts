@@ -18,6 +18,7 @@ describe("buildVanillaGrokConfig", () => {
     for (const [name, override] of Object.entries(cfg.agentOverrideMap)) {
       expect(isGrokModel(override.model)).toBe(true)
     }
+    expect(Object.keys(cfg.agentOverrideMap).sort()).toEqual(Object.keys(bundled).sort())
 
     // Mapping slots are Grok.
     expect(isGrokModel(cfg.mapping.default)).toBe(true)
@@ -33,7 +34,7 @@ describe("buildVanillaGrokConfig", () => {
     expect(cfg.mapping.reasoning).toBe(cfg.agentConfig.reasoning.model)
   })
 
-  test("vanilla dynamically selects best grok-4/grok-3 models when discovery provided (OAuth optimized)", async () => {
+  test("vanilla selects GrokBuild and Composer from discovery while excluding unusable Grok 3", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()
     const discoveryWithGrok3And4: ModelDiscovery = {
       baseUrl: "https://api.x.ai/v1",
@@ -43,18 +44,19 @@ describe("buildVanillaGrokConfig", () => {
     }
     const cfg = buildVanillaGrokConfig(bundled, discoveryWithGrok3And4)
 
-    // Dynamic selection prefers grok-4 family for reasoning/default, grok-3-mini-fast for fast
-    expect(["grok-4", "grok-4.3", "grok-4.20-0309-reasoning"].includes(cfg.mapping.reasoning)).toBe(true)
-    expect(cfg.mapping.fast).toBe("grok-3-mini-fast")
-    expect(cfg.mapping.default).toBe("grok-4")
-    expect(formatVanillaSummary(cfg)).toContain("grok-4")
-    expect(formatVanillaSummary(cfg)).toContain("grok-3-mini-fast")
+    expect(cfg.mapping.default).toBe("grok-build-0.1")
+    expect(cfg.mapping.fast).toBe("grok-composer-2.5-fast")
+    expect(cfg.mapping.reasoning).toBe("grok-4.3")
+    expect(cfg.mapping.coding).toBe("grok-build-0.1")
+    expect(formatVanillaSummary(cfg)).toContain("default: grok-build-0.1")
+    expect(formatVanillaSummary(cfg)).toContain("fast: grok-composer-2.5-fast")
+    expect(formatVanillaSummary(cfg)).not.toContain("grok-3-mini-fast")
   })
 
   test("pickGrokModel prefers usable grok primary, then usable grok fallback, then role default", () => {
     expect(pickGrokModel("grok-4.3", "gpt-5.4-mini", "grok-4.20-0309-reasoning")).toBe("grok-4.3")
     expect(pickGrokModel("gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning")).toBe("grok-4.20-0309-reasoning")
-    expect(pickGrokModel("grok-3-mini-fast", "gpt-5.4-mini", "grok-4.20-0309-reasoning")).toBe("grok-3-mini-fast")  // now fully supported in optimized vanilla
+    expect(pickGrokModel("grok-3-mini-fast", "gpt-5.4-mini", "grok-4.20-0309-reasoning")).toBe("grok-4.20-0309-reasoning")
     expect(pickGrokModel("gpt-5.5", "glm-5", "grok-4.20-0309-reasoning")).toBe("grok-4.20-0309-reasoning")
     expect(pickGrokModel(undefined, undefined, "grok-4.3")).toBe("grok-4.3")
   })

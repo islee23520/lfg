@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
-import type { BoulderState, BoulderWorkState } from "./vendor/boulder-state-vendored";
+import type { BoulderState, BoulderWorkState } from "./index";
 import {
   createBoulderState,
   getBoulderFilePath,
@@ -12,7 +12,7 @@ import {
   parsePlanChecklist,
   readBoulderState,
   writeBoulderState,
-} from "./vendor/boulder-state-vendored";
+} from "./index";
 
 const cleanupRoots: string[] = [];
 
@@ -64,7 +64,7 @@ function createState(works: readonly BoulderWorkState[]): BoulderState {
   };
 }
 
-describe("boulder-state-vendored plan checklist", () => {
+describe("boulder-state plan checklist", () => {
   test("parsePlanChecklist counts top-level TODO and final verification checkboxes", () => {
     const markdown = [
       "# Plan",
@@ -112,7 +112,7 @@ describe("boulder-state-vendored plan checklist", () => {
   });
 });
 
-describe("boulder-state-vendored storage", () => {
+describe("boulder-state storage", () => {
   test("readBoulderState returns null for missing, malformed, and non-object state files", async () => {
     const missingDirectory = await createTempDirectory("lfg-boulder-read-missing-");
     expect(readBoulderState(missingDirectory)).toBeNull();

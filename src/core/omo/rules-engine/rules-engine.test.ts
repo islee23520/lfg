@@ -15,9 +15,9 @@ import {
   parseRuleFrontmatter,
   resetMatcherCache,
   shouldApplyRule,
-} from "./vendor/rules-engine-vendored";
+} from "./index";
 
-describe("rules-engine-vendored", () => {
+describe("rules-engine", () => {
   test("findAgentsMdUp walks upward within rootDir and rejects outside paths", async () => {
     const root = await mkdtemp(join(tmpdir(), "lfg-rules-agents-"));
     const project = join(root, "project");

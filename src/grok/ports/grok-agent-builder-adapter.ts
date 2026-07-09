@@ -13,9 +13,9 @@ import {
   type AvailableTool,
   type BuiltinAgentToolRestrictions,
   type CuratedBuiltinAgentName,
-} from "./vendor/agent-builder-vendored"
+} from "../../core/omo/agent-builder"
 import { resolveGrokModel, type GrokModelCatalog } from "../models/grok-model-adapter"
-import { AGENT_MODEL_REQUIREMENTS } from "./vendor/model-core-vendored"
+import { AGENT_MODEL_REQUIREMENTS } from "../../core/omo/model-core"
 
 const DEFAULT_GROK_MODEL = "xai/grok-4"
 

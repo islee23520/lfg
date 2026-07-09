@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest"
+import { lfgSubagentForOmoSpawnType } from "../../core/lfg/subagents/omo-spawn-map"
 import { LFG_SUBAGENT_TOGGLES, lfgOwnedSubagentModels, lfgOwnedSubagentReasoningEffort } from "./subagent-routing"
+
+const GROK_BUILTIN_SUBAGENTS_REPLACED_BY_LFG = ["general-purpose", "explore", "grok-build", "builder"] as const
 
 describe("subagent-routing", () => {
   test("covers OMO native, OMO category, and Grok visual/artistry surfaces", () => {
@@ -42,11 +45,22 @@ describe("subagent-routing", () => {
 
   test("enables every routed OMO and Grok category subagent", () => {
     const toggles = Object.fromEntries(LFG_SUBAGENT_TOGGLES)
-    const replacedBuiltins = new Set(["general-purpose", "explore", "grok-build", "builder"])
+    const replacedBuiltins: ReadonlySet<string> = new Set(GROK_BUILTIN_SUBAGENTS_REPLACED_BY_LFG)
 
     for (const name of Object.keys(lfgOwnedSubagentModels())) {
       if (name === "default") continue
       expect(toggles[name]).toBe(!replacedBuiltins.has(name))
+    }
+  })
+
+  test("disables Grok built-ins replaced by lfg OMO spawn targets", () => {
+    const toggles = Object.fromEntries(LFG_SUBAGENT_TOGGLES)
+
+    for (const name of GROK_BUILTIN_SUBAGENTS_REPLACED_BY_LFG) {
+      const replacement = lfgSubagentForOmoSpawnType(name)
+
+      expect(toggles[name]).toBe(false)
+      expect(toggles[replacement]).toBe(true)
     }
   })
 })

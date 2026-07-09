@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest"
 
-import { buildAgent } from "./vendor/agent-builder-vendored"
+import { buildAgent } from "./index"
 import type {
   AgentConfig,
   AgentFactory,
   CategoriesConfig,
-} from "./vendor/agent-builder-vendored"
+} from "./index"
 
-describe("agent-builder-vendored", () => {
+describe("agent-builder", () => {
   test("buildAgent applies category model, temperature, and variant to factory output", () => {
     const createAgent = ((model: string): AgentConfig => ({
       category: "deep",

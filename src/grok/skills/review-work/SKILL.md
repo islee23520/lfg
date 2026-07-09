@@ -2,6 +2,17 @@
 name: review-work
 description: "Post-implementation review orchestrator. Launches 5 parallel background sub-agents: Oracle (goal/constraint verification), Oracle (code quality), Oracle (security), unspecified-high (hands-on QA execution), unspecified-high (context mining from GitHub/git/Slack/Notion). All must pass for review to pass. MUST USE after completing any significant implementation work. Triggers: 'review work', 'review my work', 'review changes', 'QA my work', 'verify implementation', 'check my work', 'validate changes', 'post-implementation review'."
 ---
+
+## GrokBuild Tool Mapping
+
+On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild `spawn_subagent` calls. The adapter maps read-only exploration to the lfg-owned OMO persona `subagent_type: "explorer"`; do not use disabled Grok built-ins for those roles. This contract is shared for `coding_tool_adapter` `grok` and `pi-agent`.
+
+| Intent | GrokBuild tool to use |
+| --- | --- |
+| Search/read-only worker | `spawn_subagent({ subagent_type: "explorer", background: true, description: "...", prompt: "TASK: ..." })` |
+| Planning worker | `spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })` |
+| Implementation or QA worker | `spawn_subagent({ subagent_type: "hephaestus" or "coding", background: true, description: "...", prompt: "TASK: ..." })` |
+
 ## Codex Harness Tool Compatibility
 
 This skill may include examples copied from the OpenCode harness. In Codex, do not call OpenCode-only tools such as `call_omo_agent(...)`, `task(...)`, `background_output(...)`, or `team_*(...)` literally. Translate those examples to Codex native tools:

@@ -32,6 +32,18 @@ The strategic direction now mirrors the upstream architecture:
 - **Demote**: `omo-codex` becomes a **packaging/install reference only** — no longer the behavioral source of truth.
 - **Reference**: `omo-opencode` is the **architectural reference** for how a host adapter wires cores into lifecycle hooks (see seam map below).
 - **Port**: shared `*-core` packages (host-neutral TS) become the behavioral source.
+- **Own locally**: host-neutral OMO behavior lives under `src/core/omo`, lfg-owned host-neutral primitives live under `src/core/lfg`, and Grok-specific adapter/install/runtime glue stays under `src/grok`.
+- **Shim temporarily**: `src/grok/ports/vendor/*-vendored` paths are compatibility re-export shims for old imports only; they are not the owner of core behavior.
+
+## Local source layout
+
+| Layer | Local owner | Responsibility |
+|---|---|---|
+| Upstream-derived OMO cores | `src/core/omo/*` | Host-neutral behavior such as `model-core`, `rules-engine`, `prompts-core`, `agent-builder`, `delegate-core`, `boulder-state`, and `skills-loader-core`. |
+| lfg-owned shared primitives | `src/core/lfg/*` | Host-neutral lfg helpers shared by CLI/adapter code, including subagent naming primitives. |
+| Adapter interfaces | `src/core/adapter/*` | Host capability contracts consumed by core-aware adapter glue. |
+| Grok adapter glue | `src/grok/*` | Grok home/config/install/runtime glue, hook normalization, MCP materialization, and adapter facades over `src/core/*`. |
+| Compatibility shims | `src/grok/ports/vendor/*-vendored` | Temporary re-export paths for compatibility; do not cite these as behavioral owners. |
 
 ## How cores surface in a host (seam map, from `omo-opencode`)
 

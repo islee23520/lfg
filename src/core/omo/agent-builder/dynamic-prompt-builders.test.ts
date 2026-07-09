@@ -9,12 +9,12 @@ import {
   buildToolSelectionTable,
   categorizeTools,
   getToolsPromptDisplay,
-} from "./vendor/agent-builder-vendored"
+} from "./index"
 import type {
   AvailableAgent,
   AvailableCategory,
   AvailableSkill,
-} from "./vendor/agent-builder-vendored"
+} from "./index"
 
 const availableAgents: AvailableAgent[] = [
   {
@@ -56,27 +56,58 @@ const availableSkills: AvailableSkill[] = [
   { name: "react-19", description: "React 19 patterns", location: "user" },
 ]
 
-describe("agent-builder-vendored dynamic prompt builders", () => {
-  test("composes a non-empty dynamic prompt from real agents, tools, skills, and categories", () => {
+function promptLines(prompt: string): readonly string[] {
+  return prompt.split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== "")
+}
+
+function requireLineMatching(lines: readonly string[], pattern: RegExp): string {
+  const line = lines.find((entry) => pattern.test(entry))
+  if (line === undefined) {
+    throw new Error(`Prompt line matching ${pattern} was not found`)
+  }
+  return line
+}
+
+function categoryRows(prompt: string): ReadonlyMap<string, string> {
+  return new Map(
+    Array.from(prompt.matchAll(/^- `(?<name>[a-z][a-z-]*)` - (?<description>.+)$/gm), (match) => [
+      match.groups?.name ?? "",
+      match.groups?.description ?? "",
+    ]),
+  )
+}
+
+describe("agent-builder dynamic prompt builders", () => {
+  test("composes prompt sections from real agents, tools, skills, and categories", () => {
     const tools = categorizeTools(["grep", "glob", "lsp_symbols", "skill"])
-    const prompt = [
+    const sections = [
       buildKeyTriggersSection(availableAgents, availableSkills),
       buildToolSelectionTable(availableAgents, tools, availableSkills),
       buildExploreSection(availableAgents),
       buildCategorySkillsDelegationGuide(availableCategories, availableSkills),
       buildDelegationTable(availableAgents),
       buildHardBlocksSection(),
-    ].join("\n\n")
+    ]
+    const prompt = sections.join("\n\n")
+    const lines = promptLines(prompt)
 
-    expect(prompt.length).toBeGreaterThan(1000)
-    expect(prompt).toContain("### Key Triggers (check BEFORE classification):")
-    expect(prompt).toContain("### Tool & Agent Selection:")
-    expect(prompt).toContain("`grep`, `glob`, `lsp_*` - **FREE**")
-    expect(prompt).toContain("### Explore Agent = Contextual Grep")
-    expect(prompt).toContain("### Category + Skills Delegation System")
-    expect(prompt).toContain("`visual-engineering`")
-    expect(prompt).toContain("### Delegation Table:")
-    expect(prompt).toContain("## Hard Blocks (NEVER violate)")
+    expect(sections.every((section) => section.trim() !== "")).toBe(true)
+    expect(categoryRows(prompt)).toEqual(
+      new Map([
+        ["deep", "Autonomous research and end-to-end implementation"],
+        ["visual-engineering", "Frontend, UI/UX, styling, and layout work"],
+      ]),
+    )
+    requireLineMatching(lines, /Need repo context before implementation.+use explore/)
+    requireLineMatching(lines, /`grep`, `glob`, `lsp_\*`.+\*\*FREE\*\*/)
+    requireLineMatching(lines, /`explore` agent.+\*\*CHEAP\*\*/)
+    requireLineMatching(lines, /`oracle` agent.+\*\*EXPENSIVE\*\*/)
+    requireLineMatching(lines, /Known single file edit/)
+    requireLineMatching(lines, /Find all call sites/)
+    requireLineMatching(lines, /Codebase research.+`explore`/)
+    requireLineMatching(lines, /Architecture.+`oracle`/)
+    requireLineMatching(lines, /as any.+Never/i)
+    requireLineMatching(lines, /Commit without explicit request.+Never/i)
   })
 
   test("categorizeTools maps real tool names to prompt categories and display text", () => {
@@ -102,14 +133,19 @@ describe("agent-builder-vendored dynamic prompt builders", () => {
 
   test("buildCategorySkillsDelegationGuide emits category and skill guidance for real fixtures", () => {
     const guide = buildCategorySkillsDelegationGuide(availableCategories, availableSkills)
+    const lines = promptLines(guide)
 
-    expect(guide).toContain("#### Available Categories (Domain-Optimized Models)")
-    expect(guide).toContain("`deep` - Autonomous research and end-to-end implementation")
-    expect(guide).toContain("**Built-in**: frontend")
-    expect(guide).toContain("YOUR SKILLS (PRIORITY)")
-    expect(guide).toContain("react-19 (user)")
-    expect(guide).toContain("`skill` tool")
-    expect(guide).toContain("User-installed skills get PRIORITY")
-    expect(guide).toContain("task(\n  category=\"[selected-category]\"")
+    expect(categoryRows(guide)).toEqual(
+      new Map([
+        ["deep", "Autonomous research and end-to-end implementation"],
+        ["visual-engineering", "Frontend, UI/UX, styling, and layout work"],
+      ]),
+    )
+    requireLineMatching(lines, /Built-in.+\bfrontend\b/)
+    requireLineMatching(lines, /YOUR SKILLS.+react-19 \(user\)/)
+    requireLineMatching(lines, /skill.+tool/i)
+    requireLineMatching(lines, /User-installed skills.+PRIORITY/i)
+    expect(guide).toMatch(/task\([\s\S]+category="\[selected-category\]"[\s\S]+load_skills=\[/)
+    expect(guide).toMatch(/UI.+styling.+layout.+design[\s\S]+`visual-engineering`/)
   })
 })

@@ -1,5 +1,5 @@
-import { resolveVariant, type VariantTable, type LoadedPrompt, type SyncRuntimeInjection } from "./vendor/prompts-core-vendored/index"
-import { loadPromptSync } from "./vendor/prompts-core-vendored/loader"
+import { resolveVariant, type VariantTable, type LoadedPrompt, type SyncRuntimeInjection } from "../../core/omo/prompts-core/index"
+import { loadPromptSync } from "../../core/omo/prompts-core/loader"
 import {
   atlasPromptVariants,
   prometheusPromptVariants,
@@ -7,7 +7,7 @@ import {
   codexUltraworkPromptVariants,
   HYPERPLAN_MODE_PROMPT,
   TEAM_MODE_PROMPT,
-} from "./vendor/prompts-core-vendored/index"
+} from "../../core/omo/prompts-core/index"
 
 export type AgentPromptName = "atlas" | "prometheus" | "ultrawork" | "codex-ultrawork"
 
