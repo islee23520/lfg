@@ -33,7 +33,7 @@ spawn_subagent({
 })
 ```
 
-Lead = **main Grok session** (orchestrate only; never implement). Subagent responses route via native Grok subagent callbacks / PostSubagentStop into ledger mailbox (or skill prompt fallback). Integrates with shipped `delegate-core` / `boulder-state`.
+Dual-host orchestration mapping for GrokBuild-first: the `spawn_subagent` contract (with lfgSubagentForOmoSpawnType mapping from src/core/lfg/subagents/omo-spawn-map.ts) is canonical for Grok; Codex annotation present above for compatibility when dual-host skills are active. Lead = **main Grok session** (orchestrate only; never implement). Subagent responses route via native Grok subagent callbacks / PostSubagentStop into ledger mailbox (or skill prompt fallback). Integrates with shipped `delegate-core` / `boulder-state`.
 
 See `refactor` skill for concrete usage example of team lifecycle with this ledger. The bundled `scripts/team.mjs` remains Codex-only.
 

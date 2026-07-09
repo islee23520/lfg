@@ -14,6 +14,8 @@ Because public Pi-family tooling may use `pi` and `.pi` configuration rather tha
 
 ## Config Root Separation: `pi-agent run` vs `omo-senpi` / `senpi`
 
+The distinction `pi-agent run vs omo-senpi` ensures honest adapter proof boundaries and prevents conflating GrokBuild `~/.grok` surfaces with upstream's separate `~/.senpi` control plane.
+
 - **`pi-agent run`** (lfg adapter launch path): Targets `~/.grok` exclusively for plugins (`~/.grok/plugins/lfg` and companion `~/.grok/plugins/lfg-mcp`), `config.toml`, agents, prompts, MCP manifests, stamps (`lfg-install.json`), and shared state. This is the GrokBuild surface. `setup --run` and `pi-agent run` route proof is limited to launch/auth + `~/.grok` visibility. No automatic writes to other roots.
 
 - **`omo-senpi` / `senpi`**: Uses dedicated `~/.senpi` root for senpi-task RPCs, team-core coordination, Pi extraction flows, and omo-senpi agent sessions. This is upstream's separate control plane (see orchestration-plane ADR). lfg does not manage, install into, or claim parity for `~/.senpi` paths. Config collision is avoided by design.
