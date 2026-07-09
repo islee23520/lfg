@@ -1,0 +1,30 @@
+# Task 7: Grok SubagentStop Evidence Verifier (MVP)
+
+**Status:** Completed (checkbox 7 only; no other plan items touched)
+**Commit:** feat(hooks): Grok SubagentStop evidence verifier
+**Date:** 2026-07-09
+**Verifier:** OMO Hephaestus
+
+## Implementation Summary
+- Created `src/grok/hooks/subagent-stop-evidence-verifier.ts`: pure function `verifySubagentStopEvidence(payload: unknown, cwd?: string)` 
+  - Supports SubagentStop-shaped payloads (JSON string or object)
+  - Fail-closed on malformed JSON or non-object (throws with clear error, matches comment-checker pattern)
+  - Detects Grok agent names: coding, hephaestus, builder (case-insensitive, partial match; ports from upstream lazycodex-executor)
+  - Checks for `.omo/evidence` receipt: looks for non-empty *.txt/*.md files in cwd/.omo/evidence/ (adapted from upstream hasValidEvidenceReceipt, simplified no state/attempts/transcript-pressure for MVP)
+  - If missing for target agent, returns warning + additionalContext string suitable for Sisyphus/lfg-native hooks injection (e.g. "WARNING: No evidence receipt... write to .omo/evidence/task-*.txt")
+  - If present or non-target agent, returns success context
+- Added `src/grok/hooks/subagent-stop-evidence-verifier.test.ts`: unit tests with fake stop payloads (malformed, non-target agent, target with/without evidence dir, using vitest temp dirs for fs checks). All pass.
+- Updated `src/grok/payload/component-inventory.ts`: enhanced evidence note for `lazycodex-executor-verify` to document the MVP pure function + tests. Status remains **Deferred** (no end-to-end hook registration or matcher wiring yet, per task spec; pattern for SubagentStop matcher does not exist in normalize-plugin-hooks-active.ts LIFECYCLE_EVENTS_WITHOUT_MATCHERS).
+- Updated `docs/grok-adapter-parity.md` with MVP note and reference to new module (doc test still passes as status unchanged).
+- Doc note added for future hook registration: can be wired as native SubagentStop hook similar to lfg-native-comment-checker.mjs once Grok SubagentStop payload consistently provides agent matcher support and end-to-end verified with `npm run assert-omo-parity`.
+- Verified: `npm run typecheck`, `npm test -- src/grok/hooks/subagent-stop-evidence-verifier.test.ts`, `npm run assert-omo-parity` (no parity claim flip), self-test smoke.
+- No changes to hook normalization, hook-parity.ts, sisyphus-hooks, inventory status, or other checkboxes/todos.
+- Real git commit performed.
+
+This fulfills checkbox 7 of the plan. Evidence receipt written to this file itself. Ready for next-release app-server epic continuation.
+
+**Concrete proof:**
+- Function handles 6 test cases (malformed x2, non-target, target-no-evidence, target-with-evidence, edge cwd).
+- Fail-closed tested (throws on bad JSON).
+- Matches upstream port intent but Grok-first (additionalContext warnings, no block decision).
+- Preserved all user files, no thrash.
