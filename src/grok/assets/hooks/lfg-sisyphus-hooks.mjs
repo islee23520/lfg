@@ -33,33 +33,39 @@ const MODEL_EXPLICIT_VISION = [
   /multimodal/,
 ];
 
-const input = parseJson(await readStdin());
-const event = normalizeHookEventName(input);
-const context = renderSisyphusContext(event, input);
+async function main() {
+  const input = parseJson(await readStdin());
+  await runHook(input);
+}
 
-await devLog({
-  event,
-  hook: "sisyphus",
-  agent: "sisyphus",
-  cwd: stringField(input ?? {}, ["cwd", "workspaceRoot"]),
-  detail: {
-    contextInjected: context !== null,
-    statusLabel: context?.statusLabel ?? null,
-    prompt: event === "UserPromptSubmit" ? (stringField(input ?? {}, ["prompt"])?.slice(0, 200) ?? null) : null,
-    toolName: stringField(input ?? {}, ["toolName", "tool_name"]),
-  },
-});
+async function runHook(input) {
+  const event = normalizeHookEventName(input);
+  const context = renderSisyphusContext(event, input);
 
-if (context !== null) {
-  const statusMessage = `Sisyphus: ${context.statusLabel}`;
-  process.stdout.write(
-    JSON.stringify({
-      statusMessage,
-      hookSpecificOutput: { hookEventName: event, additionalContext: context.body },
-    }) + "\n",
-  );
-} else {
-  process.stdout.write(JSON.stringify({ statusMessage: `Sisyphus: ${event} (no injection)` }) + "\n");
+  await devLog({
+    event,
+    hook: "sisyphus",
+    agent: "sisyphus",
+    cwd: stringField(input ?? {}, ["cwd", "workspaceRoot"]),
+    detail: {
+      contextInjected: context !== null,
+      statusLabel: context?.statusLabel ?? null,
+      prompt: event === "UserPromptSubmit" ? (stringField(input ?? {}, ["prompt"])?.slice(0, 200) ?? null) : null,
+      toolName: stringField(input ?? {}, ["toolName", "tool_name"]),
+    },
+  });
+
+  if (context !== null) {
+    const statusMessage = `Sisyphus: ${context.statusLabel}`;
+    process.stdout.write(
+      JSON.stringify({
+        statusMessage,
+        hookSpecificOutput: { hookEventName: event, additionalContext: context.body },
+      }) + "\n",
+    );
+  } else {
+    process.stdout.write(JSON.stringify({ statusMessage: `Sisyphus: ${event} (no injection)` }) + "\n");
+  }
 }
 
 function renderSisyphusContext(event, input) {
@@ -73,7 +79,7 @@ function renderSisyphusContext(event, input) {
     case "PostToolUse":
       return postToolUseContext(input);
     case "SubagentStop":
-      return subagentStopContext();
+      return subagentStopContext(input);
     case "SubagentStart":
       return subagentStartContext();
     case "Stop":
@@ -158,7 +164,26 @@ function postToolUseContext(input) {
   return { statusLabel: `Evidence collection (${toolName || "tool"})`, body: lines.join("\n") };
 }
 
-function subagentStopContext() {
+function verifySubagentEvidence(input) {
+  const text = typeof input === "string"
+    ? input
+    : (input && typeof input === "object")
+      ? JSON.stringify(input)
+      : "";
+  const missing = [];
+  const weak = [];
+  const hasEvidence = /test|vitest|jest|npm run|exit code|passed|failed/i.test(text);
+  const hasFile = /src\/|\.ts|\.js|\.mjs|\.md/i.test(text);
+  if (!hasEvidence) missing.push("test-run-evidence");
+  if (!hasFile) missing.push("changed-file-reference");
+  if (hasEvidence && !/pass|green|0 exit/i.test(text)) weak.push("tests-not-confirmed-green");
+  if (missing.length > 0) return { status: "missing_evidence", missing, weak };
+  if (weak.length > 0) return { status: "weak_evidence", missing, weak };
+  return { status: "verified", missing, weak };
+}
+
+function subagentStopContext(input) {
+  const evidence = verifySubagentEvidence(input);
   const lines = [
     "<sisyphus-delegation-result>",
     "Subagent completed. Before proceeding:",
@@ -168,10 +193,17 @@ function subagentStopContext() {
     "- Does it follow existing codebase patterns?",
     "- Did the agent follow MUST DO and MUST NOT DO requirements?",
     "- If verification failed -> resume the completed subagent with specific fix context or spawn a smaller follow-up.",
-    "- This is todo/delegation continuation guidance only; start-work-continuation remains Deferred and is not automatic Stop/SubagentStop reinjection.",
-    "",
-    "</sisyphus-delegation-result>",
+    "- Evidence verification: " + evidence.status + ".",
   ];
+  if (evidence.status === "missing_evidence") {
+    lines.push("  Missing: " + evidence.missing.join(", ") + ".");
+    lines.push("  Resume the subagent with specific evidence requests before proceeding.");
+  } else if (evidence.status === "weak_evidence") {
+    lines.push("  Weak: " + evidence.weak.join(", ") + ".");
+    lines.push("  Consider requesting stronger proof from the subagent.");
+  }
+  lines.push("- For durable continuation across sessions, use `lfg ulw-loop` to checkpoint and resume work.");
+  lines.push("</sisyphus-delegation-result>");
   return { statusLabel: "Delegation result verification", body: lines.join("\n") };
 }
 
@@ -504,3 +536,14 @@ async function readStdin() {
   for await (const chunk of process.stdin) data += chunk;
   return data;
 }
+
+export { renderSisyphusContext, subagentStopContext, verifySubagentEvidence, runHook };
+
+const isMain = (() => {
+  try {
+    return process.argv[1] && (process.argv[1].endsWith("lfg-sisyphus-hooks.mjs") || process.argv[1].endsWith("sisyphus"));
+  } catch {
+    return false;
+  }
+})();
+if (isMain) main();

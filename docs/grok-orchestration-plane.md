@@ -52,3 +52,23 @@ lfg's orchestration today is:
 The epic focuses on hardening `spawn_subagent` mapping, expanding Boulder/ledger evidence for team flows, optional Grok-native control-plane research (without claiming app-server), and clarifying Pi vs senpi paths per the parity ADR. No upstream control-plane binary or Codex `codex_app` surface is introduced into lfg's runtime. All changes stay within existing GrokBuild primitives and the shipped host-neutral cores.
 
 This document keeps docs in sync with the SYNTHESIS research and existing ADRs. See `assert-omo-parity` gate for related payload integrity.
+
+## MVP substitute classification (#74 pass conditions)
+
+This section satisfies the gateway acceptance criteria: gaps classified, substitutes documented, no Deferred status flipped without e2e proof.
+
+| Deferred component | Host dependency class | MVP substitute shipped | Full parity status |
+|---|---|---|---|
+| teammode | codex_app (host dependency class: codex_app) | `docs/grok-native-team-orchestration.md` decision-complete design + MVP ledger; team skill payload installed via sync | **Deferred** (no status flip — `codex_app` host surface not available) |
+| start-work-continuation | Stop/SubagentStop hook | Sisyphus native Stop/SubagentStop hooks (`lfg-sisyphus-hooks.mjs`); durable `lfg ulw-loop` CLI for checkpoint/resume across sessions | **Deferred** (MVP substitutes shipped; automatic reinjection not claimed) |
+| lazycodex-executor-verify | Stop/SubagentStop hook | `subagent-stop-evidence-verifier.ts` pure function (tested); wired into `lfg-sisyphus-hooks.mjs` SubagentStop context for evidence-aware guidance | **Deferred** (pure function MVP shipped; full host-enforced verifier not claimed) |
+
+### Substitute evidence
+
+- **teammode**: `docs/grok-native-team-orchestration.md` MVP ledger documents decision-complete design; `teammode` skill payload installed via `sync-omo-skills-to-grok.mjs`. No `codex_app` host surface is introduced.
+- **start-work-continuation**: Sisyphus `Stop`/`SubagentStop` hooks inject continuation guidance referencing `lfg ulw-loop` for durable checkpoint/resume. See `src/grok/assets/hooks/lfg-sisyphus-hooks.mjs`.
+- **lazycodex-executor-verify**: `verifySubagentEvidence()` in `lfg-sisyphus-hooks.mjs` checks test-run-evidence and changed-file-reference in SubagentStop payloads. Pure function `subagent-stop-evidence-verifier.ts` has unit test coverage.
+
+### Z.AI vision MCP (#89)
+
+Z.AI vision MCP is **shipped** (not Deferred): `lfg zai mcp install vision` configures `[mcp_servers.zai-vision]` in `~/.grok/config.toml` via the built-in `lfg zai` subcommand. Full companion plugin (`@islee23520/lfg-mcp`) provides xAI Grok MCP runtime as a decoupled companion. No host-bound dependency blocks this surface.

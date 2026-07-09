@@ -97,8 +97,10 @@ For feature intake from a new upstream OMO/lazycodex version:
 **Behavioral ports still owed** (currently Manifest-only / Deferred, blocking full parity; see `docs/grok-orchestration-plane.md` for host dependency classes):
 - `git-bash` — Windows behavior remains unverified; macOS disables it through `disabled_mcp_servers`.
 - `lsp` lifecycle hook automation — the MCP runtime is behavior-adapted, but upstream automatic PostToolUse/PostCompact hook reinjection is not claimed.
-- `start-work-continuation` (host dependency class: Stop/SubagentStop hook) — partially covered by Sisyphus native hooks, but the durable continuation CLI is not packaged.
-- `teammode` (host dependency class: codex_app), `lazycodex-executor-verify` (host dependency class: Stop/SubagentStop hook), `workflow-selector` (host dependency class: missing host surface) — remain Deferred per orchestration plane gaps; no status flip without verified Grok surface.
+- `start-work-continuation` (host dependency class: Stop/SubagentStop hook) — Sisyphus native Stop/SubagentStop hooks ship substitute guidance + durable `lfg ulw-loop` CLI for checkpoint/resume; automatic reinjection remains unclaimed.
+- `lazycodex-executor-verify` (host dependency class: Stop/SubagentStop hook) — `subagent-stop-evidence-verifier.ts` pure function MVP shipped (tested); wired into `lfg-sisyphus-hooks.mjs` SubagentStop context for evidence-aware guidance; full host-enforced verifier remains unclaimed.
+- `teammode` (host dependency class: codex_app), `workflow-selector` (host dependency class: missing host surface) — remain Deferred per orchestration plane gaps; no status flip without verified Grok surface.
+- Z.AI vision MCP (#89) is **shipped** via `lfg zai mcp install vision` (built-in, not Deferred). Configures `[mcp_servers.zai-vision]` in `~/.grok/config.toml`. Full companion plugin (`@islee23520/lfg-mcp`) provides xAI Grok MCP runtime as decoupled companion.
 
 **Model-family detector gap** (Phase 2 risk, now mitigated): `model-core` family detectors (`isGptModel`, `isGeminiModel`, `isClaudeOpus*Model`, …) do not match `xai/grok-*` IDs; the Grok adapter supplies `availableModels`/`connectedProviders` normalized to `provider/model-id` and maps Grok models into variant families so they don't fall to the `default` variant.
 

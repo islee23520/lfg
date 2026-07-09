@@ -259,8 +259,8 @@ describe("sisyphus UserPromptSubmit /ulw-plan routing", () => {
     expect(ctx).toContain("store the subagent id")
     expect(ctx).toContain("resume_from")
     expect(ctx).toContain("instead of Codex task(task_id=ses_...)")
-    expect(ctx).toContain("todo/delegation continuation guidance only")
-    expect(ctx).toContain("start-work-continuation remains Deferred")
+    expect(ctx).toContain("Evidence verification:")
+    expect(ctx).toContain("lfg ulw-loop")
   })
 })
 
