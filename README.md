@@ -44,29 +44,39 @@ In Grok's `/mcps` modal, do not use the OAuth authenticate shortcut (`i`) for
 only for HTTP/SSE MCP servers. Use the `xai_auth_*` MCP tools or the `lfg xai
 auth ...` CLI commands instead.
 
-## Z.AI MCP packages (optional)
+## Optional MCP companion (`@islee23520/lfg-mcp`)
 
-Official Z.AI MCP servers can be registered into GrokBuild as **additional
-packages** under `~/.grok/config.toml` `[mcp_servers.*]` (not bundled into the
-lfg plugin tree):
+xAI + Z.AI MCP packages are best installed as an **independent companion plugin**,
+not as part of the core lfg adapter:
 
-| Package | Kind | Source |
-|---------|------|--------|
-| `vision` | local stdio | `npx -y @z_ai/mcp-server` |
-| `web-search` | remote HTTP | `https://api.z.ai/api/mcp/web_search_prime/mcp` |
-| `web-reader` | remote HTTP | `https://api.z.ai/api/mcp/web_reader/mcp` |
-| `zread` | remote HTTP | `https://api.z.ai/api/mcp/zread/mcp` |
+```sh
+# recommended: standalone companion
+npx @islee23520/lfg-mcp setup
+# or via lfg bridge (uses local ULW/lfg-mcp checkout or npx)
+lfg mcp companion install
+lfg mcp companion status
+```
+
+Companion owns:
+
+| Package | Kind |
+|---------|------|
+| `xai` | local xAI Grok MCP runtime under `~/.grok/plugins/lfg-mcp` |
+| `zai-vision` | `npx -y @z_ai/mcp-server` |
+| `zai-web-search` / `web-reader` / `zread` | Z.AI remote HTTP MCPs |
+
+## Z.AI MCP packages (lfg built-in helper)
+
+lfg also ships a thin in-tree helper (`lfg zai …`) that writes the same
+`[mcp_servers.zai-*]` style entries without installing the companion plugin:
 
 ```sh
 lfg zai auth set-api-key --api-key "$Z_AI_API_KEY" --mode ZAI
 lfg zai mcp install all
-# or: lfg zai mcp install vision web-search
 lfg zai mcp status
-lfg zai mcp uninstall vision
 ```
 
-Credentials live in `~/.grok/zai-mcp-auth.json` (or `Z_AI_API_KEY` / `Z_AI_MODE`).
-After install, reload Grok MCP (`/mcps` → `r`) or start a new session.
+Prefer **`lfg-mcp`** when you want a real separate plugin tree + xAI runtime ownership.
 
 ## Commands
 
