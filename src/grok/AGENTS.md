@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Internal Grok installer engine: materializes the adapter payload, merges hooks, syncs agents/prompts, writes lfg-owned config, and verifies the installed Grok surface.
+Internal Grok adapter/install/runtime engine: materializes the adapter payload, merges hooks, syncs agents/prompts, consumes host-neutral cores from `src/core/*`, and verifies the installed Grok surface. Install-time `config.toml` writes still go through `src/cli/config/lfg-grok-config.ts` inside `runGrokInstall`.
 
 ## WHERE TO LOOK
 
@@ -10,17 +10,19 @@ Internal Grok installer engine: materializes the adapter payload, merges hooks, 
 |------|----------|-------|
 | Top-level install transaction | `install/run-grok-install.ts` | Preserve stamped installs unless `--force`. |
 | Internal payload setup | `install/run-internal.ts`, `install/run-grok-install-existing.ts`, `install/run-grok-install-post-sync.ts` | Fresh/forced and preserve branches must stay idempotent. |
-| Setup discovery / Grok home | `install/resolve-setup-discovery.ts`, `install/resolve-global-agent-config.ts`, `install/grok-home.ts`, `install/grok-api-key.ts` | Reads CLI/env/config defaults; production home must use real account home. |
+| Setup discovery / Grok home | `install/resolve-setup-discovery.ts`, `install/resolve-global-agent-config.ts`, `install/grok-home.ts`, `install/grok-api-key.ts` | Production home = `userInfo().homedir`; test gate only with `LFG_ALLOW_TEST_GROK_HOME=1`. |
 | Payload materialization | `payload/install.ts`, `payload/grok-adapter-paths.ts`, `payload/resolve-*.ts`, `payload/component-inventory.ts` | Writes under `~/.grok/plugins/lfg`; legacy `installed-plugins` is migration/fallback only. |
-| Hook merge/trust | `hooks/extension-hooks.ts`, `hooks/normalize-plugin-hooks.ts`, `hooks/hook-trust.ts`, `assets/lfg-grok-hook-bridge.mjs` | Bridge wrapping must be idempotent. |
+| Hook merge/trust | `hooks/extension-hooks.ts`, `hooks/normalize-plugin-hooks.ts`, `hooks/hook-trust.ts`, `assets/hooks/lfg-grok-hook-bridge.mjs` | Bridge wrapping must be idempotent. |
 | Agent sync | `agents/sync-lazycodex-agents-to-grok.ts`, `agents/codex-agent-toml-to-grok.ts`, `agents/apply-agent-tomls.ts` | Writes Grok role TOMLs and prompt files. |
 | Agent overrides | `agents/lazycodex-agent-overrides.ts`, `flavour/omo-agent-overrides.json` | Priority: user file > discovered config > bundled defaults. |
-| Models/config reads | `models/read-grok-models-base-url.ts`, `agents/read-lazycodex-agents-from-config.ts`, `models/model-recommendations*.ts` | Config parsing must be conservative. |
+| Models/config reads | `models/*`, `agents/read-lazycodex-agents-from-config.ts` | Config parsing must be conservative. |
 | MCP/codegraph | `mcp/materialize-grok-mcp.ts`, `mcp/codegraph-*.ts`, `mcp/mcp-manifest-verify.ts` | Keep manifest-only vs behavioral ports honest. |
-| Config/project awareness | `config/lfg-config.ts`, `config/project-local.ts`, `config/project-omo-ledger.ts` | Fail closed and avoid leaking ledger text. |
-| Post-install checks / doctor | `doctor/post-install-verify.ts`, `doctor/doctor*.ts`, `doctor/doctor-checks.ts` | Doctor output is also tested. |
-| Core ports | `ports/*.ts`, `ports/vendor/*` | Host-neutral vendored cores plus Grok glue. Do not broaden product runtime. |
-| Fixtures/assets | `fixture/`, `flavour/`, `skills/`, `assets/` | Test/package payloads and installed hook assets; keep roots stable unless scripts/docs/tests all move with them. |
+| Config/project awareness | `config/lfg-config.ts`, `config/project-local.ts`, `config/project-omo-ledger.ts` | Fail closed; do not leak ledger text. |
+| Post-install checks / doctor | `doctor/post-install-verify.ts`, `doctor/doctor*.ts` | Internal verifier — not a public CLI. |
+| Core-owned OMO behavior | `../core/omo/*` | Host-neutral. Do not import Grok adapter code from core. See `../core/AGENTS.md`. |
+| lfg host-neutral primitives | `../core/lfg/*` | Shared helpers without Grok FS ownership. |
+| Grok core adapters | `ports/*.ts` | Glue over `src/core/*`. `ports/vendor/*` = re-export shims only, not behavioral owners. |
+| Fixtures/assets/skills | `fixture/`, `flavour/`, `assets/`, `skills/` | `skills/` is sync-managed (see `../../skills/AGENTS.md`); keep fixture minimal. |
 | Test support | `test/` | Shared adapter test helpers only. |
 
 ## CONVENTIONS

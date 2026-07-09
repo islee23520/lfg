@@ -1,5 +1,10 @@
 # Repository Guidelines
 
+**Generated:** 2026-07-09  
+**Commit:** `37cd541`  
+**Branch:** `main`  
+**Mode:** init-deep update (max-depth 3)
+
 ## Project Overview
 
 `@islee23520/lfg` is a single-purpose npm CLI (only command: `setup`) that ports **OpenCode OmO / lazycodex** behavior to **GrokBuild**. Running `setup --run` materializes an lfg-owned Grok plugin payload under `~/.grok/plugins/lfg` (with legacy `~/.grok/installed-plugins/lfg` as migration/fallback).
@@ -12,7 +17,7 @@ The npm package identity is deliberately distinct from the installed plugin: `lf
 
 This section makes AGENTS.md the canonical quick-reference for **GrokBuild parity vs `https://github.com/code-yeongyu/oh-my-openagent`** (upstream baseline `lazycodex-ai`/OMO `v4.13.0`, recorded per-setup in `lfg-component-inventory.json`). For the full row-by-row matrix with test citations, see `docs/grok-adapter-parity.md`; for the core/adapter port strategy and phase roadmap, see `docs/grok-adapter-core-port-strategy.md`.
 
-**Strategic posture:** upstream is a core/adapter monorepo — `omo-codex` is packaging/install reference only, `omo-opencode` is the architectural reference, and shared host-neutral `*-core` packages are the behavioral source. lfg is shifting from 1:1 `omo-codex` mapping to a thin Grok adapter that consumes cores.
+**Strategic posture:** upstream is a core/adapter monorepo — `omo-codex` is packaging/install reference only, `omo-opencode` is the architectural reference, and shared host-neutral `*-core` packages are the behavioral source. In this repo, host-neutral OMO behavior lives under `src/core/omo`, lfg-owned host-neutral primitives live under `src/core/lfg`, and `src/grok` is the Grok adapter/install/runtime glue that consumes those cores.
 
 **Status vocabulary:** `Implemented` · `Grok-adapted` · `Manifest-only` · `Remote URL manifest-only` · `Unsupported` · `Deferred`. Manifest-only MCP stubs must never be claimed as behavioral ports.
 
@@ -50,7 +55,7 @@ For feature intake from a new upstream OMO/lazycodex version:
 | Upstream component | lfg support | Status |
 |---|---|---|
 | `codegraph` | External `@colbymchenry/codegraph` binary, sha256-verified into `~/.omo/codegraph`, `.mcp.json` command server | **Grok-adapted** (Phase 0, shipped) |
-| `rules` | `rules-engine-vendored/` (verbatim) + `rules-injector.ts` PostToolUse glue; native first-party hook | **Grok-adapted** (Phase 1, shipped) |
+| `rules` | `src/core/omo/rules-engine` + `rules-injector.ts` PostToolUse glue; native first-party hook | **Grok-adapted** (Phase 1, shipped) |
 | `ultrawork` | Native first-party hook + agent prompts synced | **Grok-adapted** |
 | `ulw-loop` | Project `.omo` awareness via fail-closed config loader; durable CLI stays upstream-owned | **Grok-adapted** |
 | `ultimate-browsing` | Upstream OMO skill payload installed, including references/engine/scripts and Grok-converted agent metadata; no separate Grok-native stealth-browser runtime claimed | Implemented |
@@ -96,7 +101,7 @@ For feature intake from a new upstream OMO/lazycodex version:
 
 **Model-family detector gap** (Phase 2 risk, now mitigated): `model-core` family detectors (`isGptModel`, `isGeminiModel`, `isClaudeOpus*Model`, …) do not match `xai/grok-*` IDs; the Grok adapter supplies `availableModels`/`connectedProviders` normalized to `provider/model-id` and maps Grok models into variant families so they don't fall to the `default` variant.
 
-**Prompt-builder gap** (Phase 4 residual): bundled `prompts-core/prompts/*` markdown covers atlas/prometheus/ultrawork/mode, and the current adapter vendors the agent-builder foundation plus a curated builtin registry. Full Sisyphus/Hephaestus/Sisyphus-junior equivalence is still host-bound and must stay Deferred unless those builders are ported and verified against a real Grok runtime surface.
+**Prompt-builder gap** (Phase 4 residual): bundled `src/core/omo/prompts-core/prompts/*` markdown covers atlas/prometheus/ultrawork/mode, and `src/core/omo/agent-builder` owns the agent-builder foundation plus a curated builtin registry. Full Sisyphus/Hephaestus/Sisyphus-junior equivalence is still host-bound and must stay Deferred unless those builders are ported and verified against a real Grok runtime surface.
 
 ## Architecture & Data Flow
 
@@ -124,7 +129,7 @@ Grok event → lfg-native-rules.js (or -ultrawork.js)
         └─> component CLI (buildRuleContext / runCodegraphSessionStart / etc.)
 ```
 
-The bridge (`assets/lfg-grok-hook-bridge.mjs`) translates Grok camelCase hook JSON → Codex-shaped stdin, maps `GROK_PLUGIN_ROOT`→`PLUGIN_ROOT`, and fail-closes on malformed JSON. Bridge wrapping MUST be idempotent (peel outer bridge layers, then apply exactly one) — a historical root-cause of hook breakage was non-idempotent `wrapLazyCodexHookCommand` stacking wrappers.
+The bridge (`src/grok/assets/hooks/lfg-grok-hook-bridge.mjs`, staged into the plugin) translates Grok camelCase hook JSON → Codex-shaped stdin, maps `GROK_PLUGIN_ROOT`→`PLUGIN_ROOT`, and fail-closes on malformed JSON. Bridge wrapping MUST be idempotent (peel outer bridge layers, then apply exactly one) — a historical root-cause of hook breakage was non-idempotent `wrapLazyCodexHookCommand` stacking wrappers.
 
 Routing in `lfg.ts:dispatch()`:
 - `--refresh --run` → `refreshGrokModelConfig()` (config.toml only; never touches plugin tree)
@@ -134,19 +139,53 @@ Routing in `lfg.ts:dispatch()`:
 
 Emit discipline: `--json` always prints structured value; `--run` prints only captured stdout/stderr; bare interactive setup prints nothing from `result` (wizard owns the conversation).
 
+## WHERE TO LOOK
+
+| Task | Location | Notes |
+|------|----------|-------|
+| CLI routing / JSON contract | `src/cli/` | `command/`, `setup/`, `setup-json-contract.ts` |
+| Install transaction | `src/grok/install/` | `runGrokInstall` single hub |
+| Host-neutral OMO cores | `src/core/omo/` | No `src/grok` / `src/cli` imports (`core-boundary.test.ts`) |
+| Config.toml writer | `src/cli/config/lfg-grok-config.ts` | Install-time single-writer |
+| Hook normalize / bridge | `src/grok/hooks/`, `src/grok/assets/hooks/` | Idempotent wrap invariant |
+| Skill sync / parity | `scripts/sync-omo-skills-to-grok.mjs`, `skills/`, `src/grok/skills/` | Three roots gated by `assert-omo-parity` |
+| Doc phrase contracts | `docs/` + `src/cli/docs/*-doc.test.ts` | 1:1 by filename stem |
+| Build / publish gates | `scripts/` | `build.mjs`, assert-pack, assert-omo-parity |
+
+## CODE MAP
+
+| Symbol | Type | Location | Refs (role) |
+|--------|------|----------|-------------|
+| `dispatch` / `main` | fn | `src/cli/command/lfg.ts` | Process entry; emit rules |
+| `runLazycodexInstaller` | fn | `src/cli/setup/lfg-installer.ts` | CLI → install; `installJson` shape |
+| `runGrokInstall` | fn | `src/grok/install/run-grok-install.ts` | Single install transaction |
+| `runInternalGrokInstall` | fn | `src/grok/install/run-internal.ts` | Payload materialize + MCP |
+| `resolveGrokSetupHome` | fn | `src/grok/install/grok-home.ts` | High fan-in; prod vs test-home gate |
+| `writeGrokModelConfig` | fn | `src/cli/config/lfg-grok-config.ts` | Sole install-time config.toml writer |
+| `normalizePluginHooksJson` | fn | `src/grok/hooks/normalize-plugin-hooks.ts` | Global `lfg-hooks.json` + bridge |
+| `syncLazycodexAgentsToGrokLedger` | fn | `src/grok/agents/sync-lazycodex-agents-to-grok.ts` | Agent TOML + prompts |
+| `materializeGrokMcpRuntimes` | fn | `src/grok/mcp/materialize-grok-mcp.ts` | MCP runtimes / codegraph |
+| `resolveModelWithFallback` | fn | `src/core/omo/model-core/` | Host-neutral model pipeline |
+| `findRuleFiles` / `buildRuleContext` | fn | `src/core/omo/rules-engine/` + `src/grok/ports/rules-injector.ts` | Rules core + Grok glue |
+| `setupPlan` | fn | `src/cli/setup/setup-plan.ts` | Non-mutating `--json setup` |
+
 ## Key Directories
 
 | Directory | Purpose |
 |---|---|
 | `bin/` | Published npm bin shim (`bin/lfg.js`, POSIX `sh` → `node dist/lfg.js`). |
+| `src/core/omo/` | Host-neutral upstream-derived OMO core behavior (`model-core`, `rules-engine`, `prompts-core`, `agent-builder`, `delegate-core`, `boulder-state`, `skills-loader-core`). No Grok/CLI imports. |
+| `src/core/lfg/` | lfg-owned host-neutral primitives shared by CLI and adapters, such as subagent mapping helpers. No Grok filesystem ownership. |
+| `src/core/adapter/` | Host capability types (`HostAdapterCapabilities`). Grok fills them in `src/grok/adapter/`. |
+| `src/shared/` | Tiny cross-layer helpers (`json.ts`, `coding-tool-adapter.ts`). |
 | `src/cli/` | CLI entry, JSON contracts, plan/installer/publish helpers, dense contract tests. High-risk contract hotspot — has its own `AGENTS.md`. |
-| `src/grok/` | Internal Grok installer engine: payload materialization, hook normalization, agent TOML sync, codegraph/rules ports, config single-writer. High-risk install hotspot — has its own `AGENTS.md`. |
-| `skills/` | User-facing skill copy shipped in the tarball (lfg, lazycodex, lfp, ulw-plan, ulw-loop, cua-driver). |
+| `src/grok/` | Grok adapter/install/runtime glue: payload materialization, hook normalization, agent TOML sync, MCP runtimes, and adapter facades over `src/core/*`. High-risk install hotspot — has its own `AGENTS.md`. |
+| `skills/` | Tarball skill tree: OMO-synced managed skills + hand-maintained `lfg/`, `cua-driver/`, supplemental `xai-*`. See `skills/AGENTS.md`. |
 | `dist/` | Generated runtime bundle + staged install payload (`dist/grok-install/`). Regenerated by build; do not edit. |
 | `scripts/` | Root build (`build.mjs`) and publish/readiness gates. Has its own `AGENTS.md`. |
-| `docs/` | Tested-contract docs (each doc has a 1:1 `*-doc.test.ts` under `src/cli/`). Has its own `AGENTS.md`. |
+| `docs/` | Tested-contract docs (each doc has a 1:1 `*-doc.test.ts` under `src/cli/docs/`). Has its own `AGENTS.md`. |
 | `components/` | Three tiny MCP helper shims (ast-grep/git-bash/lsp), dist-only; `.mcp.json` + `dist/cli.js` forwarder. Do not broaden product runtime. |
-| `tests/` | Narrow repo-level test scope (most tests actually live under `src/cli/` and `src/grok/`). Has its own `AGENTS.md`. |
+| `tests/` | Policy-only pointer; real tests live under `src/cli/`, `src/core/`, `src/grok/`. Has its own `AGENTS.md`. |
 | `plans/` | Planning history; not product surface. |
 
 Materialized plugin payload shape (under `~/.grok/plugins/lfg`, not shipped statically):
@@ -168,7 +207,7 @@ Adjacent `~/.grok` writes (lfg-owned): `config.toml` (`[lazycodex.agents.*]`, `[
 
 ```sh
 npm run build              # esbuild bundle + asset staging (scripts/build.mjs)
-npm test                   # build + vitest run src/cli/*.test.ts src/cli/**/*.test.ts src/grok/*.test.ts src/grok/**/*.test.ts --exclude src/grok/skills/**/*.test.ts
+npm test                   # build + vitest on src/cli, src/core, src/grok (exclude src/grok/skills/**/*.test.ts)
 npm run typecheck          # tsc --noEmit
 npm run assert-omo-parity  # build + validate upstream-derived OMO parity payloads
 npm run self-test          # build + node dist/self-test.js (smoke harness)
@@ -206,7 +245,7 @@ node dist/lfg.js --json setup --run   # structured Grok install result
 ### Entry points & bin wiring
 - `bin/lfg.js` — POSIX `sh` shim → `dist/lfg.js` (tries `$script_dir/../dist/lfg.js`, then nested `@islee23520/lfg/dist/lfg.js`, else errors "run npm run build first").
 - `src/cli/command/lfg.ts` — process entry: `main()` → `parseArgs()` → `dispatch()` → `emit()`.
-- `package.json` — `@islee23520/lfg@0.1.10`, `"type": "module"`, single bin, `files: [bin, dist, skills, README.md, AGENTS.md, src/AGENTS.md]`.
+- `package.json` — `@islee23520/lfg@0.1.26`, `"type": "module"`, single bin, `files: [bin, dist, skills, README.md, AGENTS.md, src/AGENTS.md]`.
 
 ### CLI surface (`src/cli/`)
 - `lfg-installer.ts` — `runLazycodexInstaller()` → delegates to `runGrokInstall()` + `verifyGrokInstallSurface()` + `installJson()`.
@@ -228,14 +267,14 @@ node dist/lfg.js --json setup --run   # structured Grok install result
 - `src/grok/mcp/materialize-grok-mcp.ts` — `materializeGrokMcpRuntimes()`; `resolveMcpTarget()` (runtime_packages vs components mode).
 - `src/grok/install/grok-home.ts` — `resolveGrokSetupHome()` (production vs test-home gate).
 - `src/grok/mcp/codegraph-manifest.ts` / `codegraph-provision.ts` / `codegraph-resolve.ts` / `codegraph-session-start.ts` / `codegraph-node-support.ts` — OpenCode OmO codegraph port (sha256-verified download to `~/.omo/codegraph`).
-- `rules-injector.ts` + `rules-engine-vendored/` — OpenCode OmO rules port; `buildRuleContext()` host glue over picomatch-based matcher/finder/scanner.
-- `assets/lfg-config-loader.mjs` — fail-closed `.omo` context loader (mirrors the test-home gate).
-- `fixture/` — seed plugin payload used by tests and the fallback install path.
+- `src/core/omo/rules-engine` + `src/grok/ports/rules-injector.ts` — OpenCode OmO rules core plus Grok PostToolUse glue over picomatch-based matcher/finder/scanner.
+- `src/grok/assets/config/lfg-config-loader.mjs` — fail-closed `.omo` context loader (mirrors the test-home gate).
+- `src/grok/fixture/` — seed plugin payload used by tests and the fallback install path.
 
 ### Configs
 - `tsconfig.json` — `target: ES2022`, `module: ESNext`, `moduleResolution: Bundler`, `strict: true`, `noEmit: true` (esbuild emits), `verbatimModuleSyntax: true`, `isolatedModules: true`, `types: [node, vitest/globals]`.
 - `vitest.config.ts` — `fileParallelism: false`, global `LFG_ALLOW_TEST_GROK_HOME=1`.
-- `scripts/build.mjs` — esbuild bundle of 8 entry points (only `lfg-setup-tui.ts` externalizes `@clack/prompts` + `picocolors`), `dist/.build.lock` with 120s timeout, atomic `rename` staging of `fixture`, generates `mcp-runtimes/*` stubs, chmod 0755 outputs.
+- `scripts/build.mjs` — esbuild bundle of 8 entry points (only `lfg-setup-tui` externalizes `@clack/prompts` + `picocolors`), `dist/.build.lock` with 120s timeout, atomic `rename` staging of `fixture`, generates `mcp-runtimes/*` stubs, chmod 0755 outputs.
 
 ## Runtime/Tooling Preferences
 
@@ -248,7 +287,7 @@ node dist/lfg.js --json setup --run   # structured Grok install result
 
 ## Testing & QA
 
-**Framework:** Vitest (`^4.0.14`, ESM). Tests live only under `src/cli/` and `src/grok/` (~110 files). `npm test` globs exactly those two directories.
+**Framework:** Vitest (`^4.0.14`, ESM). Tests live under `src/cli/`, `src/core/`, and `src/grok/` (skills tree excluded). `npm test` globs those three trees.
 
 **Test categories:**
 1. **CLI / JSON contract** — exact field assertions on `--json setup` / `--json setup --run` output (`setup-json-contract.test.ts`, etc.).
