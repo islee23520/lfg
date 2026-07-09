@@ -12,6 +12,8 @@ import { resolveGrokSetupHome } from "../../grok/install/grok-home"
 import { readLfgRuntimeConfigFile } from "../../grok/models/lfg-runtime-config"
 import { buildRefreshExecutedJson, refreshPlan, runRefreshWizard, setupPlan } from "../setup/setup-plan"
 import { dispatchXaiAuthCommand } from "../xai/xai-auth-command"
+import { dispatchZaiCommand } from "../zai/zai-command"
+import { dispatchMcpCompanionCommand } from "../mcp/companion-command"
 import { codingToolLaunchPlan, formatLaunchError, launchCodingToolAdapter } from "./coding-tool-launcher"
 import { loadBundledDefaultOmoOverrides } from "../../grok/agents/lazycodex-agent-overrides"
 import { buildVanillaGrokDiscovery } from "../setup/lfg-setup-tui-data"
@@ -44,6 +46,7 @@ type ParsedArgs = {
   readonly xaiOauthExpiresIn: string | null
   readonly xaiOauthTokenEndpoint: string | null
   readonly xaiOauthTokenType: string | null
+  readonly zaiMode: string | null
   readonly positional: readonly string[]
 }
 
@@ -143,6 +146,21 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
       oauthExpiresIn: args.xaiOauthExpiresIn,
       oauthTokenEndpoint: args.xaiOauthTokenEndpoint,
       oauthTokenType: args.xaiOauthTokenType,
+    })
+  }
+  if (command === "zai") {
+    const rest = effectivePos.slice(3)
+    return dispatchZaiCommand(subcommand, third, {
+      json: args.json,
+      apiKeyFlag: args.xaiApiKey,
+      modeFlag: args.zaiMode,
+      rest,
+    })
+  }
+  if (command === "mcp" && subcommand === "companion") {
+    return dispatchMcpCompanionCommand(third, {
+      json: args.json,
+      rest: effectivePos.slice(3),
     })
   }
   const isForceOnly = (subcommand === "--force" || subcommand === "force")
@@ -277,6 +295,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let xaiOauthExpiresIn: string | null = null
   let xaiOauthTokenEndpoint: string | null = null
   let xaiOauthTokenType: string | null = null
+  let zaiMode: string | null = null
   let preset: SetupPreset = DEFAULT_SETUP_PRESET
   let presetError: string | null = null
   let codingToolAdapter: CodingToolAdapterId = DEFAULT_CODING_TOOL_ADAPTER
@@ -393,6 +412,14 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         continue
       }
     }
+    if (arg === "--mode") {
+      const value = argv[index + 1]
+      if (typeof value === "string") {
+        zaiMode = value
+        index += 1
+        continue
+      }
+    }
     if (typeof arg === "string") {
       positional.push(arg)
     }
@@ -419,6 +446,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     xaiOauthExpiresIn,
     xaiOauthTokenEndpoint,
     xaiOauthTokenType,
+    zaiMode,
     positional,
   }
 }
@@ -455,6 +483,12 @@ function help(): string {
     "  lfg xai auth set-api-key [--api-key KEY]",
     "  lfg xai auth set-oauth --access-token TOKEN --refresh-token TOKEN --expires-at ISO_TIME",
     "  lfg xai auth logout",
+    "  lfg zai auth status",
+    "  lfg zai auth set-api-key [--api-key KEY] [--mode ZAI|ZHIPU]",
+    "  lfg zai mcp status",
+    "  lfg zai mcp install all|vision|web-search|web-reader|zread",
+    "  lfg zai mcp uninstall all|vision|web-search|web-reader|zread",
+    "  lfg mcp companion status|install|uninstall   # independent @islee23520/lfg-mcp plugin",
     "",
     "Package execution:",
     "  npx @islee23520/lfg",

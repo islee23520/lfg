@@ -44,6 +44,40 @@ In Grok's `/mcps` modal, do not use the OAuth authenticate shortcut (`i`) for
 only for HTTP/SSE MCP servers. Use the `xai_auth_*` MCP tools or the `lfg xai
 auth ...` CLI commands instead.
 
+## Optional MCP companion (`@islee23520/lfg-mcp`)
+
+xAI + Z.AI MCP packages are best installed as an **independent companion plugin**,
+not as part of the core lfg adapter:
+
+```sh
+# recommended: standalone companion
+npx @islee23520/lfg-mcp setup
+# or via lfg bridge (uses local ULW/lfg-mcp checkout or npx)
+lfg mcp companion install
+lfg mcp companion status
+```
+
+Companion owns:
+
+| Package | Kind |
+|---------|------|
+| `xai` | local xAI Grok MCP runtime under `~/.grok/plugins/lfg-mcp` |
+| `zai-vision` | `npx -y @z_ai/mcp-server` |
+| `zai-web-search` / `web-reader` / `zread` | Z.AI remote HTTP MCPs |
+
+## Z.AI MCP packages (lfg built-in helper)
+
+lfg also ships a thin in-tree helper (`lfg zai …`) that writes the same
+`[mcp_servers.zai-*]` style entries without installing the companion plugin:
+
+```sh
+lfg zai auth set-api-key --api-key "$Z_AI_API_KEY" --mode ZAI
+lfg zai mcp install all
+lfg zai mcp status
+```
+
+Prefer **`lfg-mcp`** when you want a real separate plugin tree + xAI runtime ownership.
+
 ## Commands
 
 ```sh
