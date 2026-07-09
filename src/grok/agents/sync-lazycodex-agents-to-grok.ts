@@ -1,7 +1,13 @@
 import { mkdir, readdir, readFile, rm, unlink, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
-import type { LazycodexAgentOverrideMap } from "./lazycodex-agent-overrides"
+import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap } from "./lazycodex-agent-overrides"
 import { overrideForAgent } from "./lazycodex-agent-overrides"
+
+/** Fallback model routing when bundled/user overrides omit a native OMO agent. */
+const DEFAULT_NATIVE_AGENT_OVERRIDE: LazycodexAgentModelOverride = {
+  model: "inherit",
+  reasoningLevel: "medium",
+}
 import { renderGrokRoleTomlFromCodex, renderMinimalGrokRoleToml } from "./codex-agent-toml-to-grok"
 import { nativeOmoFallbackPrompt } from "./native-omo-agents"
 import { resolveGrokAdapterPluginRoot } from "../payload/grok-adapter-paths"
@@ -106,10 +112,11 @@ export async function syncLazycodexAgentsToGrokLedger(
     syncedNames.add(sourceName)
   }
 
+  // Always materialize every GROK_AGENT_NAMES entry even when no model override is present.
+  // Skipping override-less agents left nativeAgents status "missing" (e.g. hephaestus) on CI/fixture installs.
   for (const [sourceName, grokName] of Object.entries(GROK_AGENT_NAMES)) {
     if (syncedNames.has(sourceName)) continue
-    const override = overrideForAgent(agentOverrides, sourceName)
-    if (override === undefined) continue
+    const override = overrideForAgent(agentOverrides, sourceName) ?? DEFAULT_NATIVE_AGENT_OVERRIDE
     written.push(...(await writeMinimalAgentSurfaces({ sourceName, grokName, override, agentsDir, rolesDir, promptsDir })))
   }
 
