@@ -1,6 +1,8 @@
+import { relative } from "node:path"
 import { grokConfigJson, refreshGrokModelConfig } from "../config/lfg-grok-config"
 import { defaultLazycodexAgentConfig, modelDiscoveryPlan, type ModelDiscovery, type SetupPreset } from "../models/lfg-models"
 import { type JsonObject } from "../../shared/json"
+import { buildGrokHostAdapterCapabilities } from "../../grok/adapter/grok-host-capabilities"
 import { resolveGrokApiKey } from "../../grok/install/grok-api-key"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../../grok/install/run-grok-install"
@@ -9,6 +11,8 @@ import { codingToolAdapterSelectionJson, type CodingToolAdapterId } from "./codi
 
 export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPreset, codingToolAdapter?: CodingToolAdapterId): JsonObject {
   const discovery = resolved.discovery
+  const hostCapabilities = buildGrokHostAdapterCapabilities(resolveGrokSetupHome(process.env), discovery)
+  const pluginPath = homeRelativePath(hostCapabilities.paths.pluginDirectory, hostCapabilities.paths.homeDirectory)
   return {
     ok: true,
     status: "planned",
@@ -33,22 +37,28 @@ export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPr
     executed: false,
     dryRun: false,
     lfgIsPlugin: false,
-    installPath: "grok",
+    installPath: hostCapabilities.name,
     codingToolAdapter: codingToolAdapterSelectionJson(codingToolAdapter),
-    purpose: "Grok-first direct install of the OMO adapter into Grok Build. `setup --run` preserves a healthy stamped ~/.grok/plugins/lfg tree and syncs model config from discovered CLI proxy models. `setup --run --force` replaces the adapter tree as a real directory (including symlink/legacy cleanup). Supported hooks, Sisyphus, ultrawork context, ulw skills, agents, and manifest-only MCP entries are materialized under ~/.grok/plugins/lfg; deferred OMO components stay documented as deferred or unsupported.",
+    purpose: `Grok-first direct install of the OMO adapter into Grok Build. \`setup --run\` preserves a healthy stamped ${pluginPath} tree and syncs model config from discovered CLI proxy models. \`setup --run --force\` replaces the adapter tree as a real directory (including symlink/legacy cleanup). Supported hooks, Sisyphus, ultrawork context, ulw skills, agents, and manifest-only MCP entries are materialized under ${pluginPath}; deferred OMO components stay documented as deferred or unsupported.`,
     modelDiscovery: discovery ?? modelDiscoveryPlan(),
     ...(discovery === null ? {} : { agentReasoning: agentReasoningSummary(discovery) }),
     modelDiscoverySource: resolved.baseUrlSource,
     modelsBaseUrlUsed: resolved.baseUrlUsed,
-    autoModelAliases: discovery !== null,
+    autoModelAliases: hostCapabilities.models.discoveredModels.length > 0,
     steps: [
       { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) for Grok [model.*] aliases, global preset routing, and proxy-advertised reasoning effort metadata." },
       { id: 2, status: discovery === null ? "pending" : "done", text: "Build global default/fast/reasoning/coding routes and derive OMO agent settings from the selected preset; setup no longer asks for each agent model individually." },
-      { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ~/.grok/plugins/lfg unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_OMO_PLUGIN_SOURCE, the built-in native payload, or legacy fallback.` },
+      { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ${pluginPath} unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_OMO_PLUGIN_SOURCE, the built-in native payload, or legacy fallback.` },
       { id: 4, status: "pending", text: "Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, install plugin-owned LFG agents, sync roles/personas/prompts, write omo-agent-overrides.json, and ensure the adapter is enabled for Grok Build." },
     ],
-    note: "Grok-first. Default `lfg setup` (and --json setup) plans the supported lfg-owned OMO port under ~/.grok/plugins/lfg, including manifest-only MCP entries rather than behavior-adapted local MCP tools. Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit.",
+    note: `Grok-first. Default \`lfg setup\` (and --json setup) plans the supported lfg-owned OMO port under ${pluginPath}, including manifest-only MCP entries rather than behavior-adapted local MCP tools. Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit.`,
   }
+}
+
+function homeRelativePath(path: string, homeDirectory: string): string {
+  const homeRelative = relative(homeDirectory, path).replaceAll("\\", "/")
+  if (homeRelative.length === 0 || homeRelative.startsWith("../") || homeRelative === "..") return path
+  return `~/${homeRelative}`
 }
 
 function agentReasoningSummary(discovery: ModelDiscovery): JsonObject {
