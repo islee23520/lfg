@@ -45,9 +45,9 @@ export async function configureRoleAgents(
   selectors: SetupSelectorBundle,
   bundledOverrideMap: RecommendationOverrideMap,
 ): Promise<readonly [AgentTuiResult, AgentTuiResult, AgentTuiResult]> {
-  const explorer = await configureAgent(prompts, discovery, "explorer", discovery?.mapping.fast ?? discovery?.mapping.default ?? "grok-3-mini-fast", "low", choices, selectors, bundledOverrideMap)
-  const reasoning = await configureAgent(prompts, discovery, "reasoning", discovery?.mapping.reasoning ?? "grok-4.20-0309-reasoning", "high", choices, selectors, bundledOverrideMap)
-  const coding = await configureAgent(prompts, discovery, "coding", discovery?.mapping.coding ?? "grok-4.20-0309-non-reasoning", "medium", choices, selectors, bundledOverrideMap)
+  const explorer = await configureAgent(prompts, discovery, "explorer", discovery?.mapping.fast ?? discovery?.mapping.default ?? "grok-composer-2.5-fast", "low", choices, selectors, bundledOverrideMap)
+  const reasoning = await configureAgent(prompts, discovery, "reasoning", discovery?.mapping.reasoning ?? "grok-4.5", "high", choices, selectors, bundledOverrideMap)
+  const coding = await configureAgent(prompts, discovery, "coding", discovery?.mapping.coding ?? "grok-composer-2.5-fast", "medium", choices, selectors, bundledOverrideMap)
   return [explorer, reasoning, coding]
 }
 

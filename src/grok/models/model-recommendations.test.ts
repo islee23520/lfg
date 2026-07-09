@@ -54,11 +54,13 @@ describe("model-recommendations", () => {
     }
   })
 
-  test("critical review recommendations use GPT help when available", () => {
+  test("critical review recommendations prefer Grok 4.5 with GPT as alternative", () => {
     const reviewer = ROLE_RECOMMENDATIONS.find((rec) => rec.role === "codex-ultrawork-reviewer")
     const momus = ROLE_RECOMMENDATIONS.find((rec) => rec.role === "momus")
-    expect(reviewer?.recommended).toBe("gpt-5.5")
-    expect(momus?.recommended).toBe("gpt-5.5")
+    expect(reviewer?.recommended).toBe("grok-4.5")
+    expect(momus?.recommended).toBe("grok-4.5")
+    expect(reviewer?.alternatives).toContain("gpt-5.5")
+    expect(momus?.alternatives).toContain("gpt-5.5")
   })
 
   test("role recommendations choose from available models only", () => {
@@ -69,17 +71,23 @@ describe("model-recommendations", () => {
     expect(table).not.toContain("grok-4.20-0309-reasoning")
   })
 
-  test("librarian recommendation uses gpt-5.4-mini-fast when available", () => {
+  test("librarian recommendation uses composer when available before GPT mini", () => {
+    expect(getAgentRecommendation("librarian", ["grok-composer-2.5-fast", "gpt-5.4-mini-fast"])?.recommended).toBe("grok-composer-2.5-fast")
     expect(getAgentRecommendation("librarian", ["gpt-5.4-mini", "gpt-5.4-mini-fast"])?.recommended).toBe("gpt-5.4-mini-fast")
     expect(PERF_SNAPSHOT["gpt-5.4-mini-fast"]).toBeDefined()
   })
 
   test("role recommendations are not a single global fastest ranking", () => {
     const table = formatRecommendationTable(Object.keys(PERF_SNAPSHOT))
-    expect(table).toContain("explorer                    grok-4.20-0309-non-reasoning")
-    expect(table).toContain("plan                        grok-4.20-0309-reasoning")
-    expect(table).toContain("momus                       gpt-5.5")
-    expect(table).toContain("coding                      grok-4.20-0309-non-reasoning")
+    expect(table).toContain("explorer                    grok-composer-2.5-fast")
+    expect(table).toContain("plan                        grok-4.5")
+    expect(table).toContain("momus                       grok-4.5")
+    expect(table).toContain("coding                      grok-composer-2.5-fast")
+  })
+
+  test("reasoning and plan prefer grok-4.5 when present", () => {
+    expect(getAgentRecommendation("reasoning", Object.keys(PERF_SNAPSHOT))?.recommended).toBe("grok-4.5")
+    expect(getAgentRecommendation("plan", Object.keys(PERF_SNAPSHOT))?.recommended).toBe("grok-4.5")
   })
 
   test("override-backed agent recommendations expose fallback chain for non-role agents", () => {

@@ -41,7 +41,7 @@ describe("runGrokInstall", () => {
     expect(run.configUpdate).toBeNull()
     expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
     const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
-    expect(explorer).toContain('model = "grok-3-mini-fast"')
+    expect(explorer).toContain('model = "grok-composer-2.5-fast"')
     const explorerAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")
     expect(explorerAgent).toContain("name: explorer")
     await expectUpstreamOmoWorkflowSkills(join(home, ".grok", "plugins", "lfg"))

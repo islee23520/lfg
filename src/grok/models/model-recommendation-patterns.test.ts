@@ -4,6 +4,7 @@ import type { LazycodexAgentOverrideMap } from "../agents/lazycodex-agent-overri
 
 /** Model IDs from C001 CLI QA (local proxy discovery). */
 const C001_MODEL_IDS = [
+  "grok-4.5",
   "grok-4.20-0309-reasoning",
   "grok-4.3",
   "grok-4.20-0309-non-reasoning",
@@ -19,23 +20,23 @@ describe("applyRecommendationsToOverrideMap", () => {
   test("preserves available curated routes while recommending other agents", () => {
     const bundled: LazycodexAgentOverrideMap = {
       default: {
-        model: "gpt-5.5",
+        model: "grok-4.5",
         reasoningLevel: "high",
         serviceTier: "default",
-        modelFallback: "grok-4.20-0309-reasoning",
+        modelFallback: "gpt-5.5",
         modelFallbackReasoningLevel: "high",
         modelFallbackServiceTier: "default",
       },
       prometheus: {
-        model: "gpt-5.5",
+        model: "grok-4.5",
         reasoningLevel: "xhigh",
         serviceTier: "default",
-        modelFallback: "glm-5.2",
+        modelFallback: "gpt-5.5",
         modelFallbackReasoningLevel: "high",
         modelFallbackServiceTier: "default",
       },
       sisyphus: {
-        model: "gpt-5.5",
+        model: "grok-4.5",
         reasoningLevel: "medium",
         serviceTier: "default",
       },
@@ -59,12 +60,14 @@ describe("applyRecommendationsToOverrideMap", () => {
     const out = applyRecommendationsToOverrideMap(bundled, [...C001_MODEL_IDS], "grok")
 
     expect(out.default).toEqual(bundled.default)
-    expect(out.prometheus).toMatchObject({ model: "gpt-5.5", reasoningLevel: "xhigh" })
-    expect(out.prometheus?.modelFallback).toBe("glm-5.2")
+    expect(out.prometheus).toMatchObject({ model: "grok-4.5", reasoningLevel: "xhigh" })
+    expect(out.prometheus?.modelFallback).toBe("gpt-5.5")
     expect(out.sisyphus).toEqual(bundled.sisyphus)
     expect(out.atlas).toEqual(bundled.atlas)
-    expect(out.plan?.model).toBe("gpt-5.5")
-    expect(out.librarian?.model).toBe("glm-5-turbo")
+    // plan is not curated: pattern recommendation picks grok-4.5
+    expect(out.plan?.model).toBe("grok-4.5")
+    // librarian is not curated: utility pattern prefers composer over mini
+    expect(out.librarian?.model).toBe("grok-composer-2.5-fast")
   })
 
   test("auto recommends Composer for coding and Gemini for visual agents", () => {

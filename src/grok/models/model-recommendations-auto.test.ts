@@ -24,16 +24,21 @@ describe("pattern-based model auto-assignment", () => {
     expect(REASONING_AGENT_NAMES.has("ultrabrain")).toBe(true)
   })
 
-  test("selectModelForPatterns picks GPT or GLM reasoning before Grok", () => {
-    const models = ["gpt-5.5", "glm-5.2", "grok-4.20-0309-reasoning", "grok-3-mini-fast"]
+  test("selectModelForPatterns picks Grok 4.5 reasoning before GPT", () => {
+    const models = ["gpt-5.5", "glm-5.2", "grok-4.5", "grok-4.20-0309-reasoning", "grok-3-mini-fast"]
     const selected = selectModelForPatterns(models, "reasoning")
-    expect(selected).toBe("gpt-5.5")
+    expect(selected).toBe("grok-4.5")
   })
 
-  test("selectModelForPatterns picks fast GPT/GLM utility before Grok mini", () => {
-    const models = ["gpt-5.4-mini", "glm-5-turbo", "grok-3-mini-fast", "grok-4.3"]
+  test("selectModelForPatterns gpt preset still prefers GPT reasoning", () => {
+    const models = ["gpt-5.5", "glm-5.2", "grok-4.5", "grok-4.20-0309-reasoning"]
+    expect(selectModelForPatterns(models, "reasoning", "gpt")).toBe("gpt-5.5")
+  })
+
+  test("selectModelForPatterns picks Grok composer utility before GPT mini", () => {
+    const models = ["gpt-5.4-mini", "glm-5-turbo", "grok-composer-2.5-fast", "grok-3-mini-fast", "grok-4.3"]
     const selected = selectModelForPatterns(models, "utility")
-    expect(selected).toBe("gpt-5.4-mini")
+    expect(selected).toBe("grok-composer-2.5-fast")
   })
 
   test("selectModelForPatterns falls back to first model when no pattern matches", () => {
@@ -53,11 +58,11 @@ describe("pattern-based model auto-assignment", () => {
       plan: { model: "grok-4.3", reasoningLevel: "high" },
       coding: { model: "grok-4.20-0309-non-reasoning", reasoningLevel: "medium" },
     }
-    const models = ["grok-3-mini-fast", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5", "glm-5.2"]
+    const models = ["grok-3-mini-fast", "grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5", "glm-5.2"]
     const recs = buildRecommendedModelOverrides(overrides, models)
     const planRec = recs.get("plan")
     expect(planRec).toBeDefined()
-    expect(planRec!.model).toBe("gpt-5.5")
+    expect(planRec!.model).toBe("grok-4.5")
     expect(planRec!.reasoningLevel).toBe("xhigh")
     expect(planRec!.serviceTier).toBe("default")
   })
@@ -92,16 +97,16 @@ describe("pattern-based model auto-assignment", () => {
     expect(overrides.explorer.serviceTier).toBe("fast")
   })
 
-  test("reasoning patterns prefer GPT over Grok", () => {
+  test("reasoning patterns prefer Grok over GPT by default", () => {
     const models = ["gpt-5.5", "grok-4.20-0309-reasoning"]
     const selected = selectModelForPatterns(models, "reasoning")
-    expect(selected).toBe("gpt-5.5")
+    expect(selected).toBe("grok-4.20-0309-reasoning")
   })
 
-  test("utility patterns prefer GPT mini over Grok mini", () => {
+  test("utility patterns prefer Grok mini over GPT mini by default", () => {
     const models = ["gpt-5.4-mini", "grok-3-mini-fast"]
     const selected = selectModelForPatterns(models, "utility")
-    expect(selected).toBe("gpt-5.4-mini")
+    expect(selected).toBe("grok-3-mini-fast")
   })
 
   test("coding patterns prefer Composer 2.5", () => {

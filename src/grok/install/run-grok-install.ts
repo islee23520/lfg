@@ -226,8 +226,8 @@ function subagentModelMappingFromDiscovery(
   return {
     default: discovery?.mapping.default ?? explorerModel,
     fast: fastRoute,
-    reasoning: resolvedAgents.reasoning?.model ?? discovery?.mapping.reasoning ?? "grok-4.20-0309-reasoning",
-    coding: resolvedAgents.coding?.model ?? discovery?.mapping.coding ?? "grok-4.20-0309-non-reasoning",
+    reasoning: resolvedAgents.reasoning?.model ?? discovery?.mapping.reasoning ?? "grok-4.5",
+    coding: resolvedAgents.coding?.model ?? discovery?.mapping.coding ?? "grok-composer-2.5-fast",
     fastReasoning: resolvedAgents.explorer?.reasoningLevel ?? "low",
     reasoningReasoning: resolvedAgents.reasoning?.reasoningLevel ?? "high",
     codingReasoning: resolvedAgents.coding?.reasoningLevel ?? "medium",

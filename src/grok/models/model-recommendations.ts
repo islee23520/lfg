@@ -47,8 +47,12 @@ type RoleProfile = {
   readonly preferredModels: readonly string[]
 }
 
-/** Performance snapshot from local live benchmarking against the setup proxy. */
+/** Performance snapshot from local live benchmarking against the setup proxy.
+ *  grok-4.5 is the current GrokBuild frontier default (host-advertised); latency/tps
+ *  are provisional relative to prior Grok-4.x measurements until re-benchmarked.
+ */
 export const PERF_SNAPSHOT: Readonly<Record<string, ModelPerf>> = {
+  "grok-4.5": { model: "grok-4.5", latencyMs: 2800, tokensPerSec: 130, codingQuality: 2, reasoningQuality: 2, available: true },
   "grok-4.3": { model: "grok-4.3", latencyMs: 3094, tokensPerSec: 119, codingQuality: 2, reasoningQuality: 2, available: true },
   "grok-4.20-0309-non-reasoning": { model: "grok-4.20-0309-non-reasoning", latencyMs: 623, tokensPerSec: 61, codingQuality: 2, reasoningQuality: 2, available: true },
   "grok-4.20-0309-reasoning": { model: "grok-4.20-0309-reasoning", latencyMs: 2331, tokensPerSec: 174, codingQuality: 2, reasoningQuality: 2, available: true },
@@ -70,50 +74,50 @@ const ROLE_PROFILES: readonly RoleProfile[] = [
   {
     role: "explorer",
     reasoningEffort: "medium",
-    rationale: "Fast Grok utility path for high-volume codebase search and exploration (LazyCodex 4.12.1 baseline). GPT/Gemini fallbacks when available.",
-    preferredModels: ["grok-4.20-0309-non-reasoning", "grok-3-mini-fast", "grok-composer-2.5-fast", "grok-build-0.1", "gpt-5.4-mini-fast", "gemini-3-pro-low", "glm-5-turbo"],
+    rationale: "Fast Grok utility path for high-volume codebase search and exploration. GPT/Gemini fallbacks when available.",
+    preferredModels: ["grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning", "grok-3-mini-fast", "grok-build-0.1", "gpt-5.4-mini-fast", "gemini-3-pro-low", "glm-5-turbo"],
   },
   {
     role: "librarian",
     reasoningEffort: "low",
-    rationale: "Grok-first research route (LazyCodex 4.12.1 baseline). Fast utility models for external doc lookup.",
-    preferredModels: ["grok-3-mini-fast", "grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning", "gpt-5.4-mini-fast", "gpt-5.4-mini", "glm-5-turbo", "gemini-3.1-flash-lite"],
+    rationale: "Grok-first research route. Fast utility models for external doc lookup.",
+    preferredModels: ["grok-composer-2.5-fast", "grok-3-mini-fast", "grok-4.20-0309-non-reasoning", "gpt-5.4-mini-fast", "gpt-5.4-mini", "glm-5-turbo", "gemini-3.1-flash-lite"],
   },
   {
     role: "plan",
     reasoningEffort: "high",
-    rationale: "Deep Grok reasoning for strategic planning (LazyCodex 4.12.1 baseline). GPT-5.5 as strong alternative when present.",
-    preferredModels: ["grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"],
+    rationale: "Strategic planning uses Grok 4.5 frontier; older Grok-4.x and GPT-5.5 remain strong alternatives.",
+    preferredModels: ["grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"],
   },
   {
     role: "metis",
     reasoningEffort: "high",
-    rationale: "Pre-planning analysis benefits from Grok frontier reasoning (LazyCodex 4.12.1 baseline).",
-    preferredModels: ["grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"],
+    rationale: "Pre-planning analysis prefers Grok 4.5 frontier reasoning.",
+    preferredModels: ["grok-4.5", "grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"],
   },
   {
     role: "momus",
     reasoningEffort: "high",
-    rationale: "Critical plan review uses Grok frontier models (LazyCodex 4.12.1 baseline). GPT-5.5 strong alternative.",
-    preferredModels: ["gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.3", "glm-5.2", "gemini-3-pro-high"],
+    rationale: "Critical plan review uses Grok 4.5 primary; GPT-5.5 as strong second opinion.",
+    preferredModels: ["grok-4.5", "gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.3", "glm-5.2", "gemini-3-pro-high"],
   },
   {
     role: "codex-ultrawork-reviewer",
     reasoningEffort: "high",
-    rationale: "Final ultrawork review uses Grok frontier (LazyCodex 4.12.1 baseline). GPT as strong second opinion.",
-    preferredModels: ["gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.3", "glm-5.2", "gemini-3-pro-high"],
+    rationale: "Final ultrawork review uses Grok 4.5 frontier; GPT as strong second opinion.",
+    preferredModels: ["grok-4.5", "gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.3", "glm-5.2", "gemini-3-pro-high"],
   },
   {
     role: "reasoning",
     reasoningEffort: "medium",
-    rationale: "General reasoning role uses Grok frontier models (LazyCodex 4.12.1 alignment).",
-    preferredModels: ["grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"],
+    rationale: "General reasoning role uses Grok 4.5 as the GrokBuild frontier default.",
+    preferredModels: ["grok-4.5", "grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"],
   },
   {
     role: "coding",
     reasoningEffort: "medium",
-    rationale: "Coding uses fast Grok non-reasoning or Grok Build path; upstream marks GPT-5.3 Codex Spark as not recommended for OMO agents.",
-    preferredModels: ["grok-4.20-0309-non-reasoning", "grok-build-0.1", "grok-4.3", "glm-5-turbo", "gemini-3-pro-low", "gpt-5.5"],
+    rationale: "Coding uses fast Grok composer/non-reasoning path; upstream marks GPT-5.3 Codex Spark as not recommended for OMO agents.",
+    preferredModels: ["grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning", "grok-build-0.1", "grok-4.5", "glm-5-turbo", "gemini-3-pro-low", "gpt-5.5"],
   },
 ]
 
@@ -150,7 +154,7 @@ export function getAgentRecommendation(
   const profile = ROLE_PROFILES.find((r) => r.role === agentName)
   if (profile) {
     const available = profile.preferredModels.filter((m) => modelIsAvailable(m, availableModels))
-    const recommended = available[0] ?? (availableModels.length === 0 ? profile.preferredModels[0] : firstChatModel(availableModels)) ?? profile.preferredModels[0] ?? "grok-4.20-0309-non-reasoning"
+    const recommended = available[0] ?? (availableModels.length === 0 ? profile.preferredModels[0] : firstChatModel(availableModels)) ?? profile.preferredModels[0] ?? "grok-4.5"
     return {
       recommended,
       variant: profile.reasoningEffort,
@@ -237,7 +241,7 @@ export function scoreModelForRole(
 
 function resolveRoleRecommendation(profile: RoleProfile, availableModels: readonly string[]): RoleRecommendation {
   const available = profile.preferredModels.filter((model) => availableModels.includes(model))
-  const recommended = available[0] ?? firstChatModel(availableModels) ?? profile.preferredModels[0] ?? "grok-4.20-0309-non-reasoning"
+  const recommended = available[0] ?? firstChatModel(availableModels) ?? profile.preferredModels[0] ?? "grok-4.5"
   return {
     role: profile.role,
     recommended,

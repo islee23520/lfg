@@ -87,7 +87,8 @@ function selectBestGrokModels(modelIds: readonly string[]): {
     }
   }
 
-  const reasoning = grokModels.find((id) => /grok-4\.3/i.test(id)) ||
+  const reasoning = grokModels.find((id) => /grok-4\.5/i.test(id)) ||
+                   grokModels.find((id) => /grok-4\.3/i.test(id)) ||
                    grokModels.find((id) => /grok-4.*reasoning/i.test(id)) ||
                    grokModels.find((id) => /grok-4/i.test(id)) ||
                    VANILLA_REASONING_MODEL
@@ -102,7 +103,9 @@ function selectBestGrokModels(modelIds: readonly string[]): {
                  grokModels.find((id) => /grok.*non-reasoning/i.test(id)) ||
                  fast
 
-  const defaultModel = grokModels.find((id) => /grok.*build/i.test(id)) ||
+  const defaultModel = grokModels.find((id) => /grok-4\.5/i.test(id)) ||
+                       grokModels.find((id) => /grok-4\.3/i.test(id)) ||
+                       grokModels.find((id) => /grok.*build/i.test(id)) ||
                        grokModels.find((id) => /grok-composer/i.test(id)) ||
                        reasoning ||
                        VANILLA_DEFAULT_MODEL
@@ -122,9 +125,9 @@ export type VanillaGrokConfig = {
   readonly mapping: { readonly default: string; readonly fast: string; readonly reasoning: string; readonly coding: string }
 }
 
-const VANILLA_DEFAULT_MODEL = "grok-build-0.1"
+const VANILLA_DEFAULT_MODEL = "grok-4.5"
 const VANILLA_FAST_MODEL = "grok-composer-2.5-fast"
-const VANILLA_REASONING_MODEL = "grok-4.20-0309-reasoning"
+const VANILLA_REASONING_MODEL = "grok-4.5"
 const VANILLA_CODING_MODEL = "grok-composer-2.5-fast"
 
 const FASTISH_VANILLA_AGENTS = new Set(["explorer", "librarian", "quick", "unspecified-low", "sisyphus-junior"])

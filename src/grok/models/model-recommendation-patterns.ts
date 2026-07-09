@@ -4,8 +4,9 @@
  * these functions scan the actually-discovered model IDs and pattern-match
  * to assign the best available model per agent.
  *
- * Patterns are role-first: GPT/GLM are preferred for orchestration and reasoning,
- * Composer is preferred for pure coding, and Gemini is preferred for visual work.
+ * Default (GrokBuild) patterns are Grok-first: grok-4.5 for reasoning/critical,
+ * Composer for coding, Gemini for visual. The "gpt" preset flips reasoning/utility
+ * preference toward GPT families while keeping coding/visual patterns.
  */
 
 import type { LazycodexAgentOverrideMap, ServiceTier } from "../agents/lazycodex-agent-overrides"
@@ -76,9 +77,10 @@ const AGENT_REASONING_LEVEL: Readonly<Record<string, ReasoningLevel>> = {
   reviewer: "high",
   "codex-ultrawork-reviewer": "high",
   "unspecified-high": "high",
-  // medium: orchestration, coding, balanced
-  sisyphus: "medium",
-  default: "medium",
+  // high: Sisyphus/default orchestration on Grok 4.5 (fast enough to keep high)
+  sisyphus: "high",
+  default: "high",
+  // medium: coding and junior workers
   coding: "medium",
   "sisyphus-junior": "medium",
   // low: search, retrieval, simple tasks
@@ -90,18 +92,19 @@ const AGENT_REASONING_LEVEL: Readonly<Record<string, ReasoningLevel>> = {
   writing: "low",
 }
 
-/** Pattern arrays ordered by preference. Grok IDs first, then GPT/Gemini/Claude fallbacks. */
+/** Pattern arrays ordered by preference. Grok-first for GrokBuild, then GPT/Gemini/Claude. */
 
 // Reasoning-capable models: deep-chain-of-thought models for planning/analysis/review.
 export const REASONING_MODEL_PATTERNS: readonly RegExp[] = [
-  /gpt-5\.5/i,
-  /glm-5\.2/i,
-  /gpt-5(?!.*mini)/i,
-  /glm-5/i,
+  /grok-4\.5/i,
   /grok-4\.3/i,
   /grok-4\.[0-9]+.*reasoning/i,
   /grok-4\.[0-9]+/i,
   /grok.*reasoning/i,
+  /gpt-5\.5/i,
+  /glm-5\.2/i,
+  /gpt-5(?!.*mini)/i,
+  /glm-5/i,
   /gemini-3.*pro.*high/i,
   /gemini.*pro/i,
   /claude.*opus/i,
@@ -110,23 +113,23 @@ export const REASONING_MODEL_PATTERNS: readonly RegExp[] = [
   /reason/i,
 ]
 
-// Utility models: fast, cheap, high-volume agents (explorer, librarian, coding non-reasoning).
-// grok-composer is preferred for orchestrator roles (sisyphus/default) due to strong
-// task-decomposition and context-maintenance characteristics at fast tier.
+// Utility models: fast, cheap, high-volume agents (explorer, librarian).
+// grok-composer is preferred for high-volume Grok utility paths.
 export const UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
+  /grok-composer.*fast/i,
+  /grok-composer/i,
+  /grok-4\.[0-9]+.*non-reasoning/i,
+  /grok-3-mini-fast/i,
+  /grok.*fast/i,
+  /grok-3-mini/i,
+  /grok.*mini/i,
+  /grok-build/i,
   /gpt-5\.[0-9]+-mini.*fast/i,
   /gpt-5\.[0-9]+.*mini/i,
   /glm-5.*turbo/i,
   /gemini-3\.1-flash-lite/i,
   /gemini-3.*flash/i,
   /gpt.*mini/i,
-  /grok-3-mini-fast/i,
-  /grok-composer.*fast/i,
-  /grok-4\.[0-9]+.*non-reasoning/i,
-  /grok-3-mini/i,
-  /grok.*mini/i,
-  /grok.*fast/i,
-  /grok-build/i,
   /gemini-3.*pro.*low/i,
   /gemini-3.*pro.*high/i,
   /glm-5\.2/i,
@@ -138,10 +141,11 @@ export const UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
 ]
 
 export const CRITICAL_MODEL_PATTERNS: readonly RegExp[] = [
-  /gpt-5\.5/i,
-  /glm-5\.2/i,
+  /grok-4\.5/i,
   /grok-4\.3/i,
   /grok-4\.[0-9]+.*reasoning/i,
+  /gpt-5\.5/i,
+  /glm-5\.2/i,
   /glm-5.*turbo/i,
   /gemini-3.*pro.*high/i,
   /gemini.*pro/i,
@@ -155,6 +159,7 @@ export const VISUAL_MODEL_PATTERNS: readonly RegExp[] = [
   /gemini/i,
   /gpt-5\.5/i,
   /glm-5\.2/i,
+  /grok-4\.5/i,
   /grok-4\.3/i,
 ]
 
@@ -163,6 +168,7 @@ export const CODING_MODEL_PATTERNS: readonly RegExp[] = [
   /grok-composer/i,
   /grok-4\.[0-9]+.*non-reasoning/i,
   /grok-build/i,
+  /grok-4\.5/i,
   /glm-5.*turbo/i,
   /gemini-3.*pro.*low/i,
   /gemini-3.*pro.*high/i,
@@ -172,6 +178,7 @@ export const CODING_MODEL_PATTERNS: readonly RegExp[] = [
 export const GPT_REASONING_MODEL_PATTERNS: readonly RegExp[] = [
   /gpt-5\.5/i,
   /gpt-5(?!.*mini)/i,
+  /grok-4\.5/i,
   /grok-4\.[0-9]+.*reasoning/i,
   /grok-4\.3/i,
   /grok-4\.[0-9]+/i,

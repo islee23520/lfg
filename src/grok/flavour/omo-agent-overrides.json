@@ -15,18 +15,21 @@
     "glm-5.2": "glm-5.2",
     "gemini-3-pro-high": "gemini-3-pro-high",
     "gemini-3.1-pro-low": "gemini-3.1-pro-low",
+    "grok-4.5": "grok-4.5",
     "grok-4.3": "grok-4.3",
     "grok-4.20-0309-reasoning": "grok-4.20-0309-reasoning",
     "grok-3-mini-fast": "grok-3-mini-fast"
   },
   "perf_notes": {
+    "grok-4.5": "Current GrokBuild frontier default for orchestration/reasoning. Prefer when available.",
     "grok-3-mini-fast": "Fastest Grok: 1.96s coding, 146t/s. Best for high-volume read-only agents (explorer).",
     "grok-3-mini": "Balanced: 3.36s, 146t/s. Good general-purpose.",
     "grok-4.20-0309-non-reasoning": "Fast reasoning-capable: 0.68s coding, 1.96s reasoning. Best for analysis/review.",
     "grok-4.20-0309-reasoning": "Deep reasoning: 6.3s, 163t/s. Best for planning, complex analysis.",
-    "grok-4.3": "Frontier: 8.48s, 159t/s. Best for deep verification, complex multi-step.",
+    "grok-4.3": "Prior frontier: 8.48s, 159t/s. Fallback for deep verification.",
     "grok-4.20-multi-agent-0309": "Multi-agent optimized: 7.01s, 610t/s. High throughput.",
-    "grok-build-0.1": "Build agent: 3.72s, 150t/s. Good for coding tasks."
+    "grok-build-0.1": "Build agent: 3.72s, 150t/s. Good for coding tasks.",
+    "grok-composer-2.5-fast": "Composer utility: preferred fast/coding path for GrokBuild."
   },
   "overrides": {
     "explorer": {
@@ -48,13 +51,13 @@
       "role_rationale": "OMO librarian agent: gpt-5.4-mini-fast is #1 in upstream chain; Grok mini as availability fallback"
     },
     "plan": {
-      "model": "gpt-5.5",
+      "model": "grok-4.5",
       "model_reasoning_effort": "xhigh",
       "service_tier": "default",
-      "model_fallback": "glm-5.2",
+      "model_fallback": "grok-4.20-0309-reasoning",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Strategic planning maps to OMO Prometheus chain: GPT-5.5 high > glm-5.2 (upstream agent-model-requirements.ts)"
+      "role_rationale": "Strategic planning: Grok 4.5 frontier primary; Grok 4.20 reasoning as availability fallback"
     },
     "metis": {
       "model": "claude-sonnet-4-6",
@@ -75,58 +78,58 @@
       "role_rationale": "OMO Momus plan review: GPT-5.5 xhigh is #1 in upstream chain; Gemini 3.1 Pro high is #3"
     },
     "codex-ultrawork-reviewer": {
-      "model": "gpt-5.5",
+      "model": "grok-4.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
       "model_fallback": "grok-4.3",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Final verification follows OMO deep/review chain: GPT-5.5 high primary, Grok frontier as availability fallback"
+      "role_rationale": "Final verification: Grok 4.5 frontier primary; Grok 4.3 as availability fallback"
     },
     "reasoning": {
-      "model": "gpt-5.5",
+      "model": "grok-4.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
       "model_fallback": "grok-4.20-0309-reasoning",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "General reasoning role aligned with OMO deep chain: GPT-5.5 high primary, Grok deep reasoning fallback"
+      "role_rationale": "General reasoning: Grok 4.5 is the GrokBuild frontier default; Grok 4.20 reasoning as availability fallback"
     },
     "coding": {
-      "model": "grok-4.20-0309-non-reasoning",
+      "model": "grok-composer-2.5-fast",
       "model_reasoning_effort": "medium",
       "service_tier": "default",
-      "model_fallback": "glm-5-turbo",
+      "model_fallback": "grok-4.20-0309-non-reasoning",
       "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Coding role: upstream marks GPT-5.3 Codex Spark as not recommended for OMO agents; use Grok non-reasoning primary with GLM turbo fallback"
+      "role_rationale": "Coding role: Grok Composer primary; non-reasoning Grok as availability fallback (Codex Spark not recommended for OMO agents)"
     },
     "default": {
-      "model": "gpt-5.5",
-      "model_reasoning_effort": "medium",
-      "service_tier": "default",
-      "model_fallback": "grok-4.20-0309-reasoning",
-      "model_fallback_reasoning_effort": "high",
-      "model_fallback_service_tier": "default",
-      "role_rationale": "OMO Sisyphus default orchestrator: GPT-5.5 is the preferred Grok-native default; Grok deep reasoning as availability fallback"
-    },
-    "hephaestus": {
-      "model": "gpt-5.5",
+      "model": "grok-4.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
       "model_fallback": "grok-4.20-0309-reasoning",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO Hephaestus explicit deep worker: GPT-5.5 is the ONLY model in upstream chain (agent-model-requirements.ts); Grok deep reasoning as availability fallback"
+      "role_rationale": "Default orchestrator (Sisyphus): Grok 4.5 primary at high effort; Grok 4.20 reasoning as availability fallback"
     },
-    "prometheus": {
-      "model": "gpt-5.5",
-      "model_reasoning_effort": "xhigh",
+    "hephaestus": {
+      "model": "grok-4.5",
+      "model_reasoning_effort": "high",
       "service_tier": "default",
-      "model_fallback": "glm-5.2",
+      "model_fallback": "grok-4.20-0309-reasoning",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO Prometheus strategic planner: Claude Opus #1 (unavailable), GPT-5.5 high #2, glm-5.2 #3 in upstream chain"
+      "role_rationale": "Hephaestus deep worker: Grok 4.5 primary on GrokBuild; Grok 4.20 reasoning as availability fallback"
+    },
+    "prometheus": {
+      "model": "grok-4.5",
+      "model_reasoning_effort": "xhigh",
+      "service_tier": "default",
+      "model_fallback": "grok-4.20-0309-reasoning",
+      "model_fallback_reasoning_effort": "high",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "Prometheus strategic planner: Grok 4.5 frontier primary; Grok 4.20 reasoning as availability fallback"
     },
     "multimodal-looker": {
       "model": "gpt-5.5",
@@ -138,13 +141,13 @@
       "role_rationale": "OMO Multimodal-Looker: GPT-5.5 medium is #1 in upstream chain; Gemini for vision-capable fallback"
     },
     "sisyphus": {
-      "model": "gpt-5.5",
-      "model_reasoning_effort": "medium",
+      "model": "grok-4.5",
+      "model_reasoning_effort": "high",
       "service_tier": "default",
-      "model_fallback": "glm-5.2",
-      "model_fallback_reasoning_effort": "medium",
+      "model_fallback": "grok-4.20-0309-reasoning",
+      "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO Sisyphus orchestrator: Claude Opus #1 and Kimi #2-3 unavailable; GPT-5.5 medium #4, glm-5.2 #5 in upstream chain"
+      "role_rationale": "Sisyphus orchestrator: Grok 4.5 primary at high effort; Grok 4.20 reasoning as availability fallback"
     },
     "atlas": {
       "model": "claude-sonnet-4-6",
@@ -264,13 +267,13 @@
       "role_rationale": "Grok artistry QA inspector follows OMO artistry category model routing"
     },
     "ulw": {
-      "model": "gpt-5.5",
+      "model": "grok-4.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
       "model_fallback": "grok-4.20-0309-reasoning",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Grok ULW loop surface follows OMO Sisyphus/Prometheus deep-work routing"
+      "role_rationale": "ULW loop surface: Grok 4.5 primary aligned with Sisyphus/Prometheus deep-work routing"
     }
   }
 }

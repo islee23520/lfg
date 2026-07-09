@@ -4,9 +4,9 @@ import { readLazycodexAgentsFromGrokConfig } from "../agents/read-lazycodex-agen
 
 /** Grok global ledger defaults when no discovery and no config.toml agent sections. */
 export const FALLBACK_GLOBAL_LAZYCODEX_AGENTS: LazycodexAgentConfig = {
-  explorer: { model: "grok-3-mini-fast", reasoningLevel: "low" },
-  reasoning: { model: "grok-4.3", reasoningLevel: "high" },
-  coding: { model: "grok-4.20-0309-non-reasoning", reasoningLevel: "medium" },
+  explorer: { model: "grok-composer-2.5-fast", reasoningLevel: "low" },
+  reasoning: { model: "grok-4.5", reasoningLevel: "high" },
+  coding: { model: "grok-composer-2.5-fast", reasoningLevel: "medium" },
 }
 
 /**
