@@ -132,13 +132,13 @@
       "role_rationale": "Prometheus strategic planner: Grok 4.5 frontier primary; Grok 4.20 reasoning as availability fallback"
     },
     "multimodal-looker": {
-      "model": "gpt-5.5",
+      "model": "gemini-3.1-pro-preview",
       "model_reasoning_effort": "medium",
       "service_tier": "default",
-      "model_fallback": "gemini-3.1-pro-preview",
+      "model_fallback": "gpt-5.5",
       "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "OMO Multimodal-Looker: GPT-5.5 medium is #1 in upstream chain; Gemini for vision-capable fallback"
+      "role_rationale": "Vision specialist: Gemini-first per Grok-centric multimodal topology; GPT vision-capable fallback"
     },
     "sisyphus": {
       "model": "grok-4.5",

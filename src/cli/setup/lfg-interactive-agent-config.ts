@@ -13,6 +13,7 @@ import {
 } from "../models/resolve-tier-model"
 import { buildRoleRecommendations, PERF_SNAPSHOT } from "../../grok/models/model-recommendations"
 import type { LazycodexAgentOverrideMap } from "../../grok/agents/lazycodex-agent-overrides"
+import { logAgentGuide } from "./model-config-prompts"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
 
@@ -85,15 +86,35 @@ async function readAgentSetting(
     const rec = buildRoleRecommendations(discovery.modelIds).find((r) => r.role === agentName)
     if (rec !== undefined) {
       const perf = PERF_SNAPSHOT[rec.recommended]
-      const latency = perf ? `${perf.latencyMs}ms` : ""
-      const tps = perf ? `${perf.tokensPerSec}t/s` : ""
-      output.write(`  Recommended: ${rec.recommended} (${latency}, ${tps}) - ${rec.rationale.split(".")[0]}\n`)
+      const perfLine =
+        perf !== undefined ? `(${perf.latencyMs}ms, ${perf.tokensPerSec}t/s)` : undefined
       const alts = rec.alternatives.filter((a) => discovery.modelIds.includes(a))
-      if (alts.length > 0) {
-        output.write(`  Alternatives: ${alts.join(", ")}\n`)
-      }
+      logAgentGuide(
+        { write: (chunk) => output.write(chunk) },
+        agentName,
+        {
+          model: defaultModel,
+          reasoning: defaultReasoningLevel,
+          tier: defaultTierPromptForAgent(agentName),
+        },
+        {
+          recommended: rec.recommended,
+          rationale: rec.rationale,
+          alternatives: alts,
+          ...(perfLine !== undefined ? { perfLine } : {}),
+        },
+      )
     } else {
-      output.write(`  Current: ${defaultModel} (reasoning: ${defaultReasoningLevel})\n`)
+      logAgentGuide(
+        { write: (chunk) => output.write(chunk) },
+        agentName,
+        {
+          model: defaultModel,
+          reasoning: defaultReasoningLevel,
+          tier: defaultTierPromptForAgent(agentName),
+        },
+        { preferCurrent: true },
+      )
     }
   }
 

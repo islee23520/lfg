@@ -57,7 +57,7 @@ For feature intake from a new upstream OMO/lazycodex version:
 | `codegraph` | External `@colbymchenry/codegraph` binary, sha256-verified into `~/.omo/codegraph`, `.mcp.json` command server | **Grok-adapted** (Phase 0, shipped) |
 | `rules` | `src/core/omo/rules-engine` + `rules-injector.ts` PostToolUse glue; native first-party hook | **Grok-adapted** (Phase 1, shipped) |
 | `ultrawork` | Native first-party hook + agent prompts synced | **Grok-adapted** |
-| `ulw-loop` | Project `.omo` awareness via fail-closed config loader; durable CLI stays upstream-owned | **Grok-adapted** |
+| `ulw-loop` | Project `.omo` awareness via fail-closed config loader; durable CLI packaged as `lfg ulw-loop` / `lfg ulw` | **Grok-adapted** |
 | `ultimate-browsing` | Upstream OMO skill payload installed, including references/engine/scripts and Grok-converted agent metadata; no separate Grok-native stealth-browser runtime claimed | Implemented |
 | `git-bash` | Local MCP stub, disabled on macOS via `disabled_mcp_servers` | Manifest-only |
 | `lsp` | Local MCP runtime exposes `typescript_diagnostics` (T5); upstream automatic PostToolUse/PostCompact hook reinjection remains unclaimed | Grok-adapted |

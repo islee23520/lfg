@@ -4,6 +4,32 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { writeComponentInventory, type ComponentInventorySource } from "./component-inventory"
 import { materializeGrokMcpRuntimes } from "../mcp/materialize-grok-mcp"
+import {
+  cleanupInstallSnapshot,
+  createInstallSnapshot,
+  restoreInstallSnapshot,
+} from "../install/install-transaction"
+import {
+  commitRuntimePromotion,
+  cleanupCommittedRuntimePromotion,
+  prepareRuntimePromotion,
+  rollbackRuntimePromotion,
+  type RuntimeEntry,
+} from "../install/runtime-promotion"
+
+const LFG_RUNTIME_ENTRIES: readonly RuntimeEntry[] = [
+  { path: ".mcp.json", optional: true },
+  { path: "components", optional: true },
+  { path: "hooks", optional: true },
+  { path: "skills", optional: true },
+  { path: "package.json", optional: true },
+  { path: "assets", optional: true },
+  { path: "flavour", optional: true },
+  { path: "mcp-runtimes", optional: true },
+  { path: "agents", optional: true },
+  { path: "prompts", optional: true },
+  { path: "fixture", optional: true },
+]
 
 export type GrokInstallResult = {
   readonly ok: true
@@ -45,27 +71,41 @@ export async function installGrokPluginFromSource(options: GrokInstallOptions): 
   const version = options.version ?? DEFAULT_VERSION
   const pluginRoot = nativeGrokPluginRoot(options.home, pluginDirName)
   const legacyPluginRoot = legacyInstalledGrokPluginRoot(options.home, pluginDirName)
+  const configPath = join(options.home, ".grok", "config.toml")
+  const marketplaceManifestPath = join(pluginRoot, "package.json")
 
-  // Always materialize a real user plugin directory owned by lfg under ~/.grok/plugins.
-  // Grok discovers this location natively at session startup; the older installed-plugins
-  // adapter target is removed to avoid duplicate/stale hook registries.
   await mkdir(join(options.home, ".grok", "plugins"), { recursive: true })
-  await rm(pluginRoot, { recursive: true, force: true })
-  await rm(legacyPluginRoot, { recursive: true, force: true })
 
-  await cp(options.sourceRoot, pluginRoot, { recursive: true, force: true })
-  await overlayLfgComponentShims(pluginRoot)
-  await writeLfgPluginPackageManifest(pluginRoot, version)
-  const installStampPath = join(pluginRoot, "lfg-install.json")
-  const stamp = { packageName: "@islee23520/lfg", version, platform: "grok" as const }
-  await writeFile(installStampPath, `${JSON.stringify(stamp, null, 2)}\n`, "utf8")
-  const componentInventoryPath = await writeComponentInventory({
-    pluginRoot,
-    packageVersion: version,
-    source: options.componentInventorySource ?? "source_tree",
+  const snapshot = createInstallSnapshot({
+    configPath,
+    additionalAgentFiles: [],
+    marketplaceManifestPath,
   })
-  await materializeGrokMcpRuntimes(pluginRoot, options.sourceRoot)
-  return { ok: true, pluginRoot, installStampPath, componentInventoryPath, version }
+  const promotion = prepareRuntimePromotion(options.sourceRoot, pluginRoot, LFG_RUNTIME_ENTRIES)
+
+  try {
+    await rm(legacyPluginRoot, { recursive: true, force: true })
+    commitRuntimePromotion(promotion)
+    await overlayLfgComponentShims(pluginRoot)
+    await writeLfgPluginPackageManifest(pluginRoot, version)
+    const installStampPath = join(pluginRoot, "lfg-install.json")
+    const stamp = { packageName: "@islee23520/lfg", version, platform: "grok" as const }
+    await writeFile(installStampPath, `${JSON.stringify(stamp, null, 2)}\n`, "utf8")
+    const componentInventoryPath = await writeComponentInventory({
+      pluginRoot,
+      packageVersion: version,
+      source: options.componentInventorySource ?? "source_tree",
+    })
+    await materializeGrokMcpRuntimes(pluginRoot, options.sourceRoot)
+    cleanupCommittedRuntimePromotion(promotion)
+    cleanupInstallSnapshot(snapshot)
+    return { ok: true, pluginRoot, installStampPath, componentInventoryPath, version }
+  } catch (error) {
+    rollbackRuntimePromotion(promotion)
+    restoreInstallSnapshot(snapshot)
+    cleanupInstallSnapshot(snapshot)
+    throw error
+  }
 }
 
 async function writeLfgPluginPackageManifest(pluginRoot: string, version: string): Promise<void> {

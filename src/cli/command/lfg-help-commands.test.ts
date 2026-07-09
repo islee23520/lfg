@@ -12,6 +12,7 @@ describe("lfg help", () => {
     expect(result.stdout).toContain("@islee23520/lfg internal grok-install")
     expect(result.stdout).not.toContain("npx lazycodex-ai install")
     expect(result.stdout).not.toContain("project-local")
+    expect(result.stdout).toContain("lfg ulw-loop")
     expect(result.stdout).not.toContain("doctor")
   })
 })
