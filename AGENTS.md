@@ -104,6 +104,20 @@ For feature intake from a new upstream OMO/lazycodex version:
 
 **Prompt-builder gap** (Phase 4 residual): bundled `src/core/omo/prompts-core/prompts/*` markdown covers atlas/prometheus/ultrawork/mode, and `src/core/omo/agent-builder` owns the agent-builder foundation plus a curated builtin registry. Full Sisyphus/Hephaestus/Sisyphus-junior equivalence is still host-bound and must stay Deferred unless those builders are ported and verified against a real Grok runtime surface.
 
+**MCP Companion & Z.AI Packaging Notes (release train):**
+- `@islee23520/lfg-mcp` ships as **decoupled companion** (separate npm publish, not in lfg core payload). Provides xAI Grok MCP runtime under `~/.grok/plugins/lfg-mcp` + Z.AI integration. Preferred install: `npx @islee23520/lfg-mcp setup` or bridged `lfg mcp companion install/status`.
+- Core lfg includes thin `lfg zai` subcommands for auth (`set-api-key`/`logout` to `~/.grok/zai-mcp-auth.json`) and `[mcp_servers.zai-*]` config.toml entries (vision, web-search, web-reader, zread) without companion. Use companion for full plugin tree + xAI stdio ownership; use built-in for minimal config.
+- **Smoke checklist:**
+  1. `npm run verify` (build + parity + test + typecheck + self-test)
+  2. `node dist/lfg.js --json setup --run` confirms core + no companion bleed
+  3. `node dist/lfg.js zai mcp status` (expects auth-required without key)
+  4. `lfg zai auth set-api-key --api-key sk-test-zai --mode ZAI` + `lfg zai mcp install all` + `lfg zai mcp status`
+  5. Verify `~/.grok/config.toml` has zai sections + no leaked keys in output
+  6. `npm run assert-omo-parity` (guards MCP manifests, inventory)
+  7. Confirm `lfgIsPlugin: false`, `companionPackage: "lfg-grok-install"` contract
+  8. Post-setup Grok `/mcps` shows xai/zai entries (local stdio vs remote); avoid OAuth shortcut for xai_grok
+- Release discipline: lfg-mcp follows independent train (own pre-publish gates). Z.AI uses official @z_ai/mcp-server via npx; keep decoupled to avoid monolith bloat. No runtime changes to core lfg install for companion.
+
 ## Architecture & Data Flow
 
 Three-layer pipeline:
