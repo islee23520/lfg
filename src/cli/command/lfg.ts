@@ -17,6 +17,7 @@ import { dispatchMcpCompanionCommand } from "../mcp/companion-command"
 import { codingToolLaunchPlan, formatLaunchError, launchCodingToolAdapter } from "./coding-tool-launcher"
 import { loadBundledDefaultOmoOverrides } from "../../grok/agents/lazycodex-agent-overrides"
 import { buildVanillaGrokDiscovery } from "../setup/lfg-setup-tui-data"
+import { dispatchUlwLoopArgv } from "../ulw-loop/lfg-ulw-loop.js"
 import {
   CODING_TOOL_ADAPTER_IDS,
   DEFAULT_CODING_TOOL_ADAPTER,
@@ -72,6 +73,14 @@ async function main(argv: readonly string[]): Promise<number> {
         process.stderr.write(`${formatLaunchError(launchResult)}\n`)
       }
       return launchResult.exitCode
+    }
+
+    // Durable ulw-loop CLI owns its own stdout/stderr and exit codes (not setup JSON contract).
+    // parseArgs strips global flags like --json; re-attach them so ulw-loop subcommands still see them.
+    if ((parsed.positional || [])[0] === "ulw" || (parsed.positional || [])[0] === "ulw-loop") {
+      const ulwArgv = [...parsed.positional]
+      if (parsed.json && !ulwArgv.includes("--json")) ulwArgv.push("--json")
+      return dispatchUlwLoopArgv(ulwArgv)
     }
 
     const result = await dispatch(parsed)
@@ -162,6 +171,11 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
       json: args.json,
       rest: effectivePos.slice(3),
     })
+  }
+  if (command === "ulw" || command === "ulw-loop") {
+    // Should have been handled in main(); keep as safety net for programmatic dispatch.
+    const code = await dispatchUlwLoopArgv(effectivePos)
+    return { ok: code === 0, status: code === 0 ? "ulw_loop_ok" : "ulw_loop_error", exitCode: code, lfgIsPlugin: false }
   }
   const isForceOnly = (subcommand === "--force" || subcommand === "force")
   const isConfigTui = subcommand === "config" || subcommand === "tui"
@@ -489,6 +503,8 @@ function help(): string {
     "  lfg zai mcp install all|vision|web-search|web-reader|zread",
     "  lfg zai mcp uninstall all|vision|web-search|web-reader|zread",
     "  lfg mcp companion status|install|uninstall   # independent @islee23520/lfg-mcp plugin",
+    "  lfg ulw-loop <subcommand>                    # durable .omo/ulw-loop CLI",
+    "  lfg ulw <subcommand>                         # alias for ulw-loop",
     "",
     "Package execution:",
     "  npx @islee23520/lfg",

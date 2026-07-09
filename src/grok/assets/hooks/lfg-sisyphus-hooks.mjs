@@ -213,7 +213,7 @@ function preCompactContext() {
     "- Subagent IDs and resume_from targets for follow-up turns",
     "- Scheduler or /loop task IDs that may re-enter this workflow",
     "- OMO continuation session IDs (ses_...) only as legacy/upstream evidence; map them to Grok subagent ids/resume_from when possible",
-    "- Do not confuse todo continuation with start-work-continuation; the latter uses boulder-state getStopHookContinuationContext (ledger-backed path, no auto-reinjection; status Deferred).",
+    "- Do not confuse todo continuation with start-work-continuation; the latter uses boulder-state getStopHookContinuationContext (ledger-backed path, no auto-reinjection; start-work-continuation remains Deferred).",
     "",
     "</sisyphus-state-preservation>",
   ];

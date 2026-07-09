@@ -77,7 +77,7 @@ Use GrokBuild's `/goal` command as the host goal-state surface. Do not call Code
 Do all three steps before execution. No edits, goal tools, or checkpointing before bootstrap completes.
 
 ### 1. Create goals from the brief
-Resolve the CLI before the first command. If `omo` is absent from PATH or lacks `ulw-loop`, use the OMO-owned local CLI at `~/.local/bin/omo` when present. lfg installs the GrokBuild skill and hook context only; it does not package the durable ulw-loop CLI. If PATH is empty, the fallback uses shell builtins and absolute Node locations before reporting guidance, recording the failure in `.omo/ulw-loop/bootstrap-notepad.md`.
+Resolve the CLI before the first command. If `omo` is absent from PATH or lacks `ulw-loop`, use the OMO-owned local CLI at `~/.local/bin/omo` when present. lfg packages a durable ulw-loop CLI as `lfg ulw-loop` / `lfg ulw` (also accepts `omo ulw-loop` if present on PATH). If PATH is empty, the fallback uses shell builtins and absolute Node locations before reporting guidance, recording the failure in `.omo/ulw-loop/bootstrap-notepad.md`.
 ```sh
 GROK_HOME="${GROK_HOME:-$HOME/.grok}"
 ULW_LOOP_NODE="$(command -v node 2>/dev/null || true)"
@@ -90,12 +90,15 @@ if [ -z "$ULW_LOOP_NODE" ]; then
 fi
 
 ULW_LOOP_CLI=
-if command -v omo >/dev/null 2>&1 && omo ulw-loop help >/dev/null 2>&1; then
+if command -v lfg >/dev/null 2>&1 && lfg ulw-loop help >/dev/null 2>&1; then
+  ULW_LOOP_CLI=lfg
+elif command -v omo >/dev/null 2>&1 && omo ulw-loop help >/dev/null 2>&1; then
   ULW_LOOP_CLI=omo
 elif [ -n "$ULW_LOOP_NODE" ]; then
-  for candidate in "$HOME/.local/bin/omo"; do
+  for candidate in "$(command -v lfg 2>/dev/null)" "$HOME/.local/bin/omo"; do
+    [ -n "$candidate" ] || continue
     [ -f "$candidate" ] || [ -x "$candidate" ] || continue
-    if "$ULW_LOOP_NODE" "$candidate" ulw-loop help >/dev/null 2>&1; then
+    if "$ULW_LOOP_NODE" "$candidate" ulw-loop help >/dev/null 2>&1 || "$candidate" ulw-loop help >/dev/null 2>&1; then
       ULW_LOOP_CLI="$candidate"
       break
     fi
@@ -110,7 +113,7 @@ if [ -z "${ULW_LOOP_CLI:-}" ]; then
   /bin/mkdir -p .omo/ulw-loop 2>/dev/null || mkdir -p .omo/ulw-loop 2>/dev/null || true
   NOTE="${NOTE:-.omo/ulw-loop/bootstrap-notepad.md}"
   printf '%s\n' "No ulw-loop-capable omo executable found; PATH omo may be the OpenCode CLI without the Codex ulw-loop subcommand, and no upstream OMO ulw-loop CLI was found at $HOME/.local/bin/omo." >> "$NOTE" 2>/dev/null || true
-  printf '%s\n' "Install the upstream OMO ulw-loop CLI in PATH or at ~/.local/bin/omo. lfg setup installs the GrokBuild skill and hook context only; it does not package the durable ulw-loop CLI." >&2
+  printf '%s\n' "Use `lfg ulw-loop` (or `lfg ulw`). If PATH lacks lfg, run via the package bin after install (`npx @islee23520/lfg ulw-loop help`)." >&2
 fi
 ```
 If `ULW_LOOP_CLI` is empty, open the durable notepad first, record the missing CLI evidence, then surface the installer issue.

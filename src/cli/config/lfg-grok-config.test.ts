@@ -120,8 +120,9 @@ describe("lfg Grok config persistence", () => {
       expect(section(config, "omo.agents.reasoning")).toContain('reasoning_level = "high"')
       expect(section(config, "omo.agents.coding")).toContain('model = "grok-4.20-0309-non-reasoning"')
       expect(section(config, "omo.agents.coding")).toContain('reasoning_level = "high"')
-      expect(section(config, "omo.agents.metis")).toContain('model = "gpt-5.5"')
-      expect(section(config, "omo.agents.momus")).toContain('model = "gpt-5.5"')
+      expect(section(config, "omo.agents.metis")).toContain('model = "grok-4.20-0309-reasoning"')
+      expect(section(config, "omo.agents.metis")).toContain('model_fallback = "gpt-5.5"')
+      expect(section(config, "omo.agents.momus")).toContain('model = "grok-4.20-0309-reasoning"')
     })
   })
 

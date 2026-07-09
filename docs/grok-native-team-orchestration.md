@@ -1,6 +1,7 @@
-# Grok-Native Team Orchestration (Decision-Complete Design + MVP Ledger)
+# Grok-Native Team Orchestration (Decision-Complete Design)
 
-**Status:** Decision-Complete (checkbox 4) + MVP ledger implemented for checkbox 5 (2026-07-09). `teammode` inventory status **remains Deferred** per AGENTS.md rules (MVP ledger shipped; no full behavioral port claimed; host spawn_subagent not fully simulated in unit test).  
+**Status:** Decision-Complete (2026-07-09) for checkbox 4; MVP ledger implemented for checkbox 5. `teammode` inventory status **remains Deferred** per AGENTS.md rules (MVP ledger shipped; no full behavioral port claimed; host spawn_subagent not fully simulated in unit test).  
+`teammode` inventory status **remains Deferred** and MUST NOT be flipped to `Grok-adapted` until a full Grok-native runtime surface is implemented and verified.
 **Complements:** [`docs/grok-orchestration-plane.md`](grok-orchestration-plane.md), [`docs/grok-adapter-parity.md`](grok-adapter-parity.md), upstream [`packages/team-core`](https://github.com/code-yeongyu/oh-my-openagent/tree/main/packages/team-core) and `omo-senpi` team-service patterns, [`skills/teammode/SKILL.md`](../skills/teammode/SKILL.md), `src/core/lfg/team-ledger.ts`
 
 This document records the **Grok-native mapping** for team orchestration. Checkbox 4 (design) + checkbox 5 (minimal usable Grok-native team surface MVP ledger: durable JSON under .omo/teams, TS module with create/add/record-spawn/append-message/list/status/shutdown, skill guidance update, tests with temp dirs proving sequence + fail-closed) are complete. `teammode` stays Deferred; no inventory flip. Evidence in `.omo/evidence/task-5-lfg-next-release-app-server-epic.txt`. Commit: `feat(team): Grok-native team orchestration MVP`.

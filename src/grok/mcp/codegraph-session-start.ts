@@ -143,10 +143,10 @@ async function resolveOrProvision(args: {
     }
     return { kind: "resolved", command: resolved.command, argsPrefix: resolved.argsPrefix, source: resolved.source }
   }
-  if (!args.nodeSupport.supported) return { kind: "unsupported-node" }
   if (args.config.auto_provision === false) {
     return { error: "codegraph binary unavailable and auto_provision is disabled", kind: "unavailable", source: resolved.source }
   }
+  if (!args.nodeSupport.supported) return { kind: "unsupported-node" }
 
   const installDir = args.config.install_dir ?? join(args.homeDir, ".omo", "codegraph")
   const provisioned = await args.ensureProvisioned({ installDir, lockDir: join(installDir, "locks"), version: CODEGRAPH_VERSION })

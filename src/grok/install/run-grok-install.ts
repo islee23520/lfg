@@ -11,6 +11,7 @@ import {
   writeOmoAgentOverridesFile,
   type LazycodexAgentModelOverride,
 } from "../agents/lazycodex-agent-overrides"
+import { migrateLegacyUserOverrideConfig } from "../agents/user-model-overrides"
 import { resolveGlobalLazycodexAgentConfig } from "./resolve-global-agent-config"
 import { resolveGrokAdapterPluginRoot } from "../payload/grok-adapter-paths"
 import { overlayLfgComponentShims } from "../payload/install"
@@ -58,6 +59,7 @@ export async function runGrokInstall(
   const home = resolveGrokSetupHome(env)
   const codingToolAdapter = options.codingToolAdapter ?? DEFAULT_CODING_TOOL_ADAPTER
   const homeEnv = { ...env, HOME: home }
+  migrateLegacyUserOverrideConfig({ home })
   const apiKey = await resolveGrokApiKey(homeEnv)
   if (options.installOnly === true) {
     const internalEnv = {

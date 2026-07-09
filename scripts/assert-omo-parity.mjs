@@ -150,7 +150,7 @@ async function assertSkillRoot(root) {
     "## GrokBuild `/goal` state",
     "Do not call Codex-only goal tools such as `get_goal`, `create_goal`, `update_goal`, or `update_plan`",
     "in GrokBuild this is `todo_write`, not `update_plan`",
-    "does not package the durable ulw-loop CLI",
+    "Use `lfg ulw-loop` (or `lfg ulw`)",
   ])
   await assertTextExcludes(join(root, "ulw-loop", "references", "full-workflow.md"), [
     "components/ulw-loop/dist/cli.js",

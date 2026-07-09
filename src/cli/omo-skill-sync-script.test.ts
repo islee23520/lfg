@@ -55,7 +55,7 @@ describe("sync-omo-skills-to-grok", () => {
       await expect(readFile(join(target, "ulw-loop", "references", "full-workflow.md"), "utf8")).resolves.toContain("## Execution Loop")
       await expect(readFile(join(target, "ulw-loop", "references", "full-workflow.md"), "utf8")).resolves.toContain("GROK_HOME")
       await expect(readFile(join(target, "ulw-loop", "references", "full-workflow.md"), "utf8")).resolves.not.toContain("CODEX_HOME")
-      await expect(readFile(join(target, "ulw-loop", "references", "full-workflow.md"), "utf8")).resolves.toContain("does not package the durable ulw-loop CLI")
+      await expect(readFile(join(target, "ulw-loop", "references", "full-workflow.md"), "utf8")).resolves.toContain("Use `lfg ulw-loop` (or `lfg ulw`)")
       await expect(readFile(join(target, "ulw-loop", "references", "full-workflow.md"), "utf8")).resolves.not.toContain("components/ulw-loop/dist/cli.js")
       await expect(readFile(join(target, "ulw-loop", "references", "full-workflow.md"), "utf8")).resolves.not.toContain("lfg-native-ultrawork.js")
       await expect(readFile(join(target, "start-work", "SKILL.md"), "utf8")).resolves.toContain("Boulder state")

@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>lfg는 어떻게 동작하는가? — Architecture Map</title>
+<style>
+  :root {
+    --bg: #0a0f1c;
+    --panel: #121a2e;
+    --panel2: #18233d;
+    --line: #2a3a5f;
+    --text: #eef3ff;
+    --muted: #a8b7d6;
+    --soft: #7e91b5;
+    --blue: #6aa6ff;
+    --teal: #3ad7c5;
+    --amber: #f2b84b;
+    --pink: #ff7f9a;
+    --purple: #c59bff;
+    --green: #49d98d;
+    --shadow: 0 14px 40px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(900px 500px at 0% -10%, rgba(106,166,255,.16), transparent 55%),
+      radial-gradient(800px 420px at 100% 0%, rgba(58,215,197,.10), transparent 50%),
+      linear-gradient(180deg, #0a0f1c, #070b14 100%);
+    line-height: 1.6;
+  }
+  a { color: var(--teal); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 18px 72px; }
+  .hero {
+    padding: 28px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(24,35,61,.95), rgba(18,26,46,.9));
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+  }
+  .eyebrow {
+    color: var(--teal);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 8px 0 10px;
+    font-size: clamp(1.8rem, 3.4vw, 2.5rem);
+    line-height: 1.15;
+  }
+  .lead { color: var(--muted); font-size: 1.05rem; max-width: 70ch; margin: 0 0 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,.03);
+    border-radius: 999px;
+    padding: 6px 11px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .chip b { color: var(--text); }
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 16px 0 22px;
+  }
+  nav a {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  nav a:hover { border-color: var(--blue); text-decoration: none; }
+  section {
+    margin-bottom: 18px;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(18,26,46,.82);
+    box-shadow: var(--shadow);
+  }
+  h2 { margin: 0 0 8px; font-size: 1.28rem; }
+  h3 { margin: 0 0 8px; font-size: 1rem; }
+  .muted { color: var(--muted); }
+  .soft { color: var(--soft); font-size: .92rem; }
+  .path, code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .88em;
+    color: #c9dbff;
+    background: rgba(0,0,0,.28);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 1px 6px;
+  }
+  pre {
+    margin: 10px 0 0;
+    padding: 14px;
+    overflow: auto;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: #0b1222;
+    color: #d7e4ff;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  @media (max-width: 860px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .card p, .card li { color: var(--muted); font-size: .94rem; }
+  .card ul { margin: 8px 0 0; padding-left: 18px; }
+  .callout {
+    margin-top: 12px;
+    border-left: 3px solid var(--teal);
+    background: rgba(58,215,197,.08);
+    border-radius: 0 10px 10px 0;
+    padding: 12px 14px;
+    color: var(--muted);
+  }
+  .callout b { color: var(--text); }
+  .warn {
+    border-left-color: var(--amber);
+    background: rgba(242,184,75,.08);
+  }
+  .diagram {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #0c1324;
+    padding: 14px;
+  }
+  svg { width: 100%; min-width: 820px; height: auto; display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    color: var(--soft);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .b-yes { background: var(--green); color: #062214; }
+  .b-part { background: var(--amber); color: #2f2100; }
+  .b-no { background: var(--pink); color: #3a0a14; }
+  .b-later { background: var(--purple); color: #220a3d; }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  @media (max-width: 900px) { .steps { grid-template-columns: 1fr; } }
+  .step {
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .step .n {
+    display: inline-grid;
+    place-items: center;
+    width: 24px; height: 24px;
+    border-radius: 999px;
+    background: var(--blue);
+    color: #041018;
+    font-size: 12px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .role {
+    display: grid;
+    grid-template-columns: 76px 1fr;
+    gap: 12px;
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .orb {
+    width: 76px; height: 76px; border-radius: 18px;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 900; text-align: center;
+    color: #071018; line-height: 1.15; padding: 6px;
+  }
+  .o1 { background: linear-gradient(145deg, #6aa6ff, #9ec4ff); }
+  .o2 { background: linear-gradient(145deg, #ff8f6b, #ffc08a); }
+  .o3 { background: linear-gradient(145deg, #3ad7c5, #7ef0cf); }
+  .o4 { background: linear-gradient(145deg, #c59bff, #efc2ff); }
+  .o5 { background: linear-gradient(145deg, #f2b84b, #ffe08a); }
+  .o6 { background: linear-gradient(145deg, #ff7f9a, #ffc0cb); }
+  .timeline { display: grid; gap: 10px; }
+  .tl {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 12px;
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .when { color: var(--teal); font-weight: 800; font-size: .88rem; }
+  footer {
+    margin-top: 8px;
+    text-align: center;
+    color: var(--soft);
+    font-size: 12px;
+  }
+  .mini {
+    display: grid;
+    grid-template-columns: 1.1fr .9fr;
+    gap: 12px;
+  }
+  @media (max-width: 860px) { .mini { grid-template-columns: 1fr; } }
+  ol.plain { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+  ol.plain li { margin: 4px 0; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="eyebrow">Beginner map · @islee23520/lfg</div>
+      <h1>lfg는 어떻게 동작하는가?</h1>
+      <p class="lead">
+        이 문서는 코드를 모르는 상태에서도 “이 프로젝트가 무엇을 하고, 어디가 핵심이고,
+        지금은 어디로 가고 있는지”를 한 번에 잡기 위한 지도입니다.
+      </p>
+      <div class="chips">
+        <span class="chip"><b>한 줄 정의</b> OmO/lazycodex를 GrokBuild에 이식하는 설치기</span>
+        <span class="chip"><b>주의</b> deep OMO↔Grok gap study 미완 · multi-model harness study 필요 · 섹션 10–12</span>
+        <span class="chip"><b>메인 명령</b> npx @islee23520/lfg setup</span>
+        <span class="chip"><b>결과물</b> ~/.grok/plugins/lfg</span>
+        <span class="chip"><b>기본 모델</b> grok-4.5 · high</span>
+      </div>
+    </header>
+
+    <nav>
+      <a href="#eli5">30초 설명</a>
+      <a href="#problem">왜 필요한가</a>
+      <a href="#flow">실행 흐름</a>
+      <a href="#folders">폴더 지도</a>
+      <a href="#roles">역할 캐스트</a>
+      <a href="#runtime">설치 후 동작</a>
+      <a href="#status">지금 어디까지</a>
+      <a href="#heading">어디로 가는가</a>
+      <a href="#gaps">Grok 부족분 / 미분석</a>
+      <a href="#multimodel">Grok-centric multi-model</a>
+      <a href="#multimodal">Multimodal support</a>
+      <a href="#providers">Multi-provider on Grok</a>
+      <a href="#study-gateway">연구 게이트웨이</a>
+      <a href="#next">다음에 볼 것</a>
+    </nav>
+
+    <!-- 1 -->
+    <section id="eli5">
+      <h2>1. 30초 설명</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>lfg가 하는 일</h3>
+          <p>
+            Grok(GrokBuild) 안에 OmO 스타일 에이전트 시스템(계획 → 실행 → 리뷰, 규칙, 스킬, 훅)을
+            <b>설치하고 동기화</b>합니다.
+          </p>
+          <p>
+            즉 lfg는 “채팅 앱”이 아니라, Grok가 OmO처럼 일하게 만드는
+            <b>어댑터 + 설치 CLI</b>입니다.
+          </p>
+        </div>
+        <div class="card">
+          <h3>한 문장으로</h3>
+          <pre>user
+  → lfg setup
+  → ~/.grok 에 plugin/agents/hooks/config 기록
+  → Grok 세션이 그 설정으로 OmO 루프 실행</pre>
+        </div>
+      </div>
+      <div class="callout">
+        <b>중요:</b> npm 패키지 자체는 Grok 플러그인 객체로 보고되지 않습니다
+        (<code>lfgIsPlugin: false</code>. 대신 <code>setup --run</code>이 실제 플러그인 트리를
+        <code>~/.grok/plugins/lfg</code>에 만듭니다.
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="problem">
+      <h2>2. 왜 이 프로젝트가 있나</h2>
+      <div class="grid-3">
+        <div class="card">
+          <h3>Upstream (OMO)</h3>
+          <p>OpenCode OmO / lazycodex는 스킬·코어·훅·에이전트 역할이 있는 에이전트 시스템입니다.</p>
+          <p class="soft">원래 홈: OpenCode / Codex 쪽 호스트</p>
+        </div>
+        <div class="card">
+          <h3>Target (GrokBuild)</h3>
+          <p>Grok CLI/호스트는 다른 훅·서브에이전트·설정 표면을 가집니다.</p>
+          <p class="soft">그대로 복붙하면 안 돌아감</p>
+        </div>
+        <div class="card">
+          <h3>lfg의 역할</h3>
+          <p>호스트 중립 코어는 가져오고, Grok 전용 설치/훅/에이전트 연결을 직접 소유합니다.</p>
+          <p class="soft">port + adapter + installer</p>
+        </div>
+      </div>
+      <div class="callout warn">
+        <b>전략 한 줄:</b> <code>omo-codex</code>는 포장 참고, <code>omo-opencode</code>는 아키텍처 참고,
+        실제 행동 소스는 공유 <code>*-core</code> + lfg의 Grok glue.
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="flow">
+      <h2>3. 실행 흐름 (가장 중요)</h2>
+      <p class="muted">사용자가 실제로 보는 경로부터 코드 경로까지.</p>
+
+      <div class="steps" style="margin: 14px 0;">
+        <div class="step"><div class="n">1</div><b>명령</b><div class="soft">npx @islee23520/lfg setup</div></div>
+        <div class="step"><div class="n">2</div><b>CLI 라우팅</b><div class="soft">src/cli/command/lfg.ts</div></div>
+        <div class="step"><div class="n">3</div><b>설치 오케스트레이션</b><div class="soft">lfg-installer.ts</div></div>
+        <div class="step"><div class="n">4</div><b>단일 트랜잭션</b><div class="soft">runGrokInstall()</div></div>
+        <div class="step"><div class="n">5</div><b>홈 기록</b><div class="soft">~/.grok/* 동기화</div></div>
+      </div>
+
+      <div class="diagram" aria-label="install flow diagram">
+        <svg viewBox="0 0 1040 420" role="img">
+          <defs>
+            <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill="#8ab4ff"/>
+            </marker>
+          </defs>
+
+          <rect x="30" y="30" width="200" height="70" rx="14" fill="#18233d" stroke="#2a3a5f"/>
+          <text x="130" y="60" text-anchor="middle" fill="#eef3ff" font-size="15" font-weight="700">You</text>
+          <text x="130" y="80" text-anchor="middle" fill="#a8b7d6" font-size="12">setup / setup --run</text>
+
+          <rect x="280" y="30" width="220" height="70" rx="14" fill="#18233d" stroke="#6aa6ff"/>
+          <text x="390" y="58" text-anchor="middle" fill="#eef3ff" font-size="15" font-weight="700">lfg CLI</text>
+          <text x="390" y="78" text-anchor="middle" fill="#a8b7d6" font-size="12">bin → dist/lfg.js</text>
+
+          <rect x="550" y="30" width="220" height="70" rx="14" fill="#18233d" stroke="#3ad7c5"/>
+          <text x="660" y="58" text-anchor="middle" fill="#eef3ff" font-size="15" font-weight="700">runGrokInstall</text>
+          <text x="660" y="78" text-anchor="middle" fill="#a8b7d6" font-size="12">single transaction</text>
+
+          <rect x="820" y="30" width="190" height="70" rx="14" fill="#18233d" stroke="#f2b84b"/>
+          <text x="915" y="58" text-anchor="middle" fill="#eef3ff" font-size="15" font-weight="700">~/.grok</text>
+          <text x="915" y="78" text-anchor="middle" fill="#a8b7d6" font-size="12">plugin + config</text>
+
+          <line x1="230" y1="65" x2="280" y2="65" stroke="#8ab4ff" stroke-width="2" marker-end="url(#a)"/>
+          <line x1="500" y1="65" x2="550" y2="65" stroke="#8ab4ff" stroke-width="2" marker-end="url(#a)"/>
+          <line x1="770" y1="65" x2="820" y2="65" stroke="#8ab4ff" stroke-width="2" marker-end="url(#a)"/>
+
+          <!-- bottom boxes -->
+          <rect x="30" y="150" width="300" height="230" rx="16" fill="#121a2e" stroke="#2a3a5f"/>
+          <text x="180" y="182" text-anchor="middle" fill="#3ad7c5" font-size="14" font-weight="700">Writes</text>
+          <text x="50" y="215" fill="#a8b7d6" font-size="13">plugins/lfg  (payload)</text>
+          <text x="50" y="240" fill="#a8b7d6" font-size="13">hooks/lfg-hooks.json</text>
+          <text x="50" y="265" fill="#a8b7d6" font-size="13">config.toml sections</text>
+          <text x="50" y="290" fill="#a8b7d6" font-size="13">agents/*.toml</text>
+          <text x="50" y="315" fill="#a8b7d6" font-size="13">prompts/omo/*</text>
+          <text x="50" y="340" fill="#a8b7d6" font-size="13">skills + MCP runtimes</text>
+          <text x="50" y="360" fill="#7e91b5" font-size="12">(+ ~/.omo/codegraph binary)</text>
+
+          <rect x="370" y="150" width="300" height="230" rx="16" fill="#121a2e" stroke="#2a3a5f"/>
+          <text x="520" y="182" text-anchor="middle" fill="#6aa6ff" font-size="14" font-weight="700">Source layers</text>
+          <text x="390" y="215" fill="#a8b7d6" font-size="13">src/cli  ·  command/contracts</text>
+          <text x="390" y="240" fill="#a8b7d6" font-size="13">src/grok · install/hooks/agents</text>
+          <text x="390" y="265" fill="#a8b7d6" font-size="13">src/core/omo · host-neutral</text>
+          <text x="390" y="290" fill="#a8b7d6" font-size="13">skills/ · managed skill trees</text>
+          <text x="390" y="315" fill="#a8b7d6" font-size="13">docs/ · tested contracts</text>
+          <text x="390" y="345" fill="#7e91b5" font-size="12">dist/ is generated, do not edit</text>
+
+          <rect x="710" y="150" width="300" height="230" rx="16" fill="#121a2e" stroke="#2a3a5f"/>
+          <text x="860" y="182" text-anchor="middle" fill="#f2b84b" font-size="14" font-weight="700">After install</text>
+          <text x="730" y="215" fill="#a8b7d6" font-size="13">Grok starts a session</text>
+          <text x="730" y="240" fill="#a8b7d6" font-size="13">hooks fire (rules/ultrawork…)</text>
+          <text x="730" y="265" fill="#a8b7d6" font-size="13">agents/skills guide behavior</text>
+          <text x="730" y="290" fill="#a8b7d6" font-size="13">Sisyphus routes work</text>
+          <text x="730" y="315" fill="#a8b7d6" font-size="13">Hephaestus executes</text>
+          <text x="730" y="340" fill="#a8b7d6" font-size="13">review/plan skills close loop</text>
+        </svg>
+      </div>
+
+      <pre style="margin-top:14px"># 사람이 실제로 치는 명령
+npx @islee23520/lfg setup              # 대화형 설치
+npx @islee23520/lfg --json setup       # 계획만 보기(비변경)
+npx @islee23520/lfg --json setup --run # 실제 설치 + JSON 결과
+npx @islee23520/lfg setup --run --force# 강제 재설치</pre>
+    </section>
+
+    <!-- 4 -->
+    <section id="folders">
+      <h2>4. 폴더 지도 (코드를 열 때 여기부터)</h2>
+      <div class="mini">
+        <div>
+          <table>
+            <thead>
+              <tr><th>경로</th><th>역할</th><th>언제 보나</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>bin/lfg.js</code></td>
+                <td>npm bin 진입점</td>
+                <td>명령이 안 될 때</td>
+              </tr>
+              <tr>
+                <td><code>src/cli/</code></td>
+                <td>CLI 라우팅, JSON 계약, config writer, setup TUI</td>
+                <td>명령/출력/설정 문제</td>
+              </tr>
+              <tr>
+                <td><code>src/grok/</code></td>
+                <td>설치 엔진, 훅, 에이전트 동기화, MCP</td>
+                <td>설치 결과/플러그인 문제</td>
+              </tr>
+              <tr>
+                <td><code>src/core/omo/</code></td>
+                <td>호스트 중립 코어 로직</td>
+                <td>모델/규칙/boulder 동작</td>
+              </tr>
+              <tr>
+                <td><code>skills/</code></td>
+                <td>배포되는 스킬 트리</td>
+                <td>에이전트 행동 프로토콜</td>
+              </tr>
+              <tr>
+                <td><code>docs/</code></td>
+                <td>ADR / 패리티 / 오케스트레이션 문서</td>
+                <td>설계 의도 확인</td>
+              </tr>
+              <tr>
+                <td><code>dist/</code></td>
+                <td>빌드 산출물</td>
+                <td>직접 수정 금지</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>3층 구조만 기억하면 됨</h3>
+          <ol class="plain">
+            <li><b>core</b> = 행동 규칙 (호스트 모름)</li>
+            <li><b>grok</b> = Grok에 꽂는 어댑터/설치</li>
+            <li><b>cli</b> = 사용자 명령과 계약</li>
+          </ol>
+          <div class="callout">
+            <b>비유:</b> core는 엔진, grok는 차량 장착 키트, cli는 키와 계기판.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="roles">
+      <h2>5. 역할 캐스트 (누가 무엇을 하나)</h2>
+      <p class="muted">설치 후 Grok 안에서 움직이는 “배역”입니다. 전부 같은 모델일 수 있지만 역할이 다릅니다.</p>
+      <div class="grid-2" style="margin-top:12px">
+        <div class="role">
+          <div class="orb o1">SISY<br/>PHUS</div>
+          <div>
+            <h3>Sisyphus · 기본 지휘자</h3>
+            <p class="muted" style="margin:0">의도 파악, 작업 분해, 누구에게 시킬지 결정. 기본 에이전트. 현재 추천 경로: <b>grok-4.5 · high</b>.</p>
+          </div>
+        </div>
+        <div class="role">
+          <div class="orb o2">HEPH<br/>AESTUS</div>
+          <div>
+            <h3>Hephaestus · 실행자</h3>
+            <p class="muted" style="margin:0">실제 코드 수정, 빌드/런타임 고치기, 무거운 검증. “손으로 하는 일”의 담당.</p>
+          </div>
+        </div>
+        <div class="role">
+          <div class="orb o3">PROME<br/>THEUS</div>
+          <div>
+            <h3>Prometheus · 플래너</h3>
+            <p class="muted" style="margin:0"><code>ulw-plan</code>으로 실행 가능한 계획 작성. 모호하면 질문하고, 결정 완료 플랜을 남김.</p>
+          </div>
+        </div>
+        <div class="role">
+          <div class="orb o4">ATLAS</div>
+          <div>
+            <h3>Atlas · 할 일 오케스트레이터</h3>
+            <p class="muted" style="margin:0">여러 단계/할 일 목록을 추적하며 진행을 묶음.</p>
+          </div>
+        </div>
+        <div class="role">
+          <div class="orb o5">METIS</div>
+          <div>
+            <h3>Metis · 계획 자문</h3>
+            <p class="muted" style="margin:0">계획 단계에서 빠진 결정/리스크를 짚는 컨설턴트.</p>
+          </div>
+        </div>
+        <div class="role">
+          <div class="orb o6">MOMUS</div>
+          <div>
+            <h3>Momus · 계획 심사관</h3>
+            <p class="muted" style="margin:0">플랜이 실행 가능한지 심사. REQUEST_CHANGES를 던질 수 있음.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:12px">
+        <b>기본 루프:</b>
+        Prometheus가 계획 → Momus가 심사 → Sisyphus가 실행 지휘 → Hephaestus가 구현 → review-work가 검증.
+      </div>
+
+      <pre>ulw-plan  →  .omo/plans/*.md
+start-work → boulder + evidence + spawn workers
+review-work → 병렬 리뷰 레인
+craft skills → programming / frontend / debugging ...</pre>
+    </section>
+
+    <!-- 6 -->
+    <section id="runtime">
+      <h2>6. 설치 후 Grok에서 실제로 도는 것</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>항상 도는 축</h3>
+          <ul>
+            <li><b>Hooks</b> — rules, ultrawork, sisyphus guidance</li>
+            <li><b>Agents/prompts</b> — 역할 프롬프트</li>
+            <li><b>Skills</b> — 작업 프로토콜 (ulw-plan, start-work…)</li>
+            <li><b>spawn_subagent</b> — 서브에이전트 분기</li>
+            <li><b>boulder-state</b> — 진행 상태/연속성 힌트</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>있다고 착각하기 쉬운 것</h3>
+          <ul>
+            <li><span class="badge b-no">NO</span> Codex app-server를 lfg 런타임 의존으로 쓰지 않음</li>
+            <li><span class="badge b-later">DEFERRED</span> codex_app 기반 teammode 완전 이식</li>
+            <li><span class="badge b-part">PARTIAL</span> continuation / verifier MVP</li>
+            <li><span class="badge b-part">MANIFEST</span> 일부 MCP는 모양만 있는 stub</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout warn">
+        <b>정직성 규칙:</b> 파일이 설치되어 있다고 해서 “동작 이식 완료”라고 말하지 않습니다.
+        상태가 <code>Grok-adapted</code>가 되려면 실제 훅/툴 행동 + 검증이 필요합니다.
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="github-roadmap">
+      <h2>15. GitHub roadmap (re-registered after ULW study)</h2>
+      <p class="muted">Old open roadmap issues were closed and re-filed as epics + gateways + sub-issues.</p>
+      <ul class="muted">
+        <li>Umbrella: <a href="https://github.com/islee23520/lfg/issues/62">#62</a></li>
+        <li>Epics: #63 skill-matrix · #64 multi-model/provider · #65 multimodal · #66 guardrails · #67 deferred host-gaps · #68 gateway</li>
+        <li>Gateways: #69–#74 (+ #96 ops)</li>
+        <li>Local index: <code>.omo/issue-drafts/20260709-ulw-reregistered-roadmap.md</code></li>
+        <li>Real acceptance SSOT: <code>docs/architecture/ulw-quality-gateway.md</code> (G0–G5 PASS/FAIL/WAIVED)</li>
+      </ul>
+    </section>
+
+    <section id="status">
+      <h2>7. 지금 어디까지 왔나</h2>
+      <div class="grid-3">
+        <div class="card">
+          <h3><span class="badge b-yes">SHIPPED</span> 기반</h3>
+          <ul>
+            <li>설치/설정/훅/에이전트 동기화</li>
+            <li>codegraph, rules, model-core</li>
+            <li>prompts / boulder / delegate 일부</li>
+            <li>comment-checker / ast-grep / lsp MCP 적응</li>
+            <li>기본 모델 grok-4.5 high</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3><span class="badge b-part">NOW</span> 연구 트레인</h3>
+          <ul>
+            <li>Feature matrix v0.1</li>
+            <li>Momus 리뷰 + 오너 결정 잠금</li>
+            <li>Depth=D / residual / verified.json 계약</li>
+            <li>F1 스킬 도씨 작성 직전</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3><span class="badge b-later">LATER</span> 구현 후보</h3>
+          <ul>
+            <li>matrix에 증명된 행만 구현</li>
+            <li>team / continuation / review 심화</li>
+            <li>host seam 재감사 후 릴리즈 플랜 재작성</li>
+            <li>npm publish는 별도 승인</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="heading">
+      <h2>8. 어디로 가는가</h2>
+      <div class="timeline">
+        <div class="tl">
+          <div class="when">과거</div>
+          <div>
+            <b>설치 패리티 중심</b>
+            <div class="muted">Grok 홈에 OmO 표면을 올리는 것, 코어 이식, 훅/에이전트/MCP 정직성 확보.</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">현재</div>
+          <div>
+            <b>스킬 프로토콜 지도 만들기</b>
+            <div class="muted">
+              “app-server를 가져오면 된다”가 아니라,
+              <b>ulw-plan → start-work → review-work</b> 같은 제품 루프의 핵심 로직을 매트릭스로 먼저 파고듦.
+            </div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">다음</div>
+          <div>
+            <b>증명된 행만 다음 릴리즈</b>
+            <div class="muted">
+              F1 도씨가 Depth를 채우면, 그걸 인용한 새 릴리즈 플랜을 쓰고 구현합니다.
+              실험적 team/continuation 스파이크는 증명 전에는 상태 승격 금지.
+            </div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">안 가는 길</div>
+          <div>
+            <b>가짜 패리티 / app-server 종속</b>
+            <div class="muted">파일만 복사하고 Grok-adapted라고 주장하지 않음. Codex app-server를 lfg 런타임 필수로 넣지 않음.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- GAPS -->
+    <section id="gaps">
+      <h2>10. Grok에 뭐가 부족한가? / 아직 깊게 안 본 것</h2>
+      <p class="muted">
+        이 섹션이 질문의 핵심입니다. 아래는 “이미 문서에 있는 알려진 갭”과
+        “아직 깊게 분석되지 않아서 비교 연구가 더 필요한 것”을 분리합니다.
+      </p>
+
+      <div class="callout warn">
+        <b>정직한 답:</b> 이전 버전의 이 HTML은 입문 지도였고,
+        <u>upstream OMO 전체 대비 깊은 비교 연구 결과물이 아니었습니다</u>.
+        지금 이 섹션은 현재 SSOT(패리티/오케스트레이션/매트릭스/플랜)에서 끌어온
+        <b>중간 상태 지도</b>입니다. F1 skill dossiers (Depth=D)는 아직 없습니다.
+      </div>
+
+      <h3 style="margin-top:18px">A. 이미 알려진 Grok/host 부족분 (분석됨 · 구현 차단 요인)</h3>
+      <p class="soft">출처: docs/grok-orchestration-plane.md, docs/grok-adapter-parity.md, AGENTS.md, FEATURE-MATRIX</p>
+      <table>
+        <thead>
+          <tr>
+            <th>부족한 것</th>
+            <th>Upstream OMO에 있는 것</th>
+            <th>Grok/lfg 현재</th>
+            <th>영향</th>
+            <th>깊이</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>codex_app durable team threads</b></td>
+            <td>teammode 멤버를 데스크톱 스레드로 생성/유지</td>
+            <td>없음. ledger MVP(<code>.omo/teams</code>)만 실험</td>
+            <td>teammode 완전 이식 불가 → Deferred</td>
+            <td>M (갭은 명확, 포트 경로 미확정)</td>
+          </tr>
+          <tr>
+            <td><b>Stop / SubagentStop reinject</b></td>
+            <td>start-work-continuation, executor-verify가 Stop 훅으로 상태 재주입</td>
+            <td>boulder helper + Sisyphus guidance partial; durable CLI 미패키징</td>
+            <td>장시간 start-work 연속성 약함</td>
+            <td>M→D 필요</td>
+          </tr>
+          <tr>
+            <td><b>multi_agent mailbox/wait 완전 등가</b></td>
+            <td>Codex multi_agent_v1 spawn/wait/close/mailbox</td>
+            <td>spawn_subagent 매핑 partial</td>
+            <td>review-work / research swarm 대기·집계 약함</td>
+            <td>M</td>
+          </tr>
+          <tr>
+            <td><b>OpenCode chat transforms</b></td>
+            <td>system/messages transform, chat.params</td>
+            <td>동등 surface 없음 (SessionStart static 조립 우회)</td>
+            <td>턴 단위 프롬프트 변이/히스토리 재작성 제한</td>
+            <td>S/M (갭 자체는 문서화됨)</td>
+          </tr>
+          <tr>
+            <td><b>app-server control plane</b></td>
+            <td>codex app-server QA / senpi RPC 계열</td>
+            <td>lfg 런타임 의존 아님 (의도적)</td>
+            <td>제품 경로 아님; 혼동 금지</td>
+            <td>M (의도적 non-goal)</td>
+          </tr>
+          <tr>
+            <td><b>일부 MCP 행동</b></td>
+            <td>git-bash 실동작, lsp 자동 reinject 등</td>
+            <td>git-bash Manifest-only; lsp MCP는 있으나 lifecycle reinject 미주장</td>
+            <td>컴포넌트 패리티 미완</td>
+            <td>S~M</td>
+          </tr>
+          <tr>
+            <td><b>team-core 패키지 자체</b></td>
+            <td>upstream packages/team-core</td>
+            <td>lfg src/core/omo에 없음 (ledger helper만)</td>
+            <td>팀 상태 SSOT 미정</td>
+            <td>M</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style="margin-top:20px">B. “아직 깊게 분석 안 된 것” (비교 연구가 더 필요)</h3>
+      <p class="soft">여기가 사용자가 말한 deep comparison study의 미완료 영역입니다. 매트릭스 Depth가 대부분 S/M이고, F1 dossiers + verified.json이 없음.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>영역</th>
+            <th>왜 아직 부족한가</th>
+            <th>끝나야 하는 산출물</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>F1.1 ulw-plan</b></td>
+            <td>references/* 전체 step → Grok tool 매핑, scaffold 실증명 부족</td>
+            <td>dossier + verified.json Depth=D</td>
+            <td><span class="badge b-later">NOT DEEP YET</span></td>
+          </tr>
+          <tr>
+            <td><b>F1.2 start-work</b></td>
+            <td>phase graph vs Grok /goal, Stop reinject substitute 상세 미완</td>
+            <td>dossier + continuation interface 표</td>
+            <td><span class="badge b-later">NOT DEEP YET</span></td>
+          </tr>
+          <tr>
+            <td><b>F1.3 review-work</b></td>
+            <td>5-lane → Grok agent_type, wait/mailbox 등가 미증명</td>
+            <td>lane matrix + wait semantics</td>
+            <td><span class="badge b-later">NOT DEEP YET</span></td>
+          </tr>
+          <tr>
+            <td><b>F1.4 ulw-loop</b></td>
+            <td>component CLI ~30 파일 표면 인벤토리 D 필요</td>
+            <td>CLI command graph dossier</td>
+            <td><span class="badge b-later">NOT DEEP YET</span></td>
+          </tr>
+          <tr>
+            <td><b>F1.5 ultrawork</b></td>
+            <td>prompt variant × model family 전체 표 미완</td>
+            <td>prompts-core ultrawork export graph</td>
+            <td><span class="badge b-part">PARTIAL</span></td>
+          </tr>
+          <tr>
+            <td><b>F1.6 ultraresearch</b></td>
+            <td>OMO shared-skills vs lfg installed content drift 미확정</td>
+            <td>drift report + EXPAND protocol map</td>
+            <td><span class="badge b-later">NOT DEEP YET</span></td>
+          </tr>
+          <tr>
+            <td><b>F1.7 teammode</b></td>
+            <td>team-core vs codex_app scripts 중 SSOT 선택 미결</td>
+            <td>path decision + residuals</td>
+            <td><span class="badge b-part">DESIGN+MVP only</span></td>
+          </tr>
+          <tr>
+            <td><b>F3–F4 craft/intel skills</b></td>
+            <td>programming/frontend/debugging/visual-qa/ultimate-browsing 등 레퍼런스 숲 Depth D 아님</td>
+            <td>최소 residual list 후 선별 D</td>
+            <td><span class="badge b-later">INVENTORY ONLY</span></td>
+          </tr>
+          <tr>
+            <td><b>F7 host seams</b></td>
+            <td>orchestration ADR는 초안; R1 후 재감사 필요 (owner Q1)</td>
+            <td>host-seams.md re-audit</td>
+            <td><span class="badge b-part">DRAFT</span></td>
+          </tr>
+          <tr>
+            <td><b>designpowers/taste upstreams</b></td>
+            <td>foundation scope 밖 (inventory only)</td>
+            <td>residual로 명시, 이번 연구 제외</td>
+            <td><span class="badge b-no">OUT OF SCOPE NOW</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style="margin-top:20px">C. “전부 구현”에 필요한 비교 연구가 의미하는 것</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h3>지금 문서만으로 가능한 것</h3>
+          <ul>
+            <li>설치/레이어/역할 이해</li>
+            <li>호스트 갭의 큰 덩어리 식별 (team, stop reinject, transforms…)</li>
+            <li>구현하면 안 되는 가짜 패리티 경계</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>아직 이 HTML/현재 문서만으로는 부족한 것</h3>
+          <ul>
+            <li>스킬별 phase/tool/script 심층 비교표</li>
+            <li>각 OMO 코어 call-graph → Grok 대체 경로 1:1</li>
+            <li>“구현 순서 확정용” decision-complete 갭 백로그</li>
+            <li>Depth=D verified.json 증거</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:12px">
+        <b>결론:</b> Grok이 “OMO 전부”를 따라가려면 먼저
+        <code>F1 dossiers + host seam re-audit + residual-backed matrix v0.2</code>
+        비교 연구가 끝나야 합니다. 그 전에는 구현 목록을 확정할 수 없고,
+        지금 이 문서도 그 연구의 <b>입구 지도</b>이지 최종 비교 보고서가 아닙니다. multi-model 분업(Grok/GPT/Gemini)은 <a href="#multimodel">섹션 11</a>, 연구 관문은 <a href="#study-gateway">섹션 12</a>.
+      </div>
+
+      <h3 style="margin-top:18px">D. 그 연구가 쌓일 위치 (SSOT)</h3>
+      <table>
+        <thead>
+          <tr><th>산출물</th><th>경로</th><th>현재</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Feature matrix</td>
+            <td><code>.omo/ultraresearch/20260709-skill-feature-matrix/FEATURE-MATRIX.md</code></td>
+            <td>v0.1 baseline (대부분 S/M)</td>
+          </tr>
+          <tr>
+            <td>Foundation plan + Depth contract</td>
+            <td><code>.omo/plans/lfg-omo-skill-matrix-foundation.md</code></td>
+            <td>Momus patch 완료, R1 미착수</td>
+          </tr>
+          <tr>
+            <td>F1 skill dossiers</td>
+            <td><code>.omo/ultraresearch/skill-dossiers/*.md</code></td>
+            <td><b>아직 없음</b></td>
+          </tr>
+          <tr>
+            <td>Machine verification</td>
+            <td><code>.omo/evidence/skill-dossiers/*.verified.json</code></td>
+            <td><b>아직 없음</b></td>
+          </tr>
+          <tr>
+            <td>Parity / plane docs</td>
+            <td><code>docs/grok-adapter-parity.md</code>, <code>docs/grok-orchestration-plane.md</code></td>
+            <td>알려진 갭 기록, R1 후 재감사 예정</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+
+    <!-- MULTIMODEL -->
+    <section id="multimodel">
+      <h2>11. Grok-centric multi-model harness — 패리티만으로는 부족한 이유</h2>
+      <p class="muted">
+        OMO는 사실상 <b>Claude / GPT / Gemini 행동 전제</b> 위에서 설계·튜닝된 시스템이 많습니다.
+        lfg의 목표는 “파일을 그대로 복사”가 아니라,
+        <b>Grok 4.5를 오케스트레이터로 두고</b>, deep/oracle은 GPT, vision은 Gemini,
+        나중에는 Z.AI까지 붙이는 <b>Grok 중심 하니스</b>를 만드는 것입니다.
+      </p>
+
+      <div class="callout warn">
+        <b>핵심 판정:</b> 현재 OMO parity narrative는 <u>필요하지만 충분치 않습니다</u>.
+        패리티는 “어떤 컴포넌트/스킬/호스트 표면이 있는가”를 추적합니다.
+        multi-model harness는 “역할별로 어떤 모델이, 어떤 가드레일로, 어떤 프롬프트 변이로 동작해야 하는가”를 추적해야 합니다.
+        이 둘은 겹치지만 같은 축이 아닙니다.
+      </div>
+
+      <h3 style="margin-top:16px">A. 사용자가 제안한 목표 토폴로지</h3>
+      <div class="grid-3">
+        <div class="card">
+          <h3>Orchestrator · Grok 4.5</h3>
+          <ul>
+            <li>Sisyphus / default / plan lead</li>
+            <li>의도 분해, spawn 라우팅, 제약 유지</li>
+            <li>high reasoning</li>
+            <li>GrokBuild 기본 지휘권</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Deep / Oracle · GPT</h3>
+          <ul>
+            <li>oracle, deep review, hard reasoning</li>
+            <li>Hephaestus heavy impl 후보 또는 second opinion</li>
+            <li>OMO가 원래 강한 Claude/GPT 습관을 대체/보완</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Vision · Gemini (later Z.AI)</h3>
+          <ul>
+            <li>multimodal-looker / visual-qa / artistry</li>
+            <li>이미지·UI 검증 레인</li>
+            <li>Z.AI vision MCP는 companion/later lane</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">B. 지금 코드가 실제로 하는 것 (현재 ≠ 목표)</h3>
+      <p class="soft">출처: <code>src/grok/models/model-recommendations.ts</code>, <code>model-recommendation-patterns.ts</code></p>
+      <table>
+        <thead>
+          <tr><th>역할군</th><th>현재 기본 성향</th><th>제안 목표</th><th>갭</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>plan / metis / sisyphus-like</td>
+            <td>Grok 4.5 first</td>
+            <td>Grok 4.5 orchestrator</td>
+            <td><span class="badge b-yes">대체로 정렬</span></td>
+          </tr>
+          <tr>
+            <td>momus / review</td>
+            <td>Grok 4.5 first, GPT second</td>
+            <td>심사 역할은 Grok 또는 GPT 혼합 가능</td>
+            <td><span class="badge b-part">정책 미고정</span></td>
+          </tr>
+          <tr>
+            <td>oracle / deep / hephaestus</td>
+            <td>reasoning 패턴이 Grok 4.5 우선</td>
+            <td><b>GPT deep/oracle</b></td>
+            <td><span class="badge b-no">목표와 불일치</span></td>
+          </tr>
+          <tr>
+            <td>coding / builder</td>
+            <td>Grok composer / non-reasoning first</td>
+            <td>오케스트레이션과 분리된 실행 모델 정책 필요</td>
+            <td><span class="badge b-part">정책 미고정</span></td>
+          </tr>
+          <tr>
+            <td>visual / multimodal</td>
+            <td>패턴상 Gemini 시각 선호 존재</td>
+            <td>Gemini vision 명시, later Z.AI</td>
+            <td><span class="badge b-part">부분 정렬</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <b>해석:</b> “Grok-first 설치”는 이미 있습니다. 하지만
+        “Grok orchestrates + GPT deep/oracle + Gemini vision”이라는
+        <b>역할 분업 토폴로지</b>는 아직 제품-완료된 제품 계약이 아닙니다.
+      </div>
+
+      <h3 style="margin-top:18px">C. Claude/GPT 전제 OMO가 Grok에서 그대로 안 되는 이유</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h3>행동/프롬프트 차이</h3>
+          <ul>
+            <li>OMO 에이전트 빌더·프롬프트는 Claude/GPT 화법·툴 습관에 맞춰진 구간이 많음</li>
+            <li>Grok는 같은 지시문을 다르게 해석/준수할 수 있음</li>
+            <li>따라서 <b>init prompt + hook guardrail</b>이 단순 복사로는 약함</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>호스트/모델 인프라 차이</h3>
+          <ul>
+            <li>OpenCode system/messages transform 없음 → 턴 단위 가드레일 재주입 약함</li>
+            <li>model-core family detector가 원래 xai/grok를 약하게 다룸 → adapter 보정 필요</li>
+            <li>subagent 모델 오버라이드는 있어도, 역할별 실패 시 cross-family fallback 정책이 약함</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">D. 패리티 narrative가 여전히 유효한 범위 / 무너지는 범위</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h3>계속 유효</h3>
+          <ul>
+            <li>스킬 프로토콜 존재 여부 (ulw-plan/start-work/review-work)</li>
+            <li>호스트 표면 갭 (team, stop reinject, transforms)</li>
+            <li>코어 이식 여부 (rules/model/prompts/boulder…)</li>
+            <li>“Manifest-only를 Grok-adapted라고 거짓말하지 않기”</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>이것만으로는 실패</h3>
+          <ul>
+            <li>Claude식 프롬프트를 Grok orchestrator에 그대로 두고 성공을 기대</li>
+            <li>oracle/deep를 Grok 우선으로 두고 GPT 분업 목표와 충돌</li>
+            <li>vision/Z.AI를 패리티 표의 부록처럼만 취급</li>
+            <li>설치 시 모델 추천만 하고, 세션 시작 가드레일/역할 계약을 안 심음</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">E. OMO를 깊게 이해해야 하는 지점 (multi-model 관점)</h3>
+      <table>
+        <thead>
+          <tr><th>OMO 영역</th><th>무엇을 파야 하나</th><th>Grok에서 달라질 수 있는 구현</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>agent-builder / prompts-core</td>
+            <td>역할 프롬프트가 가정하는 모델 습관, tool-calling style</td>
+            <td>Grok orchestrator용 prompt variant + GPT oracle variant 분리</td>
+          </tr>
+          <tr>
+            <td>model-core requirements / fallback</td>
+            <td>AGENT_MODEL_REQUIREMENTS, category fallback, capability aliases</td>
+            <td>role→family topology 계약 (orchestrator/deep/vision)</td>
+          </tr>
+          <tr>
+            <td>delegate-core</td>
+            <td>spawn 시 모델 선택 로직</td>
+            <td>Grok lead가 GPT/Gemini worker를 고르는 라우팅 표</td>
+          </tr>
+          <tr>
+            <td>hooks (SessionStart/UserPromptSubmit/Stop)</td>
+            <td>언제 시스템 맥락/가드레일을 주입하는가</td>
+            <td>Grok 전용 init guardrail bundle (역할 계약, 모델 경계, 금지 행동)</td>
+          </tr>
+          <tr>
+            <td>skills (start-work/review-work/ulw-plan)</td>
+            <td>어떤 역할을 어떤 서브에이전트에 넘기는가</td>
+            <td>스킬 텍스트의 agent_type/model family 매핑을 Grok topology로 재작성</td>
+          </tr>
+          <tr>
+            <td>vision / MCP companions</td>
+            <td>이미지 도구 경로, provider auth</td>
+            <td>Gemini primary + later Z.AI companion lane</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style="margin-top:18px">F. lfg에서 OMO와 다르게 구현해야 할 후보</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h3>설치 시 (setup)</h3>
+          <ul>
+            <li>역할 토폴로지 프리셋: <code>grok-orchestrated</code></li>
+            <li>agent overrides에 orchestrator/deep/vision family pin</li>
+            <li>init prompt/guardrail 패키지를 plugin assets로 설치</li>
+            <li>unavailable family(GPT/Gemini 없음) 시 명시적 degrade 정책</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>런타임 시 (hooks/skills)</h3>
+          <ul>
+            <li>SessionStart: 역할 계약 + 모델 경계 additionalContext</li>
+            <li>UserPromptSubmit: orchestrator self-check (직접 deep work 가로채기 방지 옵션)</li>
+            <li>SubagentStart: worker family/role 검증</li>
+            <li>review/oracle 레인은 GPT 선호 라우팅</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout warn" style="margin-top:12px">
+        <b>아직 확정된 구현이 아님.</b> 위 항목은 “해야 할 연구/설계 후보”입니다.
+        OMO 심층 도씨와 multi-model topology ADR 없이 바로 코딩하면
+        패리티 표와 실제 제품 목표가 또 어긋납니다.
+      </div>
+    </section>
+
+
+    <!-- MULTIMODAL -->
+    <section id="multimodal">
+      <h2>13. Multimodal requirement — OpenCodex 레퍼런스와 lfg 지원 경로</h2>
+      <p class="muted">
+        질문: 멀티모달(이미지 이해/비전 QA)을 어떻게 지원할 것인가?
+        레퍼런스: 로컬 <code>~/workspace/ULW/opencodex</code>
+        (<code>src/vision/*</code>, server vision sidecar, provider <code>noVisionModels</code>).
+      </p>
+
+      <div class="callout">
+        <b>네, 그 레퍼런스를 봤습니다.</b>
+        OpenCodex는 “모든 모델이 native vision을 가진다”고 가정하지 않습니다.
+        대신 <b>text-only 모델에 눈이 없을 때 vision sidecar로 이미지를 설명 텍스트로 치환</b>하고,
+        실패하면 main turn을 죽이지 않고 degrade 합니다.
+        lfg의 multimodal 설계도 이 원칙을 가져와야 합니다.
+      </div>
+
+      <h3 style="margin-top:16px">A. OpenCodex가 실제로 하는 일 (reference pattern)</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h3>경로</h3>
+          <ul>
+            <li><code>src/responses/parser.ts</code> — <code>input_image</code>를 structured image part로 보존 (data URL을 텍스트로 인라인 금지)</li>
+            <li><code>src/vision/index.ts</code> — <code>planVisionSidecar</code> / <code>describeImagesInPlace</code></li>
+            <li><code>src/vision/describe.ts</code> — ChatGPT forward 경로의 GPT vision 모델로 이미지 설명</li>
+            <li><code>src/server.ts</code> — route 후, no-vision 모델이면 sidecar 실행</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>규칙</h3>
+          <ul>
+            <li>Trigger: model ∈ <code>provider.noVisionModels</code> AND request has images</li>
+            <li>Default sidecar model: <code>gpt-5.4-mini</code> (ChatGPT forward/auth 필요)</li>
+            <li>Concurrency 3, per-image desc cap, fail → marker text</li>
+            <li><b>Sidecar 실패가 main turn abort가 아님</b> (degrade)</li>
+            <li>Native vision 모델이면 sidecar 없이 image part 그대로 전달</li>
+          </ul>
+        </div>
+      </div>
+      <pre>request with image(s)
+  → route model
+  → if model can see images: pass native image parts
+  → else if ChatGPT forward available: vision sidecar describes images → text parts
+  → else: degrade marker ("image attached but could not be processed")
+  → main model continues</pre>
+
+      <h3 style="margin-top:18px">B. lfg / GrokBuild 쪽 현재 상태</h3>
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>What exists</th><th>What it is NOT</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Role routing</td>
+            <td><code>multimodal-looker</code>, <code>visual-engineering</code> agent overrides; Gemini preferred in places</td>
+            <td>OpenCodex-style automatic image→text sidecar pipeline</td>
+          </tr>
+          <tr>
+            <td>Skills</td>
+            <td><code>visual-qa</code>, artistry/visual-engineering prompts, screenshot/diff workflows</td>
+            <td>Host-level guarantee that Grok lead can “see” every attached image</td>
+          </tr>
+          <tr>
+            <td>xAI tools</td>
+            <td>xai image/video <b>generation</b> MCP skills</td>
+            <td>Image <b>understanding</b> path for arbitrary screenshots</td>
+          </tr>
+          <tr>
+            <td>Z.AI companion</td>
+            <td><code>lfg zai</code> / <code>lfg-mcp</code> zai-vision package install surface</td>
+            <td>Default multimodal SSOT wired into orchestrator loop</td>
+          </tr>
+          <tr>
+            <td>Grok host</td>
+            <td>May pass images natively depending on model/runtime</td>
+            <td>lfg-owned capability matrix + degrade policy like OpenCodex</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <b>갭:</b> lfg는 “비전 역할/스킬/추천 모델”은 있지만,
+        OpenCodex처럼 <u>요청 경로에서 자동으로 no-vision 모델을 보정하는 harness</u>는 아직 없습니다.
+        그래서 multimodal requirement를 skill 문서만으로 만족했다고 보면 안 됩니다.
+      </div>
+
+      <h3 style="margin-top:18px">C. 우리가 지원해야 하는 multimodal 요구 (제품 정의)</h3>
+      <div class="grid-3">
+        <div class="card">
+          <h3>1. See</h3>
+          <p>스크린샷/이미지/렌더 산출물을 모델이 이해</p>
+          <p class="soft">native vision 또는 describe sidecar</p>
+        </div>
+        <div class="card">
+          <h3>2. Judge</h3>
+          <p>visual-qa / design fidelity / CJK clipping 판정</p>
+          <p class="soft">specialist role + scripts</p>
+        </div>
+        <div class="card">
+          <h3>3. Generate (optional)</h3>
+          <p>이미지/비디오 생성 (xAI Imagine 등)</p>
+          <p class="soft">generation ≠ understanding</p>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">D. 권장 지원 아키텍처 (Grok-centric + OpenCodex lessons)</h3>
+      <table>
+        <thead>
+          <tr><th>Lane</th><th>Primary</th><th>Fallback</th><th>Later</th><th>Owner</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Orchestrator sees?</b></td>
+            <td>Grok host native image if available</td>
+            <td>Describe-sidecar text injection before Grok reasons</td>
+            <td>—</td>
+            <td>Grok runtime + optional proxy/sidecar</td>
+          </tr>
+          <tr>
+            <td><b>Vision specialist</b></td>
+            <td><b>Gemini</b> (<code>visual-engineering</code> / multimodal-looker)</td>
+            <td>GPT vision-capable model</td>
+            <td><b>Z.AI vision MCP</b></td>
+            <td>lfg role routing + skills</td>
+          </tr>
+          <tr>
+            <td><b>Visual QA protocol</b></td>
+            <td><code>visual-qa</code> skill + image-diff/tui scripts</td>
+            <td>manual screenshot path</td>
+            <td>stronger browser harness</td>
+            <td>skills</td>
+          </tr>
+          <tr>
+            <td><b>Image generation</b></td>
+            <td>xAI image/video MCP</td>
+            <td>host tools if any</td>
+            <td>other providers</td>
+            <td>lfg-mcp / xai skills</td>
+          </tr>
+          <tr>
+            <td><b>Text-only worker with image context</b></td>
+            <td>OpenCodex-like describe sidecar (GPT mini/vision)</td>
+            <td>specialist summary passed as text</td>
+            <td>Z.AI describe tool</td>
+            <td>new harness policy (not yet implemented)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style="margin-top:18px">E. 구현 레이어를 어떻게 나눌 것인가</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Layer 1 — Capability truth (must)</h3>
+          <ul>
+            <li>model/provider capability matrix: text / image-in / image-out</li>
+            <li>noVision equivalent list for GrokBuild-discovered models</li>
+            <li>setup/JSON honesty: don’t claim vision if model can’t see</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Layer 2 — Role topology (must)</h3>
+          <ul>
+            <li>vision roles pin to Gemini first</li>
+            <li>oracle/deep stay GPT; orchestrator Grok</li>
+            <li>spawn contracts: visual work → vision specialist, not Sisyphus eyeballing alone</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Layer 3 — Sidecar / describe path (should)</h3>
+          <ul>
+            <li>Borrow OpenCodex semantics: plan → describe → replace/degrade</li>
+            <li>Where it runs: not inside lfg core install by default</li>
+            <li>Candidates: OpenCodex proxy in front of model endpoint, or Grok-side pretool hook/helper, or specialist tool</li>
+            <li>Never inline giant base64 into prompts as fake “vision”</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Layer 4 — Protocol skills (must for QA)</h3>
+          <ul>
+            <li>visual-qa remains protocol SSOT for UI verification</li>
+            <li>evidence = screenshot paths + diff JSON + specialist verdict</li>
+            <li>generation tools (xAI) explicitly separate from understanding</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Layer 5 — Companion providers (later)</h3>
+          <ul>
+            <li>Z.AI vision via <code>lfg-mcp</code> / <code>lfg zai</code></li>
+            <li>optional, not blocking Gemini primary lane</li>
+            <li>auth isolated from host OIDC</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Layer 6 — Guardrails (must)</h3>
+          <ul>
+            <li>if image present and no vision path: explicit degrade message</li>
+            <li>do not abort whole orchestration turn</li>
+            <li>init/hook guidance: when to spawn vision specialist</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">F. OpenCodex를 lfg 안으로 “통째 이식”하면 안 되는 이유</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h3>가져올 것</h3>
+          <ul>
+            <li>noVision detection</li>
+            <li>describe-sidecar degrade semantics</li>
+            <li>structured image parts (no data-URL text blowup)</li>
+            <li>sidecar failure isolation</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>가져오면 안 되는 것</h3>
+          <ul>
+            <li>Codex-only proxy/inject lifecycle as lfg runtime hard dep</li>
+            <li>ChatGPT forward auth를 Grok host 필수로 만들기</li>
+            <li>vision = generation MCP 라고 섞기</li>
+            <li>OpenCodex 서버를 omo parity 표에 Implemented로 올리기</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">G. 실제 지원 로드맵 (제안)</h3>
+      <div class="timeline">
+        <div class="tl">
+          <div class="when">M0</div>
+          <div>
+            <b>Truth table</b>
+            <div class="muted">GrokBuild/discovered models capability matrix + current agent vision roles inventory. Document in topology ADR.</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">M1</div>
+          <div>
+            <b>Policy pin</b>
+            <div class="muted">Gemini-first vision specialist routing; Grok orchestrator must spawn specialist for visual judgment; visual-qa skill remains protocol gate.</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">M2</div>
+          <div>
+            <b>Sidecar strategy decision</b>
+            <div class="muted">Choose one: (a) recommend OpenCodex in front of endpoints, (b) lfg helper/tool describe path, (c) host-native only + specialist spawn. Record decision + degrade matrix.</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">M3</div>
+          <div>
+            <b>Guardrail install</b>
+            <div class="muted">SessionStart/init prompt + skill text: image present → vision lane contract; fail-soft markers.</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">M4</div>
+          <div>
+            <b>Z.AI later lane</b>
+            <div class="muted">Companion install path already exists; wire as optional vision backend after Gemini/GPT path proven.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:12px">
+        <b>한 줄 답:</b>
+        multimodal은 “Gemini 모델 하나 넣기”가 아닙니다.
+        OpenCodex 레퍼런스처럼 <b>native vision + describe sidecar + specialist roles + degrade policy</b>를
+        Grok-centric harness에 맞춰 다시 짜야 합니다.
+        지금 lfg는 specialist/skill/companion 조각은 있고, request path 자동 보정은 없습니다.
+      </div>
+    </section>
+
+
+    <!-- PROVIDERS -->
+    <section id="providers">
+      <h2>14. Multi-provider on GrokBuild — lfg가 지원해야 하는가?</h2>
+      <p class="muted">
+        근거: 로컬 Grok 문서 <code>~/.grok/docs/user-guide/11-custom-models.md</code>,
+        <code>05-configuration.md</code>, <code>02-authentication.md</code>.
+        Grok host는 이미 OpenAI-compatible / Anthropic Messages / custom endpoints를 지원한다.
+      </p>
+
+      <div class="callout">
+        <b>짧은 답: YES — 단, “프로토콜 재구현”이 아니라 “Grok host custom-model surface 위에 올리는 것”.</b>
+        lfg + GrokBuild는 multi-provider를 지원해야 한다.
+        왜냐하면 우리 harness 목표가 <b>Grok 4.5 orchestrator + GPT deep/oracle + Gemini vision (+ later Z.AI)</b> 이기 때문이다.
+        그 목표를 Grok-only monorepo로 축소하면 성립하지 않는다.
+      </div>
+
+      <h3 style="margin-top:16px">A. Grok host가 이미 주는 것 (~/.grok/docs)</h3>
+      <table>
+        <thead>
+          <tr><th>Capability</th><th>Host surface</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>OpenAI Chat Completions</td>
+            <td><code>api_backend = "chat_completions"</code> (default)</td>
+            <td><code>/v1/chat/completions</code></td>
+          </tr>
+          <tr>
+            <td>OpenAI Responses</td>
+            <td><code>api_backend = "responses"</code></td>
+            <td><code>/v1/responses</code></td>
+          </tr>
+          <tr>
+            <td>Anthropic Claude</td>
+            <td><code>api_backend = "messages"</code></td>
+            <td><code>/v1/messages</code> + <code>extra_headers</code> (<code>x-api-key</code>, <code>anthropic-version</code>)</td>
+          </tr>
+          <tr>
+            <td>Custom / local OpenAI-compatible</td>
+            <td><code>[model.*] base_url</code>, Ollama/Together/local servers</td>
+            <td>BYOK or local inference</td>
+          </tr>
+          <tr>
+            <td>Model catalog endpoint</td>
+            <td><code>[endpoints].models_base_url</code> / <code>GROK_MODELS_BASE_URL</code></td>
+            <td>fetch <code>{base}/models</code></td>
+          </tr>
+          <tr>
+            <td>Auth split</td>
+            <td>per-model <code>api_key</code>/<code>env_key</code> vs host session OIDC</td>
+            <td>host auth.json ≠ provider keys</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style="margin-top:18px">B. 그래서 lfg가 해야 하는 일 / 하면 안 되는 일</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h3>YES — lfg should support</h3>
+          <ul>
+            <li>setup 시 multi-provider discovery → <code>~/.grok/config.toml</code> <code>[model.*]</code> 재료화</li>
+            <li>role topology: orchestrator/deep/vision family pin</li>
+            <li>provider-specific <code>base_url</code> / credential slots / context windows</li>
+            <li>Claude 필요 시 <code>api_backend = "messages"</code> + header shape 지원</li>
+            <li>OpenAI-compatible gateway (cliproxy/opencodex/local) 연동</li>
+            <li>unavailable provider degrade 정책</li>
+            <li>keys를 JSON/log에 절대 출력하지 않기</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>NO — lfg should NOT become</h3>
+          <ul>
+            <li>OpenCodex/cliproxy 자체를 다시 구현하는 범용 프록시</li>
+            <li>Anthropic/OpenAI SDK를 lfg 코어에 내장한 프로토콜 엔진</li>
+            <li>host <code>auth.json</code> OIDC 소유/변조</li>
+            <li>모든 provider UX를 lfg CLI 하나로 독점</li>
+            <li>“provider 추가 = OMO parity Implemented” 착각</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">C. 현재 lfg 현실</h3>
+      <table>
+        <thead>
+          <tr><th>Already there</th><th>Still thin / missing</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>writeGrokModelConfig</code>가 <code>endpoints.models_base_url</code> + <code>[model.*]</code> 작성</td>
+            <td>Claude <code>api_backend = "messages"</code> / <code>extra_headers</code> first-class 생성 약함</td>
+          </tr>
+          <tr>
+            <td>multi providerEndpoints discovery 테스트 존재</td>
+            <td>provider capability matrix (vision/tools/reasoning) SSOT 부재</td>
+          </tr>
+          <tr>
+            <td>ROLE_PROFILES / overrides에 GPT·Gemini·Grok 후보</td>
+            <td>목표 topology(Grok lead / GPT deep / Gemini vision) 미고정</td>
+          </tr>
+          <tr>
+            <td>hostAuthOnly 모드로 vanilla Grok 보존 가능</td>
+            <td>multi-provider preset UX / degrade matrix 문서·게이트 부족</td>
+          </tr>
+          <tr>
+            <td>companion MCP (xAI/Z.AI) 분리</td>
+            <td>inference providers vs tool MCP providers 경계 설명 부족</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style="margin-top:18px">D. 권장 제품 계약</h3>
+      <pre>GrokBuild host
+  owns: protocols (chat_completions / responses / messages), TUI model picker, session auth
+lfg
+  owns: setup materialization, role→model topology, OMO skill harness, guardrails, honesty gates
+optional proxies (OpenCodex / cliproxy / corporate gateway)
+  own: translation, pools, vision sidecar for text-only models
+companions (lfg-mcp / zai)
+  own: tool MCP packages, not core inference identity</pre>
+
+      <div class="callout warn">
+        <b>해석:</b>
+        “Grok가 OpenAI-compatible/Claude를 지원하니 lfg도 지원해야 하냐?” → <b>Yes</b>.
+        하지만 지원의 의미는 <b>Grok config surface를 올바르게 채우고, multi-model harness를 돌리는 것</b>이지,
+        provider adapter monorepo를 lfg 안에 새로 짓는 것이 아니다.
+      </div>
+
+      <h3 style="margin-top:18px">E. 구현 우선순위 (providers lane)</h3>
+      <div class="timeline">
+        <div class="tl">
+          <div class="when">P0</div>
+          <div>
+            <b>Host-aligned model sections</b>
+            <div class="muted">discovery → [model.*] base_url/context/reasoning; never leak keys; keep endpoints.api_key stripped.</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">P1</div>
+          <div>
+            <b>Topology pins</b>
+            <div class="muted">Grok orchestrator, GPT deep/oracle, Gemini vision defaults with availability fallbacks.</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">P2</div>
+          <div>
+            <b>Backend shapes</b>
+            <div class="muted">When Claude/Anthropic models are selected, emit api_backend=messages + required headers pattern (env_key preferred over raw secrets).</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">P3</div>
+          <div>
+            <b>Gateway compatibility</b>
+            <div class="muted">First-class support for OpenAI-compatible local gateways (incl. OpenCodex/cliproxy style /v1) as discovery sources.</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">P4</div>
+          <div>
+            <b>Capability + multimodal matrix</b>
+            <div class="muted">text/image/tools/reasoning flags per model; noVision degrade path; specialist spawn policy.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDY GATEWAY -->
+    <section id="study-gateway">
+      <h2>12. Robust plan을 만들기 위한 연구 게이트웨이</h2>
+      <div class="callout warn"><b>업데이트:</b> 실제 합격 기준 SSOT는 <code>docs/architecture/ulw-quality-gateway.md</code>. 체크리스트 문구만으로는 PASS 불가. 오늘은 G1/G2/G4 FAIL.</div>
+      <p class="muted">
+        “OMO를 충분히 이해한 뒤 Grok-centric multi-model 계획을 확정”하려면
+        아래 게이트를 통과해야 합니다. 이게 다음 foundation/release 계획의 관문입니다.
+      </p>
+
+      <div class="timeline">
+        <div class="tl">
+          <div class="when">Gate 0</div>
+          <div>
+            <b>Architecture literacy</b>
+            <div class="muted">이 HTML 섹션 1–9. 설치/레이어/역할/호스트 갭 공통 언어.</div>
+            <div class="soft">상태: 진행 중 / 입문 문서 존재</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">Gate 1</div>
+          <div>
+            <b>OMO skill protocol depth (F1 dossiers)</b>
+            <div class="muted">ulw-plan / start-work / review-work / loop / ultrawork / research / teammode 를 Depth=D로 문서화. residuals + verified.json.</div>
+            <div class="soft">상태: NOT STARTED (매트릭스 v0.1만 있음)</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">Gate 2</div>
+          <div>
+            <b>Multi-model + multimodal topology study</b>
+            <div class="muted">
+              OMO agent-builder + model-core + delegate 경로를 읽어
+              “역할 → 모델 family → fallback → prompt variant” 표를 만든다.
+              목표 토폴로지(Grok orchestrator / GPT deep-oracle / Gemini vision / later Z.AI)와 현재 lfg 추천표를 diff.
+              OpenCodex <code>src/vision</code> sidecar 패턴을 기준으로 image-in capability / noVision / degrade 정책도 같은 표에 넣는다.
+            </div>
+            <div class="soft">상태: NOT STARTED as formal study (코드에 Grok-first 추천만 존재)</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">Gate 3</div>
+          <div>
+            <b>Guardrail surface study</b>
+            <div class="muted">
+              SessionStart / UserPromptSubmit / agent system prompts / config-loader가
+              모델 간 행동 차이를 얼마나 보정할 수 있는지 측정.
+              OpenCode transform 부재를 어떤 Grok 대체재로 메울지 결정.
+            </div>
+            <div class="soft">상태: PARTIAL (hooks exist; multi-model guardrail bundle 없음)</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">Gate 4</div>
+          <div>
+            <b>Decision-complete plan</b>
+            <div class="muted">
+              새 플랜 파일: skill-matrix rows + multi-model topology + install/runtime guardrail work items.
+              Momus 심사 후 실행. npm publish는 별도 승인.
+            </div>
+            <div class="soft">상태: BLOCKED on Gate 1–3</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="when">Gate 5</div>
+          <div>
+            <b>Acceptance gateway (구현 후)</b>
+            <div class="muted">
+              temp-home setup → agent overrides 토폴로지 확인 → SessionStart guardrail receipt →
+              spawn role/model smoke → oracle/vision 경로 degrade 테스트 → assert-omo-parity.
+            </div>
+            <div class="soft">상태: FUTURE</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="margin-top:16px">체크리스트 (계획 확정 전 반드시)</h3>
+      <table>
+        <thead>
+          <tr><th>#</th><th>질문</th><th>통과 조건</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>OMO 각 F1 스킬이 어떤 모델 습관을 가정하나?</td>
+            <td>dossier에 model assumptions 섹션</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>Grok orchestrator가 직접 하면 안 되는 deep work 경계는?</td>
+            <td>role contract + hook/skill 문장</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>GPT/Gemini/Claude 없을 때 degrade는 안전한가?</td>
+            <td>fallback matrix + fail-soft 정책 + host custom-model materialization</td>
+          </tr>
+          <tr>
+            <td>3b</td>
+            <td>Grok host multi-provider surface를 lfg가 올바르게 채우나?</td>
+            <td>[model.*] / api_backend / endpoints.models_base_url / no key leak</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>패리티 표 상태 승격과 multi-model 토폴로지가 충돌하지 않나?</td>
+            <td>두 SSOT 교차 참조 (matrix row + topology ADR)</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>설치만으로 guardrail이 재현 가능한가?</td>
+            <td>setup --run receipt에 init prompt/hooks/overrides 존재</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout" style="margin-top:12px">
+        <b>한 줄 결론:</b>
+        지금 목표는 “OMO 패리티 100% 복사”가 아니라
+        <b>OMO를 충분히 해부한 뒤, Grok-centric multi-model harness로 재조립</b>하는 것입니다.
+        그 재조립 설계 없이 패리티 숫자만 올리면 Claude/GPT 전제 시스템을 Grok에 억지로 얹게 됩니다.
+      </div>
+
+      <h3 style="margin-top:16px">이 연구가 쌓일 문서 위치 (제안 SSOT)</h3>
+      <ul class="muted">
+        <li>입문+갭+multi-model 지도: <code>docs/architecture/lfg-architecture-map.html</code> (지금 파일)</li>
+        <li>스킬 심층: <code>.omo/ultraresearch/skill-dossiers/*</code> (미작성)</li>
+        <li>모델 토폴로지 ADR (신규 필요): <code>docs/grok-multimodel-topology.md</code></li>
+        <li>가드레일/init prompt 설계 (신규 필요): <code>docs/grok-init-guardrails.md</code></li>
+        <li>실행 플랜: matrix foundation 통과 후 새 release/harness plan</li>
+      </ul>
+    </section>
+
+    <!-- 9 -->
+    <section id="next">
+      <h2>9. 다음에 보면 좋은 파일</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>이해를 깊게</h3>
+          <ul>
+            <li><code>README.md</code> — 사용법</li>
+            <li><code>AGENTS.md</code> — 패리티/규칙 요약</li>
+            <li><code>docs/grok-adapter-core-port-strategy.md</code> — 왜 core/adapter인가</li>
+            <li><code>docs/grok-orchestration-plane.md</code> — 오케스트레이션 평면 분리</li>
+            <li><code>docs/grok-adapter-parity.md</code> — 컴포넌트별 상태</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>지금 진행 중인 연구</h3>
+          <ul>
+            <li><code>.omo/plans/lfg-omo-skill-matrix-foundation.md</code></li>
+            <li><code>.omo/ultraresearch/20260709-skill-feature-matrix/FEATURE-MATRIX.md</code></li>
+            <li><code>.omo/ultraresearch/20260709-skill-feature-matrix/owner-decisions.md</code></li>
+            <li>이 파일: <code>docs/architecture/lfg-architecture-map.html</code></li>
+            <li>예정 SSOT: <code>docs/grok-multimodel-topology.md</code> (미작성)</li>
+            <li>예정 SSOT: <code>docs/grok-init-guardrails.md</code> (미작성)</li>
+            <li>예정 SSOT: <code>docs/grok-multimodal-support.md</code> (미작성; OpenCodex vision reference)</li>
+            <li>Reference: <code>~/workspace/ULW/opencodex/src/vision</code></li>
+            <li>F1 dossiers: <code>.omo/ultraresearch/skill-dossiers/*</code> (미작성)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <b>한 줄 기억:</b> lfg는 Grok 위에 OmO 작업 루프를 올리는 설치형 어댑터다.
+        하지만 목표는 Claude/GPT 행동 복제가 아니라
+        <b>Grok 4.5 orchestrator + GPT deep/oracle + Gemini(/Z.AI) vision</b>
+        multi-model harness다.
+        따라서 <b>protocol parity ≠ model-behavior parity</b>.
+        robust plan/goal/gateway는 섹션 10–12 비교 연구(F1 dossiers + topology + guardrails)를 통과한 뒤에만 확정한다.
+      </div>
+    </section>
+
+    <footer>
+      Local architecture primer · open in browser · 2026-07-09
+    </footer>
+  </div>
+</body>
+</html>

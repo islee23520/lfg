@@ -1,5 +1,9 @@
 import type { ModelDiscovery } from "../models/lfg-models"
 import type { CodingToolAdapterId } from "../../shared/coding-tool-adapter"
+import {
+  maybePromptGitHubStars,
+  type GitHubStarsPromptOptions,
+} from "../publish/github/lfg-github-stars"
 import { installLfgGlobally, type LfgGlobalInstallResult } from "./lfg-global-install"
 
 export type TuiGlobalInstaller = () => Promise<LfgGlobalInstallResult>
@@ -7,6 +11,8 @@ export type TuiGlobalInstaller = () => Promise<LfgGlobalInstallResult>
 type TuiExecutePrompts = {
   readonly note: (message: string, title?: string) => void
   readonly outro: (message: string) => void
+  readonly confirm?: (options: { readonly message: string }) => Promise<unknown>
+  readonly isCancel?: (value: unknown) => boolean
 }
 
 type TuiExecuteColors = {
@@ -21,6 +27,8 @@ export type ExecuteTuiInstallOptions = {
   readonly configOnly: boolean
   readonly installGlobalCli: boolean
   readonly globalInstaller?: TuiGlobalInstaller
+  readonly gitHubStars?: GitHubStarsPromptOptions
+  readonly promptGitHubStars?: boolean
 }
 
 export async function executeTuiInstall(options: ExecuteTuiInstallOptions): Promise<Record<string, unknown>> {
@@ -44,10 +52,43 @@ export async function executeTuiInstall(options: ExecuteTuiInstallOptions): Prom
 
     const message = successMessage(options.configOnly, success, globalInstallOk)
     options.prompts.outro(success ? options.colors.green(message) : message)
+    if (success && globalInstallOk && options.promptGitHubStars !== false && !options.configOnly) {
+      await promptTuiGitHubStars(options)
+    }
     return { ok: success && globalInstallOk, status, executed: true }
   } catch (error) {
     options.prompts.outro("Install failed during execution. See errors above.")
     return { ok: false, status: "tui_error", error: error instanceof Error ? error.message : String(error), executed: false }
+  }
+}
+
+
+async function promptTuiGitHubStars(options: ExecuteTuiInstallOptions): Promise<void> {
+  if (options.gitHubStars) {
+    await maybePromptGitHubStars(options.gitHubStars)
+    return
+  }
+  const confirm = options.prompts.confirm
+  const isCancel = options.prompts.isCancel
+  if (typeof confirm !== "function") return
+
+  const chunks: string[] = []
+  await maybePromptGitHubStars({
+    output: {
+      write: (chunk) => {
+        chunks.push(chunk)
+      },
+    },
+    gitHubStarSelector: async () => {
+      const answer = await confirm({
+        message: "Star oh-my-openagent and lfg on GitHub?",
+      })
+      if (typeof isCancel === "function" && isCancel(answer)) return null
+      return answer === true ? "all" : null
+    },
+  })
+  if (chunks.length > 0) {
+    options.prompts.note(chunks.join("").trim(), "GitHub Stars")
   }
 }
 
