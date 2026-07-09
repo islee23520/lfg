@@ -8,6 +8,7 @@ vi.mock("@clack/prompts", () => {
     note: (message: string, title?: string) => calls.push(["note", title, message]),
     confirm: async (options: { readonly message?: string }) => {
       calls.push(["confirm", options.message])
+      if (/Install\/update the lfg CLI globally/i.test(String(options.message ?? ""))) return false
       return true
     },
     select: async (options: { readonly message?: string; readonly options?: readonly { readonly value?: string }[] }) => {
@@ -61,7 +62,7 @@ describe("lfg-setup-tui model routing", () => {
     }
     prompts.autocomplete = async (options: any) => String(options.initialValue ?? options.options?.[0]?.value ?? "grok-3-mini-fast")
     const origConfirm = prompts.confirm
-    prompts.confirm = async () => true as const
+    prompts.confirm = async (options: any) => !/Install\/update the lfg CLI globally/i.test(String(options.message ?? ""))
 
     await tui.runSetupTui({}, { plan: {}, resolved: { discovery: discovery(["grok-3-mini-fast", "grok-4.3"]) } }, {
       prompts,
@@ -105,6 +106,7 @@ describe("lfg-setup-tui model routing", () => {
     const origConfirm = prompts.confirm
     prompts.confirm = async (options: any) => {
       const msg = String(options.message ?? "")
+      if (/Install\/update the lfg CLI globally/i.test(msg)) return false
       // Decline install and choose no customization so the per-preset flow is tested.
       if (/Install now\?|Core \+ ULW/i.test(msg)) return false
       return true
