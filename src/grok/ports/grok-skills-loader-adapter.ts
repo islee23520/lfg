@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { userInfo } from "node:os"
 
-import { createSharedSkillTemplateLoader, resolveSkillPathReferences, type BuiltinSkill } from "./vendor/skills-loader-core-vendored"
+import { createSharedSkillTemplateLoader, resolveSkillPathReferences, type BuiltinSkill } from "../../core/omo/skills-loader-core"
 
 export type GrokSkillScope = "user" | "project" | "plugin"
 
@@ -41,7 +41,7 @@ interface SkillFrontmatter {
 
 /**
  * Discover Grok skills from explicit skill roots and load each SKILL.md through
- * the vendored explicit-root skill loader. Missing roots are ignored so callers
+ * the OMO explicit-root skill loader. Missing roots are ignored so callers
  * can pass the standard user/plugin/project roots without pre-checking them.
  */
 export function discoverGrokSkills(input: DiscoverGrokSkillsInput = {}): DiscoveredGrokSkill[] {

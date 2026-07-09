@@ -6,7 +6,7 @@ import {
   isKimiK2Model,
   isKimiK27Model,
   isMiniMaxModel,
-} from "../model-core-vendored/model-family-detectors"
+} from "../model-core/model-family-detectors"
 import type { VariantTable } from "./types"
 
 type ModelMatcher = (modelID: string) => boolean

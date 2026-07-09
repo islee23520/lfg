@@ -5,7 +5,7 @@ import {
   detectDelegateTaskError,
   resolveModelForDelegateTask,
   type DelegateModelResolutionDeps,
-} from "./vendor/delegate-core-vendored";
+} from "./index";
 
 const noCacheDeps: DelegateModelResolutionDeps = {
   connectedProviders: null,
@@ -19,7 +19,7 @@ const providerCacheDeps: DelegateModelResolutionDeps = {
   hasConnectedProvidersCache: false,
 };
 
-describe("delegate-core-vendored", () => {
+describe("delegate-core", () => {
   test("resolveModelForDelegateTask returns the user model when set", () => {
     expect(
       resolveModelForDelegateTask(

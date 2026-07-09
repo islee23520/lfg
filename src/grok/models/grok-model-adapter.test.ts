@@ -4,7 +4,7 @@ import {
   buildGrokModelCatalog,
   resolveGrokModel,
 } from "./grok-model-adapter"
-import { AGENT_MODEL_REQUIREMENTS, fuzzyMatchModel, isGptModel, isGeminiModel } from "../ports/vendor/model-core-vendored"
+import { AGENT_MODEL_REQUIREMENTS, fuzzyMatchModel, isGptModel, isGeminiModel } from "../../core/omo/model-core"
 
 describe("buildGrokModelCatalog", () => {
   test("normalizes bare Grok model ids to xai/provider form", () => {

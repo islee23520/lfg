@@ -15,12 +15,12 @@ import {
   shouldApplyRule,
   type AgentsMdCache,
   type RuleScanCache,
-} from "./vendor/rules-engine-vendored"
+} from "../../core/omo/rules-engine"
 
 /**
  * Grok rules/AGENTS.md context injector (Phase 1 glue).
  *
- * This is the host-specific glue over the vendored rules-engine core. It mirrors
+ * This is the host-specific glue over the OMO rules-engine core. It mirrors
  * the upstream `omo-opencode` `rules-injector` + `directory-agents-injector`
  * hooks, but adapted to Grok's `PostToolUse` lifecycle: instead of mutating
  * OpenCode tool output, it returns a markdown context block that the Grok hook

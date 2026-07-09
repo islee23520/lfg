@@ -27,6 +27,10 @@ describe("docs/grok-adapter-core-port-strategy.md", () => {
     // The strategic decision
     expect(text).toContain("Decision: shift from `omo-codex` 1:1 mapping to a core-consuming Grok adapter")
     expect(text).toContain("*-core")
+    expect(text).toContain("host-neutral OMO behavior lives under `src/core/omo`")
+    expect(text).toContain("lfg-owned host-neutral primitives live under `src/core/lfg`")
+    expect(text).toContain("Grok-specific adapter/install/runtime glue stays under `src/grok`")
+    expect(text).toContain("compatibility re-export shims")
 
     // Host seam map + Grok gaps
     expect(text).toContain("seam map")
