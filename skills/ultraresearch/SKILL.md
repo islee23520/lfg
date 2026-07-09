@@ -3,6 +3,17 @@ name: ultraresearch
 description: "Maximum-saturation research orchestration: parallel explore+librarian swarms across codebase, web, Grok native x_search, official docs, and OSS repos; a recursive EXPAND loop driven by leads workers return in message text; empirical verification by running code; cited synthesis and optional MD/HTML/PDF/PPTX reports. ACTIVATES ONLY on an explicit user demand for research — the word 'ultraresearch' ('/ultraresearch', '$ultraresearch') or an explicit request for research / deep research / an ultra-precise investigation, in any language. Never self-activates for ordinary questions, debugging, or implementation context-gathering. While active it overrides exploration-bounding defaults: exhaustive coverage is the goal."
 ---
 
+## GrokBuild Tool Mapping
+
+On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild `spawn_subagent` calls. The adapter maps read-only exploration to the lfg-owned OMO persona `subagent_type: "explorer"`; do not use disabled Grok built-ins for those roles. This contract is shared for `coding_tool_adapter` `grok` and `pi-agent`.
+
+| Intent | GrokBuild tool to use |
+| --- | --- |
+| Search/read-only worker | `spawn_subagent({ subagent_type: "explorer", background: true, description: "...", prompt: "TASK: ..." })` |
+| Planning worker | `spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })` |
+| Implementation or QA worker | `spawn_subagent({ subagent_type: "hephaestus" or "coding", background: true, description: "...", prompt: "TASK: ..." })` |
+
+
 ## Codex Harness Tool Compatibility
 
 This skill may include examples copied from the OpenCode harness. In Codex, do not call OpenCode-only tools such as `call_omo_agent(...)`, `task(...)`, `background_output(...)`, or `team_*(...)` literally. Translate those examples to Codex native tools:
