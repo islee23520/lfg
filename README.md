@@ -44,6 +44,30 @@ In Grok's `/mcps` modal, do not use the OAuth authenticate shortcut (`i`) for
 only for HTTP/SSE MCP servers. Use the `xai_auth_*` MCP tools or the `lfg xai
 auth ...` CLI commands instead.
 
+## Z.AI MCP packages (optional)
+
+Official Z.AI MCP servers can be registered into GrokBuild as **additional
+packages** under `~/.grok/config.toml` `[mcp_servers.*]` (not bundled into the
+lfg plugin tree):
+
+| Package | Kind | Source |
+|---------|------|--------|
+| `vision` | local stdio | `npx -y @z_ai/mcp-server` |
+| `web-search` | remote HTTP | `https://api.z.ai/api/mcp/web_search_prime/mcp` |
+| `web-reader` | remote HTTP | `https://api.z.ai/api/mcp/web_reader/mcp` |
+| `zread` | remote HTTP | `https://api.z.ai/api/mcp/zread/mcp` |
+
+```sh
+lfg zai auth set-api-key --api-key "$Z_AI_API_KEY" --mode ZAI
+lfg zai mcp install all
+# or: lfg zai mcp install vision web-search
+lfg zai mcp status
+lfg zai mcp uninstall vision
+```
+
+Credentials live in `~/.grok/zai-mcp-auth.json` (or `Z_AI_API_KEY` / `Z_AI_MODE`).
+After install, reload Grok MCP (`/mcps` → `r`) or start a new session.
+
 ## Commands
 
 ```sh
