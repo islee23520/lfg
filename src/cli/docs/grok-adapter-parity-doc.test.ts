@@ -168,6 +168,12 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("hook-time `additionalContext` guidance only")
     expect(text).toContain("workflow-selector`, `teammode`, `lazycodex-executor-verify`, `start-work-continuation`")
     expect(text).toContain("Deferred for automatic lifecycle hook reinjection")
+    // refreshed for task 3 of orchestration epic
+    expect(text).toContain("host dependency class")
+    expect(text).toContain("codex_app")
+    expect(text).toContain("Stop/SubagentStop hook")
+    expect(text).toContain("missing host surface")
+    expect(text).toContain("grok-orchestration-plane.md")
     expect(text).not.toMatch(/\| `plan-mode-interception` \|.*\| (Implemented|Grok-adapted) \|/)
     expect(text).not.toMatch(/\| `workflow-selector` \|.*\| (Implemented|Grok-adapted) \|/)
     expect(text).not.toMatch(/\| `teammode` \|.*\| (Implemented|Grok-adapted) \|/)

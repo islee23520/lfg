@@ -65,10 +65,10 @@ For feature intake from a new upstream OMO/lazycodex version:
 | `grep_app` | Remote URL `https://mcp.grep.app`; shape-validated only | Remote URL manifest-only |
 | `context7` | Remote URL `https://mcp.context7.com/mcp`; shape-validated only | Remote URL manifest-only |
 | `comment-checker` | Native Grok PostToolUse hook emits bounded comment feedback and fail-closes on malformed JSON (T2) | Grok-adapted |
-| `start-work-continuation` | Sisyphus native Stop/SubagentStop hooks substitute | Deferred |
-| `teammode` | Skill payload installed; Codex thread orchestration hook not Grok-adapted | Deferred |
-| `lazycodex-executor-verify` | Codex `lazycodex-executor` SubagentStop verifier not Grok-adapted | Deferred |
-| `workflow-selector` | Codex-only opt-in UserPromptSubmit workflow selector; no verified Grok-native prompt-routing hook yet | Deferred |
+| `start-work-continuation` | Sisyphus native Stop/SubagentStop hooks substitute (host dependency class: Stop/SubagentStop hook) | Deferred |
+| `teammode` | Skill payload installed; Codex thread orchestration hook not Grok-adapted (host dependency class: codex_app) | Deferred |
+| `lazycodex-executor-verify` | Codex `lazycodex-executor` SubagentStop verifier not Grok-adapted (host dependency class: Stop/SubagentStop hook) | Deferred |
+| `workflow-selector` | Codex-only opt-in UserPromptSubmit workflow selector; no verified Grok-native prompt-routing hook yet (host dependency class: missing host surface) | Deferred |
 | `bootstrap` | lfg does not bootstrap Codex runtime deps from Grok | Deferred |
 | `auto-update` | Updates stay user-controlled; hook not generated | Unsupported |
 | `test-support` | Upstream package test infrastructure, not a Grok plugin runtime component | Unsupported |
@@ -94,10 +94,11 @@ For feature intake from a new upstream OMO/lazycodex version:
 - `chat.params` — mutable model params/headers before dispatch.
 - `experimental.session.compacting` — compaction-context preservation. Workaround: persistence-based recovery.
 
-**Behavioral ports still owed** (currently Manifest-only / Deferred, blocking full parity):
+**Behavioral ports still owed** (currently Manifest-only / Deferred, blocking full parity; see `docs/grok-orchestration-plane.md` for host dependency classes):
 - `git-bash` — Windows behavior remains unverified; macOS disables it through `disabled_mcp_servers`.
 - `lsp` lifecycle hook automation — the MCP runtime is behavior-adapted, but upstream automatic PostToolUse/PostCompact hook reinjection is not claimed.
-- `start-work-continuation` Stop/SubagentStop — partially covered by Sisyphus native hooks, but the durable continuation CLI is not packaged.
+- `start-work-continuation` (host dependency class: Stop/SubagentStop hook) — partially covered by Sisyphus native hooks, but the durable continuation CLI is not packaged.
+- `teammode` (host dependency class: codex_app), `lazycodex-executor-verify` (host dependency class: Stop/SubagentStop hook), `workflow-selector` (host dependency class: missing host surface) — remain Deferred per orchestration plane gaps; no status flip without verified Grok surface.
 
 **Model-family detector gap** (Phase 2 risk, now mitigated): `model-core` family detectors (`isGptModel`, `isGeminiModel`, `isClaudeOpus*Model`, …) do not match `xai/grok-*` IDs; the Grok adapter supplies `availableModels`/`connectedProviders` normalized to `provider/model-id` and maps Grok models into variant families so they don't fall to the `default` variant.
 
