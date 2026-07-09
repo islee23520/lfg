@@ -18,9 +18,9 @@ import {
   resolveActiveBuiltinSkills,
   resolveSkillPathReferences,
   stripInternalInitiatorMarkers,
-} from "./vendor/skills-loader-core-vendored"
+} from "./index"
 
-describe("skills-loader-core-vendored", () => {
+describe("skills-loader-core", () => {
   test("validates git env prefixes", () => {
     expect(isValidGitEnvPrefix("")).toBe(true)
     expect(isValidGitEnvPrefix("GIT_MASTER=1 TRACE_ID=abc-123")).toBe(true)

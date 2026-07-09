@@ -8,11 +8,11 @@ import {
   TEAM_MODE_PROMPT,
   resolveVariant,
   loadPromptSync,
-} from "../grok/ports/vendor/prompts-core-vendored/index"
-import type { VariantTable, BundledPromptSource } from "../grok/ports/vendor/prompts-core-vendored/types"
+} from "../core/omo/prompts-core/index"
+import type { VariantTable, BundledPromptSource, LoadedPrompt } from "../core/omo/prompts-core/types"
 import {
   resolveGrokAgentPrompt,
-} from "../grok/ports/grok-prompt-adapter"
+} from "../grok/prompts/grok-prompt-adapter"
 
 const atlas = atlasPromptVariants as VariantTable
 const ultrawork = ultraworkPromptVariants as VariantTable
@@ -25,7 +25,20 @@ function bundled(table: VariantTable, name: string): BundledPromptSource {
   return source
 }
 
-describe("prompts-core-vendored: prompt tables", () => {
+function expectBundledPromptSource(source: BundledPromptSource, filePath: string): void {
+  expect(source.filePath).toBe(filePath)
+  expect(source.content.trim().length).toBeGreaterThan(0)
+}
+
+function expectLoadedPrompt(loaded: LoadedPrompt, filePath: string): void {
+  expect(loaded.filePath).toBe(filePath)
+  expect(loaded.hadFrontmatter).toBe(false)
+  expect(loaded.parseError).toBe(false)
+  expect(loaded.frontmatter).toEqual({})
+  expect(loaded.body.trim().length).toBeGreaterThan(0)
+}
+
+describe("prompts-core: prompt tables", () => {
   it("atlas has all expected variants with bundled content", () => {
     const variantNames = Object.keys(atlas)
     expect(variantNames).toEqual(
@@ -41,7 +54,7 @@ describe("prompts-core-vendored: prompt tables", () => {
     )
     for (const name of variantNames) {
       const entry = bundled(atlas, name)
-      expect(entry.content.length).toBeGreaterThan(0)
+      expectBundledPromptSource(entry, `packages/prompts-core/prompts/atlas/${name}.md`)
     }
   })
 
@@ -52,7 +65,7 @@ describe("prompts-core-vendored: prompt tables", () => {
     )
     for (const name of variantNames) {
       const entry = bundled(ultrawork, name)
-      expect(entry.content.length).toBeGreaterThan(0)
+      expectBundledPromptSource(entry, `packages/prompts-core/prompts/ultrawork/${name}.md`)
     }
   })
 
@@ -67,24 +80,22 @@ describe("prompts-core-vendored: prompt tables", () => {
   })
 
   it("prometheus has default variant", () => {
-    expect(prometheusPromptVariants.default).toBeDefined()
-    expect(prometheusPromptVariants.default.content).toContain("Prometheus")
+    expectBundledPromptSource(prometheusPromptVariants.default, "packages/prompts-core/prompts/prometheus/default.md")
   })
 
   it("codex ultrawork has codex variant", () => {
-    expect(codexUltraworkPromptVariants.codex).toBeDefined()
-    expect(codexUltraworkPromptVariants.codex.content).toContain("ULTRAWORK MODE ENABLED")
+    expectBundledPromptSource(codexUltraworkPromptVariants.codex, "packages/prompts-core/prompts/ultrawork/codex.md")
   })
 
   it("mode prompts are stripped of trailing newline", () => {
-    expect(HYPERPLAN_MODE_PROMPT).toContain("HYPERPLAN MODE ENABLED")
+    expect(HYPERPLAN_MODE_PROMPT.trim().length).toBeGreaterThan(0)
     expect(HYPERPLAN_MODE_PROMPT.endsWith("\n")).toBe(false)
-    expect(TEAM_MODE_PROMPT).toContain("[team-mode]")
+    expect(TEAM_MODE_PROMPT.trim().length).toBeGreaterThan(0)
     expect(TEAM_MODE_PROMPT.endsWith("\n")).toBe(false)
   })
 })
 
-describe("prompts-core-vendored: resolveVariant", () => {
+describe("prompts-core: resolveVariant", () => {
   it("returns planner for prometheus agent when planner variant exists", () => {
     const variant = resolveVariant({
       agentName: "prometheus",
@@ -130,15 +141,14 @@ describe("prompts-core-vendored: resolveVariant", () => {
   })
 })
 
-describe("prompts-core-vendored: loadPromptSync", () => {
+describe("prompts-core: loadPromptSync", () => {
   it("loads bundled prompt body without frontmatter", () => {
     const loaded = loadPromptSync({
       source: bundled(ultrawork, "default"),
       name: "ultrawork",
       variant: "default",
     })
-    expect(loaded.hadFrontmatter).toBe(false)
-    expect(loaded.body).toContain("ULTRAWORK MODE ENABLED")
+    expectLoadedPrompt(loaded, "packages/prompts-core/prompts/ultrawork/default.md")
   })
 
   it("applies sync runtime injections", () => {
@@ -162,16 +172,15 @@ describe("grok-prompt-adapter: resolveGrokAgentPrompt", () => {
       agent: "atlas",
       modelID: "xai/grok-4",
     })
-    expect(result.body).toContain("Atlas")
-    expect(result.body).toContain("Master Orchestrator")
+    expectLoadedPrompt(result, "packages/prompts-core/prompts/atlas/default.md")
   })
 
-  it("resolves planner variant for prometheus agent", () => {
+  it("resolves default variant for prometheus agent", () => {
     const result = resolveGrokAgentPrompt({
       agent: "prometheus",
       modelID: "xai/grok-4",
     })
-    expect(result.body).toContain("Prometheus")
+    expectLoadedPrompt(result, "packages/prompts-core/prompts/prometheus/default.md")
   })
 
   it("resolves default variant for grok model (ultrawork)", () => {
@@ -179,7 +188,7 @@ describe("grok-prompt-adapter: resolveGrokAgentPrompt", () => {
       agent: "ultrawork",
       modelID: "xai/grok-4-fast",
     })
-    expect(result.body).toContain("ULTRAWORK MODE ENABLED")
+    expectLoadedPrompt(result, "packages/prompts-core/prompts/ultrawork/default.md")
   })
 
   it("resolves codex variant for codex-ultrawork agent", () => {
@@ -187,7 +196,7 @@ describe("grok-prompt-adapter: resolveGrokAgentPrompt", () => {
       agent: "codex-ultrawork",
       modelID: "xai/grok-4",
     })
-    expect(result.body).toContain("ULTRAWORK MODE ENABLED")
+    expectLoadedPrompt(result, "packages/prompts-core/prompts/ultrawork/codex.md")
   })
 
   it("falls back to gpt variant when a gpt model is used", () => {
@@ -195,6 +204,6 @@ describe("grok-prompt-adapter: resolveGrokAgentPrompt", () => {
       agent: "ultrawork",
       modelID: "openai/gpt-5",
     })
-    expect(result.body).toContain("ULTRAWORK MODE ENABLED")
+    expectLoadedPrompt(result, "packages/prompts-core/prompts/ultrawork/gpt.md")
   })
 })

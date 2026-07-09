@@ -1,14 +1,14 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { getPlanChecklist, type PlanChecklist } from "./vendor/boulder-state-vendored"
+import { getPlanChecklist, type PlanChecklist } from "../../core/omo/boulder-state"
 import {
   resolveModelForDelegateTask,
   type DelegateFallbackEntry,
   type DelegateModelResolutionDeps,
   type DelegateModelResolutionInput,
   type DelegateModelResolutionResult,
-} from "./vendor/delegate-core-vendored"
+} from "../../core/omo/delegate-core"
 import type { GrokModelCatalog, GrokModelCatalogInput } from "../models/grok-model-adapter"
 import { buildGrokModelCatalog } from "../models/grok-model-adapter"
 
@@ -90,7 +90,7 @@ export function getGrokPlanChecklist(input: GrokDelegatePlanInput): GrokPlanChec
 
 /**
  * Toggle one top-level checkbox in `.omo/plans/<slug>.md`, then return the
- * vendored boulder-state checklist projection for the updated plan.
+ * OMO boulder-state checklist projection for the updated plan.
  */
 export function toggleGrokPlanChecklistItem(input: ToggleGrokPlanChecklistItemInput): ToggleGrokPlanChecklistItemResult {
   const planPath = resolveGrokDelegatePlanPath(input)

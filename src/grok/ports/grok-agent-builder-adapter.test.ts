@@ -7,7 +7,7 @@ import {
   type AvailableCategory,
   type AvailableSkill,
   type CuratedBuiltinAgentName,
-} from "./vendor/agent-builder-vendored"
+} from "../../core/omo/agent-builder"
 import { buildGrokAgentRole } from "./grok-agent-builder-adapter"
 import { buildGrokModelCatalog } from "../models/grok-model-adapter"
 
@@ -39,6 +39,26 @@ const projectSkill: AvailableSkill = {
   location: "project",
 }
 
+function promptLines(prompt: string): readonly string[] {
+  return prompt.split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== "")
+}
+
+function requireLineMatching(lines: readonly string[], pattern: RegExp): string {
+  const line = lines.find((entry) => pattern.test(entry))
+  if (line === undefined) {
+    throw new Error(`Prompt line matching ${pattern} was not found`)
+  }
+  return line
+}
+
+function categoryNames(prompt: string): readonly string[] {
+  const names = Array.from(
+    prompt.matchAll(/^- `(?<name>[a-z][a-z-]*)` - .+$/gm),
+    (match) => match.groups?.name ?? "",
+  )
+  return Array.from(new Set(names))
+}
+
 describe("buildGrokAgentRole", () => {
   test("assembles a fully ported builtin agent role with prompt, model, and tool restrictions", () => {
     const catalog = buildGrokModelCatalog({ modelIds: ["grok-4", "grok-3-mini"] })
@@ -54,12 +74,17 @@ describe("buildGrokAgentRole", () => {
     expect(role.name).toBe("atlas")
     expect(role.model).toBe("xai/grok-4")
     expect(role.toolRestrictions).toEqual(BUILTIN_AGENTS.atlas.toolRestrictions)
-    expect(role.systemPrompt.length).toBeGreaterThan(1500)
-    expect(role.systemPrompt).toContain("<agent-identity>")
-    expect(role.systemPrompt).toContain("### Tool & Agent Selection:")
-    expect(role.systemPrompt).toContain("### Category + Skills Delegation System")
-    expect(role.systemPrompt).toContain("`explore` agent")
-    expect(role.systemPrompt).toContain("frontend (project)")
+    expect(role.systemPrompt).toMatch(/<agent-identity>[\s\S]+Atlas[\s\S]+<\/agent-identity>/)
+    expect(categoryNames(role.systemPrompt)).toEqual(["deep", "visual-engineering"])
+
+    const lines = promptLines(role.systemPrompt)
+    requireLineMatching(lines, /`grep`, `glob`, `lsp_\*`.+\*\*FREE\*\*/)
+    requireLineMatching(lines, /`explore` agent.+\*\*FREE\*\*/)
+    requireLineMatching(lines, /`librarian` agent.+\*\*CHEAP\*\*/)
+    requireLineMatching(lines, /`atlas` agent.+\*\*EXPENSIVE\*\*/)
+    requireLineMatching(lines, /Built-in.+\blfg\b/)
+    requireLineMatching(lines, /YOUR SKILLS.+frontend \(project\)/)
+    requireLineMatching(lines, /Todo list orchestration.+`atlas`/)
   })
 
   test("throws a clear deferred signal for deferred builtin agents", () => {
@@ -91,9 +116,9 @@ describe("buildGrokAgentRole", () => {
     }).systemPrompt
 
     expect(promptWithRuntimeSurface).not.toBe(promptWithoutRuntimeSurface)
-    expect(promptWithoutRuntimeSurface).not.toContain("`grep`, `lsp_*`")
-    expect(promptWithRuntimeSurface).toContain("`grep`, `lsp_*`")
-    expect(promptWithoutRuntimeSurface).not.toContain("frontend (project)")
-    expect(promptWithRuntimeSurface).toContain("frontend (project)")
+    expect(promptWithoutRuntimeSurface).not.toMatch(/`grep`, `lsp_\*`/)
+    expect(promptWithRuntimeSurface).toMatch(/`grep`, `lsp_\*`.+\*\*FREE\*\*/)
+    expect(promptWithoutRuntimeSurface).not.toMatch(/frontend \(project\)/)
+    requireLineMatching(promptLines(promptWithRuntimeSurface), /YOUR SKILLS.+frontend \(project\)/)
   })
 })

@@ -1,5 +1,5 @@
-import { resolveModelPipeline, type ModelResolutionRequest, type ModelResolutionResult } from "../ports/vendor/model-core-vendored"
-import type { FallbackEntry, ModelRequirement } from "../ports/vendor/model-core-vendored"
+import { resolveModelPipeline, type ModelResolutionRequest, type ModelResolutionResult } from "../../core/omo/model-core"
+import type { FallbackEntry, ModelRequirement } from "../../core/omo/model-core"
 
 export interface ProviderDescriptor {
   readonly providerId: string
@@ -84,7 +84,7 @@ function inferProvider(modelId: string, descriptors: readonly ProviderDescriptor
 }
 
 /**
- * Resolve a model for a Grok agent/category using the vendored model-core
+ * Resolve a model for a Grok agent/category using the OMO model-core
  * `resolveModelPipeline`. This is the primary entrypoint for Grok agents.
  *
  * If the agent's requirement has no `xai`-provider fallback entries (the
@@ -95,7 +95,7 @@ export interface GrokModelResolutionInput {
   readonly catalog: GrokModelCatalog
   /** Agent or category key (e.g. "sisyphus", "deep"). */
   readonly requirementKey: string
-  /** Requirements table; defaults to the vendored AGENT_MODEL_REQUIREMENTS. */
+  /** Requirements table; defaults to the OMO AGENT_MODEL_REQUIREMENTS. */
   readonly requirements?: Record<string, ModelRequirement>
   readonly uiSelectedModel?: string
   readonly userModel?: string

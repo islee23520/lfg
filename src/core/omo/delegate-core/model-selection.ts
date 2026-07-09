@@ -4,7 +4,7 @@ import {
   parseModelString,
   parseVariantFromModelID,
   transformModelForProvider,
-} from "../model-core-vendored"
+} from "../model-core"
 
 export type DelegateFallbackEntry = {
   readonly providers: string[]
