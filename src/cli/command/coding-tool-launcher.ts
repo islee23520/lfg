@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
 import { readLfgRuntimeConfigFile } from "../../grok/models/lfg-runtime-config"
 import { isRecord, type JsonObject } from "../../shared/json"
+import { buildPiAgentLfgAuthEnv } from "./pi-agent-auth-env"
 import {
   codingToolAdapterExecutionPlanJson,
   codingToolAdapterSelectionJson,
@@ -59,10 +60,24 @@ export async function launchCodingToolAdapter(cliAdapter: CodingToolAdapterId | 
     }
   }
   const [command, ...args] = plan.argv
+  const envResult = adapter === "pi-agent"
+    ? await buildPiAgentLfgAuthEnv(process.env, resolveGrokSetupHome(process.env))
+    : { ok: true as const, env: process.env }
+  if (!envResult.ok) {
+    return {
+      ok: false,
+      status: "adapter_unavailable",
+      command: "launch",
+      executed: true,
+      codingToolAdapter: selection,
+      exitCode: 78,
+      error: envResult.error,
+    }
+  }
 
   return new Promise((resolve) => {
     const child = spawn(command, args, {
-      env: process.env,
+      env: envResult.env,
       stdio: "inherit",
     })
 
