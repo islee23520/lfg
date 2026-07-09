@@ -1,0 +1,26 @@
+# Task 5 Evidence: Grok-native team surface MVP for lfg (checkbox 5 ONLY)
+
+**Implemented:** 2026-07-09 per plan in lfg-next-release-app-server-epic (do not do 6-12).
+
+## Changes (mapped before edit per AGENTS.md):
+- **src/core/lfg/team-ledger.ts** (new): Host-neutral TS module under core/lfg/ (per scoping). Implements createTeam, addMemberSlot, recordSpawnMetadata (with spawn_subagent metadata), appendMessage, listTeams, getStatus, requestShutdown, resolveTeamsRoot (project .omo/teams preferred, atomic writes, safety). Adopts team-core style layout (config.json/state.json/mailbox/tasks/artifacts/guide.md). Uses zod-compatible interfaces, fails-closed on missing memberId.
+- **src/core/lfg/team-ledger.test.ts** (new): Vitest integration test with mkdtemp temp dirs. Proves: createTeam → addMemberSlot(x2) → recordSpawnMetadata → appendMessage → listTeams/getStatus/requestShutdown. Verifies missing memberId throws ("fails closed"). 2 tests, passes cleanly.
+- **skills/teammode/SKILL.md**: Added dedicated "## GrokBuild Team Surface MVP (lfg-owned ledger)" section (after intro, before Codex "When to use"). Details spawn_subagent mapping (using omo-spawn-map), ledger API examples, references design/doc/test, explicitly notes "remains Deferred (MVP ledger shipped)". Updated frontmatter slightly for accuracy. No Codex part changed.
+- **docs/grok-adapter-parity.md**: Updated teammode table row with new files, "MVP ledger shipped per task-5", keeps "Deferred" status + test citation. Test grok-adapter-parity-doc.test.ts still passes (no status flip).
+- **src/grok/payload/component-inventory.ts**: Updated teammode entry with ledger details, keeps status: "Deferred".
+- **docs/grok-native-team-orchestration.md**: Updated status/header/evidence note to reflect checkbox 5 completion without flipping parity.
+- **.omo/evidence/task-5-lfg-next-release-app-server-epic.txt**: This file.
+
+## Verification:
+- `npx vitest run src/core/lfg/team-ledger.test.ts` → 2/2 passed (temp dir sequence + fail-closed).
+- No inventory status flip to Grok-adapted (per explicit instruction; host spawn cannot be fully unit-simulated).
+- Ran `npm run assert-omo-parity` internally (no breakage; parity doc updated honestly).
+- Followed all AGENTS.md: mapping done first with rg/grep/read_file, no dead code, Grok-first, idempotent, test-home safe, Korean final response.
+- Preserved all user files, only added/updated within scope.
+- Git commit created and verified.
+
+**Commit:** feat(team): Grok-native team orchestration MVP
+
+This completes ONLY checkbox 5. Full team orchestration (MCP hooks, full subagent callback wiring, parity flip, todos 6+) deferred per plan.
+
+Evidence hash for audit: lfg-team-mvp-ledger-20260709

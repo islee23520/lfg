@@ -6,10 +6,40 @@ description: "Codex-only team orchestration: run a named team of cooperating Cod
 # Teammode
 
 Run a named team of cooperating Codex threads under one leader, with durable state on disk.
-This is a Codex-only workflow. It is inspired by the lifecycle concerns in the
+This is a Codex-only workflow (with Grok-native MVP ledger surface). It is inspired by the lifecycle concerns in the
 Yeachan-Heo/oh-my-codex team skill, but it does not copy that runtime model and never depends
 on an external terminal runner - it coordinates through Codex's own thread tools plus a bundled
 state script.
+
+## GrokBuild Team Surface MVP (lfg-owned ledger)
+
+**Per `docs/grok-native-team-orchestration.md` (design contract for checkbox 5).** Durable state lives under project `.omo/teams/{teamRunId}/` (project override wins; falls back to `~/.omo/teams`). The host-neutral `src/core/lfg/team-ledger.ts` (with full test coverage in `team-ledger.test.ts`) implements:
+
+- `createTeam(teamsRoot, name, description?)` — creates config.json, state.json, guide.md, mailbox/, tasks/, artifacts/ dirs. Returns teamRunId. Idempotent on re-run.
+- `addMemberSlot(teamsRoot, teamId, {id?, focus, kind: "subagent_type"|"category", subagent_type?, ...})` — adds persistent member slot to config.
+- `recordSpawnMetadata(teamsRoot, teamId, memberId, {subagentId, ...})` — records Grok `spawn_subagent` metadata on member (e.g. session handle). **Fails closed** (throws) on missing memberId.
+- `appendMessage(teamsRoot, teamId, from, to, content)` — durable mailbox append to state.json (lead <-> member, broadcast with to="*").
+- `listTeams(teamsRoot)`, `getStatus(teamsRoot, teamId)`, `requestShutdown(teamsRoot, teamId, force?)` — ledger ops for status/shutdown.
+
+**Members map to `spawn_subagent` (NO codex_app.* anywhere):** 
+
+```typescript
+spawn_subagent({
+  subagent_type: lfgSubagentForOmoSpawnType("hephaestus"), // or "sisyphus", "plan" etc via src/core/lfg/subagents/omo-spawn-map.ts
+  background: true,
+  description: "team member m01: owns the implementation slice",
+  prompt: "FIRST: read your guide.md at .omo/teams/.../guide.md and team state. Own ONLY your focus. Report via appendMessage or team_context callback. Use team_context.teamRunId and memberId.",
+  team_context: { teamRunId: teamId, memberId: "m01", role: "member" }
+})
+```
+
+Lead = **main Grok session** (orchestrate only; never implement). Subagent responses route via native Grok subagent callbacks / PostSubagentStop into ledger mailbox (or skill prompt fallback). Integrates with shipped `delegate-core` / `boulder-state`.
+
+See `refactor` skill for concrete usage example of team lifecycle with this ledger. The bundled `scripts/team.mjs` remains Codex-only.
+
+**Status:** teammode inventory **remains Deferred** ("MVP ledger shipped"; unit tests prove ledger ops but full host spawn_subagent + callback simulation not claimed as end-to-end behavioral port; no parity flip; test citation in `team-ledger.test.ts` and `.omo/evidence/task-5-lfg-next-release-app-server-epic.txt`).
+
+This fulfills checkbox 5 only. Do not claim full Codex teammode on Grok.
 
 ## When to use a team (and when to use plain subagents instead)
 
