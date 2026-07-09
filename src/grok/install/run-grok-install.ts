@@ -180,9 +180,10 @@ export async function runGrokInstall(
           hostAuthOnly: hasHostAuthOnlyDiscovery,
         })
       : null
-  const overridesPath = await writeOmoAgentOverridesFile(home, overrideMap)
-  const configFiles = await ensureLfgConfigFiles(home, overrideMap, codingToolAdapter)
-  const omoAgents = await syncLazycodexAgentsToGrokLedger(home, overrideMap)
+  const overridesPath = await writeOmoAgentOverridesFile(home, fullAgentModels)
+  const configFiles = await ensureLfgConfigFiles(home, fullAgentModels, codingToolAdapter)
+  // Use fullAgentModels (same as preserve path) so native OMO agents always get model routing.
+  const omoAgents = await syncLazycodexAgentsToGrokLedger(home, fullAgentModels)
   const pluginsEnabled = await ensureLfgPluginsEnabled(home)
   await ensureLfgAgentsPreferred(home)
   const subagentModels = await ensureLfgSubagentModels(
