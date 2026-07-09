@@ -1,11 +1,13 @@
 import { spawn, spawnSync } from "node:child_process"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { createServer, type IncomingMessage } from "node:http"
 import type { ChildProcessWithoutNullStreams } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, test } from "vitest"
 import { runMcpProbe } from "../test/materialize-grok-mcp.test-helpers"
+
+const XAI_OAUTH_TOKEN_URL = "https://auth.x.ai/oauth2/token"
 
 describe("bundled MCP runtimes", () => {
   let homeRoot = ""
@@ -120,7 +122,7 @@ describe("bundled MCP runtimes", () => {
           access: "oauth-access-runtime",
           refresh: "oauth-refresh-runtime",
           expires: Date.now() + 3600_000,
-          tokenEndpoint: "https://auth.example.test/token",
+          tokenEndpoint: XAI_OAUTH_TOKEN_URL,
           tokenType: "Bearer",
         },
         null,
@@ -189,7 +191,7 @@ describe("bundled MCP runtimes", () => {
                 access_token: "native-oauth-access",
                 refresh_token: "native-oauth-refresh",
                 expires_in: 3600,
-                token_endpoint: "https://auth.example.test/token",
+                token_endpoint: XAI_OAUTH_TOKEN_URL,
               },
             },
           }),
@@ -213,6 +215,73 @@ describe("bundled MCP runtimes", () => {
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => (error === undefined ? resolve() : reject(error))))
     }
+  })
+
+  test("rejects custom xAI OAuth token endpoints through MCP auth tools", async () => {
+    const cli = join(process.cwd(), "dist", "grok-install", "mcp-runtimes", "xai-grok-mcp", "dist", "cli.js")
+    homeRoot = await mkdtemp(join(tmpdir(), "lfg-xai-mcp-endpoint-home-"))
+
+    const probe = await runRuntimeProbe(
+      process.execPath,
+      [cli, "mcp"],
+      [
+        JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tools/call",
+          params: {
+            name: "xai_auth_set_oauth",
+            arguments: {
+              access_token: "native-oauth-access",
+              refresh_token: "native-oauth-refresh",
+              expires_in: 3600,
+              token_endpoint: "https://auth.example.test/token",
+            },
+          },
+        }),
+        "",
+      ].join("\n"),
+      { PATH: process.env.PATH ?? "", HOME: homeRoot },
+    )
+    expect(probe.exitCode, probe.stderr).toBe(0)
+    const messages = probe.stdout.trim().split(/\n+/).map((line) => JSON.parse(line) as { id: number; error?: { message: string } })
+    expect(messages.find((message) => message.id === 2)?.error?.message).toBe(`OAuth token endpoint must be ${XAI_OAUTH_TOKEN_URL}`)
+  })
+
+  test("does not refresh Grok host OIDC fallback into dedicated xAI auth file", async () => {
+    const cli = join(process.cwd(), "dist", "grok-install", "mcp-runtimes", "xai-grok-mcp", "dist", "cli.js")
+    homeRoot = await mkdtemp(join(tmpdir(), "lfg-xai-mcp-host-oidc-home-"))
+    await mkdir(join(homeRoot, ".grok"), { recursive: true })
+    await writeFile(
+      join(homeRoot, ".grok", "auth.json"),
+      JSON.stringify({
+        "https://auth.x.ai::grok-cli": {
+          auth_mode: "oidc",
+          oidc_issuer: "https://auth.x.ai",
+          oidc_client_id: "grok-cli",
+          key: "host-access-runtime",
+          refresh_token: "host-refresh-runtime",
+          expires_at: new Date(Date.now() + 30_000).toISOString(),
+        },
+      }),
+      "utf8",
+    )
+
+    const probe = await runRuntimeProbe(
+      process.execPath,
+      [cli, "mcp"],
+      [
+        JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
+        JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "xai_generate_text", arguments: { prompt: "hello" } } }),
+        "",
+      ].join("\n"),
+      { PATH: process.env.PATH ?? "", HOME: homeRoot },
+    )
+    expect(probe.exitCode, probe.stderr).toBe(0)
+    const messages = probe.stdout.trim().split(/\n+/).map((line) => JSON.parse(line) as { id: number; error?: { message: string } })
+    expect(messages.find((message) => message.id === 2)?.error?.message).toContain("Grok host OIDC fallback is expired or near expiry")
+    await expect(readFile(join(homeRoot, ".grok", "xai-grok-mcp-auth.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
   })
 
   test("package-shaped MCP hook shims exit 0 silently for deferred hook subcommands", () => {
