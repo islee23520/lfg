@@ -338,7 +338,7 @@ describe("lfg CLI", () => {
         ok: false,
         status: "error",
         code: "unsupported_command",
-        supportedCommands: ["setup", "xai"],
+        supportedCommands: ["setup", "xai", "zai", "mcp"],
       })
     }
   })
