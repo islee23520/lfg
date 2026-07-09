@@ -165,10 +165,13 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("hook-bridge.integration.test.ts")
     expect(text).toContain("sync-lazycodex-agents-to-grok.ts")
     expect(text).toContain("the durable continuation CLI is not packaged")
+    expect(text).toContain("getStopHookContinuationContext")
+    expect(text).toContain("ledger-backed pure helper")
+    expect(text).toContain("task-6")
     expect(text).toContain("hook-time `additionalContext` guidance only")
     expect(text).toContain("workflow-selector`, `teammode`, `lazycodex-executor-verify`, `start-work-continuation`")
     expect(text).toContain("Deferred for automatic lifecycle hook reinjection")
-    // refreshed for task 3 of orchestration epic
+    // refreshed for task 3/6 of orchestration epic
     expect(text).toContain("host dependency class")
     expect(text).toContain("codex_app")
     expect(text).toContain("Stop/SubagentStop hook")

@@ -1,7 +1,16 @@
 import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 
-import type { BoulderState, BoulderWorkResumeOption, BoulderWorkState, TaskSessionState } from "../types"
+import type {
+  BoulderState,
+  BoulderWorkResumeOption,
+  BoulderWorkState,
+  PlanChecklist,
+  StopHookContinuationContext,
+  TaskSessionState,
+} from "../types"
 import { getBoulderFilePath, resolveBoulderPlanPathForWork } from "./path"
+import { getPlanChecklist } from "../plan-checklist"
 import { getPlanProgress } from "./plan-progress"
 import { buildWorkFromMirror, isValidWorkStatus, normalizeSessionId, parseIsoToMs, projectWorkToMirror, selectMirrorWork } from "./shared"
 
@@ -211,4 +220,80 @@ export function getTaskSessionState(directory: string, taskKey: string): TaskSes
   }
 
   return state.task_sessions[taskKey] ?? null
+}
+
+/**
+ * Pure helper for Continuation plane (checkbox 6).
+ * Reads boulder.json (fail-closed on malformed/absent) + resolves plan path.
+ * Emits structured context suitable for Stop/SubagentStop hook additionalContext.
+ * Does NOT claim auto-reinjection or use private Grok APIs. Ledger path is
+ * always emitted for durable start-work continuation via boulder-state.
+ * Aligns with project-omo-ledger awareness and Sisyphus guidance.
+ */
+export function getStopHookContinuationContext(directory: string): StopHookContinuationContext {
+  const boulderPath = getBoulderFilePath(directory)
+  const ledgerPath = join(directory, ".omo", "start-work", "ledger.jsonl")
+  const state = readBoulderState(directory)
+
+  if (!state) {
+    const hasFile = existsSync(boulderPath)
+    const status = hasFile ? "malformed" : "absent"
+    return {
+      status,
+      boulderPath,
+      ledgerPath,
+      hasActiveWork: false,
+      activeWorkId: null,
+      planPath: null,
+      checklist: null,
+      resumeOptions: [],
+      additionalContext: `OMO continuation plane: ${status === "malformed" ? "malformed .omo/boulder.json fails closed" : "no active boulder state"}. ` +
+        "Use explicit ledger-backed continuation from .omo/start-work/ledger.jsonl and boulder-state resumeOptions. " +
+        "Sisyphus Stop/SubagentStop provides guidance only; no automatic reinjection (Deferred per host surface gap). " +
+        `Ledger path: ${ledgerPath}`,
+    }
+  }
+
+  const resumeOptions = getWorkResumeOptions(directory)
+  const hasActiveWork = resumeOptions.length > 0 && resumeOptions.some((o) => o.status !== "completed" && o.status !== "abandoned")
+  const activeWork = resumeOptions.find((o) => o.is_current_mirror) || resumeOptions[0]
+  const activeWorkId = activeWork ? activeWork.work_id : null
+  let planPath: string | null = null
+  let checklist: PlanChecklist | null = null
+
+  if (activeWork && activeWork.active_plan) {
+    planPath = resolveBoulderPlanPathForWork(directory, {
+      active_plan: activeWork.active_plan,
+      worktree_path: activeWork.worktree_path,
+    } as any)
+    checklist = getPlanChecklist(planPath)
+  }
+
+  const contextLines = [
+    "Grok ledger-backed start-work continuation context (boulder-state):",
+    `Active work: ${hasActiveWork ? activeWorkId || "yes" : "none"}`,
+    `Ledger: ${ledgerPath} (${hasActiveWork ? "active" : "check for entries"})`,
+    `Plan: ${planPath || "none"}`,
+    checklist && checklist.remaining > 0 ? `Unchecked items: ${checklist.remaining} (next: ${checklist.nextTaskLabel || "none"})` : "All plan checkboxes complete or no plan.",
+    "",
+    "Continuation contract (poll/ resume):",
+    "- Use get_command_or_subagent_output(task_id) or wait_commands_or_subagents for background poll.",
+    "- Resume via resume_from subagent id or explicit /start-work with boulder work_id.",
+    "- Update boulder.json on completion; do not rely on host Stop hook for auto-restart.",
+    "- Malformed .omo always fails closed.",
+    "",
+    "This is durable ledger guidance only. start-work-continuation CLI remains Deferred.",
+  ].filter(Boolean)
+
+  return {
+    status: "present",
+    boulderPath,
+    ledgerPath,
+    hasActiveWork,
+    activeWorkId,
+    planPath,
+    checklist,
+    resumeOptions,
+    additionalContext: contextLines.join("\n"),
+  }
 }

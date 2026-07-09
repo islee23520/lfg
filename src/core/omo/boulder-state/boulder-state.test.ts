@@ -3,11 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
-import type { BoulderState, BoulderWorkState } from "./index";
+import type { BoulderState, BoulderWorkState, StopHookContinuationContext } from "./index";
 import {
   createBoulderState,
   getBoulderFilePath,
   getPlanChecklist,
+  getStopHookContinuationContext,
   getWorkForSession,
   parsePlanChecklist,
   readBoulderState,
@@ -178,3 +179,54 @@ describe("boulder-state storage", () => {
     expect(getWorkForSession(mirrorDirectory, "sess-a")?.work_id).toBe("mirror-legacy");
   });
 });
+
+describe("getStopHookContinuationContext (task 6: continuation plane)", () => {
+  test("malformed .omo fails closed", async () => {
+    const directory = await createTempDirectory("boulder-continuation-malformed-");
+    await mkdir(join(directory, ".omo"), { recursive: true })
+    await writeFile(
+      join(directory, ".omo", "boulder.json"),
+      "{invalid: json",
+      "utf8"
+    )
+
+    const ctx: StopHookContinuationContext = getStopHookContinuationContext(directory)
+    expect(ctx.status).toBe("malformed")
+    expect(ctx.additionalContext).toContain("malformed .omo/boulder.json fails closed")
+    expect(ctx.ledgerPath).toContain("ledger.jsonl")
+    expect(ctx.hasActiveWork).toBe(false)
+    expect(ctx.resumeOptions).toEqual([])
+  })
+
+  test("happy path emits ledger path and structured continuation context", async () => {
+    const directory = await createTempDirectory("boulder-continuation-happy-");
+    await mkdir(join(directory, ".omo", "start-work"), { recursive: true })
+    await mkdir(join(directory, ".omo", "plans"), { recursive: true })
+
+    const validState = createState([
+      createWork({
+        workId: "test-work",
+        sessionIds: ["grok:test"],
+        startedAt: "2026-07-09T12:00:00.000Z",
+      }),
+    ])
+    expect(writeBoulderState(directory, validState)).toBe(true)
+
+    // create a sample plan with unchecked item
+    await writeFile(
+      join(directory, ".omo", "plans", "test-work.md"),
+      "# Test Plan\n\n## TODOs\n- [ ] Implement continuation helper\n- [x] Setup test",
+      "utf8"
+    )
+
+    const ctx: StopHookContinuationContext = getStopHookContinuationContext(directory)
+    expect(ctx.status).toBe("present")
+    expect(ctx.additionalContext).toContain("Grok ledger-backed start-work continuation context")
+    expect(ctx.additionalContext).toContain("ledger")
+    expect(ctx.hasActiveWork).toBe(true)
+    expect(ctx.activeWorkId).toBe("test-work")
+    expect(ctx.checklist?.remaining).toBe(1)
+    expect(ctx.ledgerPath).toContain("ledger.jsonl")
+    expect(ctx.resumeOptions.length).toBeGreaterThan(0)
+  })
+})

@@ -9,6 +9,7 @@ export {
   getWorkByPlanName,
   getWorkForSession,
   getWorkResumeOptions,
+  getStopHookContinuationContext,
   readBoulderState,
 } from "./read-state"
 export { appendSessionId, appendSessionIdForWork } from "./session"

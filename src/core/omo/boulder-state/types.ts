@@ -84,3 +84,15 @@ export interface TopLevelTaskRef {
   label: string
   title: string
 }
+
+export interface StopHookContinuationContext {
+  readonly status: "present" | "malformed" | "absent"
+  readonly boulderPath: string
+  readonly ledgerPath: string
+  readonly hasActiveWork: boolean
+  readonly activeWorkId: string | null
+  readonly planPath: string | null
+  readonly checklist: PlanChecklist | null
+  readonly resumeOptions: readonly BoulderWorkResumeOption[]
+  readonly additionalContext: string
+}

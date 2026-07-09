@@ -21,6 +21,7 @@ export {
   getWorkByPlanName,
   getWorkForSession,
   getWorkResumeOptions,
+  getStopHookContinuationContext,
   normalizeSessionId,
   readBoulderState,
   resolveBoulderPlanPath,
@@ -40,6 +41,7 @@ export type {
   BoulderWorkStatus,
   PlanChecklist,
   PlanProgress,
+  StopHookContinuationContext,
   TaskSessionState,
   TopLevelTaskRef,
 } from "./types"
