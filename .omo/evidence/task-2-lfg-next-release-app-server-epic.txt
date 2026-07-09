@@ -1,0 +1,19 @@
+DoneClaim for plan checkbox 2 (orchestration full-picture ADR + paired test only):
+
+{
+  "DoneClaim": {
+    "task": "complete plan checkbox 2 only — write orchestration full-picture ADR/doc with paired doc-contract test",
+    "changed_files": [
+      "docs/grok-orchestration-plane.md",
+      "src/cli/docs/grok-orchestration-plane-doc.test.ts",
+      ".omo/evidence/task-2-lfg-next-release-app-server-epic.txt"
+    ],
+    "tests": ["npx vitest run src/cli/docs/grok-orchestration-plane-doc.test.ts → exit 0"],
+    "manual_qa": ["Verified all required phrases present verbatim; no claims of Grok app-server or teammode-as-Grok-adapted; matches existing ADR/doc-test style and AGENTS.md mapping; links to SYNTHESIS.md + prior ADRs; only docs staged despite dirty model files"],
+    "cleanup": ["None required"],
+    "risks": ["None — pure documentation update per writing-agent constraints; other plan todos untouched"]
+  },
+  "verification": "test passes, phrases codified, git add limited to docs/* and evidence"
+}
+
+Per instructions: only docs + doc test committed. No other todos (1,3-12) implemented. Model files left dirty/unstaged.
