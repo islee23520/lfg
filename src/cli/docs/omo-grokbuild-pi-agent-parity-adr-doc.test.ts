@@ -15,6 +15,11 @@ describe("docs/omo-grokbuild-pi-agent-parity-adr.md", () => {
     expect(text).toContain("It never upgrades an OMO component to behavior parity by itself")
     expect(text).toContain("`pi-agent run`, external `pi`, or both")
     expect(text).toContain("repo adapter-route proof from external Pi runtime behavior proof")
+    expect(text).toContain("Config Root Separation: `pi-agent run` vs `omo-senpi` / `senpi`")
+    expect(text).toContain("`~/.grok` vs `~/.senpi`")
+    expect(text).toContain("pi-agent run vs omo-senpi")
+    expect(text).toContain("Config Root Separation section")
+    expect(text).toContain("omo-senpi uses separate `~/.senpi`")
 
     for (const proofClass of [
       "behavior proof",

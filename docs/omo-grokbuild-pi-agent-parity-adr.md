@@ -12,6 +12,14 @@ The pi-agent route is not a second OMO runtime by default. Repository evidence c
 
 Because public Pi-family tooling may use `pi` and `.pi` configuration rather than this repo's `pi-agent run` adapter contract, every pi-agent row must identify the exact target: `pi-agent run`, external `pi`, or both. When both are in scope, the row must separate repo adapter-route proof from external Pi runtime behavior proof.
 
+## Config Root Separation: `pi-agent run` vs `omo-senpi` / `senpi`
+
+- **`pi-agent run`** (lfg adapter launch path): Targets `~/.grok` exclusively for plugins (`~/.grok/plugins/lfg` and companion `~/.grok/plugins/lfg-mcp`), `config.toml`, agents, prompts, MCP manifests, stamps (`lfg-install.json`), and shared state. This is the GrokBuild surface. `setup --run` and `pi-agent run` route proof is limited to launch/auth + `~/.grok` visibility. No automatic writes to other roots.
+
+- **`omo-senpi` / `senpi`**: Uses dedicated `~/.senpi` root for senpi-task RPCs, team-core coordination, Pi extraction flows, and omo-senpi agent sessions. This is upstream's separate control plane (see orchestration-plane ADR). lfg does not manage, install into, or claim parity for `~/.senpi` paths. Config collision is avoided by design.
+
+This explicit separation keeps `pi-agent run` evidence honest (adapter/auth only) and defers full omo-senpi behavioral parity (task/team RPC plane). Public Pi tooling may prefer `.pi` over either; rows must call this out.
+
 ## Decision drivers
 
 1. **Status honesty:** keep `Implemented`, `Grok-adapted`, `Manifest-only`, `Remote URL manifest-only`, `Unsupported`, and `Deferred` meaningful.
@@ -54,7 +62,7 @@ Because public Pi-family tooling may use `pi` and `.pi` configuration rather tha
 | `agent-builder` | Grok-adapted | Grok-adapted, partial builtin caveat | Keep curated registry and Grok role assembly; host-bound agents remain deferred. | Require explicit mapping to pi-agent subagents/roles. | `src/core/omo/agent-builder`; partial port evidence. | pi-agent role/subagent mapping proof. | Pi role model may differ from Grok agents. | Which pi-agent subagent names correspond to OMO roles? |
 | `delegate-core` | Grok-adapted | Grok-adapted | Keep host-neutral model selection and retry guidance. | Prove mapping to pi-agent delegation only after target surface is known. | `src/core/omo/delegate-core`; Grok glue. | pi-agent delegation route proof. | pi-agent delegation API unconfirmed. | Is `spawn_subagent` available in pi-agent, external `pi`, or neither? |
 | `boulder-state` | Grok-adapted | Grok-adapted | Keep `.omo/plans` bridge and durable state. | Prove pi-agent can read/write intended project-local state or treat as shared filesystem state. | `src/core/omo/boulder-state`; `.omo/plans` bridge. | pi-agent plan checklist/state transcript. | State ownership across hosts must stay explicit. | Should Pi-specific state live in `.omo`, `.pi`, or both? |
-| `skills-loader-core` | Grok-adapted | Grok-adapted | Keep host-neutral loader and Grok skill roots. | Prove pi-agent skill root discovery; external `pi` may need `.pi` sync. | `src/core/omo/skills-loader-core`; Grok adapter. | pi-agent/external Pi skill discovery proof. | target skill root unknown. | Does the actual Pi target read `~/.grok/plugins/lfg/skills`? |
+| `skills-loader-core` | Grok-adapted | Grok-adapted | Keep host-neutral loader and Grok skill roots. | Prove pi-agent skill root discovery (`~/.grok`); external `pi` may need `.pi` sync; omo-senpi uses separate `~/.senpi` (see Config Root Separation). | `src/core/omo/skills-loader-core`; Grok adapter. | pi-agent/external Pi skill discovery proof. | target skill root unknown. | Does the actual Pi target read `~/.grok/plugins/lfg/skills` (distinct from `~/.senpi`)? |
 | `teammode` | Deferred | Deferred / missing session surface | Keep skill payload only; thread-title hook not adapted. | Require Pi session/thread equivalent before behavior claim. | Upstream skill payload installed; `codex_app.create_thread` hook missing. | Session/thread surface proof or not-applicable. | Grok/Pi thread orchestration surface absent. | What host-native session/thread primitive replaces `codex_app.create_thread`? |
 | `lazycodex-executor-verify` | Deferred | Deferred / host-specific verifier needed | Adapt only after Grok/Pi subagent naming and stop events are known. | Same. | Codex `lazycodex-executor` verifier targets different agent/event names. | SubagentStop/evidence receipt proof. | pi-agent subagent lifecycle unknown. | What is the target executor role and completion event in pi-agent? |
 | `workflow-selector` | Deferred | Deferred / prompt-routing surface needed | Do not enable until a verified prompt-routing hook exists. | Same for pi-agent. | Codex UserPromptSubmit hook with `additionalContext`; lfg currently not enabling. | Prompt-routing proof. | Host prompt routing surface unverified. | Does pi-agent support pre-prompt workflow selection context? |
@@ -65,14 +73,14 @@ Because public Pi-family tooling may use `pi` and `.pi` configuration rather tha
 ## Consequences
 
 - Some rows intentionally remain non-behavioral until proof exists.
-- pi-agent work starts by identifying the real target surface: repo `pi-agent run`, external `pi`, or both.
+- `pi-agent run` ( `~/.grok` config root) is distinct from `omo-senpi`/`senpi` (`~/.senpi` root) and from public `pi`/`.pi` tooling. The new "Config Root Separation" section makes this invariant explicit; lfg claims only GrokBuild + `pi-agent run` adapter launch/auth proof for `~/.grok`.
 - If external `pi` is in scope, a separate column or row note must cover `.pi` config/skill behavior rather than assuming Grok plugin consumption.
 - Later implementation must update docs/tests together because `docs/grok-adapter-parity.md` is tested contract material.
 
 ## Follow-up story clusters after approval
 
-1. **ADR/doc-contract cluster:** Add this ADR as a tested doc and wire exact phrase assertions.
-2. **pi-agent target discovery cluster:** Prove whether target is repo `pi-agent run`, external `pi`, or both; document `.pi` versus `.grok` ownership.
+1. **ADR/doc-contract cluster:** Add this ADR as a tested doc and wire exact phrase assertions (including config-root separation).
+2. **pi-agent target discovery cluster:** Prove whether target is repo `pi-agent run` (`~/.grok`), external `pi`/`.pi`, or omo-senpi (`~/.senpi`); the separation section already documents the `~/.grok` vs `~/.senpi` boundary.
 3. **Grok behavior proof cluster:** Preserve and expand behavior-backed rows only where current tests or live proofs exist.
 4. **pi-agent live proof cluster:** Add route/auth, skill discovery, MCP invocation, prompt/context injection, and subagent lifecycle proofs as separate rows or stories.
 5. **Deferred-host-surface cluster:** Decide substitutes for workflow-selector, teammode, start-work-continuation, lazycodex-executor-verify, bootstrap, and plan-mode-interception.

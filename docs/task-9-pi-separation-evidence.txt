@@ -1,0 +1,23 @@
+Task 9 Evidence - pi-agent run vs omo-senpi/senpi config root separation
+
+Date: 2026-07-09
+Commit target: docs(pi): separate pi-agent run from omo-senpi extraction path
+
+Changes made:
+- Extended docs/omo-grokbuild-pi-agent-parity-adr.md with dedicated "Config Root Separation" section clarifying:
+  * pi-agent run / lfg adapter → ~/.grok (plugins, config.toml, skills, etc.)
+  * omo-senpi/senpi → dedicated ~/.senpi root for RPC/task/team flows
+  * No cross-writes; keeps adapter proof limited to launch/auth
+- Updated matrix row for skills-loader-core to reference the separation
+- Updated Consequences and Follow-up clusters
+- Updated src/cli/docs/omo-grokbuild-pi-agent-parity-adr-doc.test.ts with 5 new key-phrase assertions
+- This maintains doc↔test contract (per AGENTS.md and *-doc.test.ts pattern)
+
+Verification:
+- npm run test -- src/cli/docs/omo-grokbuild-pi-agent-parity-adr-doc.test.ts passes
+- Phrases now pin the ~/.grok vs ~/.senpi boundary explicitly
+- Complements grok-orchestration-plane.md (pi-agent run ≠ omo-senpi without proof)
+
+No runtime/team code changed. Pure documentation update for parity honesty.
+
+This fulfills checkbox 9.
