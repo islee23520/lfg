@@ -35,6 +35,7 @@ const managedSkills = managedSkillSources.map(([skillName]) => skillName)
 const retiredSkillNames = ["lcx-contribute-bug-fix", "lcx-doctor", "lcx-report-bug"]
 const defaultTargets = [join(repoRoot, "src", "grok", "skills"), join(repoRoot, "skills")]
 const syncManifestName = ".lfg-omo-skill-sync.json"
+const grokBuildSpawnSubagentMappingSkills = new Set(["ultraresearch", "ulw-loop", "refactor", "start-work", "ulw-plan", "init-deep", "review-work", "remove-ai-slops"])
 
 export async function syncOmoSkillsToGrok(options = {}) {
   const sourceRoot = await resolveOmoPluginSource(options.source, { includeCache: options.includeCache !== false })
@@ -111,6 +112,9 @@ async function adaptSkillPayload(skillName, skillRoot) {
     await rewriteSkillMarkdown(skillRoot, adaptStartWorkSkill)
   } else if (skillName === "ultraresearch") {
     await rewriteSkillMarkdown(skillRoot, adaptUltraresearchSkill)
+  }
+  if (grokBuildSpawnSubagentMappingSkills.has(skillName)) {
+    await rewriteSkillMarkdown(skillRoot, ensureGrokBuildSpawnSubagentMapping)
   }
 }
 
@@ -195,6 +199,24 @@ async function rewriteOptionalFile(path, transform) {
   const content = await readTextSafe(path)
   if (content === null) return
   await writeFile(path, transform(content), "utf8")
+}
+
+function ensureGrokBuildSpawnSubagentMapping(content) {
+  if (/GrokBuild (Harness )?Tool (Compatibility|Mapping)/.test(content)) return content
+
+  const section = `## GrokBuild Tool Mapping
+
+On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild \`spawn_subagent\` calls. The adapter maps read-only exploration to the lfg-owned OMO persona \`subagent_type: "explorer"\`; do not use disabled Grok built-ins for those roles. This contract is shared for \`coding_tool_adapter\` \`grok\` and \`pi-agent\`.
+
+| Intent | GrokBuild tool to use |
+| --- | --- |
+| Search/read-only worker | \`spawn_subagent({ subagent_type: "explorer", background: true, description: "...", prompt: "TASK: ..." })\` |
+| Planning worker | \`spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })\` |
+| Implementation or QA worker | \`spawn_subagent({ subagent_type: "hephaestus" or "coding", background: true, description: "...", prompt: "TASK: ..." })\` |
+
+`
+
+  return content.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n${section}`)
 }
 
 function adaptLfgDoctorSkill(content) {
@@ -418,9 +440,15 @@ function adaptStartWorkSkill(content) {
 function adaptUlwLoopReference(content) {
   return content
     .replaceAll("CODEX_HOME=\"${CODEX_HOME:-$HOME/.codex}\"", "GROK_HOME=\"${GROK_HOME:-$HOME/.grok}\"")
-    .replaceAll("\"$CODEX_HOME/bin/omo\" \"$CODEX_HOME\"/plugins/cache/sisyphuslabs/omo/*/components/ulw-loop/dist/cli.js", "\"$GROK_HOME/plugins/lfg/components/ulw-loop/dist/cli.js\" \"$GROK_HOME/plugins/lfg/hooks/lfg-native-ultrawork.js\"")
+    .replaceAll("cached Codex component CLI", "OMO-owned local CLI")
+    .replaceAll("stable local installer bin or cached Codex component CLI — same CLI, so PATH absence is not a blocker", "OMO-owned local CLI at `~/.local/bin/omo` when present. lfg installs the GrokBuild skill and hook context only; it does not package the durable ulw-loop CLI")
+    .replaceAll("stable local installer bin or OMO-owned local CLI — same CLI, so PATH absence is not a blocker", "OMO-owned local CLI at `~/.local/bin/omo` when present. lfg installs the GrokBuild skill and hook context only; it does not package the durable ulw-loop CLI")
+    .replaceAll("\"$CODEX_HOME/bin/omo\" \"$CODEX_HOME\"/plugins/cache/sisyphuslabs/omo/*/components/ulw-loop/dist/cli.js", "\"$HOME/.local/bin/omo\"")
+    .replaceAll("\"$GROK_HOME/plugins/lfg/components/ulw-loop/dist/cli.js\" \"$GROK_HOME/plugins/lfg/hooks/lfg-native-ultrawork.js\"", "")
     .replaceAll("${CODEX_HOME:-$HOME/.codex}", "${GROK_HOME:-$HOME/.grok}")
-    .replaceAll("Install with npx lazycodex-ai install or set CODEX_LOCAL_BIN_DIR to a PATH directory.", "Run lfg setup --run to refresh the lfg-owned GrokBuild plugin payload under ~/.grok/plugins/lfg.")
+    .replaceAll("Install with npx lazycodex-ai install or set CODEX_LOCAL_BIN_DIR to a PATH directory.", "Install the upstream OMO ulw-loop CLI in PATH or at ~/.local/bin/omo. lfg setup installs the GrokBuild skill and hook context only; it does not package the durable ulw-loop CLI.")
+    .replaceAll("Run lfg setup --run to refresh the lfg-owned GrokBuild plugin payload under ~/.grok/plugins/lfg.", "Install the upstream OMO ulw-loop CLI in PATH or at ~/.local/bin/omo. lfg setup installs the GrokBuild skill and hook context only; it does not package the durable ulw-loop CLI.")
+    .replaceAll("No ulw-loop-capable omo executable found; PATH omo may be the OpenCode CLI without the Codex ulw-loop subcommand, and cached ulw-loop CLI was not found under ${GROK_HOME:-$HOME/.grok}.", "No ulw-loop-capable omo executable found; PATH omo may be the OpenCode CLI without the Codex ulw-loop subcommand, and no upstream OMO ulw-loop CLI was found at $HOME/.local/bin/omo.")
     .replaceAll("lazycodex-code-reviewer", "lfg-code-reviewer")
     .replaceAll("lazycodex-qa-executor", "lfg-qa-executor")
     .replaceAll("lazycodex-gate-reviewer", "lfg-gate-reviewer")

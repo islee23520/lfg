@@ -3,6 +3,17 @@ name: remove-ai-slops
 description: "Remove AI-generated code smells (slop) from branch changes or an explicit file list. Locks behavior with regression tests FIRST, then runs categorized cleanup via parallel `deep` agents in batches of 5, then verifies with quality gates. Covers 10 slop categories including performance equivalences, excessive complexity (object annotations, if/elif variant chains), and oversized modules (250+ pure LOC with mandatory modular refactoring). MUST USE when the user asks to \"remove slop\", \"clean AI code\", \"deslop\", \"clean up AI-generated code\", \"remove AI slop\", or wants to clean up AI-generated patterns from recent changes. Triggers - \"remove ai slops\", \"clean ai code\", \"deslop\", \"cleanup AI generated\", \"remove AI slop\", \"clean up AI-generated code\", \"strip slop\", \"ai-slop cleanup\"."
 ---
 
+## GrokBuild Tool Mapping
+
+On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild `spawn_subagent` calls. The adapter maps read-only exploration to the lfg-owned OMO persona `subagent_type: "explorer"`; do not use disabled Grok built-ins for those roles. This contract is shared for `coding_tool_adapter` `grok` and `pi-agent`.
+
+| Intent | GrokBuild tool to use |
+| --- | --- |
+| Search/read-only worker | `spawn_subagent({ subagent_type: "explorer", background: true, description: "...", prompt: "TASK: ..." })` |
+| Planning worker | `spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })` |
+| Implementation or QA worker | `spawn_subagent({ subagent_type: "hephaestus" or "coding", background: true, description: "...", prompt: "TASK: ..." })` |
+
+
 ## Codex Harness Tool Compatibility
 
 This skill may include examples copied from the OpenCode harness. In Codex, do not call OpenCode-only tools such as `call_omo_agent(...)`, `task(...)`, `background_output(...)`, or `team_*(...)` literally. Translate those examples to Codex native tools:
