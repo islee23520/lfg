@@ -318,8 +318,10 @@ describe("lfg CLI", () => {
     })
 
     expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain("Vanilla GrokBuild with xAI OAuth")
-    expect(result.stdout).toContain("native models from discovery (grok-4 preferred, grok-3 for fast)")
+    expect(result.stdout).toContain("Using built-in Grok models directly")
+    expect(result.stdout).toContain("default: grok-build-0.1")
+    expect(result.stdout).toContain("fast: grok-composer-2.5-fast")
+    expect(result.stdout).not.toContain("grok-3-mini-fast")
     expect(result.stdout).not.toContain("Use LLM recommendations from your available models?")
     expect(result.stdout).not.toContain("Choose one global model preset")
     expect(result.stdout).not.toContain("Global reasoning effort")

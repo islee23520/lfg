@@ -13,10 +13,11 @@ import {
   toRecommendationOverrideMap,
 } from "./lfg-setup-tui-data";
 import { createSetupSelectors, buildModelChoicesForTui, type ModelChoice } from "./lfg-setup-tui-selectors";
-import { configureAgentOverrides, configureRoleAgents, type AgentTuiResult } from "./lfg-setup-tui-agents";
-import { formatRecommendationTable } from "../../grok/models/model-recommendations";
+import { configureAgentOverrides, configureRoleAgents } from "./lfg-setup-tui-agents";
 import { DEFAULT_CODING_TOOL_ADAPTER, isCodingToolAdapterId, type CodingToolAdapterId } from "../../shared/coding-tool-adapter";
-import { codingToolAdapterTuiOptions, formatCodingToolAdapterSummary } from "./lfg-setup-tui-adapter";
+import { codingToolAdapterTuiOptions } from "./lfg-setup-tui-adapter";
+import { executeTuiInstall, type TuiGlobalInstaller } from "./lfg-setup-tui-execute";
+import { formatCustomResults, formatInstallSummary, formatIntroNote, formatPresetResults, formatRecommendedResults } from "./lfg-setup-tui-results";
 
 export function shouldUseSetupTui(args: { readonly noTui?: boolean }, options: { readonly check?: boolean; readonly input?: { readonly isTTY?: boolean }; readonly output?: { readonly isTTY?: boolean } }): boolean {
   if (options.check || args.noTui === true) return false;
@@ -37,6 +38,7 @@ export type RunSetupTuiOptions = {
       readonly reasoningSelector?: ReasoningSelector;
     },
   ) => Promise<void>;
+  readonly globalInstaller?: TuiGlobalInstaller;
 };
 
 export async function runSetupTui(args: { readonly noTui?: boolean; readonly codingToolAdapter?: CodingToolAdapterId }, context: unknown, deps: RunSetupTuiOptions = {}) {
@@ -47,18 +49,7 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
   prompts.intro(colors.inverse(configOnly ? " LFG model config " : " LFG setup "));
 
   prompts.note(
-    configOnly
-      ? [
-          "Edit LFG model routing from discovered proxy models.",
-          "Auto routing prefers GPT/GLM for orchestration, Composer for coding, and Gemini for visual agents.",
-          "Saving re-runs the idempotent Grok adapter sync so settings land in ~/.grok.",
-        ].join("\n")
-      : [
-          "Install the omo/lazycodex adapter for Grok Build.",
-          "Target: ~/.grok/plugins/lfg as a real directory.",
-          "Codex-home bootstrap is not used.",
-          "Apply Grok adapter, hooks, agents, and model overrides from discovered proxy."
-        ].join("\n"),
+    formatIntroNote(configOnly),
     configOnly ? "Model routing editor" : "Grok adapter overlay"
   );
 
@@ -245,18 +236,18 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
 
   prompts.note(resultsText, "Setup results");
 
+  const installGlobalCli = configOnly ? false : await prompts.confirm({
+    message: "Install/update the lfg CLI globally with npm? (enables the lfg command)",
+    initialValue: false,
+  });
+  if (prompts.isCancel(installGlobalCli)) {
+    prompts.cancel("lfg setup cancelled.");
+    throw new Error("lfg setup cancelled");
+  }
+
   // TUI's own clean Install Summary (replaces the classic printInstallPlan + Magic Word box).
   prompts.note(
-    [
-      configOnly ? "Config path: ~/.grok" : "Install path: grok",
-      configOnly ? "Updater: idempotent lfg Grok config sync" : "Installer: @islee23520/lfg internal grok-install",
-      formatCodingToolAdapterSummary(adapterChoice),
-      modelConfigLine,
-      "Writes: hooks, agents, overrides, lfg config, Grok plugin enablement",
-      "",
-      "Include ultrawork (or ulw) in your prompt to unlock deep exploration, parallel agents,",
-      "background work, and relentless execution until completion.",
-    ].join("\n"),
+    formatInstallSummary({ configOnly, adapterChoice, installGlobalCli: installGlobalCli === true, modelConfigLine }),
     "Install Summary"
   );
 
@@ -270,78 +261,17 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     return { ok: true, status: "tui_skipped", executed: false };
   }
 
-  try {
-    const { runLazycodexInstaller } = await import("./lfg-installer.js");
-    const installRes: Record<string, unknown> = await runLazycodexInstaller(configuredForInstall, { codingToolAdapter: adapterChoice });
-    if (installRes?.stdout) {
-      const stdout = String(installRes.stdout);
-      process.stdout.write(stdout.endsWith("\n") ? stdout : `${stdout}\n`);
-    }
-    if (installRes?.stderr) {
-      const stderr = String(installRes.stderr);
-      process.stderr.write(stderr.endsWith("\n") ? stderr : `${stderr}\n`);
-    }
-    const success = installRes?.ok !== false;
-    if (success) {
-      prompts.outro(colors.green(configOnly ? "LFG model routing saved under ~/.grok." : "Grok adapter installed under ~/.grok. Re-run lfg --json setup --run for scriptable verification."));
-    } else {
-      prompts.outro("Install completed with warnings. See output above. Re-run lfg --json setup --run to check.");
-    }
-    return { ok: success, status: success ? (configOnly ? "tui_config_saved" : "tui_installed") : "tui_install_failed", executed: true };
-  } catch (error) {
-    prompts.outro("Install failed during execution. See errors above.");
-    return { ok: false, status: "tui_error", error: error instanceof Error ? error.message : String(error), executed: false };
-  }
+  return executeTuiInstall({
+    prompts,
+    colors,
+    configuredForInstall,
+    codingToolAdapter: adapterChoice,
+    configOnly,
+    installGlobalCli: installGlobalCli === true,
+    ...(deps.globalInstaller === undefined ? {} : { globalInstaller: deps.globalInstaller }),
+  });
 }
 
 function isConfigOnlyContext(context: unknown): boolean {
   return typeof context === "object" && context !== null && "configOnly" in context && (context as { readonly configOnly?: unknown }).configOnly === true;
-}
-
-function formatPresetResults(preset: SetupPreset, discovery: ModelDiscovery): string {
-  const agents = defaultLazycodexAgentConfig(discovery);
-  return [
-    `Preset: ${preset}`,
-    `  default: ${discovery.mapping.default}`,
-    `  fast: ${discovery.mapping.fast}`,
-    `  reasoning: ${discovery.mapping.reasoning}`,
-    `  coding: ${discovery.mapping.coding}`,
-    "",
-    "Agent routing is derived from the global preset:",
-    `  explorer: ${agents.explorer.model} / ${agents.explorer.reasoningLevel}`,
-    `  reasoning: ${agents.reasoning.model} / ${agents.reasoning.reasoningLevel}`,
-    `  coding: ${agents.coding.model} / ${agents.coding.reasoningLevel}`,
-  ].join("\n");
-}
-
-function formatRecommendedResults(discovery: ModelDiscovery, bundled: Parameters<typeof toRecommendationOverrideMap>[0]): string {
-  return [
-    formatPresetResults("auto", discovery).replace("Preset: auto", "LLM recommendation: auto"),
-    "",
-    formatRecommendationTable(discovery.modelIds, toRecommendationOverrideMap(bundled), { condensed: true }),
-  ].join("\n");
-}
-function formatCustomResults(
-  preset: SetupPreset,
-  discovery: ModelDiscovery,
-  roleResults: readonly AgentTuiResult[],
-  agents: ReturnType<typeof defaultLazycodexAgentConfig>,
-  extraResults: readonly AgentTuiResult[] = [],
-): string {
-  const extraLines = extraResults.length === 0
-    ? []
-    : ["", "Named agent overrides (customized):", ...extraResults.map((agent) => `  ${agent.name}: ${agent.model} / ${agent.reasoning} (tier: ${agent.tier})`)];
-  return [
-    `Preset: ${preset} (customized roles)`,
-    `  default: ${discovery.mapping.default}`,
-    `  fast: ${discovery.mapping.fast}`,
-    `  reasoning: ${discovery.mapping.reasoning}`,
-    `  coding: ${discovery.mapping.coding}`,
-    "",
-    "Agent routing (customized):",
-    `  explorer: ${agents.explorer.model} / ${agents.explorer.reasoningLevel}`,
-    `  reasoning: ${agents.reasoning.model} / ${agents.reasoning.reasoningLevel}`,
-    `  coding: ${agents.coding.model} / ${agents.coding.reasoningLevel}`,
-    ...extraLines,
-  ].join("\n");
 }
