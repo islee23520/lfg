@@ -2,7 +2,7 @@
 import { createInterface } from "node:readline"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import { stdin, stdout } from "node:process"
 
 const RUNTIME_NAME = "lfg-xai-grok"
@@ -348,7 +348,7 @@ function xaiAuthSetOAuth(args) {
     access,
     refresh,
     expires,
-    tokenEndpoint: optionalString(args.token_endpoint) || XAI_OAUTH_TOKEN_URL,
+    tokenEndpoint: parseXaiOAuthTokenEndpoint(optionalString(args.token_endpoint)),
     tokenType: optionalString(args.token_type) || "Bearer",
   })
   return {
@@ -468,11 +468,10 @@ async function resolveXaiCredentials() {
   if (apiKey) return { provider: "xai", apiKey, baseUrl: XAI_BASE_URL }
   const grokOidc = readGrokStoredAuth(grokHostAuthPath())
   if (grokOidc && grokOidc.access) {
-    const current =
-      grokOidc.expires - Date.now() <= REFRESH_SKEW_MS || accessTokenIsExpiring(grokOidc.access)
-        ? await refreshGrokHostOidcToDedicated(grokOidc)
-        : grokOidc
-    return { provider: current.provider, apiKey: current.access, baseUrl: XAI_BASE_URL }
+    if (grokOidc.expires - Date.now() <= REFRESH_SKEW_MS || accessTokenIsExpiring(grokOidc.access)) {
+      throw new Error("Grok host OIDC fallback is expired or near expiry. Configure dedicated xAI MCP auth with lfg xai auth set-oauth or set-api-key.")
+    }
+    return { provider: grokOidc.provider, apiKey: grokOidc.access, baseUrl: XAI_BASE_URL }
   }
   throw new Error(
     "xAI credentials not found. Run: lfg xai auth set-api-key, lfg xai auth set-oauth, set XAI_API_KEY, or sign in to Grok for read-only host fallback.",
@@ -480,7 +479,8 @@ async function resolveXaiCredentials() {
 }
 
 async function refreshStoredAuth(auth) {
-  const response = await fetch(auth.tokenEndpoint || XAI_OAUTH_TOKEN_URL, {
+  const tokenEndpoint = parseXaiOAuthTokenEndpoint(auth.tokenEndpoint)
+  const response = await fetch(tokenEndpoint, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": "lfg-xai-grok-mcp/0.0.0" },
     body: new URLSearchParams({
@@ -496,15 +496,10 @@ async function refreshStoredAuth(auth) {
     access: data.access_token,
     refresh: data.refresh_token || auth.refresh,
     expires: Date.now() + Number(data.expires_in || 3600) * 1000,
-    tokenEndpoint: auth.tokenEndpoint || XAI_OAUTH_TOKEN_URL,
+    tokenEndpoint,
     tokenType: auth.tokenType || "Bearer",
   }
   writeDedicatedMcpAuth(refreshed)
-  return refreshed
-}
-
-async function refreshGrokHostOidcToDedicated(auth) {
-  const refreshed = await refreshStoredAuth({ ...auth, provider: "lfg-xai-mcp" })
   return refreshed
 }
 
@@ -524,12 +519,14 @@ function readDedicatedMcpAuth(path) {
       }
     }
     if (data.access && data.refresh && data.expires) {
+      const tokenEndpoint = safeXaiOAuthTokenEndpoint(data.tokenEndpoint)
+      if (!tokenEndpoint) return undefined
       return {
         provider: typeof data.provider === "string" ? data.provider : "xai-oauth",
         access: String(data.access),
         refresh: String(data.refresh),
         expires: Number(data.expires),
-        tokenEndpoint: typeof data.tokenEndpoint === "string" ? data.tokenEndpoint : XAI_OAUTH_TOKEN_URL,
+        tokenEndpoint,
         tokenType: typeof data.tokenType === "string" ? data.tokenType : "Bearer",
       }
     }
@@ -552,12 +549,14 @@ function readPackageStoredAuth(path) {
   try {
     const data = JSON.parse(readFileSync(path, "utf8"))
     if (!isRecord(data) || !data.access || !data.refresh || !data.expires) return undefined
+    const tokenEndpoint = safeXaiOAuthTokenEndpoint(data.tokenEndpoint)
+    if (!tokenEndpoint) return undefined
     return {
       provider: "xai-oauth",
       access: String(data.access),
       refresh: String(data.refresh),
       expires: Number(data.expires),
-      tokenEndpoint: typeof data.tokenEndpoint === "string" ? data.tokenEndpoint : XAI_OAUTH_TOKEN_URL,
+      tokenEndpoint,
       tokenType: typeof data.tokenType === "string" ? data.tokenType : "Bearer",
     }
   } catch {
@@ -595,6 +594,7 @@ function readGrokStoredAuth(path) {
 
 function writeDedicatedMcpAuth(auth) {
   const path = dedicatedAuthPath()
+  const tokenEndpoint = parseXaiOAuthTokenEndpoint(auth.tokenEndpoint)
   const body =
     auth.refresh && auth.refresh.length > 0
       ? {
@@ -603,7 +603,7 @@ function writeDedicatedMcpAuth(auth) {
           access: auth.access,
           refresh: auth.refresh,
           expires: auth.expires,
-          tokenEndpoint: auth.tokenEndpoint || XAI_OAUTH_TOKEN_URL,
+          tokenEndpoint,
           tokenType: auth.tokenType || "Bearer",
           updated_at: new Date().toISOString(),
         }
@@ -614,7 +614,29 @@ function writeDedicatedMcpAuth(auth) {
           updated_at: new Date().toISOString(),
         }
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
+  rejectUnsafeExistingAuthPath(path)
   writeFileSync(path, JSON.stringify(body, null, 2), { mode: 0o600 })
+  chmodSync(path, 0o600)
+}
+
+function parseXaiOAuthTokenEndpoint(value) {
+  if (value === undefined || value === null || value === "") return XAI_OAUTH_TOKEN_URL
+  if (value === XAI_OAUTH_TOKEN_URL) return XAI_OAUTH_TOKEN_URL
+  throw new Error(`OAuth token endpoint must be ${XAI_OAUTH_TOKEN_URL}`)
+}
+
+function safeXaiOAuthTokenEndpoint(value) {
+  if (value === undefined || value === null || value === "") return XAI_OAUTH_TOKEN_URL
+  return value === XAI_OAUTH_TOKEN_URL ? XAI_OAUTH_TOKEN_URL : undefined
+}
+
+function rejectUnsafeExistingAuthPath(path) {
+  try {
+    if (lstatSync(path).isSymbolicLink()) throw new Error("Refusing to write xAI MCP auth through a symbolic link")
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") return
+    throw error
+  }
 }
 
 function extractResponseText(data) {
