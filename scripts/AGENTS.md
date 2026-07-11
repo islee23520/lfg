@@ -8,7 +8,7 @@ Root build bundler and the publish/pack/auth readiness gates. These scripts are 
 
 | Task | Location | Notes |
 |------|----------|-------|
-| Bundle dist | `build.mjs` | esbuild; 8 entry points → `dist/*.js`. |
+| Bundle dist | `build.mjs` | esbuild; 8 CLI entry points → `dist/*.js`, plus 2 staged Grok hook runtime bundles. |
 | Stage install payload | `build.mjs` | Copies `fixture/`, `assets/`, `flavour/`, `skills/`; generates MCP runtime CLIs. |
 | Pack tarball guard | `assert-npm-pack-bin.mjs` | `npm run assert-pack`; required paths + bin target. |
 | OMO parity guard | `assert-omo-parity.mjs` | `npm run assert-omo-parity`; validates generated OMO skill payloads, docs, inventory, and build cache guard. |

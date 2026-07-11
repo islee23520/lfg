@@ -339,7 +339,7 @@ describe("lfg CLI", () => {
         ok: false,
         status: "error",
         code: "unsupported_command",
-        supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop"],
+        supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop", "codex"],
       })
     }
   })

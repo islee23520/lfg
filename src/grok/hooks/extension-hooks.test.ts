@@ -1,12 +1,92 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { spawn } from "node:child_process"
 import { describe, expect, test } from "vitest"
-import { installGrokPluginFromSource } from "../payload/install"
+import { installGrokPluginFromSource, overlayLfgComponentShims } from "../payload/install"
 import { mergePortedHooksIntoPlugin } from "./extension-hooks"
+import { materializeActiveGrokHooksJson } from "./normalize-plugin-hooks-active"
 
 describe("extension-hooks", () => {
+  test("active hook commands quote a hostile plugin root without executing a probe", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-active-shell-"))
+    const probe = join(home, "injected")
+    const pluginRoot = join(home, ".grok", "plugins", 'lfg"; touch injected; #')
+    const target = join(pluginRoot, "hooks", "target.mjs")
+    await mkdir(join(pluginRoot, "hooks"), { recursive: true })
+    await writeFile(target, 'process.stdout.write("safe hook\\n")\n', "utf8")
+
+    const active = await materializeActiveGrokHooksJson(pluginRoot, {
+      hooks: {
+        SessionStart: [{ hooks: [{ type: "command", command: 'node "${GROK_PLUGIN_ROOT}/hooks/target.mjs"' }] }],
+      },
+    })
+    const raw = await readFile(active.path, "utf8")
+    const command = commandFromActiveHooks(raw)
+    const result = await runShellCommand(command, home)
+
+    expect(command).toBe(`node '${target}'`)
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toBe("safe hook\n")
+    await expect(access(probe)).rejects.toThrow()
+  })
+
+  test("hook runtime overlay preserves component assets outside dist cli", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-overlay-assets-"))
+    const source = join(import.meta.dirname, "..", "fixture")
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
+    const agent = join(pluginRoot, "components", "rules", "agents", "upstream.toml")
+    const cli = join(pluginRoot, "components", "rules", "dist", "cli.js")
+    await mkdir(dirname(agent), { recursive: true })
+    await writeFile(agent, 'model = "upstream"\n', "utf8")
+    await writeFile(cli, "stale fixture runtime\n", "utf8")
+
+    await overlayLfgComponentShims(pluginRoot, join(process.cwd(), "dist", "grok-install", "components"))
+
+    await expect(readFile(agent, "utf8")).resolves.toContain('model = "upstream"')
+    await expect(readFile(cli, "utf8")).resolves.not.toContain("stale fixture runtime")
+  })
+
+  test("partial bundled hook runtime fails before replacing a stale cli", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-overlay-partial-"))
+    const source = join(import.meta.dirname, "..", "fixture")
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
+    const cli = join(pluginRoot, "components", "rules", "dist", "cli.js")
+    const partial = await mkdtemp(join(tmpdir(), "lfg-overlay-source-"))
+    await mkdir(join(partial, "lsp", "dist"), { recursive: true })
+    await writeFile(join(partial, "lsp", "dist", "cli.js"), "partial\n", "utf8")
+    await writeFile(cli, "stale runtime\n", "utf8")
+
+    await expect(overlayLfgComponentShims(pluginRoot, partial)).rejects.toThrow("bundled Grok hook runtime missing")
+    await expect(readFile(cli, "utf8")).resolves.toBe("stale runtime\n")
+  })
+
+  test("native rules dedup preserves an unrelated co-located handler", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-native-rules-dedup-"))
+    const source = join(import.meta.dirname, "..", "fixture")
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
+    await writeFile(
+      join(pluginRoot, "hooks", "hooks.json"),
+      `${JSON.stringify({
+        hooks: {
+          SessionStart: [{
+            hooks: [
+              { type: "command", command: 'node "\${GROK_PLUGIN_ROOT}/hooks/lfg-native-rules.mjs" session-start' },
+              { type: "command", command: 'node "\${GROK_PLUGIN_ROOT}/hooks/keep.mjs"' },
+            ],
+          }],
+        },
+      }, null, 2)}\n`,
+      "utf8",
+    )
+
+    await mergePortedHooksIntoPlugin(pluginRoot)
+    await mergePortedHooksIntoPlugin(pluginRoot)
+
+    const sourceHooks = await readFile(join(pluginRoot, "hooks", "hooks.source.json"), "utf8")
+    expect(sourceHooks.match(/keep\.mjs/g)?.length).toBe(1)
+  })
+
   test("normalize rewrites PLUGIN_ROOT in installed tree", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-ext-hooks-"))
     const source = join(import.meta.dirname, "..", "fixture")
@@ -138,6 +218,38 @@ describe("extension-hooks", () => {
     expect(result.stderr).toContain(join(projectRoot, ".omo", "boulder.json"))
   })
 })
+
+function commandFromActiveHooks(raw: string): string {
+  const parsed: unknown = JSON.parse(raw)
+  if (typeof parsed !== "object" || parsed === null || !("hooks" in parsed)) {
+    throw new Error("active hooks JSON is malformed")
+  }
+  const hooks = parsed.hooks
+  if (typeof hooks !== "object" || hooks === null || !("SessionStart" in hooks) || !Array.isArray(hooks.SessionStart)) {
+    throw new Error("active SessionStart hooks are missing")
+  }
+  const group = hooks.SessionStart[0]
+  if (typeof group !== "object" || group === null || !("hooks" in group) || !Array.isArray(group.hooks)) {
+    throw new Error("active SessionStart hook group is malformed")
+  }
+  const handler = group.hooks[0]
+  if (typeof handler !== "object" || handler === null || !("command" in handler) || typeof handler.command !== "string") {
+    throw new Error("active SessionStart command is missing")
+  }
+  return handler.command
+}
+
+function runShellCommand(command: string, cwd: string): Promise<{ readonly exitCode: number; readonly stdout: string }> {
+  return new Promise((resolve) => {
+    const child = spawn("sh", ["-c", command], { cwd, stdio: ["ignore", "pipe", "ignore"] })
+    let stdout = ""
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString()
+    })
+    child.on("close", (code) => resolve({ exitCode: code ?? 1, stdout }))
+    child.on("error", () => resolve({ exitCode: 1, stdout }))
+  })
+}
 
 describe("sisyphus UserPromptSubmit /ulw-plan routing", () => {
   // Note: this is hook-time guidance, NOT Grok native Plan Mode interception.

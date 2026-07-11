@@ -230,3 +230,113 @@ describe("getStopHookContinuationContext (task 6: continuation plane)", () => {
     expect(ctx.resumeOptions.length).toBeGreaterThan(0)
   })
 })
+
+/**
+ * Characterization + RED for start-work-continuation proven-resume contract (T4 / #94).
+ *
+ * GREEN pins: valid boulder → ledgerPath + structured fields; malformed .omo → fail-closed.
+ * RED gap: present Stop continuation context must name the durable resume CLI
+ * (`lfg ulw-loop` or equivalent) and must not claim automatic reinjection.
+ * Production GREEN for that resume pointer is intentionally deferred to a later task.
+ */
+describe("getStopHookContinuationContext proven resume contract (T4 characterization + RED)", () => {
+  async function writeValidActiveBoulder(directory: string): Promise<void> {
+    await mkdir(join(directory, ".omo", "start-work"), { recursive: true })
+    await mkdir(join(directory, ".omo", "plans"), { recursive: true })
+    const validState = createState([
+      createWork({
+        workId: "resume-work",
+        sessionIds: ["grok:resume-session"],
+        startedAt: "2026-07-11T00:00:00.000Z",
+      }),
+    ])
+    expect(writeBoulderState(directory, validState)).toBe(true)
+    await writeFile(
+      join(directory, ".omo", "plans", "resume-work.md"),
+      "# Resume Plan\n\n## TODOs\n- [ ] Continue work\n- [x] Seeded\n",
+      "utf8",
+    )
+  }
+
+  test("characterization: valid boulder pins ledgerPath under .omo/start-work and present status", async () => {
+    const directory = await createTempDirectory("boulder-t4-char-happy-")
+    await writeValidActiveBoulder(directory)
+
+    const ctx = getStopHookContinuationContext(directory)
+    expect(ctx.status).toBe("present")
+    expect(ctx.ledgerPath).toBe(join(directory, ".omo", "start-work", "ledger.jsonl"))
+    expect(ctx.boulderPath).toBe(join(directory, ".omo", "boulder.json"))
+    expect(ctx.hasActiveWork).toBe(true)
+    expect(ctx.activeWorkId).toBe("resume-work")
+    expect(ctx.planPath).toContain("resume-work.md")
+    expect(ctx.checklist).toMatchObject({ remaining: 1, nextTaskLabel: "Continue work" })
+    expect(ctx.resumeOptions.some((option) => option.work_id === "resume-work")).toBe(true)
+    // Honesty pin: guidance must not claim host auto-restart / auto-reinjection is available.
+    expect(ctx.additionalContext).toMatch(/do not rely on host Stop hook for auto-restart/i)
+    expect(ctx.additionalContext).not.toMatch(
+      /\b(will|does|performs|enables)\s+automatic\s+reinjection\b/i,
+    )
+  })
+
+  test("characterization: malformed .omo fails closed without active resume options", async () => {
+    const directory = await createTempDirectory("boulder-t4-char-malformed-")
+    await mkdir(join(directory, ".omo"), { recursive: true })
+    await writeFile(join(directory, ".omo", "boulder.json"), "{not-valid-json", "utf8")
+
+    const ctx = getStopHookContinuationContext(directory)
+    expect(ctx.status).toBe("malformed")
+    expect(ctx.hasActiveWork).toBe(false)
+    expect(ctx.activeWorkId).toBeNull()
+    expect(ctx.planPath).toBeNull()
+    expect(ctx.checklist).toBeNull()
+    expect(ctx.resumeOptions).toEqual([])
+    expect(ctx.ledgerPath).toBe(join(directory, ".omo", "start-work", "ledger.jsonl"))
+    expect(ctx.additionalContext).toContain("malformed .omo/boulder.json fails closed")
+    expect(ctx.additionalContext).toMatch(/no automatic reinjection/i)
+  })
+
+  test("characterization: absent boulder fails closed with empty resume surface", async () => {
+    const directory = await createTempDirectory("boulder-t4-char-absent-")
+    const ctx = getStopHookContinuationContext(directory)
+    expect(ctx.status).toBe("absent")
+    expect(ctx.hasActiveWork).toBe(false)
+    expect(ctx.resumeOptions).toEqual([])
+    expect(ctx.additionalContext).toContain("no active boulder state")
+    expect(ctx.additionalContext).toMatch(/no automatic reinjection/i)
+  })
+
+  /**
+   * RED — proven resume contract (gap vs current production wording).
+   * Present Stop/SubagentStop continuation context must give an actionable durable-CLI
+   * resume pointer (`lfg ulw-loop` / `lfg ulw`) and must deny automatic reinjection
+   * with an explicit honesty phrase (not only "auto-restart").
+   */
+  test("RED proven resume: present context must name durable CLI resume pointer and deny automatic reinjection", async () => {
+    const directory = await createTempDirectory("boulder-t4-red-proven-resume-")
+    await writeValidActiveBoulder(directory)
+
+    const ctx = getStopHookContinuationContext(directory)
+    expect(ctx.status).toBe("present")
+    expect(ctx.ledgerPath).toContain(join(".omo", "start-work", "ledger.jsonl"))
+
+    // Actionable resume pointer: durable CLI packaged by lfg (orchestration-plane substitute).
+    const namesDurableCli =
+      /\blfg\s+ulw-loop\b/i.test(ctx.additionalContext) ||
+      /\blfg\s+ulw\b/i.test(ctx.additionalContext)
+    expect(
+      namesDurableCli,
+      "present Stop continuation context must name durable CLI (`lfg ulw-loop` or `lfg ulw`) as resume pointer",
+    ).toBe(true)
+
+    // Explicit no-auto-reinjection honesty on the present path (malformed already has this phrase).
+    expect(
+      ctx.additionalContext,
+      "present Stop continuation context must explicitly deny automatic reinjection",
+    ).toMatch(/no automatic reinjection|automatic reinjection remains (unclaimed|Deferred)|does not (?:perform |claim )?automatic reinjection/i)
+
+    // Must not over-claim a host reinjection surface.
+    expect(ctx.additionalContext).not.toMatch(
+      /\b(will|does|performs|enables)\s+automatic\s+reinjection\b/i,
+    )
+  })
+})

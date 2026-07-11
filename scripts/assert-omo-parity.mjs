@@ -6,11 +6,12 @@ import { fileURLToPath } from "node:url"
 import { checkOmoParityUpkeep } from "./omo-parity-upkeep.mjs"
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url))
-const expectedVersion = "4.13.0"
+const expectedVersion = "4.16.3"
 const expectedSkillSourceUpstream = "@sisyphuslabs/omo-codex-plugin"
 const expectedGeneratedBy = "scripts/sync-omo-skills-to-grok.mjs"
 const requiredManagedSkills = [
   "ast-grep",
+  "coding-agent-sessions",
   "comment-checker",
   "debugging",
   "frontend",
@@ -32,6 +33,7 @@ const requiredManagedSkills = [
   "ultraresearch",
   "ulw-loop",
   "ulw-plan",
+  "ulw-research",
   "visual-qa",
 ]
 const requiredSupplementalSkills = [
@@ -49,7 +51,8 @@ const generatedSkillRoots = [
   "dist/grok-install/skills",
 ]
 const retiredSkillNames = ["lcx-contribute-bug-fix", "lcx-doctor", "lcx-report-bug"]
-const deferredComponents = ["teammode", "lazycodex-executor-verify", "workflow-selector"]
+const deferredComponents = ["lazycodex-executor-verify", "workflow-selector", "difficulty-tier-workers"]
+const grokAdaptedComponents = ["teammode"]
 const unsupportedComponents = ["test-support"]
 const staleAgentMetadataNeedles = [
   "code-yeongyu/lfg",
@@ -68,28 +71,36 @@ await assertTextContains("src/grok/payload/component-inventory.ts", [
   `UPSTREAM_OMO_VERSION = "${expectedVersion}"`,
   `UPSTREAM_OMO_TAG = "v${expectedVersion}"`,
   ...deferredComponents.map((component) => `{ id: "${component}", status: "Deferred"`),
+  ...grokAdaptedComponents.map((component) => `{ id: "${component}", status: "Grok-adapted"`),
   ...unsupportedComponents.map((component) => `{ id: "${component}", status: "Unsupported"`),
 ])
 await assertTextContains("docs/grok-adapter-parity.md", [
-  "`lazycodex-ai` / OMO `v4.13.0`",
+  "`lazycodex-ai` / OMO `v4.16.3`",
   "Scoped Grok-first OMO parity",
   "nativeAgentsStatus: \"missing\"",
   "Full native OMO agent behavioral parity is not claimed",
   "`teammode`",
   "`lazycodex-executor-verify`",
   "`workflow-selector`",
+  "`difficulty-tier-workers`",
   "`test-support`",
   "split hook JSON files under `packages/omo-codex/plugin/hooks/`",
   "package-level MCP runtimes",
+  "hooks/lfg-native-rules.mjs session-start",
+  "hooks/lfg-native-rules.mjs user-prompt-submit",
+  "hooks/lfg-native-rules.mjs post-tool-use",
+  "hooks/lfg-native-rules.mjs post-compact",
 ])
 await assertTextContains("AGENTS.md", [
-  "upstream baseline `lazycodex-ai`/OMO `v4.13.0`",
-  "`teammode` | Skill payload installed; Codex thread orchestration hook not Grok-adapted (host dependency class: codex_app) | Deferred",
-  "`lazycodex-executor-verify` | Codex `lazycodex-executor` SubagentStop verifier not Grok-adapted (host dependency class: Stop/SubagentStop hook) | Deferred",
-  "`workflow-selector` | Codex-only opt-in UserPromptSubmit workflow selector; no verified Grok-native prompt-routing hook yet (host dependency class: missing host surface) | Deferred",
+  "upstream baseline `lazycodex-ai`/OMO `v4.16.3`",
+  "`teammode` | GrokBuild spawn_subagent transport + host built-ins and lfg OMO agents; Codex multi_agent_v2/codex_app still available on Codex | Grok-adapted",
+  "`lazycodex-executor-verify` | T3: pure `verifySubagentStopEvidence` in Sisyphus SubagentStop; no dedicated host-enforced CLI (host dependency class: Stop/SubagentStop hook) | Deferred",
+  "`workflow-selector` | Upstream removed from omo-codex components (#5745); lfg optional native opt-in retained, Deferred pending GrokBuild host receipt | Deferred",
+  "`difficulty-tier-workers` | Upstream lazycodex-worker-low|medium|high + difficulty routing (v4.16.x); not Grok-adapted | Deferred",
   "`test-support` | Upstream package test infrastructure, not a Grok plugin runtime component | Unsupported",
   "host dependency class",
   "grok-orchestration-plane.md",
+  "lfg-native-rules.mjs (or lfg-native-ultrawork.mjs)",
 ])
 await assertTextContains("scripts/build.mjs", ["syncOmoSkillsToGrok({ allowExistingFallback: true, includeCache: false })"])
 await assertParityUpkeep()

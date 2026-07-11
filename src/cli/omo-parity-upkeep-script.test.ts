@@ -53,7 +53,7 @@ describe("scripts/omo-parity-upkeep.mjs", () => {
 
     expect(report.ok).toBe(true)
     expect(report.upstream.skills).toBeGreaterThan(0)
-    expect(report.local.managedSkills).toBe(23)
+    expect(report.local.managedSkills).toBe(25)
   })
 })
 

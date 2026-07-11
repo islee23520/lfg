@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 export const managedSkillSources = [
   ["ast-grep", "skills/ast-grep"],
+  ["coding-agent-sessions", "skills/coding-agent-sessions"],
   ["comment-checker", "components/comment-checker/skills/comment-checker"],
   ["debugging", "skills/debugging"],
   ["frontend", "skills/frontend"],
@@ -29,13 +30,14 @@ export const managedSkillSources = [
   ["ultraresearch", "skills/ultraresearch"],
   ["ulw-loop", "components/ulw-loop/skills/ulw-loop"],
   ["ulw-plan", "components/ultrawork/skills/ulw-plan"],
+  ["ulw-research", "skills/ulw-research"],
   ["visual-qa", "skills/visual-qa"],
 ]
 const managedSkills = managedSkillSources.map(([skillName]) => skillName)
 const retiredSkillNames = ["lcx-contribute-bug-fix", "lcx-doctor", "lcx-report-bug"]
 const defaultTargets = [join(repoRoot, "src", "grok", "skills"), join(repoRoot, "skills")]
 const syncManifestName = ".lfg-omo-skill-sync.json"
-const grokBuildSpawnSubagentMappingSkills = new Set(["ultraresearch", "ulw-loop", "refactor", "start-work", "ulw-plan", "init-deep", "review-work", "remove-ai-slops"])
+const grokBuildSpawnSubagentMappingSkills = new Set(["ultraresearch", "ulw-loop", "refactor", "start-work", "ulw-plan", "init-deep", "review-work", "remove-ai-slops", "teammode"])
 
 export async function syncOmoSkillsToGrok(options = {}) {
   const sourceRoot = await resolveOmoPluginSource(options.source, { includeCache: options.includeCache !== false })
@@ -79,7 +81,11 @@ async function syncManifest(sourceRoot) {
 }
 
 async function describeSource(sourceRoot) {
-  const packageJson = await readJsonSafe(join(sourceRoot, "package.json"))
+  // Prefer the omo-codex plugin package identity when syncing from a monorepo root
+  // (shared-skills live under packages/shared-skills; plugin package.json is the gate pin).
+  const packageJson =
+    (await readJsonSafe(join(sourceRoot, "packages", "omo-codex", "plugin", "package.json"))) ??
+    (await readJsonSafe(join(sourceRoot, "package.json")))
   return {
     upstream: packageJson?.name ?? "oh-my-openagent/omo",
     version: packageJson?.version ?? null,
@@ -112,6 +118,9 @@ async function adaptSkillPayload(skillName, skillRoot) {
     await rewriteSkillMarkdown(skillRoot, adaptStartWorkSkill)
   } else if (skillName === "ultraresearch") {
     await rewriteSkillMarkdown(skillRoot, adaptUltraresearchSkill)
+  } else if (skillName === "teammode") {
+    await rewriteSkillMarkdown(skillRoot, adaptTeammodeSkill)
+    await ensureTeammodeGrokScripts(skillRoot)
   }
   if (grokBuildSpawnSubagentMappingSkills.has(skillName)) {
     await rewriteSkillMarkdown(skillRoot, ensureGrokBuildSpawnSubagentMapping)
@@ -203,20 +212,111 @@ async function rewriteOptionalFile(path, transform) {
 
 function ensureGrokBuildSpawnSubagentMapping(content) {
   if (/GrokBuild (Harness )?Tool (Compatibility|Mapping)/.test(content)) return content
+  // teammode has a fuller dual-catalog section applied by adaptTeammodeSkill
+  if (/GrokBuild teammode \(primary on lfg\)/.test(content)) return content
 
   const section = `## GrokBuild Tool Mapping
 
-On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild \`spawn_subagent\` calls. The adapter maps read-only exploration to the lfg-owned OMO persona \`subagent_type: "explorer"\`; do not use disabled Grok built-ins for those roles. This contract is shared for \`coding_tool_adapter\` \`grok\` and \`pi-agent\`.
+On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild \`spawn_subagent\` calls. Prefer lfg OMO personas when installed; GrokBuild host built-ins (\`general-purpose\`, \`explore\`, \`plan\`) are also valid. This contract is shared for \`coding_tool_adapter\` \`grok\` and \`pi-agent\`.
 
 | Intent | GrokBuild tool to use |
 | --- | --- |
-| Search/read-only worker | \`spawn_subagent({ subagent_type: "explorer", background: true, description: "...", prompt: "TASK: ..." })\` |
+| Search/read-only worker | \`spawn_subagent({ subagent_type: "explore" or "explorer", background: true, description: "...", prompt: "TASK: ..." })\` |
 | Planning worker | \`spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })\` |
-| Implementation or QA worker | \`spawn_subagent({ subagent_type: "hephaestus" or "coding", background: true, description: "...", prompt: "TASK: ..." })\` |
+| Implementation or QA worker | \`spawn_subagent({ subagent_type: "hephaestus" or "coding" or "general-purpose", background: true, description: "...", prompt: "TASK: ..." })\` |
 
 `
 
   return content.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n${section}`)
+}
+
+const TEAMMODE_GROK_SECTION = `## GrokBuild teammode (primary on lfg)
+
+On Grok Build with lfg, teammode is **supported**. Do **not** stop because \`codex_app\` or MultiAgentV2 is missing.
+
+1. Tell the user: \`Teammode transport: GrokBuild spawn_subagent\`.
+2. Init with **\`--transport spawn_subagent\`** (default when \`--transport\` is omitted).
+3. Pick **\`--subagent-type\` from both catalogs** — GrokBuild host built-ins **and** lfg OMO / convenience agents.
+4. Launch each member with host \`spawn_subagent({ subagent_type, background: true, description, prompt, team_context: { teamRunId, memberId, role: "member" } })\`.
+5. \`bind-subagent --subagent-id <id>\` with the handle the host returned.
+6. Optional durable ledger: \`src/core/lfg/team-ledger.ts\` under \`.omo/teams\`.
+
+### Member agent catalogs (use both)
+
+**GrokBuild host built-ins:** \`general-purpose\`, \`explore\`, \`plan\`.
+
+**lfg OMO / convenience agents (after setup):** \`default\`, \`sisyphus\`, \`hephaestus\`, \`prometheus\`, \`atlas\`, \`oracle\`, \`multimodal-looker\`, \`sisyphus-junior\`, \`explorer\`, \`librarian\`, \`metis\`, \`momus\`, \`reasoning\`, \`coding\`, \`plan\`, \`reviewer\`.
+
+Aliases: \`search\`→\`explore\`, \`deep\`/\`worker\`→\`hephaestus\`, \`impl\`→\`coding\`, \`qa\`/\`builder\`→\`reviewer\`, \`research\`→\`librarian\`. Prefer a specialist over \`general-purpose\` when the slice is clear.
+
+| Intent | Recommended \`subagent_type\` |
+| --- | --- |
+| Search / map code | \`explore\` (built-in) or \`explorer\` (lfg) |
+| Planning | \`plan\` |
+| Implementation | \`coding\` or \`hephaestus\` |
+| Review / QA | \`reviewer\` or \`momus\` |
+| Docs / external | \`librarian\` |
+| Catch-all | \`general-purpose\` |
+
+\`\`\`
+node "<skill-root>/scripts/team.mjs" init --name "<team>" --session-name "<session>" --transport spawn_subagent
+node "<skill-root>/scripts/team.mjs" add-member --team <id> --id A --name "api" --subagent-type coding --focus "src/api" --lens area --deliverable "..."
+node "<skill-root>/scripts/team.mjs" add-member --team <id> --id B --name "search" --subagent-type explore --focus "callers of X" --lens perspective --deliverable "..."
+node "<skill-root>/scripts/team.mjs" bind-subagent --team <id> --id A --subagent-id <subagent_id>
+\`\`\`
+
+Codex sections below (\`multi_agent_v2\`, \`codex_app\`) still apply when those tools exist. **Never mix transports** on one team.
+
+`
+
+function adaptTeammodeSkill(content) {
+  let next = content
+  if (/^description:\s*"Codex-only team orchestration/m.test(next)) {
+    next = next.replace(
+      /^description:\s*"Codex-only team orchestration[\s\S]*?"\n/m,
+      'description: "GrokBuild + Codex team orchestration: run a named team with durable .omo/teams state. On GrokBuild use transport spawn_subagent and member subagent_type from GrokBuild built-ins (general-purpose, explore, plan) plus lfg OMO agents (hephaestus, explorer, coding, librarian, ...). On Codex use multi_agent_v2 or codex_app. Triggers: teammode, make a team, parallel subagents, coordinate workers."\n',
+    )
+  }
+  if (!/GrokBuild teammode \(primary on lfg\)/.test(next)) {
+    next = next.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n${TEAMMODE_GROK_SECTION}`)
+  }
+  next = next
+    .replace(
+      /This is a Codex-only workflow[\s\S]*?fallback\./,
+      "This workflow uses a bundled state script under `.omo/teams`. On GrokBuild the transport is `spawn_subagent` (host built-ins + lfg agents). On Codex, choose MultiAgentV2 or Codex App threads. Never mix transports on one team.",
+    )
+    .replace(
+      /Pass that choice to `init` as `--transport multi_agent_v2` or `--transport codex_app`\./,
+      "Pass that choice to `init` as `--transport spawn_subagent`, `multi_agent_v2`, or `codex_app`.",
+    )
+    .replace(
+      /--transport multi_agent_v2\|codex_app/,
+      "--transport spawn_subagent|multi_agent_v2|codex_app",
+    )
+  return next
+}
+
+async function ensureTeammodeGrokScripts(skillRoot) {
+  const overlayRoot = join(repoRoot, "src", "grok", "assets", "teammode", "scripts")
+  const targetScripts = join(skillRoot, "scripts")
+  await mkdir(targetScripts, { recursive: true })
+  const files = [
+    "team-agents.mjs",
+    "team-transport.mjs",
+    "team-state.mjs",
+    "team-guide.mjs",
+    "team.mjs",
+    "team-worktree.mjs",
+  ]
+  for (const file of files) {
+    const from = join(overlayRoot, file)
+    try {
+      await access(from)
+    } catch {
+      continue
+    }
+    await cp(from, join(targetScripts, file))
+  }
 }
 
 function adaptLfgDoctorSkill(content) {

@@ -6,12 +6,12 @@ metadata:
 ---
 
 ## Role
-Expert goal orchestration agent. You conduct; right-sized parallel subagents play. Plan multi-goal work that survives across turns and sessions, fan independent work out to workers, QA every result yourself, record only proven evidence.
+Expert goal orchestration agent. You conduct; right-sized subagents play. Plan durable multi-goal work, fan independent work out, QA every result yourself, record only proven evidence.
 Use GPT-5.x style: outcome-first, evidence-bound, atomic decisions, no nested branching prose.
 
 ## Goal
 Deliver every goal in `.omo/ulw-loop/goals.json` end-to-end.
-Prove EVERY success criterion with captured observable evidence from a real-usage scenario you actually ran (HTTP call / tmux / browser use / computer use — see the Manual-QA channels below).
+Prove EVERY success criterion with captured observable evidence from a real-usage scenario you ran (HTTP / tmux / browser / computer-use below).
 TESTS ALONE NEVER PROVE DONE. A green test suite is supporting evidence, not completion proof.
 Audit each pass, fail, block, steering change, and checkpoint in `.omo/ulw-loop/ledger.jsonl`.
 
@@ -19,9 +19,16 @@ Audit each pass, fail, block, steering change, and checkpoint in `.omo/ulw-loop/
 Run each criterion's real-surface proof yourself through the channel that faithfully exercises it; capture the artifact before recording PASS.
 
 1. **HTTP call** — hit the live endpoint with `curl -i` (or a Playwright APIRequestContext); capture status line + headers + body.
-2. **tmux** — `tmux new-session -d -s ulw-qa-<criterion>`, drive with `send-keys`, dump via `tmux capture-pane -pS -E -`; transcript is the artifact.
-3. **Browser use** — use Chrome to drive the REAL page; if Chrome is not available, download and use agent-browser (https://github.com/vercel-labs/agent-browser). Capture action log + screenshot path. Never downgrade to a non-browser surface for a browser-facing criterion.
-4. **Computer use** — when the surface is a desktop/GUI app rather than a page, drive it via OS-level automation (a computer-use agent, AppleScript, xdotool, etc.) against the running app; capture action log + screenshot. Use this for any non-browser GUI criterion.
+2. **Terminal / TUI** - prove it through the xterm.js web terminal; tmux `send-keys` is fine for a boot smoke, but NEVER `tmux capture-pane` for color/layout/CJK evidence (it degrades truecolor).
+3. **Browser use** — in Codex, use `browser:control-in-app-browser` first when available and the scenario does not need an authenticated or persistent user browser profile. Otherwise use Chrome to drive the REAL page; if unavailable, use agent-browser. Capture action log + screenshot path. Never downgrade a browser-facing criterion.
+4. **Computer use** — for desktop/GUI apps, drive the running app via OS automation (computer-use, AppleScript, xdotool, etc.); capture action log + screenshot.
+
+For TUI visual QA, render the terminal through the real xterm.js web terminal and
+screenshot it - NEVER a `tmux capture-pane` dump (it degrades color and wide-glyph
+width). In this repo run `node script/qa/web-terminal-visual-qa.mjs --command
+"<cmd>" --input "{Enter}" --evidence-dir <dir>` (live pty + xterm.js in Chrome;
+`--from-file` replays a raw stream) and record `terminal.png`, `terminal.txt`, and
+`metadata.json`. Mandatory when a PR or review must inspect the terminal screen.
 
 Auxiliary surfaces (CLI stdout / DB state diff / parsed config dump) are first-class evidence for CLI- or data-shaped criteria; use a channel scenario when the behavior is user-facing. `--dry-run`, printing the command, "should respond", and "looks correct" never count.
 
@@ -37,12 +44,15 @@ Size each worker to the task. Put the intended role, rigor level, and specialty 
 | Deep debugging / race / perf / subtle cross-module reasoning | `TASK: act as a deep debugging worker. ...` |
 | QA execution (drive a channel, capture evidence) | `TASK: act as a QA execution worker. ...` |
 | Read-only codebase search | `TASK: act as an explorer. ...` |
+| Implementation — pick difficulty: LOW (one-file fix, boilerplate) / MEDIUM (standard feature, known patterns) / HIGH (new module, cross-module, concurrency/security/migration) | `TASK: act as a <low|medium|high>-difficulty implementation worker. ...` + `agent_type: "lazycodex-worker-<low|medium|high>"` when exposed |
 | External library / docs research | `TASK: act as a librarian. ...` |
 | Final verification audit | `TASK: act as a rigorous final verification reviewer. ...` |
 
 For reviewer work, use a self-contained reviewer assignment, tight scope, and explicit verification in `message`. Never spawn a context-only child for review.
 
-Every worker message MUST carry: goal + exact files in scope; the PIN + failing-first proof required before production code (Per-Criterion Cycle step 3); constraints + project rules; the verification commands; the ONE Manual-QA channel and the exact evidence artifact to capture; for git-tracked edits, require `git-master` plus repository-wide and touched-path commit history inspection before commit. Workers have NO interview context — be exhaustive, and forward accumulated learnings to every next worker.
+Difficulty is orthogonal to LIGHT/HEAVY rigor. Tier roles bind via `agent_type` (v1); the deployed v2 spawn schema omits it — state the tier inside `message` there.
+
+Every worker message MUST carry: goal + exact files in scope; the PIN + failing-first proof before production code; constraints + project rules; verification commands; the ONE Manual-QA channel and exact artifact; for git-tracked edits, require `git-master` plus repo and touched-path commit history before commit. Workers have NO interview context — be exhaustive, and forward learnings.
 
 Codex subagent reliability:
 - Start every `multi_agent_v1.spawn_agent` message with `TASK: <imperative assignment>`, then name `DELIVERABLE`, `SCOPE`, and `VERIFY`. State that it is an executable assignment, not a context handoff.
@@ -58,7 +68,7 @@ Codex subagent reliability:
 - `.omo/ulw-loop/goals.json`: goals with embedded `successCriteria` per goal.
 - `.omo/ulw-loop/ledger.jsonl`: append-only audit trail.
 - Read artifacts before resuming, steering, or checkpointing.
-- After any compaction or context loss, re-read brief + goals + ledger FIRST via `omo sparkshell cat .omo/ulw-loop/ledger.jsonl` (or read the paths directly), then `omo ulw-loop status --json`, before any further action. Recover state from these artifacts; never re-plan from scratch or repeat completed work (re-hypothesizing inside a research goal is not a re-plan).
+- After compaction or context loss, re-read brief + goals + ledger FIRST, then `omo ulw-loop status --json`. Recover from artifacts; never re-plan from scratch or repeat completed work.
 - Never invent state outside `.omo/ulw-loop` artifacts or `omo ulw-loop status --json`.
 
 ## GrokBuild `/goal` state
@@ -77,7 +87,7 @@ Use GrokBuild's `/goal` command as the host goal-state surface. Do not call Code
 Do all three steps before execution. No edits, goal tools, or checkpointing before bootstrap completes.
 
 ### 1. Create goals from the brief
-Resolve the CLI before the first command. If `omo` is absent from PATH or lacks `ulw-loop`, use the OMO-owned local CLI at `~/.local/bin/omo` when present. lfg packages a durable ulw-loop CLI as `lfg ulw-loop` / `lfg ulw` (also accepts `omo ulw-loop` if present on PATH). If PATH is empty, the fallback uses shell builtins and absolute Node locations before reporting guidance, recording the failure in `.omo/ulw-loop/bootstrap-notepad.md`.
+Resolve the CLI before the first command. If `omo` is absent from PATH or lacks `ulw-loop`, use the lfg packages a durable ulw-loop CLI as `lfg ulw-loop` / `lfg ulw` (upstream `omo` remains compatible if present). If PATH is empty, the fallback uses shell builtins and absolute Node locations before reporting guidance, recording the failure in `.omo/ulw-loop/bootstrap-notepad.md`.
 ```sh
 GROK_HOME="${GROK_HOME:-$HOME/.grok}"
 ULW_LOOP_NODE="$(command -v node 2>/dev/null || true)"
@@ -90,15 +100,12 @@ if [ -z "$ULW_LOOP_NODE" ]; then
 fi
 
 ULW_LOOP_CLI=
-if command -v lfg >/dev/null 2>&1 && lfg ulw-loop help >/dev/null 2>&1; then
-  ULW_LOOP_CLI=lfg
-elif command -v omo >/dev/null 2>&1 && omo ulw-loop help >/dev/null 2>&1; then
+if command -v omo >/dev/null 2>&1 && omo ulw-loop help >/dev/null 2>&1; then
   ULW_LOOP_CLI=omo
 elif [ -n "$ULW_LOOP_NODE" ]; then
-  for candidate in "$(command -v lfg 2>/dev/null)" "$HOME/.local/bin/omo"; do
-    [ -n "$candidate" ] || continue
+  for candidate in "$HOME/.local/bin/omo" "$HOME/.local/bin/omo"; do
     [ -f "$candidate" ] || [ -x "$candidate" ] || continue
-    if "$ULW_LOOP_NODE" "$candidate" ulw-loop help >/dev/null 2>&1 || "$candidate" ulw-loop help >/dev/null 2>&1; then
+    if "$ULW_LOOP_NODE" "$candidate" ulw-loop help >/dev/null 2>&1; then
       ULW_LOOP_CLI="$candidate"
       break
     fi
@@ -131,14 +138,15 @@ only when deliberately overwriting completed evidence.
 Write state through the CLI path. Do not hand-edit state files.
 
 ### 2. Refine success criteria + a Prometheus-grade QA and parallelism plan per goal
-Gather context BEFORE planning — fire parallel `explorer` / `librarian` workers plus your own read-only tools; never plan blind.
+Gather context BEFORE planning with parallel `explorer` / `librarian` workers plus your own read-only tools.
 First survey available skills: read every loosely-relevant skill's description, deliberately choose which this work uses, and prefer applying genuinely-relevant skills over working raw.
 Then run tier triage per goal — rigor (LIGHT/HEAVY below) and shape (`delivery` default, or `research` when the deliverable is a cited answer, not an artifact) — and record both in an `annotate_ledger` steering entry. Default is LIGHT — a narrow change inside existing layers. Take HEAVY only on a fact you can point to: a new module / abstraction / domain model; auth, security, or session; an external integration; a DB schema or migration; concurrency, transaction boundaries, or cache invalidation; a cross-domain refactor; or the user signaled care or demanded review. When unsure, take HEAVY; upgrade the moment a HEAVY fact surfaces, never downgrade mid-run.
 HEAVY goals: spawn the `plan` agent with the gathered context, follow its wave ordering and parallel grouping exactly, and run the verification it specifies; carry 3+ successCriteria covering happy path, edge, regression, and adversarial risk. LIGHT goals: plan directly; carry 1-2 successCriteria (happy path + the riskiest edge) with one real-surface proof of the deliverable.
-Research-shape goals change the cycle: BEFORE each investigation, read this goal's prior ledger findings and open hypotheses, then extend them — never re-investigate an answered question (the ledger is your research notebook). Record findings via `annotate_ledger` with their source (`file:line`, command output, doc URL) as `--evidence`. Track hypotheses as `HYPOTHESIS[id]: <claim> | status: open`, flipped to `confirmed`/`refuted` only on an observed source. A research criterion passes on a cited answer — skip QA-channel, cleanup, and commit, but keep source-observability (never "looks correct"). Keep hypotheses inside the user's stated question; a scope-widening one is an `add_subgoal` proposal you surface, never silent creep. For a `research`-shape goal you MAY load `ultraresearch` without hesitation — otherwise explicit-request-only, a research-shape goal IS that explicit demand. Research-only: never for a `delivery` goal. It composes with the librarian routing above — `ultraresearch` for saturation (many parallel sources, recursive expansion), a single `librarian` for one lookup.
-For each criterion set, concretely and upfront: `id`, `scenario` (the exact tool — curl / tmux / playwright / computer-use — plus steps with specific inputs and a binary pass/fail), `expectedEvidence` (the artifact path, e.g. `.omo/ulw-loop/evidence/<goal>-<criterion>.<ext>`), adversarial classes, stop condition, and the Manual-QA channel that exercises it. Vague QA ("verify it works") is a rejected criterion — revise it before execution.
+Research-shape goals change the cycle: BEFORE each investigation, read this goal's prior ledger findings and open hypotheses, then extend them — never re-investigate an answered question (the ledger is your research notebook). Record findings via `annotate_ledger` with their source (`file:line`, command output, doc URL) as `--evidence`. Track hypotheses as `HYPOTHESIS[id]: <claim> | status: open`, flipped to `confirmed`/`refuted` only on an observed source. A research criterion passes on a cited answer — skip QA-channel, cleanup, and commit, but keep source-observability (never "looks correct"). Keep hypotheses inside the user's stated question; a scope-widening one is an `add_subgoal` proposal you surface, never silent creep. For a `research`-shape goal you MAY load `ulw-research` without hesitation — otherwise explicit-request-only, a research-shape goal IS that explicit demand. Research-only: never for a `delivery` goal. It composes with the librarian routing above — `ulw-research` for saturation (many parallel sources, recursive expansion), a single `librarian` for one lookup.
+For each criterion, define upfront: `id`, exact `scenario` (tool + inputs + binary pass/fail), `expectedEvidence` artifact path, adversarial classes, stop condition, and Manual-QA channel. Vague QA ("verify it works") is a rejected criterion — revise it before execution.
+For optimization work, capture baseline speed before changes plus behavior/regression proof. Every attempt records speed, behavior/regression, and the keep/revert/iterate decision.
 A criterion's adversarial classes are the ultraqa classes a fact about the change triggers: malformed input, prompt injection, cancel/resume, stale state, dirty worktree, hung or long commands, flaky tests, misleading success output, repeated interruptions. Record untriggered classes as not-applicable in one line.
-Use evidence verbs from the channel table (tmux transcript, curl status+body, browser screenshot, computer-use action log, CLI stdout, DB diff, parsed config dump) — not vibes.
+Use channel-table evidence verbs (tmux transcript, curl status+body, screenshot, action log, CLI stdout, DB diff, parsed config dump) — not vibes.
 
 **Plan for maximum parallelism (HEAVY goals).** Decompose each goal's criteria into atomic tasks (Implementation + its Test = ONE task, never split) and group them into dependency waves. Target 5–8 tasks per wave; <3 per wave (except the final wave) means under-splitting — extract shared prerequisites into Wave 1. For each task record its wave, what it blocks, what blocks it, the worker tier from the Delegation table, and its QA scenario + evidence path. Build a dependency matrix (Task | Depends on | Blocks | Can parallelize with) and name the critical path. Anything not on a real dependency edge MUST share a wave and dispatch together.
 Revise any criterion that lacks observable `expectedEvidence` or a named channel before execution.
@@ -168,7 +176,7 @@ Loop per goal. Cap at 5 cycles per goal. Cap identical same-criterion failures a
 2. Register atomic todos via the host-visible plan/todo facility — in GrokBuild, use `todo_write`. Track one ultra-granular step per action, `path: <action> for <criterion> - verify by <check>`. Update status on every transition (start → `in_progress`, finish → `completed`); exactly one `in_progress`, mark completed immediately, never batch, never let the rendered plan lag behind reality.
 3. DELEGATE-IN-PARALLEL: dispatch every independent task in the wave at once via right-sized `multi_agent_v1.spawn_agent` workers (Delegation table). Each worker captures evidence failing-first: when the task touches EXISTING behavior, PIN it FIRST — a characterization test that asserts the current observable behavior and PASSES on the unchanged code, as rigorous as the new-behavior scenario (exact inputs, exact observable, exact assertion). Then RED through the cheapest faithful channel — a unit test where a seam exists, an integration/e2e test where the behavior lives in wiring, or the criterion's scenario captured failing when no test seam exists — failing for the RIGHT reason (no syntax/import error). A test that mirrors its implementation (mock-call assertions, pinned constants, cannot fail under plausible regression) is not evidence; use the scenario as the failing proof instead. Then the SMALLEST GREEN change; before GREEN work that depends on external review, PR, issue, or branch state, refresh current branch/PR/issue state, preserve existing ordering/policy, and separate compatibility detection from policy changes unless the goal explicitly asks to change policy. A GREEN far larger than the criterion implies means the proof was too coarse — instruct a split. Serialize only on a NAMED dependency.
 4. INTEGRATE + CRITICAL SELF-QA + GIT CHECKPOINT (EVERY WORKER RETURN): do NOT trust the worker's report. Read the diff yourself, re-run its tests, and run LSP diagnostics on the changed files. Treat "done" as a claim to disprove. If the diff drifts, the test is hollow, or evidence is missing, RESPAWN the worker with the specific failure context. Once the work unit is verified, use `git-master` before staging: inspect recent repository commits and touched-path history to infer commit language, Conventional Commit scope, message shape, and unit size. Stage only that unit's files and commit in the observed style; do not carry verified work forward into a later omnibus commit. If no git-tracked files changed or committing is unsafe, record the no-commit reason as evidence. Forward every finding/learning to subsequent workers.
-5. EXECUTE-AS-SCENARIO: ACTUALLY run the Manual-QA scenario the criterion named (channel table above). Run it yourself for the orchestrator check; for heavier flows dispatch a dedicated QA worker (`worker`, `gpt-5.5`, `high`) whose ONLY job is to drive the channel and write the artifact to the named evidence path. If the scenario FAILS, respawn the implementing worker with the captured failure — do not hand-patch around it.
+5. EXECUTE-AS-SCENARIO: ACTUALLY run the Manual-QA scenario the criterion named (channel table above). Run it yourself for the orchestrator check; for heavier flows dispatch a dedicated QA execution worker (`lazycodex-worker-medium` by default; `lazycodex-worker-high` when the QA flow itself is hard) whose ONLY job is to drive the channel and write the artifact to the named evidence path. If the scenario FAILS, respawn the implementing worker with the captured failure — do not hand-patch around it.
 6. CAPTURE: collect the observable artifact path: transcript, stdout, screenshot, assertion, status+body, diff, or parsed dump. No artifact written at the evidence path — not done; record BLOCKED and respawn QA.
 7. CLEAN (PAIRED, NEVER SKIP): tear down every runtime artifact step 5 spawned BEFORE recording — server PIDs (`kill`, verify `kill -0` fails), `tmux` sessions (`tmux kill-session -t ulw-qa-<criterion>`; confirm `tmux ls`), browser / Playwright contexts (`.close()`), containers (`docker rm -f`), bound ports (`lsof -i :<port>` empty), temp sockets / files / dirs (`rm -rf` the `mktemp` paths), QA-only env vars, AND `multi_agent_v1.close_agent` on every finished worker. Register each teardown as its own todo the moment the QA spawns the resource (scripts, tmux assets, browsers / agent-browser sessions, PIDs, ports) so none is forgotten. Embed a one-line cleanup receipt in the evidence string, e.g. `cleanup: killed 12345; tmux kill-session ulw-qa-foo; rm -rf /tmp/ulw.aB12cD; multi_agent_v1.close_agent w-3`. Missing receipt → record BLOCKED, not PASS.
 8. RECORD exactly one result:
@@ -201,9 +209,9 @@ omo ulw-loop checkpoint --goal-id <id> --status complete --evidence "<e2e eviden
 `--quality-gate-json` shape:
 ```json
 {
-  "codeReview":{"by":"lfg-code-reviewer","recommendation":"APPROVE","codeQualityStatus":"CLEAR","reportPath":"grok-plugin-lfg/components/ulw-loop/test/fixtures/artifacts/code-review.md","evidence":"Diff review passed.","blockers":[]},
-  "manualQa":{"by":"lfg-qa-executor","status":"passed","evidence":"CLI and data surfaces passed.","surfaceEvidence":[{"id":"surface-cli-pass","criterionRef":"C1","surface":"cli","invocation":"omo ulw-loop checkpoint --quality-gate-json sample-quality-gate.json --json","verdict":"passed","artifactRefs":["artifact-cli-pass"]},{"id":"surface-data-pass","criterionRef":"C2","surface":"data","invocation":"diff -u before-ledger.json after-ledger.json","verdict":"passed","artifactRefs":["artifact-data-diff"]}],"adversarialCases":[{"id":"adv-malformed-input","criterionRef":"C3","scenario":"malformed gate input omits manual QA evidence","expectedBehavior":"validator rejects ULW_LOOP_QUALITY_GATE_INVALID","verdict":"passed","artifactRefs":["artifact-cli-reject"]}],"artifactRefs":[{"id":"artifact-cli-pass","kind":"cli-transcript","description":"CLI pass artifact.","path":"grok-plugin-lfg/components/ulw-loop/test/fixtures/artifacts/cli-pass.txt"},{"id":"artifact-cli-reject","kind":"log","description":"Reject log artifact.","path":"grok-plugin-lfg/components/ulw-loop/test/fixtures/artifacts/rejection.txt"},{"id":"artifact-data-diff","kind":"data-diff","description":"Data diff artifact.","path":"grok-plugin-lfg/components/ulw-loop/test/fixtures/artifacts/data-diff.txt"}]},
-  "gateReview":{"by":"lfg-gate-reviewer","recommendation":"APPROVE","reportPath":"grok-plugin-lfg/components/ulw-loop/test/fixtures/artifacts/gate-review.md","evidence":"Gate review passed.","blockers":[]},
+  "codeReview":{"by":"lfg-code-reviewer","recommendation":"APPROVE","codeQualityStatus":"CLEAR","reportPath":"test/fixtures/artifacts/code-review.md","evidence":"Diff review passed.","blockers":[]},
+  "manualQa":{"by":"lfg-qa-executor","status":"passed","evidence":"CLI and data surfaces passed.","surfaceEvidence":[{"id":"surface-cli-pass","criterionRef":"C1","surface":"cli","invocation":"omo ulw-loop checkpoint --quality-gate-json sample-quality-gate.json --json","verdict":"passed","artifactRefs":["artifact-cli-pass"]},{"id":"surface-data-pass","criterionRef":"C2","surface":"data","invocation":"diff -u before-ledger.json after-ledger.json","verdict":"passed","artifactRefs":["artifact-data-diff"]}],"adversarialCases":[{"id":"adv-malformed-input","criterionRef":"C3","scenario":"malformed gate input omits manual QA evidence","expectedBehavior":"validator rejects ULW_LOOP_QUALITY_GATE_INVALID","verdict":"passed","artifactRefs":["artifact-cli-reject"]}],"artifactRefs":[{"id":"artifact-cli-pass","kind":"cli-transcript","description":"CLI pass artifact.","path":"test/fixtures/artifacts/cli-pass.txt"},{"id":"artifact-cli-reject","kind":"log","description":"Reject log artifact.","path":"test/fixtures/artifacts/rejection.txt"},{"id":"artifact-data-diff","kind":"data-diff","description":"Data diff artifact.","path":"test/fixtures/artifacts/data-diff.txt"}]},
+  "gateReview":{"by":"lfg-gate-reviewer","recommendation":"APPROVE","reportPath":"test/fixtures/artifacts/gate-review.md","evidence":"Gate review passed.","blockers":[]},
   "iteration":{"fullRerun":true,"status":"passed","rerunCommands":["bunx vitest run grok-plugin-lfg/components/ulw-loop/test/quality-gate-doc.test.ts"],"evidence":"Focused rerun passed."},
   "criteriaCoverage":{"totalCriteria":3,"passCount":3,"originalIntent":"User wanted artifact-backed completion.","desiredOutcome":"Behavior ships with review and QA evidence.","userOutcomeReview":"Result matches brief and goals.","adversarialClassesCovered":["malformed_input","stale_state"]}
 }
@@ -235,7 +243,7 @@ Structured prompt directives accepted: `OMO_ULW_LOOP_STEER: { ... }`, `omo.ulw-l
 6. Treat `.omo/ulw-loop/ledger.jsonl` as the durable audit trail; checkpoint after every success or failure.
 7. Per-story host goal mode is opt-in only with `--codex-goal-mode per-story`; default is aggregate.
 8. Structured steering directives mutate state through validation; normal prose does not.
-9. Evidence MUST be observable from the real surface: tmux transcript, curl status+body, browser/Playwright assertion, CLI stdout, DB state diff, parsed config dump.
+9. Evidence MUST be observable from the real surface: tmux transcript, curl status+body, Browser plugin action result or browser/Playwright assertion, CLI stdout, DB state diff, parsed config dump.
 10. Probe the adversarial classes each criterion's trigger facts name (list in Bootstrap step 2); record untriggered classes as not-applicable in one line.
 11. After completing an aggregate ulw-loop run, clear the host goal manually with `/goal clear` before starting another in the same session.
 12. The shell command emits a model-facing handoff; in GrokBuild, use `/goal` plus the host-visible todo/plan tool instead of Codex-only `get_goal`, `create_goal`, `update_goal`, or `update_plan` APIs.

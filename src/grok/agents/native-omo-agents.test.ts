@@ -30,6 +30,7 @@ describe("native OMO agents", () => {
     expect(nativeOmoFallbackPrompt("default")).toContain("OMO Sisyphus")
     expect(nativeOmoFallbackPrompt("sisyphus")).toContain("OMO Sisyphus")
     expect(nativeOmoFallbackPrompt("hephaestus")).toContain("OMO Hephaestus")
+    expect(nativeOmoFallbackPrompt("hephaestus")).toContain("lfg codex exec")
     expect(nativeOmoFallbackPrompt("prometheus")).toContain("OMO Prometheus")
     expect(nativeOmoFallbackPrompt("atlas")).toContain("OMO Atlas")
     expect(nativeOmoFallbackPrompt("oracle")).toContain("OMO Oracle")

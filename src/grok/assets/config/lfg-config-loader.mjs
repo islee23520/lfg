@@ -70,13 +70,19 @@ async function readConfig(path) {
 async function restoreSessionDefaultModel(path) {
   try {
     const raw = await readFile(path, "utf8");
-    const targetModel = readTomlStringKey(raw, "omo.models", "default") ?? readTomlStringKey(raw, "models", "default");
-    if (targetModel === null) return null;
+    // seed-only: lfg owns a default *seed* in omo.models.default, but it must
+    // never overwrite an existing [models].default. The user's (or Grok's)
+    // chosen model has to persist across sessions for Grok Build to freely use
+    // many models; lfg only fills the default when none exists yet.
+    const seedModel = readTomlStringKey(raw, "omo.models", "default");
+    if (seedModel === null) return null;
     const currentDefault = readTomlStringKey(raw, "models", "default");
-    if (currentDefault === targetModel) return { targetModel, restored: false };
-    const next = upsertTomlStringKey(raw, "models", "default", targetModel);
+    if (currentDefault !== null) {
+      return { targetModel: currentDefault, restored: false };
+    }
+    const next = upsertTomlStringKey(raw, "models", "default", seedModel);
     await writeFile(path, next, "utf8");
-    return { targetModel, restored: true };
+    return { targetModel: seedModel, restored: true };
   } catch {
     return null;
   }

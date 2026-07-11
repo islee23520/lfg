@@ -18,8 +18,11 @@ export function upsertModelSections(
     if (modelBaseUrl !== null) {
       lines.push(`base_url = ${tomlString(modelBaseUrl)}`)
     }
-    if (modelBaseUrl !== null && typeof apiKey === "string" && apiKey.length > 0 && shouldWriteGlobalApiKey(discovery)) {
-      lines.push(`api_key = ${tomlString(apiKey)}`)
+    if (modelBaseUrl !== null) {
+      const authLine = resolveModelAuthLine(discovery, upstreamModelId, apiKey)
+      if (authLine !== null) {
+        lines.push(authLine)
+      }
     }
     const contextWindow = resolveContextWindowForModel(discovery, upstreamModelId, priorConfig, alias)
     if (contextWindow !== null) {
@@ -82,6 +85,22 @@ function shouldWriteGlobalApiKey(discovery: ModelDiscovery): boolean {
   // provider-specific endpoints, omit it from every [model.*] section rather than
   // risk sending one provider's credential to another OpenAI-compatible endpoint.
   return discovery.providerEndpoints === undefined
+}
+
+/** Resolves the auth line for a model: a provider-scoped credential wins; a single
+ * global key is only used in the single-endpoint case (never leaked across providers). */
+function resolveModelAuthLine(discovery: ModelDiscovery, modelId: string, globalApiKey: string | undefined): string | null {
+  const owningEndpoint = discovery.providerEndpoints?.find((endpoint) => endpoint.modelIds.includes(modelId))
+  if (owningEndpoint?.envKey) {
+    return `env_key = ${tomlString(owningEndpoint.envKey)}`
+  }
+  if (owningEndpoint?.apiKey) {
+    return `api_key = ${tomlString(owningEndpoint.apiKey)}`
+  }
+  if (typeof globalApiKey === "string" && globalApiKey.length > 0 && shouldWriteGlobalApiKey(discovery)) {
+    return `api_key = ${tomlString(globalApiKey)}`
+  }
+  return null
 }
 
 function readPriorContextWindow(source: string, alias: string): number | null {

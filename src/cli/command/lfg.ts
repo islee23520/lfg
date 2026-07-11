@@ -15,6 +15,7 @@ import { dispatchXaiAuthCommand } from "../xai/xai-auth-command"
 import { dispatchZaiCommand } from "../zai/zai-command"
 import { dispatchMcpCompanionCommand } from "../mcp/companion-command"
 import { codingToolLaunchPlan, formatLaunchError, launchCodingToolAdapter } from "./coding-tool-launcher"
+import { codexExecPlan, runCodexExec } from "./codex-exec"
 import { loadBundledDefaultOmoOverrides } from "../../grok/agents/lazycodex-agent-overrides"
 import { buildVanillaGrokDiscovery } from "../setup/lfg-setup-tui-data"
 import { dispatchUlwLoopArgv } from "../ulw-loop/lfg-ulw-loop.js"
@@ -171,6 +172,13 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
       json: args.json,
       rest: effectivePos.slice(3),
     })
+  }
+  if (command === "codex" && subcommand === "exec") {
+    const task = effectivePos.slice(2).join(" ").trim()
+    if (task.length === 0) {
+      return { ok: false, status: "invalid_codex_task", command: "codex_exec", error: "Provide a task: lfg codex exec \"<task>\"." }
+    }
+    return args.json ? codexExecPlan(task, process.cwd()) : runCodexExec(task, process.cwd())
   }
   if (command === "ulw" || command === "ulw-loop") {
     // Should have been handled in main(); keep as safety net for programmatic dispatch.
@@ -505,6 +513,7 @@ function help(): string {
     "  lfg mcp companion status|install|uninstall   # independent @islee23520/lfg-mcp plugin",
     "  lfg ulw-loop <subcommand>                    # durable .omo/ulw-loop CLI",
     "  lfg ulw <subcommand>                         # alias for ulw-loop",
+    "  lfg codex exec \"<task>\"                    # explicit Codex workspace executor",
     "",
     "Package execution:",
     "  npx @islee23520/lfg",
@@ -514,6 +523,7 @@ function help(): string {
     "  lfg                         # launches the selected adapter from ~/.grok/lfg.json",
     "  lfg --coding-tool-adapter grok",
     "  lfg --coding-tool-adapter pi-agent",
+    "  lfg codex exec \"Implement the requested change and verify it.\"",
     "  lfg --json                  # prints the selected launch plan without spawning",
     "",
     "Automation:",

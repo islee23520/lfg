@@ -46,10 +46,11 @@ describe("lfg-config-loader project .omo context", () => {
     expect(output.hookSpecificOutput?.additionalContext.length).toBeLessThanOrEqual(2048)
   })
 
-  test("restores Grok default model from lfg-owned omo.models on SessionStart", async () => {
+  test("does NOT overwrite an existing [models].default on SessionStart (seed-only)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-loader-model-home-"))
     await mkdir(join(home, ".grok"), { recursive: true })
     const configPath = join(home, ".grok", "config.toml")
+    // The user/Grok already chose grok-build; omo.models.default differs.
     await writeFile(
       configPath,
       '[models]\ndefault = "grok-build"\n\n[omo.models]\ndefault = "gpt-5.5"\nreasoning = "gpt-5.5"\n',
@@ -62,6 +63,32 @@ describe("lfg-config-loader project .omo context", () => {
         hookEventName: "SessionStart",
         sessionId: "session-123",
         cwd: await mkdtemp(join(tmpdir(), "lfg-loader-model-project-")),
+      },
+    })
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" })
+    const output = parseHookOutput(result.stdout)
+    // Reports the actual (preserved) default, without a restored note.
+    expect(output.hookSpecificOutput?.additionalContext).toContain("LFG session model default: grok-build.")
+    expect(output.hookSpecificOutput?.additionalContext).not.toContain("restored in config.toml")
+    // config.toml is unchanged — the user's choice persists.
+    await expect(readFile(configPath, "utf8")).resolves.toContain('[models]\ndefault = "grok-build"')
+    await expect(readFile(configPath, "utf8")).resolves.not.toContain('[models]\ndefault = "gpt-5.5"')
+  })
+
+  test("seeds [models].default from omo.models.default only when it is absent", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-loader-model-seed-home-"))
+    await mkdir(join(home, ".grok"), { recursive: true })
+    const configPath = join(home, ".grok", "config.toml")
+    // No [models] section at all — fresh config.
+    await writeFile(configPath, '[omo.models]\ndefault = "gpt-5.5"\nreasoning = "gpt-5.5"\n', "utf8")
+
+    const result = await runLoader({
+      home,
+      payload: {
+        hookEventName: "SessionStart",
+        sessionId: "session-123",
+        cwd: await mkdtemp(join(tmpdir(), "lfg-loader-model-seed-project-")),
       },
     })
 

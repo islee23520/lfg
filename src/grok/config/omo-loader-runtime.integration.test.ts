@@ -63,10 +63,10 @@ describe("installed project .omo loader runtime", () => {
       hookEventName: "UserPromptSubmit",
       sessionId: "t2-omo-session",
       cwd: projectRoot,
-      prompt: "implement plan checkbox T2",
+      prompt: "enable ultrawork to implement plan checkbox T2",
     })
     expect(ultraworkHook.exitCode).toBe(0)
-    expect(ultraworkHook.stdout).toContain("ultrawork-directive-ok") // T7 OMO hook parity achieved via component/runtime + strict bridge
+    expect(ultraworkHook.stdout).toContain("<ultrawork-mode>")
 
     const rulesHook = await runInstalledOmoHook(bridgePath, rulesCli, {
       hookEventName: "SessionStart",
@@ -74,7 +74,7 @@ describe("installed project .omo loader runtime", () => {
       cwd: projectRoot,
     })
     expect(rulesHook.exitCode).toBe(0)
-    expect(rulesHook.stdout).toContain("rules-context-ok") // T7: Grok-native OMO/runtime parity for rules component
+    expect(rulesHook.stdout).toContain("Use runtime hook rules.")
 
     // Adversarial: malformed input (invalid JSON payload rejected gracefully)
     const malformedPayload = await runInstalledOmoHook(bridgePath, ultraworkCli, "not-valid-json-at-all")
@@ -152,6 +152,7 @@ async function writeProjectOmo(projectRoot: string, sessionId: string): Promise<
     )}\n`,
     "utf8",
   )
+  await writeFile(join(projectRoot, "AGENTS.md"), "# Runtime hook rules\n\nUse runtime hook rules.\n", "utf8")
   await writeFile(
     join(projectRoot, ".omo", "start-work", "ledger.jsonl"),
     "secret evidence line one\nsecret evidence line two\n",
@@ -192,7 +193,7 @@ async function runInstalledOmoHook(
 ): Promise<OmoHookResult> {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [bridgePath, process.execPath, targetCli, "hook", "event"], {
-      env: { ...process.env, HOME: process.env.HOME ?? "", GROK_PLUGIN_ROOT: dirname(bridgePath), GROK_HOOK_EVENT: "UserPromptSubmit" },
+      env: { ...process.env, HOME: process.env.HOME ?? "", GROK_PLUGIN_ROOT: dirname(dirname(bridgePath)), GROK_HOOK_EVENT: "UserPromptSubmit" },
       stdio: ["pipe", "pipe", "pipe"],
     })
     let stdout = ""

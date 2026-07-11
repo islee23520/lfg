@@ -120,7 +120,7 @@
       "model_fallback": "grok-4.20-0309-reasoning",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Hephaestus deep worker: Grok 4.5 primary on GrokBuild; Grok 4.20 reasoning as availability fallback"
+      "role_rationale": "Hephaestus host coordination: Grok 4.5 high is selected only because this Grok account exposes it; implementation requiring Codex uses explicit lfg codex exec, with Grok 4.20 reasoning as availability fallback"
     },
     "prometheus": {
       "model": "grok-4.5",

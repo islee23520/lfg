@@ -5,7 +5,13 @@
  * Grok-native first-party Sisyphus orchestration hook handler.
  * Injects orchestrator context into key lifecycle events WITHOUT the bridge chain.
  * Optimized for Grok Build: reads Grok env vars directly, emits hookSpecificOutput.
+ *
+ * T3: SubagentStop also runs the pure .omo/evidence verifier (verifySubagentStopEvidence)
+ * for coding|hephaestus|builder — same markers as src/grok/hooks/subagent-stop-evidence-verifier.ts.
  */
+
+import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
+import { isAbsolute, relative, resolve } from "node:path";
 
 const { devLog } = await importFirst(["./lfg-dev-logger.mjs", "../log/lfg-dev-logger.mjs"]);
 
@@ -34,7 +40,26 @@ const MODEL_EXPLICIT_VISION = [
 ];
 
 async function main() {
-  const input = parseJson(await readStdin());
+  const raw = await readStdin();
+  const input = parseJson(raw);
+  // Fail-closed pure evidence verifier when SubagentStop stdin is not valid JSON.
+  if (input === null && typeof raw === "string" && raw.trim().length > 0) {
+    const envEvent = process.env.GROK_HOOK_EVENT ?? "";
+    if (/subagentstop/i.test(envEvent.replace(/[_-]/g, ""))) {
+      const pure = verifySubagentStopEvidence(raw, process.cwd());
+      const body =
+        pure.additionalContext ??
+        pure.warning ??
+        "ERROR: Evidence verifier fail-closed on malformed JSON payload";
+      process.stdout.write(
+        JSON.stringify({
+          statusMessage: "Sisyphus: SubagentStop evidence verifier fail-closed",
+          hookSpecificOutput: { hookEventName: "SubagentStop", additionalContext: body },
+        }) + "\n",
+      );
+      return;
+    }
+  }
   await runHook(input);
 }
 
@@ -182,6 +207,177 @@ function verifySubagentEvidence(input) {
   return { status: "verified", missing, weak };
 }
 
+/**
+ * Pure .omo/evidence SubagentStop verifier (Grok MVP).
+ * Mirrors src/grok/hooks/subagent-stop-evidence-verifier.ts so the installed
+ * Sisyphus SubagentStop path can emit the same WARNING/VERIFIED/fail-closed markers.
+ */
+function verifySubagentStopEvidence(payload, cwd = process.cwd()) {
+  try {
+    const input = parseSubagentStopEvidenceInput(payload);
+    if (!input) {
+      return {
+        hasReceipt: true,
+        additionalContext: "Not a SubagentStop payload or non-target agent (MVP verifier silent)",
+      };
+    }
+
+    const targetGrokAgents = ["coding", "hephaestus", "builder"];
+    const isTarget = targetGrokAgents.some((agent) => input.agentName.toLowerCase().includes(agent));
+
+    if (!isTarget) {
+      return {
+        hasReceipt: true,
+        additionalContext: `SubagentStop for non-target Grok agent "${input.agentName}" — evidence check skipped (MVP)`,
+      };
+    }
+
+    const evidenceRoot = resolve(cwd, ".omo", "evidence");
+    const hasReceipt = hasValidEvidenceReceipt(evidenceRoot, cwd);
+
+    if (hasReceipt) {
+      return {
+        hasReceipt: true,
+        additionalContext: `Evidence receipt VERIFIED for Grok agent "${input.agentName}" in .omo/evidence (MVP SubagentStop verifier). Continue with next todo or checkpoint.`,
+      };
+    }
+
+    const warning = renderEvidenceWarning(input.agentName, evidenceRoot);
+    return {
+      hasReceipt: false,
+      warning,
+      additionalContext: warning,
+    };
+  } catch (error) {
+    const msg = `Grok SubagentStop evidence verifier: ${error instanceof Error ? error.message : String(error)}`;
+    console.error(msg);
+    return {
+      hasReceipt: false,
+      warning: msg,
+      additionalContext:
+        "ERROR: " +
+        msg +
+        "\n\nEvidence verifier fail-closed on malformed payload (matches comment-checker pattern). Fix JSON shape before retry.",
+    };
+  }
+}
+
+function parseSubagentStopEvidenceInput(payload) {
+  let record;
+  if (typeof payload === "string") {
+    try {
+      const trimmed = payload.trim();
+      if (!trimmed) return null;
+      const parsed = JSON.parse(trimmed);
+      if (!isPlainRecord(parsed)) return null;
+      record = parsed;
+    } catch {
+      throw new Error("malformed JSON payload");
+    }
+  } else if (isPlainRecord(payload)) {
+    record = payload;
+  } else {
+    throw new Error("payload must be object or valid JSON string");
+  }
+
+  const event =
+    evidenceStringField(record, ["hookEventName", "hook_event_name", "event", "type"]) ?? "";
+  if (!event.toLowerCase().includes("subagentstop") && !event.toLowerCase().includes("stop")) {
+    return null;
+  }
+
+  const agentName =
+    evidenceStringField(record, [
+      "agentName",
+      "agent_name",
+      "agent",
+      "subagent.name",
+      "subagentName",
+      "subagent_name",
+    ]) ||
+    evidenceStringField(isPlainRecord(record.subagent) ? record.subagent : {}, ["name", "type", "id"]) ||
+    evidenceStringField(isPlainRecord(record.result) ? record.result : {}, ["agent", "name"]) ||
+    "unknown";
+
+  const lastMessage =
+    evidenceStringField(record, [
+      "last_assistant_message",
+      "lastAssistantMessage",
+      "last_message",
+      "transcript",
+      "output",
+      "result",
+    ]) ?? "";
+
+  return {
+    agentName,
+    lastMessage: lastMessage || undefined,
+    cwd: evidenceStringField(record, ["cwd", "workspaceRoot", "workspace_root"]) ?? process.cwd(),
+  };
+}
+
+function hasValidEvidenceReceipt(evidenceRoot, cwd) {
+  if (!existsSync(evidenceRoot)) return false;
+  try {
+    const files = readdirSync(evidenceRoot);
+    for (const file of files) {
+      const fullPath = resolve(evidenceRoot, file);
+      if (isNonEmptyEvidenceFile(fullPath, evidenceRoot, cwd)) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function isNonEmptyEvidenceFile(filePath, evidenceRoot, cwd) {
+  if (!existsSync(filePath)) return false;
+  try {
+    const stat = statSync(filePath);
+    if (!stat.isFile() || stat.size === 0) return false;
+    const lstat = lstatSync(filePath, { throwIfNoEntry: false });
+    if (lstat?.isSymbolicLink()) return false;
+    const relToEvidence = relative(evidenceRoot, filePath);
+    const relToCwd = relative(cwd, filePath);
+    if (relToEvidence.startsWith("..") || relToCwd.startsWith("..") || isAbsolute(relToEvidence)) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function renderEvidenceWarning(agentName, evidenceRoot) {
+  return (
+    `WARNING: Grok SubagentStop evidence verifier (MVP) detected no receipt in ${evidenceRoot} for agent "${agentName}".\n` +
+    `Target agents: coding, hephaestus, builder.\n` +
+    `Please write concrete evidence (e.g. task-7-*.txt with build/test/output verification) before completion.\n` +
+    `This enforces OMO-style evidence discipline in GrokBuild via additionalContext. See .omo/evidence/task-7-lfg-next-release-app-server-epic.txt`
+  );
+}
+
+function evidenceStringField(record, keys) {
+  if (!isPlainRecord(record)) return "";
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.length > 0) return value;
+    if (key.includes(".")) {
+      const [parent, child] = key.split(".");
+      const parentObj = record[parent];
+      if (isPlainRecord(parentObj)) {
+        const childVal = parentObj[child];
+        if (typeof childVal === "string" && childVal.length > 0) return childVal;
+      }
+    }
+  }
+  return "";
+}
+
+function isPlainRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function subagentStopContext(input) {
   const evidence = verifySubagentEvidence(input);
   const lines = [
@@ -202,6 +398,17 @@ function subagentStopContext(input) {
     lines.push("  Weak: " + evidence.weak.join(", ") + ".");
     lines.push("  Consider requesting stronger proof from the subagent.");
   }
+
+  // T3: pure .omo/evidence verifier for coding|hephaestus|builder (MVP, additionalContext).
+  const cwd =
+    (isPlainRecord(input)
+      ? stringField(input, ["cwd", "workspaceRoot", "workspace_root"])
+      : null) ?? process.cwd();
+  const pure = verifySubagentStopEvidence(input ?? {}, cwd);
+  if (pure.additionalContext) {
+    lines.push("", "<sisyphus-omo-evidence-verifier>", pure.additionalContext, "</sisyphus-omo-evidence-verifier>");
+  }
+
   lines.push("- For durable continuation across sessions, use `lfg ulw-loop` to checkpoint and resume work.");
   lines.push("</sisyphus-delegation-result>");
   return { statusLabel: "Delegation result verification", body: lines.join("\n") };
@@ -228,6 +435,7 @@ function stopContext() {
     "- Build passes (if applicable)?",
     "- User's original request fully addressed?",
     "- If any check fails: fix issues, do NOT declare done.",
+    "- For durable continuation across sessions, use `lfg ulw-loop` (or `lfg ulw`) to checkpoint and resume; no automatic reinjection (start-work-continuation remains Deferred).",
     "",
     "</sisyphus-final-review-gate>",
   ];
@@ -537,7 +745,13 @@ async function readStdin() {
   return data;
 }
 
-export { renderSisyphusContext, subagentStopContext, verifySubagentEvidence, runHook };
+export {
+  renderSisyphusContext,
+  subagentStopContext,
+  verifySubagentEvidence,
+  verifySubagentStopEvidence,
+  runHook,
+};
 
 const isMain = (() => {
   try {

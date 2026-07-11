@@ -2,9 +2,10 @@
   "generatedBy": "scripts/sync-omo-skills-to-grok.mjs",
   "source": {
     "upstream": "@sisyphuslabs/omo-codex-plugin",
-    "version": "4.13.0",
+    "version": "4.16.3",
     "sourceMap": {
       "ast-grep": "skills/ast-grep",
+      "coding-agent-sessions": "skills/coding-agent-sessions",
       "comment-checker": "components/comment-checker/skills/comment-checker",
       "debugging": "skills/debugging",
       "frontend": "skills/frontend",
@@ -26,12 +27,14 @@
       "ultraresearch": "skills/ultraresearch",
       "ulw-loop": "components/ulw-loop/skills/ulw-loop",
       "ulw-plan": "components/ultrawork/skills/ulw-plan",
+      "ulw-research": "skills/ulw-research",
       "visual-qa": "skills/visual-qa"
     }
   },
   "conversion": "GrokBuild adapter payload: upstream OMO aggregate/component skill directories copied with relative references and scripts preserved.",
   "managedSkills": [
     "ast-grep",
+    "coding-agent-sessions",
     "comment-checker",
     "debugging",
     "frontend",
@@ -53,6 +56,7 @@
     "ultraresearch",
     "ulw-loop",
     "ulw-plan",
+    "ulw-research",
     "visual-qa"
   ]
 }

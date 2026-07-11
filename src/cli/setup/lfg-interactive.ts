@@ -185,9 +185,11 @@ async function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): Promis
   const sourceLabel =
     resolved.baseUrlSource === "config"
       ? "~/.grok/config.toml"
-      : resolved.baseUrlSource === "default"
-        ? "default proxy"
-        : resolved.baseUrlSource
+      : resolved.baseUrlSource === "providers"
+        ? `${discovery.providerEndpoints?.length ?? 0} declared providers`
+        : resolved.baseUrlSource === "default"
+          ? "default proxy"
+          : resolved.baseUrlSource
   output.write(`Using models from ${resolved.baseUrlUsed ?? discovery.baseUrl} (${sourceLabel}).\n`)
   output.write(`Found ${discovery.modelIds.length} models; Grok [model.*] aliases will be written automatically.\n`)
   output.write("Model mapping:\n")

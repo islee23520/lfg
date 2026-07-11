@@ -44,6 +44,10 @@ const GROK_INSTALL_MCP_RUNTIME_DIRS = [
   ["git-bash-mcp", "git_bash"],
   ["lsp-daemon", "lsp"],
 ]
+const GROK_HOOK_RUNTIME_BUNDLES = [
+  ["src/grok/runtimes/rules-hook-cli.ts", `${GROK_INSTALL_DIR}/components/rules/dist/cli.js`],
+  ["src/grok/runtimes/ultrawork-hook-cli.ts", `${GROK_INSTALL_DIR}/components/ultrawork/dist/cli.js`],
+]
 
 const buildDir = CLI_ENTRYPOINT_DIST
 const buildLockDir = `${buildDir}/.build.lock`
@@ -82,6 +86,20 @@ try {
   await cp(GROK_INSTALL_FIXTURE_SRC, fixtureTmp, { recursive: true })
   await cp(GROK_INSTALL_FIXTURE_SRC, GROK_INSTALL_DIR, { recursive: true })
 
+  await Promise.all(
+    GROK_HOOK_RUNTIME_BUNDLES.map(([entryPoint, outfile]) =>
+      build({
+        entryPoints: [entryPoint],
+        outfile,
+        bundle: true,
+        platform: "node",
+        format: "esm",
+        sourcemap: true,
+        target: "node20",
+      }),
+    ),
+  )
+
   for (const componentDir of GROK_INSTALL_MCP_COMPONENT_DIRS) {
     await rm(`${GROK_INSTALL_DIR}/components/${componentDir}`, { recursive: true, force: true })
     await cp(`components/${componentDir}`, `${GROK_INSTALL_DIR}/components/${componentDir}`, { recursive: true, force: true })
@@ -93,6 +111,7 @@ try {
   const sisyphusHooksSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-sisyphus-hooks.mjs`
   const nativeRulesSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-rules.mjs`
   const nativeUltraworkSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-ultrawork.mjs`
+  const nativeWorkflowSelectorSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-workflow-selector.mjs`
   const nativeCommentCheckerSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-comment-checker.mjs`
   const devLoggerSrc = `${GROK_INSTALL_ASSETS_SRC}/log/lfg-dev-logger.mjs`
   const xaiGrokMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-xai-grok-mcp.mjs`
@@ -128,6 +147,7 @@ try {
   await cp(sisyphusHooksSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-sisyphus-hooks.mjs`)
   await cp(nativeRulesSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-rules.mjs`)
   await cp(nativeUltraworkSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-ultrawork.mjs`)
+  await cp(nativeWorkflowSelectorSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-workflow-selector.mjs`)
   await cp(nativeCommentCheckerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-comment-checker.mjs`)
   await cp(devLoggerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-dev-logger.mjs`)
   await cp(xaiGrokMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-xai-grok-mcp.mjs`)
@@ -158,7 +178,7 @@ try {
     }
   }
 
-  await Promise.all(outputs.map(([, outfile]) => chmod(outfile, 0o755)))
+  await Promise.all([...outputs, ...GROK_HOOK_RUNTIME_BUNDLES].map(([, outfile]) => chmod(outfile, 0o755)))
 } finally {
   await rm(buildLockDir, { recursive: true, force: true })
 }

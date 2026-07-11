@@ -63,7 +63,8 @@ export const OMO_HOOK_PARITY_MATRIX: readonly OmoHookParityRow[] = [
     upstreamMatcher: null,
     upstreamCommand: 'node "${PLUGIN_ROOT}/components/bootstrap/dist/cli.js" hook session-start',
     upstreamTimeoutSeconds: 30,
-    localTargetDecision: "Do not provision Codex bootstrap dependencies from Grok setup hooks.",
+    localTargetDecision:
+      "T9 residual WAIVE (issue #102): host dependency class policy / no Codex bootstrap from Grok — do not provision Codex bootstrap dependencies from Grok setup hooks.",
     localCommand: null,
     localMatcher: null,
     localTimeoutSeconds: null,
@@ -141,7 +142,8 @@ export const OMO_HOOK_PARITY_MATRIX: readonly OmoHookParityRow[] = [
     upstreamMatcher: "^(apply_patch|write|Write|edit|Edit|multi_edit|multiedit|MultiEdit)$",
     upstreamCommand: 'node "${PLUGIN_ROOT}/components/lsp/dist/cli.js" hook post-tool-use',
     upstreamTimeoutSeconds: 60,
-    localTargetDecision: "LSP hook remains deferred until a Grok-native component is packaged.",
+    localTargetDecision:
+      "WAIVE (T8 residual): MCP runtime Grok-adapted via typescript_diagnostics; automatic PostToolUse/PostCompact reinjection not claimed. No cheap comment-checker-class native reinject path (would require language-service lifecycle, not pure file scan).",
     localCommand: null,
     localMatcher: null,
     localTimeoutSeconds: null,
@@ -185,7 +187,8 @@ export const OMO_HOOK_PARITY_MATRIX: readonly OmoHookParityRow[] = [
     upstreamMatcher: "manual|auto",
     upstreamCommand: 'node "${PLUGIN_ROOT}/components/lsp/dist/cli.js" hook post-compact',
     upstreamTimeoutSeconds: 5,
-    localTargetDecision: "LSP cache reset remains deferred until a Grok-native component is packaged.",
+    localTargetDecision:
+      "WAIVE (T8 residual): MCP runtime Grok-adapted; automatic PostToolUse/PostCompact reinjection not claimed (compact-time LSP cache reset not generated).",
     localCommand: null,
     localMatcher: null,
     localTimeoutSeconds: null,
