@@ -85,7 +85,7 @@ await assertTextContains("docs/grok-adapter-parity.md", [
 await assertTextContains("AGENTS.md", [
   "upstream baseline `lazycodex-ai`/OMO `v4.13.0`",
   "`teammode` | Skill payload installed; Codex thread orchestration hook not Grok-adapted (host dependency class: codex_app) | Deferred",
-  "`lazycodex-executor-verify` | Codex `lazycodex-executor` SubagentStop verifier not Grok-adapted (host dependency class: Stop/SubagentStop hook) | Deferred",
+  "`lazycodex-executor-verify` | T3: pure `verifySubagentStopEvidence` in Sisyphus SubagentStop; no dedicated host-enforced CLI (host dependency class: Stop/SubagentStop hook) | Deferred",
   "`workflow-selector` | Codex-only opt-in UserPromptSubmit workflow selector; no verified Grok-native prompt-routing hook yet (host dependency class: missing host surface) | Deferred",
   "`test-support` | Upstream package test infrastructure, not a Grok plugin runtime component | Unsupported",
   "host dependency class",

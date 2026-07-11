@@ -61,13 +61,13 @@ This section satisfies the gateway acceptance criteria: gaps classified, substit
 |---|---|---|---|
 | teammode | codex_app (host dependency class: codex_app) | `docs/grok-native-team-orchestration.md` decision-complete design + MVP ledger; team skill payload installed via sync | **Deferred** (no status flip — `codex_app` host surface not available) |
 | start-work-continuation | Stop/SubagentStop hook | Sisyphus native Stop/SubagentStop hooks (`lfg-sisyphus-hooks.mjs`); durable `lfg ulw-loop` CLI for checkpoint/resume across sessions | **Deferred** (MVP substitutes shipped; automatic reinjection not claimed) |
-| lazycodex-executor-verify | Stop/SubagentStop hook | `subagent-stop-evidence-verifier.ts` pure function (tested); wired into `lfg-sisyphus-hooks.mjs` SubagentStop context for evidence-aware guidance | **Deferred** (pure function MVP shipped; full host-enforced verifier not claimed) |
+| lazycodex-executor-verify | Stop/SubagentStop hook | pure `verifySubagentStopEvidence` + T3 e2e wiring into `lfg-sisyphus-hooks.mjs` SubagentStop (coding\|hephaestus\|builder, `.omo/evidence`, fail-closed JSON) | **Deferred** (T3 sisyphus additionalContext proven; dedicated host-enforced CLI not claimed) |
 
 ### Substitute evidence
 
 - **teammode**: `docs/grok-native-team-orchestration.md` MVP ledger documents decision-complete design; `teammode` skill payload installed via `sync-omo-skills-to-grok.mjs`. No `codex_app` host surface is introduced.
-- **start-work-continuation**: Sisyphus `Stop`/`SubagentStop` hooks inject continuation guidance referencing `lfg ulw-loop` for durable checkpoint/resume. See `src/grok/assets/hooks/lfg-sisyphus-hooks.mjs`.
-- **lazycodex-executor-verify**: `verifySubagentEvidence()` in `lfg-sisyphus-hooks.mjs` checks test-run-evidence and changed-file-reference in SubagentStop payloads. Pure function `subagent-stop-evidence-verifier.ts` has unit test coverage.
+- **start-work-continuation**: Sisyphus `Stop`/`SubagentStop` hooks inject continuation guidance referencing `lfg ulw-loop` for durable checkpoint/resume and explicitly deny automatic reinjection; boulder-state `getStopHookContinuationContext` present path matches that honesty contract (ledgerPath + durable CLI pointer). See `src/grok/assets/hooks/lfg-sisyphus-hooks.mjs` and T5 evidence.
+- **lazycodex-executor-verify**: `verifySubagentEvidence()` (regex) plus T3 pure `verifySubagentStopEvidence` from `subagent-stop-evidence-verifier.ts` (`.omo/evidence` for coding|hephaestus|builder, fail-closed malformed JSON) both run in `lfg-sisyphus-hooks.mjs` SubagentStop. Unit + e2e tests green; remains Deferred without dedicated host-enforced CLI.
 
 ### Z.AI vision MCP (#89)
 
