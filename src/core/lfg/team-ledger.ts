@@ -326,8 +326,15 @@ export async function requestShutdown(teamsRoot: string, teamId: string, force =
     state.status = 'archived';
   } else {
     state.status = 'shutdown_requested';
-    // In full impl, would send messages to members via spawn continuation
-    await appendMessage(teamsRoot, teamId, 'lead', '*', 'Shutdown requested. Members should ack and stop.');
+    // In-memory mailbox note (avoid nested appendMessage which would race this write)
+    const shutdownMsg: TeamMessage = {
+      id: randomUUID(),
+      from: 'lead',
+      to: '*',
+      content: 'Shutdown requested. Members should ack and stop.',
+      timestamp: new Date().toISOString(),
+    };
+    state.messages.push(shutdownMsg);
   }
 
   state.lastActivity = new Date().toISOString();
