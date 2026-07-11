@@ -10,16 +10,45 @@ Issue #36 separates already-shipped core install parity from full OMO component 
 
 ## Current Parity Score
 
-Current score after gap-fill train T0–T11 (baseline was **88/100** after T2/T4/T5): **89/100**.
+lfg reports **two scores**. Do not collapse them: **adapter-scope 100 is not full-OMO 100**.
 
-### What the score counts
+| Score | Name | Value | Question it answers |
+|-------|------|------:|---------------------|
+| **A** | **GrokBuild adapter scope** | **100/100** | Did lfg finish the Grok/lfg contract under `~/.grok` (install, cores, hooks/MCP/skills in scope), treating host-bound / senpi / codex_app planes as **out of contract**? |
+| **B** | **Full OMO host surface** | **89/100** | If every upstream OMO *component row* is graded as if Grok must own it end-to-end (including codex_app / missing host / auto-reinject), how complete is that? |
+
+**Canonical product claim for “lfg is done for its scope”:** Score **A = 100/100**.  
+**Canonical honesty claim for “full OMO on Grok like Codex/OpenCode”:** Score **B = 89/100** (gap-fill train T0–T11; baseline **88/100** after T2/T4/T5; +1 residual WAIVE bookkeeping only).
+
+### Score A — GrokBuild adapter scope (**100/100**)
+
+**In contract (must ship on Grok via lfg):** core install (`setup --run`, stamp, config single-writer, agents, hook trust/normalize, skill sync); behavior-backed **Grok-adapted** / **Implemented** ports (rules, comment-checker, lsp MCP, ast_grep, codegraph, ultrawork, ulw-loop CLI + skill, ulw-plan, prompts/delegate/boulder/skills-loader cores, ultimate-browsing payload); Manifest-only / remote-URL shape rows as shape-only; Unsupported policy rows (`auto-update`, `telemetry`, `test-support`); residual **WAIVE** bookkeeping for LSP auto-reinject and missing-host/policy residuals without fake Grok-adapted flips.
+
+**Out of contract (do not discount Score A):** planes owned by other adapters/packages or missing Grok host APIs. lfg **references** them; it does **not** claim them as Grok runtime parity.
+
+| Out-of-contract plane | Owner / isolated package surface | Why N/A for Score A |
+|----------------------|----------------------------------|---------------------|
+| `omo-senpi` / `senpi` task–team RPC | `@code-yeongyu/senpi`, `omo-senpi`, `senpi-task`, `team-core` under **`~/.senpi`** | Separate control plane; see `docs/omo-grokbuild-pi-agent-parity-adr.md` Config Root Separation and `docs/grok-orchestration-plane.md` (D)(E) |
+| senpi / Codex **app-server** | senpi `app-server` / Codex app-server NDJSON | Not an lfg runtime dependency (task-11 spike: no product) |
+| `codex_app` team threads | Codex host (`codex_app.create_thread`) | No Grok equivalent; teammode stays Deferred in the component table, **N/A for Score A** |
+| Automatic Stop/SubagentStop reinject | Host lifecycle enforcement beyond guidance | Sisyphus + `lfg ulw-loop` substitutes are in-scope; **auto reinject** is out of contract |
+| `workflow-selector` / `plan-mode-interception` as native intercept | Missing Grok prompt/Plan Mode intercept surface | Guidance-only substitutes in-scope; native intercept out of contract |
+| Codex `bootstrap` of Codex runtime deps | Codex SessionStart provisioning | Policy: lfg does not bootstrap Codex from Grok |
+
+**Score A formula:** all **in-contract** obligations met with evidence (install gates, behavior tests, residual WAIVEs recorded) → **100/100**. Out-of-contract rows remain listed as Deferred/Unsupported in the component table for inventory honesty; they **do not** reduce Score A.
+
+### Score B — Full OMO host surface (**89/100**)
+
+Same table as before: Deferred host-bound rows **discount** this score even when Score A treats them as out of contract.
+
+#### What Score B counts
 
 - **Full weight:** shipped core install parity; behavior-backed **Grok-adapted** / **Implemented** component ports (runtime/hook/tool proof, not file copy alone).
 - **Partial / shape weight:** installed **Manifest-only** and **Remote URL manifest-only** surfaces (shape-validated; not behavioral ports).
 - **Closed bookkeeping:** explicitly **Unsupported** non-runtime upstream pieces (`auto-update`, `telemetry`, `test-support`) already reflected in the 88 baseline.
 - **Discounted:** **Deferred** host-bound behavior (orchestration-plane **host dependency class** per `docs/grok-orchestration-plane.md`: `codex_app`, `Stop/SubagentStop hook`, `missing host surface`, `policy / no Codex bootstrap from Grok`). Deferred MVP substitutes (ledger, pure helpers, guidance hooks) **do not** auto-promote status or invent large score jumps.
 
-### Honest formula (this train)
+#### Honest formula (gap-fill train → Score B)
 
 | Layer | Δ | Result |
 |---|---:|---:|
@@ -27,13 +56,13 @@ Current score after gap-fill train T0–T11 (baseline was **88/100** after T2/T4
 | Status promotions Deferred → Grok-adapted/Implemented | **+0** | 88 (none this train) |
 | Explicit residual **WAIVE** bookkeeping (T8 LSP reinject residual path + T9 pack for workflow-selector / plan-mode-interception / bootstrap) | **+1** | **89** (docs/inventory honesty only; not behavior) |
 | Prove-only MVP strengthen (T3 SubagentStop verifier wiring, T5 start-work resume wording, T6 team-ledger unit e2e, T7 HOLD) | **+0** | 89 (status still Deferred) |
-| **Total** | | **89/100** |
+| **Score B total** | | **89/100** |
 
-**Not 90–93:** the gap-fill plan’s 90–93 band assumed promotions that **did not land**. Claiming 93 without status flips would invent points.
+**Not Score B 90–93:** the gap-fill plan’s 90–93 band assumed promotions that **did not land**. Claiming Score B 93 without status flips would invent points. **Score A 100 does not imply Score B 100.**
 
-**Still unclaimed (Deferred / residual):** `workflow-selector`, `teammode`, `lazycodex-executor-verify`, `start-work-continuation`, `bootstrap`, `plan-mode-interception`, `git-bash` Windows behavior, and automatic LSP lifecycle hook reinjection. **T7 HOLD Deferred** for `teammode` (issue [#100](https://github.com/islee23520/lfg/issues/100); `T7-promote-or-hold.md`). **T8 residual WAIVE** for LSP reinject (issue [#101](https://github.com/islee23520/lfg/issues/101); `T8-lsp-residual.txt`). **T9 residual WAIVE pack** (issue [#102](https://github.com/islee23520/lfg/issues/102); `T9-residuals.txt`): `workflow-selector` and `plan-mode-interception` stay Deferred (**host dependency class: missing host surface**); `bootstrap` stays Deferred (**host dependency class: policy / no Codex bootstrap from Grok**). No fake Grok-adapted claims for these three.
+**Still Deferred on the component table (Score B residual; Score A out-of-contract or WAIVE):** `workflow-selector`, `teammode`, `lazycodex-executor-verify`, `start-work-continuation`, `bootstrap`, `plan-mode-interception`, `git-bash` Windows behavior, and automatic LSP lifecycle hook reinjection. **T7 HOLD Deferred** for `teammode` (issue [#100](https://github.com/islee23520/lfg/issues/100); `T7-promote-or-hold.md`). **T8 residual WAIVE** for LSP reinject (issue [#101](https://github.com/islee23520/lfg/issues/101); `T8-lsp-residual.txt`). **T9 residual WAIVE pack** (issue [#102](https://github.com/islee23520/lfg/issues/102); `T9-residuals.txt`): `workflow-selector` and `plan-mode-interception` stay Deferred (**host dependency class: missing host surface**); `bootstrap` stays Deferred (**host dependency class: policy / no Codex bootstrap from Grok**). No fake Grok-adapted claims for these three.
 
-**Score evidence / open train issues:** evidence root `.omo/evidence/omo-parity-gap-fill-88-to-95/` (`T0-baseline.md` … `T11-score.txt`). Open follow-ups: [#98](https://github.com/islee23520/lfg/issues/98) (SubagentStop verifier e2e registration), [#99](https://github.com/islee23520/lfg/issues/99) (start-work proven resume), [#100](https://github.com/islee23520/lfg/issues/100) (teammode promote-or-hold), [#101](https://github.com/islee23520/lfg/issues/101) (LSP reinject residual), [#102](https://github.com/islee23520/lfg/issues/102) (WAIVE pack), [#103](https://github.com/islee23520/lfg/issues/103) (release gate package), [#104](https://github.com/islee23520/lfg/issues/104) (epic close fillable Deferred 88→~93).
+**Score evidence:** `.omo/evidence/omo-parity-gap-fill-88-to-95/` (`T0-baseline.md` … `T11-score.txt`); dual-score note `.omo/evidence/omo-parity-gap-fill-88-to-95/DUAL-SCORE-100-adapter-scope.md`. Follow-ups (hygiene train closed issues may still document promote residuals): [#98](https://github.com/islee23520/lfg/issues/98), [#99](https://github.com/islee23520/lfg/issues/99), [#100](https://github.com/islee23520/lfg/issues/100), [#101](https://github.com/islee23520/lfg/issues/101), [#102](https://github.com/islee23520/lfg/issues/102), [#103](https://github.com/islee23520/lfg/issues/103), [#104](https://github.com/islee23520/lfg/issues/104).
 
 ## Agent/Model Source Map
 
