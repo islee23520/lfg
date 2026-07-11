@@ -221,7 +221,7 @@ async function verifyHookCommandTargets(pluginRoot: string, hooksRaw: unknown): 
 
 function hookCommandTargets(pluginRoot: string, command: string): readonly string[] {
   const targets: string[] = []
-  for (const match of command.matchAll(/"([^"]+)"|(\S+)/g)) {
+  for (const match of command.matchAll(/["']([^"']+)["']|(\S+)/g)) {
     const token = match[1] ?? match[2] ?? ""
     const path = token.replace(/\$\{GROK_PLUGIN_ROOT\}|\$\{PLUGIN_ROOT\}/g, pluginRoot)
     if (path.startsWith(`${pluginRoot}/`) || path === pluginRoot) {

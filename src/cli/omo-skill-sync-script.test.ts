@@ -9,6 +9,7 @@ const execFileAsync = promisify(execFile)
 const ROOT = new URL("../..", import.meta.url).pathname
 const managedSourceMap = {
   "ast-grep": "skills/ast-grep",
+  "coding-agent-sessions": "skills/coding-agent-sessions",
   "comment-checker": "components/comment-checker/skills/comment-checker",
   debugging: "skills/debugging",
   frontend: "skills/frontend",
@@ -30,6 +31,7 @@ const managedSourceMap = {
   ultraresearch: "skills/ultraresearch",
   "ulw-loop": "components/ulw-loop/skills/ulw-loop",
   "ulw-plan": "components/ultrawork/skills/ulw-plan",
+  "ulw-research": "skills/ulw-research",
   "visual-qa": "skills/visual-qa",
 } as const
 
@@ -81,9 +83,17 @@ describe("sync-omo-skills-to-grok", () => {
       expect(manifest).toContain("visual-qa")
       expect(manifest).toContain("ultimate-browsing")
       expect(manifest).toContain("teammode")
+      expect(manifest).toContain("coding-agent-sessions")
+      expect(manifest).toContain("ulw-research")
       expect(manifest).toContain("lfg-doctor")
       expect(manifest).not.toContain("lcx-doctor")
       expect(manifest).toContain('"version": "9.9.9"')
+      await expect(readFile(join(target, "coding-agent-sessions", "SKILL.md"), "utf8")).resolves.toContain(
+        "aggregate coding-agent-sessions source",
+      )
+      await expect(readFile(join(target, "ulw-research", "SKILL.md"), "utf8")).resolves.toContain(
+        "aggregate ulw-research source",
+      )
     }
   })
 

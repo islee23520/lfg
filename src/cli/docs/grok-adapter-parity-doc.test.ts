@@ -86,6 +86,11 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("native Grok hook")
     // Also pin full OMO + hook surfaces for package mapping
     expect(text).toContain("lfg-grok-hook-bridge.mjs")
+    expect(text).toContain("hooks/lfg-native-rules.mjs session-start")
+    expect(text).toContain("hooks/lfg-native-rules.mjs user-prompt-submit")
+    expect(text).toContain("hooks/lfg-native-rules.mjs post-tool-use")
+    expect(text).toContain("hooks/lfg-native-rules.mjs post-compact")
+    expect(text).toContain("hooks/lfg-native-ultrawork.mjs user-prompt-submit")
     expect(text).toContain("Grok-native lifecycle")
     expect(text).toMatch(/native.*hook|hook.*native|bridge fallback|Grok-first.*OMO|OMO.*parity/i)
   })
@@ -126,8 +131,8 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("automatic LSP lifecycle hook reinjection")
     expect(text).toContain("## Full OMO Component Parity")
     expect(text).toContain("`lfg-component-inventory.json`")
-    expect(text).toContain("`lazycodex-ai` / OMO `v4.13.0`")
-    expect(text).toContain("https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.13.0")
+    expect(text).toContain("`lazycodex-ai` / OMO `v4.16.3`")
+    expect(text).toContain("https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.16.3")
     expect(text).toContain("split hook JSON files under `packages/omo-codex/plugin/hooks/`")
     expect(text).toContain("package-level MCP runtimes for")
     expect(text).toContain("scripts/omo-parity-upkeep.mjs")
@@ -153,9 +158,10 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
       ["delegate-core", "Grok-adapted"],
       ["boulder-state", "Grok-adapted"],
       ["skills-loader-core", "Grok-adapted"],
-      ["teammode", "Deferred"],
+      ["teammode", "Grok-adapted"],
       ["lazycodex-executor-verify", "Deferred"],
       ["workflow-selector", "Deferred"],
+      ["difficulty-tier-workers", "Deferred"],
       ["telemetry", "Unsupported"],
       ["test-support", "Unsupported"],
     ] as const) {
@@ -168,7 +174,10 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("codex_app.create_thread")
     expect(text).toContain("`lazycodex-executor`")
     expect(text).toContain("subagent-stop-verifying-lazycodex-executor-evidence.json")
-    expect(text).toContain("user-prompt-submit-selecting-workflow.json")
+    expect(text).toContain("components/workflow-selector/hooks/hooks.json")
+    expect(text).toContain("#5745")
+    expect(text).toContain("difficulty-tier-workers")
+    expect(text).toContain("lazycodex-worker-")
     expect(text).toContain("OMO_CODEX_AUTO_WORKFLOW")
     expect(text).toContain("Upstream package test infrastructure remains Unsupported")
     expect(text).toContain("test-only support code outside the Grok runtime payload")
@@ -191,7 +200,8 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("T6-tests.txt")
     expect(text).toContain("T7-promote-or-hold.md")
     expect(text).toContain("T7 HOLD Deferred")
-    expect(text).toContain("live multi-`spawn_subagent` host e2e")
+    expect(text).toContain("spawn_subagent")
+    expect(text).toContain("general-purpose")
     expect(text).toContain("#100")
     expect(text).toContain("hooks/lfg-native-comment-checker.mjs")
     expect(text).toContain("ast_grep_search")
@@ -203,7 +213,7 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("ledger-backed pure helper")
     expect(text).toContain("T5-runtime.txt")
     expect(text).toContain("hook-time `additionalContext` guidance only")
-    expect(text).toContain("workflow-selector`, `teammode`, `lazycodex-executor-verify`, `start-work-continuation`")
+    expect(text).toContain("workflow-selector` (lfg optional historical; upstream removed #5745), `difficulty-tier-workers`, `lazycodex-executor-verify`, `start-work-continuation`")
     expect(text).toContain("Deferred for automatic lifecycle hook reinjection")
     expect(text).toContain("MCP runtime Grok-adapted; automatic PostToolUse/PostCompact reinjection not claimed")
     // refreshed for task 3/6 of orchestration epic
@@ -216,14 +226,17 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("T9 residual WAIVE")
     expect(text).toContain("T9-residuals.txt")
     expect(text).toContain("#102")
+    expect(text).toContain("e222452b874eb65d550fafb1d08d3aaf0d20418f")
+    expect(text).toContain("lfg-native-workflow-selector.mjs")
+    expect(text).toContain("authenticated GrokBuild host receipt")
     expect(text).toContain("policy / no Codex bootstrap from Grok")
-    expect(text).toMatch(/\| `workflow-selector` \|.*host dependency class: missing host surface.*\| Deferred \|/)
+    expect(text).toMatch(/\| `workflow-selector` \|.*authenticated GrokBuild host receipt.*\| Deferred \|/)
     expect(text).toMatch(/\| `plan-mode-interception` \|.*host dependency class: missing host surface.*\| Deferred \|/)
     expect(text).toMatch(/\| `bootstrap` \|.*host dependency class: policy \/ no Codex bootstrap from Grok.*\| Deferred \|/)
     expect(text).not.toMatch(/\| `plan-mode-interception` \|.*\| (Implemented|Grok-adapted) \|/)
     expect(text).not.toMatch(/\| `workflow-selector` \|.*\| (Implemented|Grok-adapted) \|/)
     expect(text).not.toMatch(/\| `bootstrap` \|.*\| (Implemented|Grok-adapted) \|/)
-    expect(text).not.toMatch(/\| `teammode` \|.*\| (Implemented|Grok-adapted) \|/)
+    expect(text).toMatch(/\| `teammode` \|.*\| Grok-adapted \|/)
     expect(text).not.toMatch(/\| `lazycodex-executor-verify` \|.*\| (Implemented|Grok-adapted) \|/)
     expect(text).not.toMatch(/\| `start-work-continuation` \|.*\| (Implemented|Grok-adapted) \|/)
   })

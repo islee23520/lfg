@@ -32,6 +32,34 @@ describe("resolveSetupDiscovery", () => {
       })
     })
   })
+
+  test("OpenGrok: [omo.providers.*] drives multi-endpoint discovery and beats a single [endpoints] proxy", async () => {
+    await withModelServer(["grok-4.5"], async (grokUrl) => {
+      await withModelServer(["gpt-5.5", "gpt-5.5-mini"], async (openaiUrl) => {
+        const home = await mkdtemp(join(tmpdir(), "lfg-resolve-providers."))
+        await mkdir(join(home, ".grok"), { recursive: true })
+        const configToml = [
+          "[omo.providers.xai]",
+          `base_url = "${grokUrl}/v1"`,
+          "[omo.providers.openai]",
+          `base_url = "${openaiUrl}/v1"`,
+          'env_key = "OPENAI_API_KEY"',
+          "",
+          "[endpoints]",
+          `models_base_url = "${grokUrl}/v1"`,
+        ].join("\n")
+        await writeFile(join(home, ".grok", "config.toml"), configToml, "utf8")
+
+        const resolved = await resolveSetupDiscovery({ home, cliBaseUrl: null })
+        expect(resolved.baseUrlSource).toBe("providers")
+        expect(resolved.baseUrlUsed).toBeNull()
+        expect(resolved.discovery?.modelIds).toEqual(expect.arrayContaining(["grok-4.5", "gpt-5.5", "gpt-5.5-mini"]))
+        const ids = resolved.discovery?.providerEndpoints?.map((endpoint) => endpoint.id)
+        expect(ids).toEqual(["xai", "openai"])
+        expect(resolved.discovery?.providerEndpoints?.find((endpoint) => endpoint.id === "openai")?.envKey).toBe("OPENAI_API_KEY")
+      })
+    })
+  })
 })
 
 async function withModelServer(modelIds: readonly string[], run: (baseUrl: string) => Promise<void>): Promise<void> {

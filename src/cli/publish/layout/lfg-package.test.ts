@@ -15,7 +15,7 @@ describe("lfg package contract", () => {
     expect(root.files).toEqual(["bin", "dist", "skills", "README.md", "AGENTS.md", "src/AGENTS.md"])
     expect(root.scripts).toMatchObject({
       setup: "sh bin/lfg.js setup",
-      test: "npm run build && vitest run src/cli/*.test.ts src/cli/**/*.test.ts src/grok/*.test.ts src/grok/**/*.test.ts --exclude src/grok/skills/**/*.test.ts",
+      test: "npm run build && vitest run src/cli/*.test.ts src/cli/**/*.test.ts src/core/*.test.ts src/core/**/*.test.ts src/grok/*.test.ts src/grok/**/*.test.ts --exclude src/grok/skills/**/*.test.ts",
       "self-test": "npm run build && node dist/self-test.js",
       typecheck: "tsc --noEmit",
       build: "node scripts/build.mjs",
@@ -140,7 +140,7 @@ describe("lfg package contract", () => {
     const doctor = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, { HOME: home })
     expect(doctor.exitCode).toBe(1)
     const unsupported = JSON.parse(doctor.stdout) as { readonly ok?: boolean; readonly code?: string; readonly supportedCommands?: readonly string[] }
-    expect(unsupported).toMatchObject({ ok: false, code: "unsupported_command", supportedCommands: ["setup", "xai", "zai", "mcp"] })
+    expect(unsupported).toMatchObject({ ok: false, code: "unsupported_command", supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop", "codex"] })
     await rm(installDir, { recursive: true, force: true })
     await rm(packDir, { recursive: true, force: true })
   }, 120_000)

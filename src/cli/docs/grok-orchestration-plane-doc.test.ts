@@ -9,18 +9,22 @@ describe("docs/grok-orchestration-plane.md", () => {
   test("full-picture of OMO/senpi control planes for Grok", async () => {
     const text = await readFile(join(ROOT, "docs/grok-orchestration-plane.md"), "utf8")
 
-    // Required invariants and gaps (must match exactly)
+    // Required invariants and gaps
     expect(text).toContain("app-server is NOT an lfg runtime dependency")
     expect(text).toContain("teammode deferred until Grok-native team (codex_app not available)")
     expect(text).toContain("multi_agent_v1 ≠ codex_app (different planes)")
     expect(text).toContain("lfg uses spawn_subagent")
     expect(text).toContain("pi-agent run ≠ omo-senpi without proof")
 
-    // Must NOT claim forbidden things (positive claims absent)
+    // Must NOT claim forbidden app-server ownership
     expect(text).not.toContain("Grok has app-server")
     expect(text).not.toContain("Grok possesses app-server")
-    expect(text).not.toContain("teammode is Grok-adapted")
-    expect(text).not.toContain("teammode is now Grok-adapted")
+
+    // teammode spawn_subagent adaptation (dual catalogs)
+    expect(text).toContain("spawn_subagent")
+    expect(text).toContain("general-purpose")
+    expect(text).toContain("Grok-adapted")
+    expect(text).toContain("host built-ins")
 
     // Core framing and links
     expect(text).toContain("Grok Orchestration Plane (Full-Picture ADR)")
@@ -28,10 +32,9 @@ describe("docs/grok-orchestration-plane.md", () => {
     expect(text).toContain("grok-adapter-core-port-strategy.md")
     expect(text).toContain("omo-grokbuild-pi-agent-parity-adr.md")
     expect(text).toContain("Orchestration in lfg routes through GrokBuild native primitives")
-    expect(text).toContain("spawn_subagent")
     expect(text).toContain("delegate-core")
     expect(text).toContain("boulder-state")
-    expect(text).toContain("Full team/task RPC parity remains a gap")
+    expect(text).toContain("Full team/task RPC parity")
 
     // Section coverage
     expect(text).toContain("(A) codex app-server QA plane")
@@ -48,7 +51,7 @@ describe("docs/grok-orchestration-plane.md", () => {
     expect(text).toContain("No app-server control plane")
 
     // Status and parity discipline
-    expect(text).toContain("**Status:** Draft (2026-07-09)")
+    expect(text).toContain("**Status:** Draft (2026-07-09")
     expect(text).toContain("explicitly not claimed")
     expect(text).toContain("pi-agent run route provides launch/auth only")
 

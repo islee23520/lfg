@@ -65,10 +65,27 @@ function replacePluginRootPlaceholders(value: unknown, pluginRoot: string): unkn
   }
   if (typeof value === "object" && value !== null) {
     return Object.fromEntries(
-      Object.entries(value as JsonRecord).map(([key, entry]) => [key, replacePluginRootPlaceholders(entry, pluginRoot)]),
+      Object.entries(value as JsonRecord).map(([key, entry]) => [
+        key,
+        key === "command" && typeof entry === "string"
+          ? replacePluginRootInCommand(entry, pluginRoot)
+          : replacePluginRootPlaceholders(entry, pluginRoot),
+      ]),
     )
   }
   return value
+}
+
+function replacePluginRootInCommand(command: string, pluginRoot: string): string {
+  const withQuotedPaths = command.replace(
+    /"\$\{(?:GROK_)?PLUGIN_ROOT\}([^\"]*)"/g,
+    (_match, suffix: string) => quotePosixShellArgument(`${pluginRoot}${suffix}`),
+  )
+  return withQuotedPaths.replace(/\$\{GROK_PLUGIN_ROOT\}|\$\{PLUGIN_ROOT\}/g, quotePosixShellArgument(pluginRoot))
+}
+
+function quotePosixShellArgument(value: string): string {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`
 }
 
 async function readTextIfExists(path: string): Promise<string> {

@@ -14,7 +14,7 @@ describe("docs/grok-native-team-orchestration.md", () => {
     expect(text).toContain("**Status:** Decision-Complete (2026-07-09)")
     expect(text).toContain("checkbox 4")
     expect(text).toContain("todo 5")
-    expect(text).toContain("`teammode` inventory status **remains Deferred** and MUST NOT be flipped to `Grok-adapted`")
+    expect(text).toContain("`teammode` inventory status **Grok-adapted**")
 
     // Required mappings and phrases (verified against actual doc text)
     expect(text).toContain("OMO teammode members map directly to Grok `spawn_subagent`")
@@ -60,16 +60,16 @@ describe("docs/grok-native-team-orchestration.md", () => {
     expect(text).toContain("delegate-core")
     expect(text).toContain("boulder-state")
 
-    // Explicit negatives (no codex_app on Grok, no MVP, no status flip)
+    // Explicit negatives (no codex_app on Grok, no MVP status-flip back to Deferred)
     expect(text).not.toContain("codex_app.create_thread")
     expect(text).not.toContain("codex_app.* tool names on Grok")
     expect(text).not.toContain("Grok has team API")
     expect(text).not.toContain("implements runtime MVP")
-    expect(text).not.toContain("teammode is Grok-adapted")
-    expect(text).not.toContain("teammode is now Grok-adapted")
+    expect(text).not.toContain("teammode stays Deferred")
+    expect(text).not.toContain("teammode is now Deferred")
     expect(text).toContain("**Explicit: NO required `codex_app.*` tool names on Grok**.")
     expect(text).toContain("NO required `codex_app.*` tool names on Grok")
-    expect(text).toContain("remains Deferred")
+    expect(text).toContain("Grok-adapted")
 
     // Architecture decisions
     expect(text).toContain("**Lead** is always the **main Grok session**")
@@ -77,7 +77,7 @@ describe("docs/grok-native-team-orchestration.md", () => {
     expect(text).toContain("This design keeps lfg's Grok-first framing")
     expect(text).toContain("See `assert-omo-parity` gate for payload discipline")
 
-    // Must stay in sync with parity (no status flip)
-    expect(text).toContain("`teammode` inventory status **remains Deferred**")
+    // Must stay in sync with parity (Grok-adapted via spawn_subagent)
+    expect(text).toContain("`teammode` inventory status **Grok-adapted**")
   })
 })

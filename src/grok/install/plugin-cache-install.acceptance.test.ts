@@ -79,9 +79,9 @@ describe("plugin cache install acceptance (#27)", () => {
       packageVersion: "5.5.5",
       platform: "grok",
       upstreamName: "oh-my-openagent",
-      upstreamVersion: "4.13.0",
-      upstreamTag: "v4.13.0",
-      upstreamReleaseUrl: "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.13.0",
+      upstreamVersion: "4.16.3",
+      upstreamTag: "v4.16.3",
+      upstreamReleaseUrl: "https://github.com/code-yeongyu/oh-my-openagent/releases/tag/v4.16.3",
     })
     expect(inventory.components.map((component) => component.id)).toEqual(expect.arrayContaining([...T2_COMPONENT_IDS]))
     expect(inventory.components.every((component) => component.status.length > 0)).toBe(true)
@@ -93,7 +93,7 @@ describe("plugin cache install acceptance (#27)", () => {
         expect.objectContaining({ id: "git-bash", status: "Manifest-only" }),
         expect.objectContaining({ id: "grep_app", status: "Remote URL manifest-only" }),
         expect.objectContaining({ id: "context7", status: "Remote URL manifest-only" }),
-        expect.objectContaining({ id: "teammode", status: "Deferred" }),
+        expect.objectContaining({ id: "teammode", status: "Grok-adapted" }),
         expect.objectContaining({ id: "lazycodex-executor-verify", status: "Deferred" }),
         expect.objectContaining({ id: "workflow-selector", status: "Deferred" }),
         expect.objectContaining({ id: "test-support", status: "Unsupported" }),

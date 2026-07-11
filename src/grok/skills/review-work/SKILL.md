@@ -25,9 +25,11 @@ This skill may include examples copied from the OpenCode harness. In Codex, do n
 | `task(subagent_type="oracle", ...)` for final verification | `multi_agent_v1.spawn_agent({"message":"TASK: act as a rigorous reviewer. ...","agent_type":"lazycodex-gate-reviewer","fork_context":false})` |
 | `task(category="...", ...)` for implementation or QA | `multi_agent_v1.spawn_agent({"message":"TASK: act as an implementation or QA worker. ...","fork_context":false})` |
 | `background_output(task_id="...")` | `multi_agent_v1.wait_agent(...)` for mailbox signals |
-| `team_*(...)` | Use Codex native subagents via `multi_agent_v1.spawn_agent`, `multi_agent_v1.send_input`, `multi_agent_v1.wait_agent`, and `multi_agent_v1.close_agent` |
+| `team_*(...)` | Use Codex native subagents via `multi_agent_v1.spawn_agent` and `multi_agent_v1.wait_agent`; use `multi_agent_v1.send_input` and `multi_agent_v1.close_agent` only when exposed in the active tools list |
 
-Role-specific behavior must be described in a self-contained `message`. Use `fork_context: false` to start the child with only the initial prompt (no parent history); use `fork_context: true` only when full parent history is truly required. Include any required conversation context, files, diffs, constraints, and requested skill names directly in the spawned agent's `message`. OMO installs these selectable agent roles into `~/.codex/agents/`: `explorer`, `librarian`, `plan`, `momus`, `metis`, `lazycodex-code-reviewer`, `lazycodex-qa-executor`, and `lazycodex-gate-reviewer` - pass the matching name as `agent_type` so the child gets that role's model and instructions. If the spawn tool exposes no `agent_type` parameter, omit it and describe the role inside `message`. If a code block below conflicts with this section, this section wins.
+Role-specific behavior must be described in a self-contained `message`. Use `fork_context: false` to start the child with only the initial prompt (no parent history); use `fork_context: true` only when full parent history is truly required. Include any required conversation context, files, diffs, constraints, and requested skill names directly in the spawned agent's `message`. OMO installs these selectable agent roles into `~/.codex/agents/`: `explorer`, `librarian`, `plan`, `momus`, `metis`, `lazycodex-code-reviewer`, `lazycodex-qa-executor`, and `lazycodex-gate-reviewer` — pass the matching name as `agent_type` so the child gets that role's model and instructions. If the spawn tool exposes no `agent_type` parameter, omit it and describe the role inside `message`. If a code block below conflicts with this section, this section wins.
+
+Codex exposes ONE of two subagent tool surfaces per session; check your own tool list and route accordingly. If `multi_agent_v1.*` tools exist, use the table above as written. If instead a flat `spawn_agent` with a required `task_name` exists (`multi_agent_v2`), rewrite every `multi_agent_v1.*` example: `multi_agent_v1.spawn_agent({...,"fork_context":false})` becomes `spawn_agent({"task_name":"<lowercase_digits_underscores>","message":...,"agent_type":...,"fork_turns":"none"})` (`"all"` only when full parent history is truly required); `send_input` becomes `send_message`; do not call `close_agent`/`resume_agent` (finished agents end on their own; `followup_task` re-tasks one, `interrupt_agent` stops one); `wait_agent` takes only `timeout_ms` and returns on any child mailbox activity. `agent_type` works the same on both surfaces. If a code block below conflicts with this section, this section wins.
 
 For work likely to exceed one wait cycle, require the child to send `WORKING: <task> - <current phase>` before long passes and `BLOCKED: <reason>` only when progress stops. A `multi_agent_v1.wait_agent` timeout only means no new mailbox update arrived. Treat a running child as alive. Fallback only when the child is completed without the deliverable, ack-only after followup, explicitly `BLOCKED:`, or no longer running.
 
@@ -64,19 +66,6 @@ aggregate result.
 
 Launch 5 specialized sub-agents in parallel to review completed implementation work from every angle. All 5 must pass for the review to pass. If even ONE fails, the review fails.
 
-When `review-work` is used as a final implementation, PR, or `$start-work`
-gate, it is blocking. A timeout, missing deliverable, ack-only response,
-explicit `BLOCKED:`, or inconclusive lane is not a pass. Treat that lane as
-failed, investigate the underlying uncertainty with the `debugging` skill when
-runtime behavior may be wrong, fix with evidence, and rerun the affected lane
-before claiming completion or handing off a PR.
-
-Review evidence must be safe to share. Redact or mask secrets and sensitive
-user data before including evidence in logs, PR bodies, or handoffs. Never
-include raw tokens, credentials, auth headers, cookies, API keys, env dumps,
-private logs, or PII; summarize with lengths, hashes, and short non-sensitive
-prefixes when identity is needed.
-
 The 5 agents cover complementary concerns - together they form a comprehensive review that no single reviewer could match:
 
 | # | Agent | Type | Role | Focus Level |
@@ -106,7 +95,7 @@ Before launching agents, collect these inputs. Extract from conversation history
 </required_inputs>
 
 
-**NEVER CHECKOUT A PR BRANCH IN THE MAIN WORKTREE. ALWAYS CREATE A NEW GIT WORKTREE (`git worktree add`) AND WORK THERE. THIS PREVENTS CONTAMINATING THE USER'S WORKING DIRECTORY WITH UNRELATED BRANCH STATE.**
+Review PRs and branches from a dedicated review worktree only: create or attach one with `git worktree add <path> <branch>` before collecting changed files, diff, file contents, or running checks. The main worktree is read-only context; never checkout, test, or edit the review branch there.
 
 **Auto-collection sequence:**
 
@@ -224,7 +213,7 @@ The QA agent follows a structured process: brainstorm scenarios exhaustively fir
 task(
   category="unspecified-high",
   run_in_background=true,
-  load_skills=["playwright", "dev-browser"],
+  load_skills=["browser:control-in-app-browser", "playwright", "dev-browser"],
   description="QA by actually running and using the application",
   prompt="""
 <review_type>QA - HANDS-ON APP EXECUTION</review_type>
@@ -292,7 +281,7 @@ Work through the task list in priority order (P0 first). For each test:
 6. Mark the task complete
 
 **Execution guidance by app type:**
-- **Web app**: Use playwright/dev-browser to navigate, click, fill forms, verify visual output.
+- **Web app**: In Codex, use `browser:control-in-app-browser` first for browser work that does not need an authenticated user session. Fall back to playwright/dev-browser when the Browser plugin is unavailable, lacks the needed action, or the test specifically needs a persistent/authenticated browser profile. Navigate, click, fill forms, and verify visual output through the chosen browser surface.
 - **CLI tool**: Run commands with various arguments, pipe inputs, check exit codes and output.
 - **Library/SDK**: Write and execute a test script that imports and exercises the public API.
 - **Backend API**: Use curl/httpie to hit endpoints with various payloads, verify response codes and bodies.

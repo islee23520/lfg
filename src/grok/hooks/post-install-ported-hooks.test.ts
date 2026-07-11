@@ -46,6 +46,7 @@ describe("post-install ported hooks (#32)", () => {
     const json = await verifyGrokInstallSurface({ home })
     expect(json.hookNames).toEqual([
       "Notification",
+      "PostCompact",
       "PostToolUse",
       "PreCompact",
       "PreToolUse",
@@ -162,7 +163,7 @@ function parseCommandHandler(value: unknown): readonly HookHandler[] {
 }
 
 async function expectCommandTargetsInstalled(pluginRoot: string, command: string): Promise<void> {
-  const quotedTargets = [...command.matchAll(/"([^"]+)"/g)].map((match) => match[1] ?? "")
+  const quotedTargets = [...command.matchAll(/(['"])(.*?)\1/g)].map((match) => match[2] ?? "")
   const fileTargets = quotedTargets
     .map((target) => target.replace(/\$\{GROK_PLUGIN_ROOT\}|\$\{PLUGIN_ROOT\}/g, pluginRoot))
     .filter((target) => target === pluginRoot || target.startsWith(`${pluginRoot}/`))

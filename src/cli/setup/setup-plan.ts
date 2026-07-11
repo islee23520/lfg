@@ -87,7 +87,7 @@ export function refreshPlan(resolved: ResolveSetupDiscoveryResult, preset: Setup
     autoModelAliases: discovery !== null,
     steps: [
       { id: 1, status: discovery === null ? "pending" : "done", text: "Re-discover OpenAI-compatible models and context windows from CLI/env/config.toml/default proxy (public LiteLLM catalog enrichment attempted when proxy omits sizes)." },
-      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (fresh context_window plus api_key only for single-endpoint discovery), and [omo.models] into ~/.grok/config.toml. Multi-provider discovery omits the single global key from provider-scoped model sections. Preserve prior context_window when discovery provides none for a model." },
+      { id: 2, status: "pending", text: "Write [endpoints].models_base_url, [models].default, [model.*] (fresh context_window; per-provider api_key/env_key when declared, single global key only for single-endpoint discovery), and [omo.models] (roles + available model registry) into ~/.grok/config.toml. OpenGrok: when [omo.providers.*] is declared, each provider is discovered separately and its models injected as Grok-native [model.*] sections with that provider's own credential. Preserve prior context_window when discovery provides none for a model." },
     ],
     note: "This is a config-only maintenance operation. Use --run to execute. No Grok plugin install or hook registration occurs.",
   }

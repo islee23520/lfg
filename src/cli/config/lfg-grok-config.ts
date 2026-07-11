@@ -21,12 +21,13 @@ export type GrokConfigOptions = {
   readonly fullAgentModels?: Readonly<Record<string, { model: string; reasoningLevel: string }>>
 }
 
-/** Sections lfg merges in ~/.grok/config.toml. writeGrokModelConfig owns install-time writes; the SessionStart config-loader may only repair models.default from omo.models.default. */
+/** Sections lfg merges in ~/.grok/config.toml. writeGrokModelConfig owns install-time writes; the SessionStart config-loader may only seed models.default from omo.models.default when absent (never overwrite). */
 export const LFG_OWNED_GROK_CONFIG_SECTIONS = [
   "endpoints.models_base_url",
   "models.default",
   "model.*",
   "omo.models",
+  "omo.providers",
   "omo.agents",
 ] as const
 
@@ -53,16 +54,16 @@ export async function writeGrokModelConfig(discovery: ModelDiscovery, options: G
   if (options.fullAgentModels && Object.keys(options.fullAgentModels).length > 0) {
     withAgents = upsertAllOmoAgentSections(withAgents, options.fullAgentModels)
   }
-  const next = upsertSection(
-    withAgents,
-    "omo.models",
-    [
-      `default = ${tomlString(discovery.mapping.default)}`,
-      `fast = ${tomlString(discovery.mapping.fast)}`,
-      `reasoning = ${tomlString(discovery.mapping.reasoning)}`,
-      `coding = ${tomlString(discovery.mapping.coding)}`,
-    ],
-  )
+  const omoModelsLines = [
+    `default = ${tomlString(discovery.mapping.default)}`,
+    `fast = ${tomlString(discovery.mapping.fast)}`,
+    `reasoning = ${tomlString(discovery.mapping.reasoning)}`,
+    `coding = ${tomlString(discovery.mapping.coding)}`,
+  ]
+  if (discovery.modelIds.length > 0) {
+    omoModelsLines.push(`available = [${discovery.modelIds.map((id) => tomlString(id)).join(", ")}]`)
+  }
+  const next = upsertSection(withAgents, "omo.models", omoModelsLines)
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, next, "utf8")
   return { status: "configured", path, modelsBaseUrl: baseUrl }

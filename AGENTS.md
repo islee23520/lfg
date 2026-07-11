@@ -15,7 +15,7 @@ The npm package identity is deliberately distinct from the installed plugin: `lf
 
 ## GrokBuild Parity Reference (oh-my-openagent)
 
-This section makes AGENTS.md the canonical quick-reference for **GrokBuild parity vs `https://github.com/code-yeongyu/oh-my-openagent`** (upstream baseline `lazycodex-ai`/OMO `v4.13.0`, recorded per-setup in `lfg-component-inventory.json`). For the full row-by-row matrix with test citations, see `docs/grok-adapter-parity.md`; for the core/adapter port strategy and phase roadmap, see `docs/grok-adapter-core-port-strategy.md`.
+This section makes AGENTS.md the canonical quick-reference for **GrokBuild parity vs `https://github.com/code-yeongyu/oh-my-openagent`** (upstream baseline `lazycodex-ai`/OMO `v4.16.3`, recorded per-setup in `lfg-component-inventory.json`). For the full row-by-row matrix with test citations, see `docs/grok-adapter-parity.md`; for the core/adapter port strategy and phase roadmap, see `docs/grok-adapter-core-port-strategy.md`.
 
 **Strategic posture:** upstream is a core/adapter monorepo — `omo-codex` is packaging/install reference only, `omo-opencode` is the architectural reference, and shared host-neutral `*-core` packages are the behavioral source. In this repo, host-neutral OMO behavior lives under `src/core/omo`, lfg-owned host-neutral primitives live under `src/core/lfg`, and `src/grok` is the Grok adapter/install/runtime glue that consumes those cores.
 
@@ -27,7 +27,7 @@ Run `npm run assert-omo-parity` for every OMO/lazycodex parity update, upstream 
 
 For feature intake from a new upstream OMO/lazycodex version:
 1. Inspect upstream package layout and hook/component deltas first; do not infer parity from `omo-codex` alone.
-2. Classify each upstream component with the exact status vocabulary above. `teammode`, `lazycodex-executor-verify`, `workflow-selector`, `git-bash`, and `start-work-continuation` must stay non-behavioral unless a real Grok runtime/hook/tool surface is implemented and manually verified.
+2. Classify each upstream component with the exact status vocabulary above. `lazycodex-executor-verify`, `workflow-selector`, `git-bash`, and `start-work-continuation` must stay non-behavioral unless a real Grok runtime/hook/tool surface is implemented and manually verified. `teammode` is Grok-adapted via spawn_subagent (host built-ins + lfg agents).
 3. Sync upstream skills through `scripts/sync-omo-skills-to-grok.mjs`; do not hand-maintain copied OMO skill payloads except for explicit lfg conversions (`lfg-doctor`, `lfg-report-bug`, `lfg-contribute-bug-fix`) and Grok metadata conversion (`agents/openai.yaml` → `agents/grok.yaml`).
 4. Verify both surfaces: `npm run assert-omo-parity` for generated payload integrity, and `node dist/lfg.js --json setup --run --install-only` against a temp Grok home for the installed plugin surface.
 5. If claiming a deferred/manifest-only component became `Grok-adapted`, prove it with a non-empty runtime/hook/tool behavior test and a real setup-surface receipt. Do not mark status up based only on copied files or manifest presence.
@@ -50,7 +50,7 @@ For feature intake from a new upstream OMO/lazycodex version:
 | Autonomous permissions | Grok permissions own this | N/A |
 | Telemetry | not emitted by lfg | N/A |
 
-### Full OMO component parity (upstream `v4.13.0`)
+### Full OMO component parity (upstream `v4.16.3`)
 
 | Upstream component | lfg support | Status |
 |---|---|---|
@@ -66,9 +66,10 @@ For feature intake from a new upstream OMO/lazycodex version:
 | `context7` | Remote URL `https://mcp.context7.com/mcp`; shape-validated only | Remote URL manifest-only |
 | `comment-checker` | Native Grok PostToolUse hook emits bounded comment feedback and fail-closes on malformed JSON (T2) | Grok-adapted |
 | `start-work-continuation` | Sisyphus native Stop/SubagentStop hooks substitute (host dependency class: Stop/SubagentStop hook) | Deferred |
-| `teammode` | Skill payload installed; Codex thread orchestration hook not Grok-adapted (host dependency class: codex_app) | Deferred |
+| `teammode` | GrokBuild spawn_subagent transport + host built-ins and lfg OMO agents; Codex multi_agent_v2/codex_app still available on Codex | Grok-adapted |
 | `lazycodex-executor-verify` | T3: pure `verifySubagentStopEvidence` in Sisyphus SubagentStop; no dedicated host-enforced CLI (host dependency class: Stop/SubagentStop hook) | Deferred |
-| `workflow-selector` | Codex-only opt-in UserPromptSubmit workflow selector; no verified Grok-native prompt-routing hook yet (host dependency class: missing host surface) | Deferred |
+| `workflow-selector` | Upstream removed from omo-codex components (#5745); lfg optional native opt-in retained, Deferred pending GrokBuild host receipt | Deferred |
+| `difficulty-tier-workers` | Upstream lazycodex-worker-low|medium|high + difficulty routing (v4.16.x); not Grok-adapted | Deferred |
 | `plan-mode-interception` | No verified Grok `enter_plan_mode` intercept; `/ulw-plan` is hook-time guidance only (host dependency class: missing host surface; T9 residual WAIVE #102) | Deferred |
 | `bootstrap` | lfg does not bootstrap Codex runtime deps from Grok (host dependency class: policy / no Codex bootstrap from Grok; T9 residual WAIVE #102) | Deferred |
 | `auto-update` | Updates stay user-controlled; hook not generated | Unsupported |
@@ -95,15 +96,16 @@ For feature intake from a new upstream OMO/lazycodex version:
 - `chat.params` — mutable model params/headers before dispatch.
 - `experimental.session.compacting` — compaction-context preservation. Workaround: persistence-based recovery.
 
-**Dual parity scores** (see `docs/grok-adapter-parity.md` Current Parity Score): **Score A GrokBuild adapter scope = 100/100** (in-contract `~/.grok` install/cores/hooks/MCP/skills complete; **out of contract** = `omo-senpi`/`senpi`/`~/.senpi`, app-server, `codex_app`, auto-reinject, missing-host intercepts — reference only, no fake Grok-adapted flips). **Score B Full OMO host surface = 89/100** after gap-fill train (baseline 88; +1 WAIVE residual bookkeeping only; **no** status promotions). Evidence: `T11-score.txt`, `DUAL-SCORE-100-adapter-scope.md`, issues [#98](https://github.com/islee23520/lfg/issues/98)–[#104](https://github.com/islee23520/lfg/issues/104).
+**Dual parity scores** (see `docs/grok-adapter-parity.md` Current Parity Score): **Score A GrokBuild adapter scope = 100/100** (in-contract `~/.grok` install/cores/hooks/MCP/skills complete; **out of contract** = `omo-senpi`/`senpi`/`~/.senpi`, app-server, `codex_app`, auto-reinject, missing-host intercepts — reference only, no fake Grok-adapted flips). **Score B Full OMO host surface = 89/100** after gap-fill train (baseline pin **rebaselined to v4.16.3**; host Deferred residuals unchanged — no fake promotions) (baseline 88; +1 WAIVE residual bookkeeping only; **no** status promotions). Evidence: `T11-score.txt`, `DUAL-SCORE-100-adapter-scope.md`, issues [#98](https://github.com/islee23520/lfg/issues/98)–[#104](https://github.com/islee23520/lfg/issues/104).
 
 **Behavioral ports still owed for Score B** (currently Manifest-only / Deferred on the component table; see `docs/grok-orchestration-plane.md` for host dependency classes):
 - `git-bash` — Windows behavior remains unverified; macOS disables it through `disabled_mcp_servers`.
 - `lsp` lifecycle hook automation — **T8 residual WAIVE:** MCP runtime Grok-adapted; automatic PostToolUse/PostCompact reinjection not claimed (language-service lifecycle; not a cheap pure-file hook like comment-checker); issue **#101**.
 - `start-work-continuation` (host dependency class: Stop/SubagentStop hook) — Sisyphus native Stop/SubagentStop hooks ship substitute guidance + durable `lfg ulw-loop` CLI for checkpoint/resume; present-path `getStopHookContinuationContext` names the durable CLI and explicitly denies automatic reinjection; automatic reinjection remains unclaimed (Deferred); follow-up **#99**.
 - `lazycodex-executor-verify` (host dependency class: Stop/SubagentStop hook) — pure function MVP + T3: `verifySubagentStopEvidence` wired into `lfg-sisyphus-hooks.mjs` SubagentStop for coding|hephaestus|builder (`.omo/evidence` WARNING/VERIFIED + fail-closed malformed JSON; e2e proven). Remains **Deferred**: no dedicated component CLI / host-enforced block-or-continue; follow-up **#98**.
-- `teammode` (host dependency class: codex_app) — **T7 HOLD Deferred:** T6 team-ledger e2e GREEN (4 unit tests; `.omo/evidence/omo-parity-gap-fill-88-to-95/T6-tests.txt`); live multi-`spawn_subagent` host e2e and setup receipt not proven — no Grok-adapted claim; follow-up **#100** (`T7-promote-or-hold.md`). Skill payload + MVP ledger remain; status not flipped.
-- `workflow-selector` (host dependency class: missing host surface) — **T9 residual WAIVE** (issue #102; `T9-residuals.txt`): remains Deferred; no fake Grok-adapted workflow selector without verified prompt-routing surface.
+- `teammode` — **Grok-adapted** via `spawn_subagent` transport: host built-ins (`general-purpose`, `explore`, `plan`) + lfg OMO agents (`hephaestus`, `explorer`, `coding`, …). Durable `.omo/teams` + `team-ledger`. Residual: no `codex_app`/MultiAgentV2 mailbox on Grok (leader + artifacts). Codex transports remain for Codex hosts.
+- `workflow-selector` — **upstream removed** from omo-codex components (#5745 on path to v4.16.3). lfg optional `lfg-native-workflow-selector.mjs` retained as historical opt-in; remains **Deferred** (no Grok-adapted claim without authenticated host receipt).
+- `difficulty-tier-workers` — upstream v4.16.x `lazycodex-worker-low|medium|high` + difficulty-tier start-work/ulw-loop routing; **Deferred** on Grok (no host-enforced tier dispatch).
 - `plan-mode-interception` (host dependency class: missing host surface) — **T9 residual WAIVE** (issue #102): `/ulw-plan` is hook-time guidance only; no native `enter_plan_mode` intercept claimed.
 - `bootstrap` (host dependency class: policy / no Codex bootstrap from Grok) — **T9 residual WAIVE** (issue #102): policy hold; lfg does not bootstrap Codex runtime deps from Grok.
 - Z.AI vision MCP (#89) is **shipped** via `lfg zai mcp install vision` (built-in, not Deferred). Configures `[mcp_servers.zai-vision]` in `~/.grok/config.toml`. Full companion plugin (`@islee23520/lfg-mcp`) provides xAI Grok MCP runtime as decoupled companion.
@@ -147,7 +149,7 @@ bin/lfg.js (sh shim)
 
 Runtime hook execution (separate process spawned by Grok):
 ```
-Grok event → lfg-native-rules.js (or -ultrawork.js)
+Grok event → lfg-native-rules.mjs (or lfg-native-ultrawork.mjs)
   └─> spawn lfg-grok-hook-bridge.mjs  node <plugin>/components/<x>/dist/cli.js hook <event>
         └─> component CLI (buildRuleContext / runCodegraphSessionStart / etc.)
 ```
@@ -213,7 +215,7 @@ Emit discipline: `--json` always prints structured value; `--run` prints only ca
 
 Materialized plugin payload shape (under `~/.grok/plugins/lfg`, not shipped statically):
 ```
-hooks/{hooks.source.json, lfg-grok-hook-bridge.mjs, lfg-native-rules.js, lfg-native-ultrawork.js, lfg-sisyphus-hooks.mjs}
+hooks/{hooks.source.json, lfg-grok-hook-bridge.mjs, lfg-native-rules.mjs, lfg-native-ultrawork.mjs, lfg-sisyphus-hooks.mjs}
 components/{ast-grep,git-bash,lsp}/{.mcp.json,dist/cli.js}   (+ vendored rules/, ultrawork/)
 mcp-runtimes/{ast-grep-mcp,lsp-daemon,git-bash-mcp}/dist/cli.js
 skills/{ulw-plan,ulw-loop,cua-driver}/SKILL.md

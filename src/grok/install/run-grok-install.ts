@@ -4,6 +4,7 @@ import type { ModelDiscovery, SetupPreset } from "../../cli/models/lfg-models"
 import { modelDiscoveryEnv } from "../../cli/models/lfg-models"
 import { grokRoutedOverrideMap } from "../../cli/models/resolve-tier-model"
 import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentModels } from "./grok-plugins-enable"
+import { ensureGrokBinLfgWrapper } from "./grok-bin-lfg-wrapper"
 import { ensureLfgConfigFiles } from "../config/lfg-config"
 import { DEFAULT_CODING_TOOL_ADAPTER, type CodingToolAdapterId } from "../../shared/coding-tool-adapter"
 import {
@@ -124,6 +125,7 @@ export async function runGrokInstall(
     // Component shims are also re-overlaid to repair upstream CLIs that crash on missing
     // package imports (e.g. @code-yeongyu/lsp-daemon in the upstream lsp component).
     await overlayLfgComponentShims(existingSetup.pluginRoot)
+    await ensureGrokBinLfgWrapper(home)
     const hooksNormalized = await syncPostInstallPluginPayload(existingSetup.pluginRoot)
 
     return {
@@ -192,6 +194,8 @@ export async function runGrokInstall(
     home,
     subagentModelMappingFromDiscovery(discovery, resolvedAgents),
   )
+
+  await ensureGrokBinLfgWrapper(home)
 
   // Always (re)normalize hooks on every install path (fresh or repair), so the Grok bridge,
   // lfg-config-loader, project omo ledger, and ultrawork component hooks are guaranteed present.

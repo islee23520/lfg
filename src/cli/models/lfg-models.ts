@@ -30,6 +30,10 @@ export type MultiProviderEndpoint = {
   readonly id: string
   readonly baseUrl: string
   readonly modelIds: readonly string[]
+  /** Provider-scoped credential; written into this provider's [model.*] sections only. */
+  readonly apiKey?: string
+  /** Name of an env var holding the provider-scoped key (preferred over apiKey). */
+  readonly envKey?: string
 }
 
 export type ModelDiscovery = {
@@ -132,6 +136,76 @@ export async function fetchModelDiscovery(inputBaseUrl: string): Promise<ModelDi
     contextWindows: finalContextWindows,
     ...(modelFeatureMetadata === undefined ? {} : { modelFeatureMetadata }),
   }
+}
+
+/** A user-declared provider for OpenGrok multi-endpoint discovery. Each provider is
+ * discovered independently via its own /v1/models and contributes its models + its own
+ * credential to the merged discovery, so Grok Build can reach many providers at once. */
+export type ProviderSource = {
+  readonly id: string
+  readonly baseUrl: string
+  readonly apiKey?: string
+  readonly envKey?: string
+}
+
+/** Discovers models from multiple provider endpoints and merges them into one ModelDiscovery.
+ * Each provider keeps its own base_url + credential (apiKey/envKey) on its MultiProviderEndpoint,
+ * which writeGrokModelConfig writes into that provider's [model.*] sections only. A provider
+ * that fails /v1/models discovery is skipped rather than aborting the whole merge. */
+export async function fetchMultiProviderDiscovery(
+  providers: readonly ProviderSource[],
+): Promise<ModelDiscovery> {
+  if (providers.length === 0) {
+    throw new ModelDiscoveryError("No providers configured for multi-endpoint discovery")
+  }
+  const settled = await Promise.all(
+    providers.map(async (provider) => {
+      try {
+        return { provider, discovery: await fetchModelDiscovery(provider.baseUrl) }
+      } catch {
+        return null
+      }
+    }),
+  )
+  const ok = settled.filter(
+    (entry): entry is { provider: ProviderSource; discovery: ModelDiscovery } => entry !== null,
+  )
+  if (ok.length === 0) {
+    throw new ModelDiscoveryError(`No providers responded to /v1/models discovery (tried ${providers.length})`)
+  }
+  const providerEndpoints: MultiProviderEndpoint[] = ok.map(({ provider, discovery }) => ({
+    id: provider.id,
+    baseUrl: discovery.baseUrl,
+    modelIds: discovery.modelIds,
+    ...(provider.apiKey ? { apiKey: provider.apiKey } : {}),
+    ...(provider.envKey ? { envKey: provider.envKey } : {}),
+  }))
+  const modelIds = [...new Set(ok.flatMap(({ discovery }) => discovery.modelIds))]
+  const contextWindows = mergeModelRecords(
+    ok.map(({ discovery }) => discovery.contextWindows),
+  )
+  const modelFeatureMetadata = mergeModelRecords(ok.map(({ discovery }) => discovery.modelFeatureMetadata))
+  const first = ok[0].discovery
+  return {
+    baseUrl: first.baseUrl,
+    modelsUrl: first.modelsUrl,
+    modelIds,
+    mapping: mapModels(modelIds),
+    providerEndpoints,
+    ...(contextWindows === undefined ? {} : { contextWindows }),
+    ...(modelFeatureMetadata === undefined ? {} : { modelFeatureMetadata }),
+  }
+}
+
+function mergeModelRecords<T>(records: ReadonlyArray<Readonly<Record<string, T>> | undefined>): Readonly<Record<string, T>> | undefined {
+  const merged: Record<string, T> = {}
+  for (const record of records) {
+    if (record === undefined) continue
+    for (const [key, value] of Object.entries(record)) {
+      merged[key] = value
+    }
+  }
+  return Object.keys(merged).length === 0 ? undefined : merged
 }
 
 export function modelDiscoveryEnv(discovery: ModelDiscovery | null, agentConfig: LazycodexAgentConfig | null = null): Readonly<Record<string, string>> {

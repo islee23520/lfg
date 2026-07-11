@@ -1,6 +1,7 @@
 import type { ModelDiscovery } from "../../cli/models/lfg-models"
-import { fetchModelDiscovery } from "../../cli/models/lfg-models"
+import { fetchModelDiscovery, fetchMultiProviderDiscovery } from "../../cli/models/lfg-models"
 import { readGrokModelsBaseUrlFromConfig } from "../models/read-grok-models-base-url"
+import { readOmoProvidersFromConfig } from "../models/read-omo-providers-from-config"
 
 export const DEFAULT_SETUP_MODELS_BASE_URL = "http://127.0.0.1:8317/v1" as const
 
@@ -14,7 +15,7 @@ export type ResolveSetupDiscoveryOptions = {
 export type ResolveSetupDiscoveryResult = {
   readonly discovery: ModelDiscovery | null
   readonly baseUrlUsed: string | null
-  readonly baseUrlSource: "cli" | "config" | "env" | "default" | "none"
+  readonly baseUrlSource: "cli" | "providers" | "config" | "env" | "default" | "none"
   readonly autoDiscovered: boolean
 }
 
@@ -25,6 +26,19 @@ export type ResolveSetupDiscoveryResult = {
 export async function resolveSetupDiscovery(options: ResolveSetupDiscoveryOptions): Promise<ResolveSetupDiscoveryResult> {
   const envUrl = trimUrl(options.envBaseUrl ?? process.env.LFG_GROK_BASE_URL ?? process.env.LAZYCODEX_OPENAI_BASE_URL)
   const configUrl = await readGrokModelsBaseUrlFromConfig(options.home)
+  // OpenGrok: when the user declares [omo.providers.*] in config.toml, discover from every
+  // provider and merge, so Grok Build can reach many models. An explicit --base-url still wins.
+  if (options.cliBaseUrl === null) {
+    const providers = await readOmoProvidersFromConfig(options.home)
+    if (providers.length > 0) {
+      try {
+        const discovery = await fetchMultiProviderDiscovery(providers)
+        return { discovery, baseUrlUsed: null, baseUrlSource: "providers", autoDiscovered: true }
+      } catch {
+        // every provider failed; fall through to the single-proxy candidates below
+      }
+    }
+  }
   const usesHostAuthOnly = options.hostAuthOnly === true && options.cliBaseUrl === null
   const skipDefaultProxy =
     process.env.LFG_DISABLE_DEFAULT_MODELS_PROXY === "1" ||

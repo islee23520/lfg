@@ -5,6 +5,7 @@ describe("LFG_OWNED_GROK_CONFIG_SECTIONS (#29)", () => {
   test("documents all managed config.toml areas", () => {
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS).toContain("endpoints.models_base_url")
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS).toContain("omo.models")
+    expect(LFG_OWNED_GROK_CONFIG_SECTIONS).toContain("omo.providers")
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS).toContain("omo.agents")
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS).toContain("models.default")
     expect(LFG_OWNED_GROK_CONFIG_SECTIONS.length).toBeGreaterThanOrEqual(5)

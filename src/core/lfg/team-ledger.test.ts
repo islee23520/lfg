@@ -364,7 +364,7 @@ describe("team-ledger (Grok-native team MVP)", () => {
 
   test("skill contract: teammode GrokBuild section lists the same ledger API names", async () => {
     const skillMd = await readFile(TEAMMODE_SKILL_MD, "utf8")
-    expect(skillMd).toContain("## GrokBuild Team Surface MVP")
+    expect(skillMd).toContain("## GrokBuild teammode (primary on lfg)")
     expect(skillMd).toContain("src/core/lfg/team-ledger.ts")
 
     // Public ledger surface documented in skill must match exports under test
@@ -385,9 +385,9 @@ describe("team-ledger (Grok-native team MVP)", () => {
     expect(skillMd).toMatch(/spawn_subagent\s*\(/)
     expect(skillMd).toContain("team_context")
     expect(skillMd).toContain("Fails closed")
-    expect(skillMd).toMatch(/remains Deferred/i)
+    expect(skillMd).toMatch(/Grok-adapted/i)
     const grokSection = skillMd.slice(
-      skillMd.indexOf("## GrokBuild Team Surface MVP"),
+      skillMd.indexOf("## GrokBuild teammode (primary on lfg)"),
       skillMd.indexOf("## When to use a team")
     )
     // Section explicitly bans codex_app on the Grok member-launch path

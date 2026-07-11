@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
+import { copyFile, cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -28,7 +28,6 @@ const LFG_RUNTIME_ENTRIES: readonly RuntimeEntry[] = [
   { path: "mcp-runtimes", optional: true },
   { path: "agents", optional: true },
   { path: "prompts", optional: true },
-  { path: "fixture", optional: true },
 ]
 
 export type GrokInstallResult = {
@@ -56,7 +55,8 @@ const DEFAULT_VERSION = "0.0.0-dev"
  * shims from the bundled `grok-install/components/` tree replace them so hook
  * subcommands exit gracefully instead of crashing on import resolution.
  */
-const LFG_COMPONENT_SHIM_DIRS = ["ast-grep", "git-bash", "lsp"] as const
+const LFG_MCP_COMPONENT_SHIM_DIRS = ["ast-grep", "git-bash", "lsp"] as const
+const LFG_HOOK_RUNTIME_COMPONENT_DIRS = ["rules", "ultrawork"] as const
 
 export function nativeGrokPluginRoot(home: string, pluginDirName: string = DEFAULT_PLUGIN_DIR): string {
   return join(home, ".grok", "plugins", pluginDirName)
@@ -150,23 +150,47 @@ function resolveBundledComponentShimsRoot(): string | null {
 }
 
 /**
- * Overwrites the three MCP component directories (ast-grep, git-bash, lsp) in
- * the installed plugin tree with the lfg-owned shims from the bundle. This
- * prevents upstream component CLIs from crashing on missing package imports
- * (e.g. `@code-yeongyu/lsp-daemon`) when hooks invoke them.
+ * Overwrites lfg-owned MCP shims and behavioral hook runtimes in the installed
+ * plugin tree. This prevents upstream MCP CLIs from crashing on missing
+ * package imports and upgrades stale rules/ultrawork fixture CLIs on repair.
  */
-export async function overlayLfgComponentShims(pluginRoot: string): Promise<void> {
-  const shimsRoot = resolveBundledComponentShimsRoot()
+export async function overlayLfgComponentShims(pluginRoot: string, bundledComponentsRoot?: string): Promise<void> {
+  const shimsRoot = bundledComponentsRoot ?? resolveBundledComponentShimsRoot()
   if (shimsRoot === null) return
-  for (const dir of LFG_COMPONENT_SHIM_DIRS) {
+  assertBundledHookRuntimes(shimsRoot)
+  for (const dir of LFG_MCP_COMPONENT_SHIM_DIRS) {
     const src = join(shimsRoot, dir)
     if (!existsSync(src)) continue
     const dst = join(pluginRoot, "components", dir)
     await rm(dst, { recursive: true, force: true })
     await cp(src, dst, { recursive: true })
   }
+  for (const dir of LFG_HOOK_RUNTIME_COMPONENT_DIRS) {
+    await replaceHookRuntimeCli(shimsRoot, pluginRoot, dir)
+  }
   // Always ensure the plugin root declares ESM so .mjs hooks and bridge are executed correctly.
   await ensureLfgPluginPackageManifest(pluginRoot)
+}
+
+function assertBundledHookRuntimes(componentsRoot: string): void {
+  for (const dir of LFG_HOOK_RUNTIME_COMPONENT_DIRS) {
+    if (!existsSync(join(componentsRoot, dir, "dist", "cli.js"))) {
+      throw new Error(`bundled Grok hook runtime missing: components/${dir}/dist/cli.js`)
+    }
+  }
+}
+
+async function replaceHookRuntimeCli(componentsRoot: string, pluginRoot: string, dir: typeof LFG_HOOK_RUNTIME_COMPONENT_DIRS[number]): Promise<void> {
+  const source = join(componentsRoot, dir, "dist", "cli.js")
+  const destination = join(pluginRoot, "components", dir, "dist", "cli.js")
+  const temporary = `${destination}.tmp-${process.pid}-${Date.now()}`
+  await mkdir(dirname(destination), { recursive: true })
+  try {
+    await copyFile(source, temporary)
+    await rename(temporary, destination)
+  } finally {
+    await rm(temporary, { force: true })
+  }
 }
 
 export async function ensureLfgPluginPackageManifest(pluginRoot: string): Promise<void> {

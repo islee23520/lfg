@@ -81,6 +81,38 @@ describe("grok config endpoints (#24)", () => {
     expect(section(config, 'model."glm-5.2"')).not.toContain("api_key")
   })
 
+  test("writes each provider's own credential into its model sections (OpenGrok per-provider auth)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-per-provider-auth-"))
+    const multi: ModelDiscovery = {
+      ...discovery,
+      modelIds: ["grok-4.3", "gpt-5.5", "glm-5.2"],
+      mapping: { default: "grok-4.3", fast: "grok-4.3", reasoning: "gpt-5.5", coding: "gpt-5.5" },
+      providerEndpoints: [
+        { id: "xai", baseUrl: "https://api.x.ai/v1", modelIds: ["grok-4.3"], apiKey: "sk-xai-only" },
+        { id: "openai-compatible", baseUrl: "http://127.0.0.1:8317/v1", modelIds: ["gpt-5.5"], envKey: "OPENAI_API_KEY" },
+        { id: "glm", baseUrl: "https://open.bigmodel.cn/api/paas/v4", modelIds: ["glm-5.2"] },
+      ],
+    }
+
+    await writeGrokModelConfig(multi, { home, apiKey: "sk-global-should-not-leak" })
+
+    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    // xai's own key reaches only its model.
+    expect(section(config, 'model."grok-4.3"')).toContain('api_key = "sk-xai-only"')
+    // env_key preferred over raw api_key for the openai-compatible provider.
+    expect(section(config, 'model."gpt-5.5"')).toContain('env_key = "OPENAI_API_KEY"')
+    expect(section(config, 'model."gpt-5.5"')).not.toContain("api_key")
+    // glm provider declared no credential -> none written, and the global key never leaks.
+    expect(section(config, 'model."glm-5.2"')).not.toContain("api_key")
+    expect(section(config, 'model."glm-5.2"')).not.toContain("env_key")
+    expect(config).not.toContain("sk-global-should-not-leak")
+    // [omo.models] registry lists every discovered model (OpenGrok registry).
+    expect(section(config, "omo.models")).toContain('available = [')
+    expect(section(config, "omo.models")).toContain('"grok-4.3"')
+    expect(section(config, "omo.models")).toContain('"gpt-5.5"')
+    expect(section(config, "omo.models")).toContain('"glm-5.2"')
+  })
+
   test("does not write a global api key to fallback-base provider sections", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-fallback-provider-auth-"))
     const multi: ModelDiscovery = {

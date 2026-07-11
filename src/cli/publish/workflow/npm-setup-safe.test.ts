@@ -86,12 +86,12 @@ describe("npm setup script safety", () => {
         expect(result.agentPaths?.length).toBeGreaterThanOrEqual(1)
         const configText = await readFile(configPath, "utf8")
         expect(configText).toContain('default = "gpt-5.5"')
-        expect(configText).toContain('fast = "grok-3-mini-fast"')
+        expect(configText).toContain('fast = "gpt-5.4-mini"')
         await expect(readFile(agentPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
         await expect(readFile(join(home, ".grok", "agents-toml-backup-lfg", "explorer.toml"), "utf8")).resolves.toContain(
           'model = "user-kept-agent"',
         )
-        await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "grok-3-mini-fast"')
+        await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "gpt-5.4-mini"')
         await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")).resolves.toContain(
           "name: explorer",
         )
