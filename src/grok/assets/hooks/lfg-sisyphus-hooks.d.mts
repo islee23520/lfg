@@ -22,4 +22,15 @@ export function verifySubagentEvidence(
   input: Record<string, unknown> | null | string,
 ): EvidenceResult
 
+export interface SubagentStopEvidenceResult {
+  readonly hasReceipt: boolean
+  readonly additionalContext?: string
+  readonly warning?: string
+}
+
+export function verifySubagentStopEvidence(
+  payload: unknown,
+  cwd?: string,
+): SubagentStopEvidenceResult
+
 export function runHook(input: Record<string, unknown> | null): Promise<void>
