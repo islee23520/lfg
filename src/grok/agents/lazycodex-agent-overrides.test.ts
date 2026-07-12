@@ -70,11 +70,11 @@ describe("lazycodex-agent-overrides", () => {
   test("bundled defaults include default, prometheus, sisyphus, and atlas agents", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()
     expect(bundled.default?.model).toBe("grok-4.5")
-    expect(bundled.default?.reasoningLevel).toBe("high")
+    expect(bundled.default?.reasoningLevel).toBe("low")
     expect(bundled.prometheus?.model).toBe("grok-4.5")
     expect(bundled.prometheus?.reasoningLevel).toBe("xhigh")
     expect(bundled.sisyphus?.model).toBe("grok-4.5")
-    expect(bundled.sisyphus?.reasoningLevel).toBe("high")
+    expect(bundled.sisyphus?.reasoningLevel).toBe("low")
     expect(bundled.atlas?.model).toBe("claude-sonnet-4-6")
     expect(bundled.atlas?.reasoningLevel).toBe("high")
     expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("default")

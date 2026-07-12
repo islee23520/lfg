@@ -155,7 +155,7 @@ Having SKILL.md installed under `skills/` alone is **not** G1 PASS.
 ```json
 {
   "version": 1,
-  "orchestrator": {"roles": ["default","sisyphus"], "primary_family": "grok", "primary_model": "grok-4.5", "effort": "high"},
+  "orchestrator": {"roles": ["default","sisyphus"], "primary_family": "grok", "primary_model": "grok-4.5", "effort": "low"},
   "deep_oracle": {"roles": ["oracle"], "primary_family": "gpt", "fallback": ["grok"]},
   "vision": {"roles": ["multimodal-looker","visual-engineering"], "primary_family": "gemini", "later": ["zai"]},
   "degrade": [{"missing": "gpt", "behavior": "..."}, {"missing": "gemini", "behavior": "..."}]

@@ -9,6 +9,6 @@ describe("lfg ownership (plan DoD)", () => {
 
   test("unsupported legacy commands keep lfgIsPlugin false", async () => {
     const result = await runLfg(["--json", "doctor"], {})
-    expect(result.json).toMatchObject({ lfgIsPlugin: false, command: "doctor", supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop", "codex"] })
+    expect(result.json).toMatchObject({ lfgIsPlugin: false, command: "doctor", supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop"] })
   })
 })

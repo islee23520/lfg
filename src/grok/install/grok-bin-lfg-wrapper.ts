@@ -8,7 +8,6 @@ const LFG_OWNED_FIRST_ARGS = [
   "xai",
   "zai",
   "mcp",
-  "codex",
   "ulw",
   "ulw-loop",
   "help",

@@ -4,35 +4,37 @@ import {
   codingToolAdapterExecutionPlanJson,
   codingToolAdapterSelectionJson,
   isCodingToolAdapterId,
+  normalizeCodingToolAdapterId,
 } from "./coding-tool-adapter"
 
 describe("coding tool adapter selection", () => {
-  test("serializes the default Lazy Grok adapter choices", () => {
+  test("serializes the Grok-only adapter contract", () => {
     expect(codingToolAdapterSelectionJson()).toMatchObject({
       selected: "grok",
       default: "grok",
-      supported: ["grok", "pi-agent"],
+      supported: ["grok"],
       contract: {
         id: "grok",
         command: "grok",
       },
       contracts: {
-        "pi-agent": {
-      command: "pi-agent",
-      fallbackAdapter: null,
+        grok: {
+          command: "grok",
+          fallbackAdapter: null,
         },
       },
     })
   })
 
-  test("accepts only supported adapter ids", () => {
+  test("accepts only grok adapter id", () => {
     expect(isCodingToolAdapterId("grok")).toBe(true)
-    expect(isCodingToolAdapterId("pi-agent")).toBe(true)
+    expect(isCodingToolAdapterId("pi-agent")).toBe(false)
     expect(isCodingToolAdapterId("python")).toBe(false)
     expect(isCodingToolAdapterId(null)).toBe(false)
+    expect(normalizeCodingToolAdapterId("pi-agent")).toBe("grok")
   })
 
-  test("serializes execution contracts for all supported adapters", () => {
+  test("serializes execution contract for grok", () => {
     expect(codingToolAdapterContractJson("grok")).toMatchObject({
       id: "grok",
       command: "grok",
@@ -41,32 +43,14 @@ describe("coding tool adapter selection", () => {
       fallbackAdapter: null,
       failureBehavior: "Use GrokBuild host failure semantics; lfg does not own Grok host auth or retry policy.",
     })
-    expect(codingToolAdapterContractJson("pi-agent")).toMatchObject({
-      id: "pi-agent",
-      command: "pi-agent",
-      args: ["run"],
-      requiredFiles: ["~/.grok/plugins/lfg", "~/.grok/lfg.json"],
-      fallbackAdapter: null,
-      failureBehavior: "Fail closed before execution when pi-agent is unavailable; rerun setup with the grok adapter to switch routes.",
-      fallbackBehavior: "No automatic adapter fallback; lfg never launches a different coding tool than the selected adapter.",
-    })
   })
 
-  test("builds non-executing invocation plans for supported adapters", () => {
+  test("builds non-executing invocation plan for grok", () => {
     expect(codingToolAdapterExecutionPlanJson("grok")).toMatchObject({
       selected: "grok",
       mode: "host_command",
       command: "grok",
       argv: ["grok"],
-      executionStatus: "not_executed",
-      fallbackAdapter: null,
-      fallbackArgv: null,
-    })
-    expect(codingToolAdapterExecutionPlanJson("pi-agent")).toMatchObject({
-      selected: "pi-agent",
-      mode: "host_command",
-      command: "pi-agent",
-      argv: ["pi-agent", "run"],
       executionStatus: "not_executed",
       fallbackAdapter: null,
       fallbackArgv: null,

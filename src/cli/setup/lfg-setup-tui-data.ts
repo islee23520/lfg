@@ -225,13 +225,13 @@ export function buildVanillaGrokDiscovery(
 /** Short human note shown in the vanilla path before the install summary. */
 export function formatVanillaSummary(config: VanillaGrokConfig): string {
   return [
-    "Using built-in Grok models directly (no cli-proxy discovery, no per-agent selection).",
+    "Using built-in Grok models directly (vanilla host auth; no CLI proxy).",
     `default: ${config.mapping.default}`,
     `fast: ${config.mapping.fast}`,
     `reasoning: ${config.mapping.reasoning}`,
     `coding: ${config.mapping.coding}`,
     "",
-    "Per-agent models are pinned to Grok. Re-run setup and choose cli-proxy to tune them.",
+    "Per-agent models use bundled Grok-first defaults. Advanced: `lfg setup --base-url <proxy>` only when you need multi-provider discovery.",
   ].join("\n")
 }
 

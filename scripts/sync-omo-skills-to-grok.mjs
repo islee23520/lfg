@@ -217,7 +217,7 @@ function ensureGrokBuildSpawnSubagentMapping(content) {
 
   const section = `## GrokBuild Tool Mapping
 
-On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild \`spawn_subagent\` calls. Prefer lfg OMO personas when installed; GrokBuild host built-ins (\`general-purpose\`, \`explore\`, \`plan\`) are also valid. This contract is shared for \`coding_tool_adapter\` \`grok\` and \`pi-agent\`.
+On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild \`spawn_subagent\` calls. Prefer lfg OMO personas when installed; GrokBuild host built-ins (\`general-purpose\`, \`explore\`, \`plan\`) are also valid. This contract is GrokBuild-only (\`coding_tool_adapter\` = \`grok\`).
 
 | Intent | GrokBuild tool to use |
 | --- | --- |

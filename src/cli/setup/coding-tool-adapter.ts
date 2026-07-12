@@ -6,6 +6,7 @@ export {
   codingToolAdapterExecutionPlanJson,
   codingToolAdapterSelectionJson,
   isCodingToolAdapterId,
+  normalizeCodingToolAdapterId,
   type CodingToolAdapterContract,
   type CodingToolAdapterContractJson,
   type CodingToolAdapterExecutionPlan,

@@ -10,7 +10,7 @@ describe("renderGrokBinLfgWrapper (~/.grok/bin/lfg grokbuild wrapper)", () => {
 
   test("routes lfg subcommands to the lfg tool via npx", () => {
     expect(wrapper).toContain("exec npx -y @islee23520/lfg")
-    for (const sub of ["setup", "xai", "zai", "mcp", "codex", "ulw", "ulw-loop"]) {
+    for (const sub of ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop"]) {
       expect(wrapper).toContain(sub)
     }
   })

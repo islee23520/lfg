@@ -10,7 +10,8 @@ lfg on GrokBuild uses a **Grok-centric multi-provider harness**:
 
 | Lane | Primary family | Primary model (when available) | Effort | Fallback |
 |------|----------------|----------------------------------|--------|----------|
-| Orchestrator (default/sisyphus/plan lead) | Grok | `grok-4.5` | high | grok-4.20-reasoning → gpt-5.5 |
+| Orchestrator (default/sisyphus) | Grok | `grok-4.5` | low | grok-4.20-reasoning → gpt-5.5 |
+| Plan lead (prometheus/plan) | Grok | `grok-4.5` | xhigh | grok-4.20-reasoning → gpt-5.5 |
 | Deep / Oracle | GPT | `gpt-5.5` | high/xhigh | grok-4.5 → glm |
 | Vision specialist | Gemini | `gemini-3.1-pro-*` / pro-high class | medium/low | gpt vision-capable → later Z.AI |
 | Fast explore/librarian | Grok mini/composer or GPT mini | composer/mini | low/medium | cross-family mini |

@@ -15,7 +15,6 @@ import {
 import { createSetupSelectors, buildModelChoicesForTui, type ModelChoice } from "./lfg-setup-tui-selectors";
 import { configureAgentOverrides, configureRoleAgents } from "./lfg-setup-tui-agents";
 import { DEFAULT_CODING_TOOL_ADAPTER, isCodingToolAdapterId, type CodingToolAdapterId } from "../../shared/coding-tool-adapter";
-import { codingToolAdapterTuiOptions } from "./lfg-setup-tui-adapter";
 import { executeTuiInstall, type TuiGlobalInstaller } from "./lfg-setup-tui-execute";
 import { formatCustomResults, formatInstallSummary, formatIntroNote, formatPresetResults, formatRecommendedResults } from "./lfg-setup-tui-results";
 
@@ -62,41 +61,36 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     throw new Error("lfg setup cancelled");
   }
 
-  const adapterChoice = await prompts.select({
-    message: "Coding tool adapter",
-    options: [...codingToolAdapterTuiOptions()],
-    initialValue: args.codingToolAdapter ?? DEFAULT_CODING_TOOL_ADAPTER,
-  });
-  if (prompts.isCancel(adapterChoice) || !isCodingToolAdapterId(adapterChoice)) {
+  // Adapter is CLI-flag only (`--coding-tool-adapter`); do not ask during install.
+  const adapterChoice = args.codingToolAdapter ?? DEFAULT_CODING_TOOL_ADAPTER;
+  if (!isCodingToolAdapterId(adapterChoice)) {
     prompts.cancel("lfg setup cancelled.");
     throw new Error("lfg setup cancelled");
   }
 
-  // Explicit opt-in for OpenAI-compatible CLI proxy; default is vanilla Grok Build auth.
-  const wantsProxy = await prompts.confirm({
-    message: "Use OpenAI-compatible CLI proxy for model routing? (default: no = vanilla Grok Build auth)",
-    initialValue: false,
-  });
-  if (prompts.isCancel(wantsProxy)) {
-    prompts.cancel("lfg setup cancelled.");
-    throw new Error("lfg setup cancelled");
-  }
-
+  // Vanilla Grok is the default. Proxy / multi-provider discovery is opt-in only via
+  // explicit `--base-url` (or a resolved discovery with a non-empty base URL). No install-time proxy quiz.
   const bundled = await loadBundledDefaultOmoOverrides();
-  const baseDiscovery = wantsProxy ? readDiscoveryFromContext(context) : null;
+  const contextDiscovery = readDiscoveryFromContext(context);
+  const hasProxyDiscovery =
+    contextDiscovery !== null &&
+    typeof contextDiscovery.baseUrl === "string" &&
+    contextDiscovery.baseUrl.trim().length > 0 &&
+    contextDiscovery.modelIds.length > 0;
+  const baseDiscovery = hasProxyDiscovery ? contextDiscovery : null;
 
   let configuredForInstall: ModelDiscovery | null = null;
   let resultsText = "No model discovery was available. Installer will preserve existing model configuration.";
   let modelConfigLine = "Model config: preserved existing settings";
-  let shouldUseManualFlow = wantsProxy === true;
+  let shouldUseManualFlow = hasProxyDiscovery;
 
-  if (wantsProxy !== true) {
-    // Vanilla mode now uses real discovery (with OAuth) for best native Grok models (grok-4/grok-3)
-    const vanilla = buildVanillaGrokConfig(bundled, baseDiscovery || undefined);
-    configuredForInstall = buildVanillaGrokDiscovery(bundled, baseDiscovery || undefined);
+  if (!hasProxyDiscovery) {
+    // Vanilla Grok Build auth + bundled agent defaults (no CLI proxy path).
+    const vanilla = buildVanillaGrokConfig(bundled, undefined);
+    configuredForInstall = buildVanillaGrokDiscovery(bundled, undefined);
     resultsText = formatVanillaResults(vanilla);
-    modelConfigLine = "Model config: native Grok models via OAuth (dynamic selection)";
-    prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models (optimized)");
+    modelConfigLine = "Model config: native Grok models (vanilla host auth)";
+    prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models");
   }
 
   if (baseDiscovery !== null && baseDiscovery.modelIds.length > 0) {

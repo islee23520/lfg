@@ -67,6 +67,21 @@ describe("pattern-based model auto-assignment", () => {
     expect(planRec!.serviceTier).toBe("default")
   })
 
+  test("default and sisyphus orchestration recommend low effort on Grok 4.5", () => {
+    const overrides: LazycodexAgentOverrideMap = {
+      default: { model: "old", reasoningLevel: "high" },
+      sisyphus: { model: "old", reasoningLevel: "high" },
+    }
+    const models = ["grok-4.5", "grok-4.20-0309-reasoning", "gpt-5.5"]
+    const recs = buildRecommendedModelOverrides(overrides, models)
+    for (const name of ["default", "sisyphus"] as const) {
+      const rec = recs.get(name)
+      expect(rec, name).toBeDefined()
+      expect(rec!.model).toBe("grok-4.5")
+      expect(rec!.reasoningLevel).toBe("low")
+    }
+  })
+
   test("buildRecommendedModelOverrides assigns utility models to non-reasoning agents", () => {
     const overrides: LazycodexAgentOverrideMap = {
       explorer: { model: "old-model", reasoningLevel: "low" },

@@ -20,7 +20,9 @@ export type RecommendedModelFields = {
   readonly serviceTier: ServiceTier
 }
 
-/** Agents that need deep reasoning models (ported from lfp + Grok additions). */
+/** Agents that need deep reasoning models (ported from lfp + Grok additions).
+ * Includes default/sisyphus so pattern recommendation picks frontier Grok (effort stays low via AGENT_REASONING_LEVEL).
+ */
 export const REASONING_AGENT_NAMES: ReadonlySet<string> = new Set([
   "metis",
   "momus",
@@ -36,6 +38,8 @@ export const REASONING_AGENT_NAMES: ReadonlySet<string> = new Set([
   "deep",
   "ultrabrain",
   "unspecified-high",
+  "default",
+  "sisyphus",
 ])
 
 const CRITICAL_REVIEW_AGENT_NAMES: ReadonlySet<string> = new Set([
@@ -77,9 +81,9 @@ const AGENT_REASONING_LEVEL: Readonly<Record<string, ReasoningLevel>> = {
   reviewer: "high",
   "codex-ultrawork-reviewer": "high",
   "unspecified-high": "high",
-  // high: Sisyphus/default orchestration on Grok 4.5 (fast enough to keep high)
-  sisyphus: "high",
-  default: "high",
+  // low: Sisyphus/default orchestration on Grok 4.5 (frontier model; low effort is enough)
+  sisyphus: "low",
+  default: "low",
   // medium: coding and junior workers
   coding: "medium",
   "sisyphus-junior": "medium",

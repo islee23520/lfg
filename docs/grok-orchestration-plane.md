@@ -1,7 +1,7 @@
 # Grok Orchestration Plane (Full-Picture ADR)
 
 **Status:** Draft (2026-07-09; teammode spawn_subagent note 2026-07-11)  
-**Complements:** [Ultraresearch SYNTHESIS](.omo/ultraresearch/20260709-123633/SYNTHESIS.md), [`docs/grok-adapter-core-port-strategy.md`](grok-adapter-core-port-strategy.md), [`docs/omo-grokbuild-pi-agent-parity-adr.md`](omo-grokbuild-pi-agent-parity-adr.md)
+**Complements:** [Ultraresearch SYNTHESIS](.omo/ultraresearch/20260709-123633/SYNTHESIS.md), [`docs/grok-adapter-core-port-strategy.md`](grok-adapter-core-port-strategy.md)
 
 This ADR synthesizes the distinct **OMO / senpi control planes** that appear in upstream documentation, QA harnesses, and reverse-engineering artifacts. It clarifies how they relate (or do not relate) to lfg's GrokBuild surface.
 
@@ -10,7 +10,7 @@ This ADR synthesizes the distinct **OMO / senpi control planes** that appear in 
 - teammode deferred until Grok-native team (codex_app not available) for **codex_app-class** threads; Grok teammode uses **spawn_subagent** (host built-ins + lfg OMO agents) instead
 - multi_agent_v1 ≠ codex_app (different planes)
 - lfg uses spawn_subagent
-- pi-agent run ≠ omo-senpi without proof
+- senpi / omo-senpi is a separate control plane; lfg does not claim parity
 
 lfg must not claim that Grok has an app-server surface. Orchestration in lfg routes through GrokBuild native primitives (`spawn_subagent`, hooks, skills, Boulder state) and the shipped `delegate-core` / `boulder-state` slices. Full team/task RPC parity (senpi / codex_app) remains a gap; **skill + script teammode on spawn_subagent is Grok-adapted**.
 
@@ -28,7 +28,7 @@ OMO's `codex-qa` skill and some hook verifiers spawn a real `codex app-server` b
 
 ## (D) senpi app-server reverse-engineering
 
-`senpi app-server` is a reverse-engineered, Codex-protocol-compatible JSON-RPC subset implemented directly over Pi `AgentSession` (stdio/ws/unix). It is **not** a proxy to the Codex binary. The protocol was pinned from a specific `codex-cli` version. This plane powers senpi-first task/team flows but is not required by lfg's current `pi-agent run` route.
+`senpi app-server` is a reverse-engineered, Codex-protocol-compatible JSON-RPC subset implemented directly over Pi `AgentSession` (stdio/ws/unix). It is **not** a proxy to the Codex binary. The protocol was pinned from a specific `codex-cli` version. This plane powers senpi-first task/team flows but is not used by lfg.
 
 ## (E) omo-senpi task/team RPC
 
@@ -45,11 +45,11 @@ lfg's orchestration today is:
 **Gaps (explicitly not claimed):**
 - No app-server control plane.
 - No `codex_app` durable threads / MultiAgentV2 mailbox (teammode peer traffic is leader + artifacts on Grok).
-- Full senpi-task / omo-senpi behavioral parity (pi-agent run route provides launch/auth only).
+- Full senpi-task / omo-senpi behavioral parity (separate control plane, not claimed).
 
 ## Next-release target
 
-The epic focuses on hardening `spawn_subagent` mapping, expanding Boulder/ledger evidence for team flows, optional Grok-native control-plane research (without claiming app-server), and clarifying Pi vs senpi paths per the parity ADR. No upstream control-plane binary or Codex `codex_app` surface is introduced into lfg's runtime. All changes stay within existing GrokBuild primitives and the shipped host-neutral cores.
+The epic focuses on hardening `spawn_subagent` mapping, expanding Boulder/ledger evidence for team flows, and optional Grok-native control-plane research (without claiming app-server). No upstream control-plane binary or Codex `codex_app` surface is introduced into lfg's runtime. All changes stay within existing GrokBuild primitives and the shipped host-neutral cores.
 
 This document keeps docs in sync with the SYNTHESIS research and existing ADRs. See `assert-omo-parity` gate for related payload integrity.
 

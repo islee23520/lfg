@@ -14,7 +14,7 @@ describe("docs/grok-orchestration-plane.md", () => {
     expect(text).toContain("teammode deferred until Grok-native team (codex_app not available)")
     expect(text).toContain("multi_agent_v1 ≠ codex_app (different planes)")
     expect(text).toContain("lfg uses spawn_subagent")
-    expect(text).toContain("pi-agent run ≠ omo-senpi without proof")
+    expect(text).toContain("senpi / omo-senpi is a separate control plane; lfg does not claim parity")
 
     // Must NOT claim forbidden app-server ownership
     expect(text).not.toContain("Grok has app-server")
@@ -30,7 +30,6 @@ describe("docs/grok-orchestration-plane.md", () => {
     expect(text).toContain("Grok Orchestration Plane (Full-Picture ADR)")
     expect(text).toContain(".omo/ultraresearch/20260709-123633/SYNTHESIS.md")
     expect(text).toContain("grok-adapter-core-port-strategy.md")
-    expect(text).toContain("omo-grokbuild-pi-agent-parity-adr.md")
     expect(text).toContain("Orchestration in lfg routes through GrokBuild native primitives")
     expect(text).toContain("delegate-core")
     expect(text).toContain("boulder-state")
@@ -53,7 +52,7 @@ describe("docs/grok-orchestration-plane.md", () => {
     // Status and parity discipline
     expect(text).toContain("**Status:** Draft (2026-07-09")
     expect(text).toContain("explicitly not claimed")
-    expect(text).toContain("pi-agent run route provides launch/auth only")
+    expect(text).toContain("separate control plane, not claimed")
 
     // MVP substitute classification (#74 pass conditions 1+2)
     expect(text).toContain("MVP substitute classification")

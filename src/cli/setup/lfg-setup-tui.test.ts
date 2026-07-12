@@ -139,31 +139,27 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     // We only assert it didn't blow up.
   });
 
-  test("runSetupTui lets setup choose pi-agent coding adapter", async () => {
+  test("runSetupTui is Grok-only with no adapter/proxy install prompts", async () => {
     const prompts = await import("@clack/prompts") as any;
     const calls: any[] = prompts.__calls;
     calls.length = 0;
-    prompts.__setCodingToolAdapterChoice("pi-agent");
     installerMock.runLazycodexInstaller.mockClear();
 
-    await tui.runSetupTui({ codingToolAdapter: "grok" }, { plan: {}, resolved: null }, {
+    await tui.runSetupTui({}, { plan: {}, resolved: null }, {
       prompts: prompts as any,
       colors: { inverse: (s: string) => s, green: (s: string) => s },
     });
 
-    const adapterSelect = calls.find((c: any[]) => c[0] === "select" && /Coding tool adapter/.test(String(c[1])));
-    expect(adapterSelect).toBeTruthy();
-    expect(adapterSelect?.[3]).toBe("grok");
-    const adapterValues = (adapterSelect?.[4] ?? []).map((option: { readonly value: string }) => option.value);
-    expect(adapterValues).toEqual(["grok", "pi-agent"]);
+    expect(calls.some((c: any[]) => c[0] === "select" && /Coding tool adapter/.test(String(c[1])))).toBe(false);
+    expect(calls.some((c: any[]) => c[0] === "confirm" && /CLI proxy/.test(String(c[1])))).toBe(false);
 
     const installSummary = calls.find((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])));
     const installSummaryBody = String(installSummary?.[2] ?? "");
-    expect(installSummaryBody).toContain("Coding adapter: pi-agent -> pi-agent run");
+    expect(installSummaryBody).toContain("Coding adapter: grok -> grok");
     expect(installSummaryBody).toContain("fallback: none");
-    expect(installerMock.runLazycodexInstaller).toHaveBeenCalledWith(null, { codingToolAdapter: "pi-agent" });
-
-    prompts.__setCodingToolAdapterChoice("grok");
+    const installed = installerMock.runLazycodexInstaller.mock.calls[0]?.[0] as { baseUrl?: string } | null;
+    expect(installed?.baseUrl ?? "").toBe("");
+    expect(installerMock.runLazycodexInstaller.mock.calls[0]?.[1]).toEqual({ codingToolAdapter: "grok" });
   });
 
   test("runSetupTui can install the global lfg CLI after adapter setup", async () => {
@@ -203,18 +199,18 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(String(globalNote?.[2] ?? "")).toContain("npm install --global @islee23520/lfg@latest");
   });
 
-  test("runSetupTui cancels before install when coding adapter selection is cancelled", async () => {
+  test("runSetupTui cancels before install when continue confirm is cancelled", async () => {
     const prompts = await import("@clack/prompts") as any;
     const calls: any[] = prompts.__calls;
     calls.length = 0;
     installerMock.runLazycodexInstaller.mockClear();
 
     const CANCEL = Symbol.for("clack-cancel");
-    const origSelect = prompts.select;
-    prompts.select = async (opts: any) => {
-      calls.push(["select", opts?.message, opts?.options?.length, opts?.initialValue, opts?.options]);
-      if (/Coding tool adapter/i.test(String(opts?.message ?? ""))) return CANCEL;
-      return origSelect(opts);
+    const origConfirm = prompts.confirm;
+    prompts.confirm = async (opts: any) => {
+      calls.push(["confirm", opts?.message]);
+      if (/Continue with lfg setup/i.test(String(opts?.message ?? ""))) return CANCEL;
+      return true;
     };
 
     await expect(
@@ -224,7 +220,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
       }),
     ).rejects.toThrow(/cancelled/);
 
-    prompts.select = origSelect;
+    prompts.confirm = origConfirm;
 
     expect(calls.some((c: any[]) => c[0] === "cancel")).toBe(true);
     expect(installerMock.runLazycodexInstaller).not.toHaveBeenCalled();

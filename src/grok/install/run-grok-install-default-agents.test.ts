@@ -20,13 +20,13 @@ describe("runGrokInstall default agent surfaces", () => {
       readonly agents?: Record<string, { readonly model?: string; readonly variant?: string }>
       readonly runtime_fallback?: { readonly enabled?: boolean }
     }
-    expect(lfgRuntime.agents?.default).toMatchObject({ model: "grok-4.5", variant: "high" })
-    expect(lfgRuntime.agents?.sisyphus).toMatchObject({ model: "grok-4.5", variant: "high" })
+    expect(lfgRuntime.agents?.default).toMatchObject({ model: "grok-4.5", variant: "low" })
+    expect(lfgRuntime.agents?.sisyphus).toMatchObject({ model: "grok-4.5", variant: "low" })
     expect(lfgRuntime.runtime_fallback?.enabled).toBe(true)
 
     const defaultRole = await readFile(join(home, ".grok", "roles", "default.toml"), "utf8")
     expect(defaultRole).toContain('model = "grok-4.5"')
-    expect(defaultRole).toContain('reasoning_effort = "high"')
+    expect(defaultRole).toContain('reasoning_effort = "low"')
 
     const prometheusRole = await readFile(join(home, ".grok", "roles", "prometheus.toml"), "utf8")
     expect(prometheusRole).toContain('model = "grok-4.5"')
@@ -35,7 +35,7 @@ describe("runGrokInstall default agent surfaces", () => {
 
     const sisyphusRole = await readFile(join(home, ".grok", "roles", "sisyphus.toml"), "utf8")
     expect(sisyphusRole).toContain('model = "grok-4.5"')
-    expect(sisyphusRole).toContain('reasoning_effort = "high"')
+    expect(sisyphusRole).toContain('reasoning_effort = "low"')
 
     const atlasRole = await readFile(join(home, ".grok", "roles", "atlas.toml"), "utf8")
     expect(atlasRole).toContain('model = "claude-sonnet-4-6"')

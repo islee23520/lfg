@@ -2,7 +2,9 @@ import { describe, expect, test } from "vitest"
 import { lfgSubagentForOmoSpawnType } from "../../core/lfg/subagents/omo-spawn-map"
 import { LFG_SUBAGENT_TOGGLES, lfgOwnedSubagentModels, lfgOwnedSubagentReasoningEffort } from "./subagent-routing"
 
-const GROK_BUILTIN_SUBAGENTS_REPLACED_BY_LFG = ["general-purpose", "explore", "grok-build", "builder"] as const
+/** Shadow aliases only — not real host primaries we want to keep. */
+const GROK_SHADOW_ALIASES_DISABLED = ["grok-build", "builder"] as const
+const GROK_HOST_BUILTINS_ENABLED = ["general-purpose", "explore"] as const
 
 describe("subagent-routing", () => {
   test("covers OMO native, OMO category, and Grok visual/artistry surfaces", () => {
@@ -41,24 +43,41 @@ describe("subagent-routing", () => {
     expect(efforts.oracle).toBe("high")
     expect(efforts["visual-engineering"]).toBe("low")
     expect(efforts.reviewer).toBe("medium")
+    expect(efforts.default).toBe("low")
+    expect(efforts.sisyphus).toBe("low")
   })
 
-  test("enables every routed OMO and Grok category subagent", () => {
+  test("enables host built-ins and every routed OMO/Grok category subagent", () => {
     const toggles = Object.fromEntries(LFG_SUBAGENT_TOGGLES)
-    const replacedBuiltins: ReadonlySet<string> = new Set(GROK_BUILTIN_SUBAGENTS_REPLACED_BY_LFG)
+    const shadowDisabled: ReadonlySet<string> = new Set(GROK_SHADOW_ALIASES_DISABLED)
 
     for (const name of Object.keys(lfgOwnedSubagentModels())) {
       if (name === "default") continue
-      expect(toggles[name]).toBe(!replacedBuiltins.has(name))
+      if (shadowDisabled.has(name)) {
+        expect(toggles[name]).toBe(false)
+        continue
+      }
+      expect(toggles[name], name).toBe(true)
     }
   })
 
-  test("disables Grok built-ins replaced by lfg OMO spawn targets", () => {
+  test("keeps host explore/general-purpose enabled (no forced lfg duplicate)", () => {
     const toggles = Object.fromEntries(LFG_SUBAGENT_TOGGLES)
 
-    for (const name of GROK_BUILTIN_SUBAGENTS_REPLACED_BY_LFG) {
-      const replacement = lfgSubagentForOmoSpawnType(name)
+    for (const name of GROK_HOST_BUILTINS_ENABLED) {
+      expect(toggles[name], name).toBe(true)
+      expect(lfgSubagentForOmoSpawnType(name)).toBe(name)
+    }
+    // OMO explorer persona remains available as an opt-in specialist
+    expect(toggles.explorer).toBe(true)
+    expect(lfgSubagentForOmoSpawnType("explorer")).toBe("explorer")
+  })
 
+  test("disables only shadow aliases that remap to lfg coding/reviewer", () => {
+    const toggles = Object.fromEntries(LFG_SUBAGENT_TOGGLES)
+
+    for (const name of GROK_SHADOW_ALIASES_DISABLED) {
+      const replacement = lfgSubagentForOmoSpawnType(name)
       expect(toggles[name]).toBe(false)
       expect(toggles[replacement]).toBe(true)
     }

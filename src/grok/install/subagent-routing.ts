@@ -6,12 +6,17 @@ export type SubagentModelMapping = {
   readonly fastReasoning?: string
   readonly reasoningReasoning?: string
   readonly codingReasoning?: string
+  /** Override for default/sisyphus orchestrator effort (default: low). */
+  readonly defaultReasoning?: string
 }
 
+/** Host built-ins stay enabled (true): explore / general-purpose avoid duplicating OMO explorer.
+ * Shadow aliases (grok-build, builder, cursor, browser-use) stay off; lfg personas stay on.
+ */
 export const LFG_SUBAGENT_TOGGLES: readonly (readonly [string, boolean])[] = [
   ["cursor", false],
-  ["general-purpose", false],
-  ["explore", false],
+  ["general-purpose", true],
+  ["explore", true],
   ["browser-use", false],
   ["grok-build", false],
   ["builder", false],
@@ -91,10 +96,14 @@ export function lfgOwnedSubagentReasoningEffort(mapping: SubagentModelMapping = 
   const fast = mapping.fastReasoning ?? "low"
   const reasoning = mapping.reasoningReasoning ?? "high"
   const coding = mapping.codingReasoning ?? "medium"
+  // Orchestrator default/sisyphus: low effort is enough on Grok 4.5 frontier.
+  const orchestrator = mapping.defaultReasoning ?? "low"
   return {
     ...subagentRouteEntries(REASONING_SUBAGENTS, reasoning),
     ...subagentRouteEntries(FAST_SUBAGENTS, fast),
     ...subagentRouteEntries(CODING_SUBAGENTS, coding),
+    default: orchestrator,
+    sisyphus: orchestrator,
   }
 }
 

@@ -13,15 +13,12 @@ afterEach(() => {
 
 describe("codingToolAdapterVerifyJson", () => {
   test("reports actionable availability diagnostic when grok command is missing", async () => {
-    // Given: an installed lfg plugin and runtime config, but no grok command on PATH.
     const home = await mkdtemp(join(tmpdir(), "lfg-adapter-grok-missing-"))
     await writeRuntimeConfig(home)
     process.env.PATH = ""
 
-    // When: the selected Grok adapter availability is verified.
     const json = await codingToolAdapterVerifyJson(home, "grok", true)
 
-    // Then: diagnostics identify the missing host command without executing it or checking Grok auth.
     const availability = requireRecord(json.availability)
     expect(availability.status).toBe("missing_command")
     expect(availability.commandAvailable).toBe(false)
@@ -40,14 +37,11 @@ describe("codingToolAdapterVerifyJson", () => {
   })
 
   test("reports config diagnostic before command availability", async () => {
-    // Given: the plugin tree is absent and runtime config has not been materialized.
     const home = await mkdtemp(join(tmpdir(), "lfg-adapter-config-missing-"))
     process.env.PATH = ""
 
-    // When: pi-agent adapter availability is verified.
-    const json = await codingToolAdapterVerifyJson(home, "pi-agent", false)
+    const json = await codingToolAdapterVerifyJson(home, "grok", false)
 
-    // Then: diagnostics point at setup/config repair instead of suggesting adapter execution.
     const availability = requireRecord(json.availability)
     expect(availability.status).toBe("missing_required_files")
     expect(availability.diagnostic).toMatchObject({
@@ -64,24 +58,21 @@ describe("codingToolAdapterVerifyJson", () => {
     await expectNoAuthFile(home)
   })
 
-  test("reports available diagnostic when command and config are present", async () => {
-    // Given: runtime config is present and pi-agent can be resolved from PATH.
+  test("reports available diagnostic when grok command and config are present", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-adapter-available-"))
     await writeRuntimeConfig(home)
     const bin = await mkdtemp(join(tmpdir(), "lfg-adapter-bin-"))
-    const marker = join(home, "pi-agent-executed.marker")
-    const piAgent = await writeFakeCommand(bin, "pi-agent", marker)
+    const marker = join(home, "grok-executed.marker")
+    await writeFakeCommand(bin, "grok", marker)
     process.env.PATH = bin
 
-    // When: pi-agent adapter availability is verified.
-    const json = await codingToolAdapterVerifyJson(home, "pi-agent", true)
+    const json = await codingToolAdapterVerifyJson(home, "grok", true)
 
-    // Then: diagnostics report availability while preserving the not-executed plan.
     const availability = requireRecord(json.availability)
     expect(availability.status).toBe("available")
     expect(availability.diagnostic).toMatchObject({
       code: "adapter_available",
-      message: expect.stringContaining("pi-agent"),
+      message: expect.stringContaining("grok"),
       action: expect.stringContaining("No action"),
       hostAuth: {
         ownedBy: "grok",
@@ -94,18 +85,15 @@ describe("codingToolAdapterVerifyJson", () => {
     await expectNoAuthFile(home)
   })
 
-  test("treats a non-executable command path as missing", async () => {
-    // Given: pi-agent exists on PATH but is not executable.
+  test("treats a non-executable grok command path as missing", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-adapter-nonexec-"))
     await writeRuntimeConfig(home)
     const bin = await mkdtemp(join(tmpdir(), "lfg-adapter-nonexec-bin-"))
-    await writeFile(join(bin, "pi-agent"), "#!/bin/sh\nexit 99\n", "utf8")
+    await writeFile(join(bin, "grok"), "#!/bin/sh\nexit 99\n", "utf8")
     process.env.PATH = bin
 
-    // When: pi-agent adapter availability is verified.
-    const json = await codingToolAdapterVerifyJson(home, "pi-agent", true)
+    const json = await codingToolAdapterVerifyJson(home, "grok", true)
 
-    // Then: diagnostics fail closed before any adapter execution can be attempted.
     const availability = requireRecord(json.availability)
     expect(availability.status).toBe("missing_command")
     expect(availability.commandAvailable).toBe(false)
@@ -129,8 +117,9 @@ async function expectNoAuthFile(home: string): Promise<void> {
   await expectMissing(join(home, ".grok", "auth.json"))
 }
 
-async function expectMissing(path: string): Promise<void> {
+async function expectMissing(path: string): Promise<boolean> {
   await expect(access(path)).rejects.toMatchObject({ code: "ENOENT" })
+  return true
 }
 
 async function writeFakeCommand(bin: string, command: string, marker: string): Promise<string> {

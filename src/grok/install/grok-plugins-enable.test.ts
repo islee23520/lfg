@@ -22,20 +22,22 @@ describe("ensureLfgPluginsEnabled", () => {
     expect(text).toContain('"user/old"')
   })
 
-  test("disables Grok built-in subagents but keeps LFG agents enabled", async () => {
+  test("keeps Grok host built-ins enabled and only disables shadow aliases", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-agents-preferred-"))
     const configPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok"), { recursive: true })
     await writeFile(
       configPath,
-      `[subagents.toggle]\ngeneral-purpose = true\nexplore = true\ngrok-build = true\nbuilder = true\n\n[agents]\ndisabled = [\n    "general-purpose",\n    "explore",\n    "grok-build",\n]\n`,
+      `[subagents.toggle]\ngeneral-purpose = false\nexplore = false\ngrok-build = true\nbuilder = true\n\n[agents]\ndisabled = [\n    "grok-build",\n]\n`,
     )
 
     await ensureLfgAgentsPreferred(home)
 
     const text = await readFile(configPath, "utf8")
-    expect(text).toContain("general-purpose = false")
-    expect(text).toContain("explore = false")
+    // Host built-ins: prefer Grok explore / general-purpose (not forced off)
+    expect(text).toContain("general-purpose = true")
+    expect(text).toContain("explore = true")
+    // Shadow aliases still off
     expect(text).toContain("grok-build = false")
     expect(text).toContain("builder = false")
     expect(text).toContain("sisyphus = true")
@@ -61,8 +63,6 @@ describe("ensureLfgPluginsEnabled", () => {
     expect(text).toContain("artistry-qa = true")
     expect(text).toContain("ulw = true")
     expect(text).toContain('default = "sisyphus"')
-    expect(text).not.toContain('"general-purpose"')
-    expect(text).not.toContain('"explore"')
     expect(text).not.toContain('"grok-build"')
   })
 
@@ -119,6 +119,8 @@ describe("ensureLfgPluginsEnabled", () => {
     expect(section(next, "subagents.reasoning_effort")).toContain('explorer = "low"')
     expect(section(next, "subagents.reasoning_effort")).toContain('quick = "low"')
     expect(section(next, "subagents.reasoning_effort")).toContain('visual-engineering = "low"')
+    expect(section(next, "subagents.reasoning_effort")).toContain('default = "low"')
+    expect(section(next, "subagents.reasoning_effort")).toContain('sisyphus = "low"')
     expect(section(next, "subagents.reasoning_effort")).toContain('plan = "high"')
     expect(section(next, "subagents.reasoning_effort")).toContain('oracle = "high"')
     expect(section(next, "subagents.reasoning_effort")).toContain('ultrabrain = "high"')

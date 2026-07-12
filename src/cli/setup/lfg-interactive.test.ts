@@ -9,8 +9,8 @@ describe("lfg interactive setup", () => {
     // Given: model auto-discovery is disabled so the CLI must ask for a base URL.
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-ux-"))
 
-    // When: the user accepts defaults until the final install confirmation and declines.
-    const result = await runLfgText(["setup", "--no-tui"], "\n\n\n\nn\n", {
+    // When: the user declines the final install confirmation (vanilla path has no proxy quiz).
+    const result = await runLfgText(["setup", "--no-tui"], "n\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
     })
@@ -34,7 +34,7 @@ describe("lfg interactive setup", () => {
     // Given: a temp home and no model endpoint keep setup deterministic.
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-star-"))
 
-    // When: the user installs, then declines the optional GitHub star action.
+    // When: the user installs, then declines the optional GitHub star action (no proxy quiz).
     const result = await runLfgText(["setup", "--no-tui"], "y\nn\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
@@ -49,22 +49,19 @@ describe("lfg interactive setup", () => {
     expect(result.stdout).toContain("Skipped GitHub starring.")
   })
 
-  test("preserves selected coding tool adapter through no-tui install", async () => {
-    // Given: classic line-mode setup is forced and the user selects pi-agent on the CLI.
+  test("no-tui install always persists Grok coding tool adapter", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-adapter-"))
 
-    // When: the user installs, then declines the optional GitHub star action.
-    const result = await runLfgText(["setup", "--no-tui", "--coding-tool-adapter", "pi-agent"], "n\ny\nn\n", {
+    const result = await runLfgText(["setup", "--no-tui"], "y\nn\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
       PATH: "/usr/bin:/bin",
     })
 
-    // Then: the line-mode install persists the selected adapter instead of falling back to grok.
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain("Installation complete!")
     const runtimeRaw = await readFile(join(home, ".grok", "lfg.json"), "utf8")
     const runtimeConfig = JSON.parse(runtimeRaw) as { readonly coding_tool_adapter?: string }
-    expect(runtimeConfig.coding_tool_adapter).toBe("pi-agent")
+    expect(runtimeConfig.coding_tool_adapter).toBe("grok")
   })
 })

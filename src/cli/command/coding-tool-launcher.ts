@@ -2,9 +2,7 @@ import { spawn } from "node:child_process"
 import { access } from "node:fs/promises"
 import { join } from "node:path"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
-import { readLfgRuntimeConfigFile } from "../../grok/models/lfg-runtime-config"
 import { isRecord, type JsonObject } from "../../shared/json"
-import { buildPiAgentLfgAuthEnv } from "./pi-agent-auth-env"
 import {
   codingToolAdapterExecutionPlanJson,
   codingToolAdapterSelectionJson,
@@ -31,20 +29,20 @@ export type CodingToolLaunchResult = JsonObject & {
   readonly error?: string
 }
 
-export async function codingToolLaunchPlan(cliAdapter: CodingToolAdapterId | null): Promise<CodingToolLaunchPlan> {
-  const adapter = await resolveLaunchAdapter(cliAdapter)
+export async function codingToolLaunchPlan(_cliAdapter: CodingToolAdapterId | null): Promise<CodingToolLaunchPlan> {
+  // lfg is Grok-only; ignore legacy pi-agent flags/config.
   return {
     ok: true,
     status: "planned",
     command: "launch",
     dryRun: true,
     executed: false,
-    codingToolAdapter: codingToolAdapterSelectionJson(adapter),
+    codingToolAdapter: codingToolAdapterSelectionJson(DEFAULT_CODING_TOOL_ADAPTER),
   }
 }
 
-export async function launchCodingToolAdapter(cliAdapter: CodingToolAdapterId | null): Promise<CodingToolLaunchResult> {
-  const adapter = await resolveLaunchAdapter(cliAdapter)
+export async function launchCodingToolAdapter(_cliAdapter: CodingToolAdapterId | null): Promise<CodingToolLaunchResult> {
+  const adapter = DEFAULT_CODING_TOOL_ADAPTER
   const selection = codingToolAdapterSelectionJson(adapter)
   const plan = codingToolAdapterExecutionPlanJson(adapter)
   const missingRequiredFile = await firstMissingRequiredFile(plan.requiredFiles)
@@ -56,28 +54,14 @@ export async function launchCodingToolAdapter(cliAdapter: CodingToolAdapterId | 
       executed: true,
       codingToolAdapter: selection,
       exitCode: 78,
-      error: `Cannot launch ${adapter}: required setup file is missing: ${missingRequiredFile}. Run "lfg setup --run" before launching the selected adapter.`,
+      error: `Cannot launch ${adapter}: required setup file is missing: ${missingRequiredFile}. Run "lfg setup --run" before launching Grok.`,
     }
   }
   const [command, ...args] = plan.argv
-  const envResult = adapter === "pi-agent"
-    ? await buildPiAgentLfgAuthEnv(process.env, resolveGrokSetupHome(process.env))
-    : { ok: true as const, env: process.env }
-  if (!envResult.ok) {
-    return {
-      ok: false,
-      status: "adapter_unavailable",
-      command: "launch",
-      executed: true,
-      codingToolAdapter: selection,
-      exitCode: 78,
-      error: envResult.error,
-    }
-  }
 
   return new Promise((resolve) => {
     const child = spawn(command, args, {
-      env: envResult.env,
+      env: process.env,
       stdio: "inherit",
     })
 
@@ -90,7 +74,7 @@ export async function launchCodingToolAdapter(cliAdapter: CodingToolAdapterId | 
           executed: true,
           codingToolAdapter: selection,
           exitCode: 127,
-          error: `Cannot launch ${adapter}: command "${command}" was not found on PATH. Run "lfg setup" to configure another adapter, or install ${command}.`,
+          error: `Cannot launch ${adapter}: command "${command}" was not found on PATH. Install Grok Build or ensure ~/.grok/bin is on PATH.`,
         })
         return
       }
@@ -118,15 +102,6 @@ export async function launchCodingToolAdapter(cliAdapter: CodingToolAdapterId | 
       })
     })
   })
-}
-
-async function resolveLaunchAdapter(cliAdapter: CodingToolAdapterId | null): Promise<CodingToolAdapterId> {
-  if (cliAdapter !== null) {
-    return cliAdapter
-  }
-  const home = resolveGrokSetupHome(process.env)
-  const config = await readLfgRuntimeConfigFile(home)
-  return config?.coding_tool_adapter ?? DEFAULT_CODING_TOOL_ADAPTER
 }
 
 async function firstMissingRequiredFile(requiredFiles: readonly string[]): Promise<string | null> {

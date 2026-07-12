@@ -28,7 +28,7 @@ export const LfgConfigSchema = z
   .object({
     $schema: z.string().optional(),
     version: z.literal(1).default(1),
-    coding_tool_adapter: z.union([z.literal("grok"), z.literal("pi-agent")]).default(DEFAULT_CODING_TOOL_ADAPTER),
+    coding_tool_adapter: z.literal("grok").default(DEFAULT_CODING_TOOL_ADAPTER),
     models: z
       .object({
         default: z.string().min(1).optional(),
@@ -41,7 +41,7 @@ export const LfgConfigSchema = z
     agents: z.record(z.string(), AgentConfigSchema).optional(),
     subagents: z
       .object({
-        disableBuiltins: z.boolean().default(true),
+        disableBuiltins: z.boolean().default(false),
         enabled: z.array(z.string().min(1)).optional(),
       })
       .strict()
@@ -136,5 +136,5 @@ function renderDefaultLfgConfig(seed: LazycodexAgentOverrideMap, codingToolAdapt
       },
     ]),
   )
-  return `${JSON.stringify({ $schema: `./${LFG_CONFIG_SCHEMA_FILENAME}`, version: 1, coding_tool_adapter: codingToolAdapter, agents, subagents: { disableBuiltins: true } }, null, 2)}\n`
+  return `${JSON.stringify({ $schema: `./${LFG_CONFIG_SCHEMA_FILENAME}`, version: 1, coding_tool_adapter: codingToolAdapter, agents, subagents: { disableBuiltins: false } }, null, 2)}\n`
 }

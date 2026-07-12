@@ -8,7 +8,22 @@ Format: Keep Unreleased notes until a version tag; GitHub Release notes may also
 
 ### Model defaults
 - Prefer **grok-4.5** as primary in recommendation/default/sisyphus chains when available.
-- Bundled **default** and **sisyphus** agent overrides use `model_reasoning_effort = high`.
+- Bundled **default** and **sisyphus** agent overrides use `model_reasoning_effort = low` (frontier Grok is strong enough at low effort for orchestration).
+
+### Host built-ins
+- Keep Grok host `explore` / `general-purpose` **enabled** (no longer force-disabled).
+- Prefer host `explore` for plain codebase search; lfg `explorer` stays optional for OMO persona/model routing.
+- Only shadow aliases (`grok-build`, `builder`, …) remain disabled in favor of lfg `coding` / `reviewer`.
+
+### Setup UX (less noise)
+- Install no longer asks about OpenAI-compatible CLI proxy / cliproxy / ocx-style routing.
+- Default setup path is **vanilla Grok host auth** + bundled agent defaults.
+- Multi-provider discovery is opt-in only via `lfg setup --base-url <url>` (or non-interactive flags).
+
+### Grok-only coding tool
+- Removed **pi-agent** as a coding-tool adapter. lfg is GrokBuild-only (`coding_tool_adapter = grok`).
+- Legacy `pi-agent` values in `~/.grok/lfg.json` coerce to `grok` at read time.
+- Bare `lfg` always launches `grok` (never pi-agent).
 
 ### Orchestration plane (GrokBuild-native)
 - Architecture doc: `docs/grok-orchestration-plane.md` (app-server QA ≠ runtime dep; `multi_agent_v1` ≠ `codex_app`; lfg uses `spawn_subagent`).

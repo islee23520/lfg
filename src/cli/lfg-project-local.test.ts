@@ -16,7 +16,7 @@ describe("lfg project-local (#28)", () => {
       status: "error",
       code: "unsupported_command",
       command: "project-local",
-      supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop", "codex"],
+      supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop"],
     })
   })
 })

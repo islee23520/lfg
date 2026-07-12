@@ -5,11 +5,11 @@ description: "(builtin) Initialize hierarchical AGENTS.md knowledge base"
 
 ## GrokBuild Tool Mapping
 
-On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild `spawn_subagent` calls. The adapter maps read-only exploration to the lfg-owned OMO persona `subagent_type: "explorer"`; do not use disabled Grok built-ins for those roles. This contract is shared for `coding_tool_adapter` `grok` and `pi-agent`.
+On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild `spawn_subagent` calls. Prefer host built-ins when they fit: read-only search → `subagent_type: "explore"`; catch-all → `"general-purpose"`. Use lfg OMO personas (`explorer`, `librarian`, `coding`, …) only when OMO prompts/models matter. This contract is GrokBuild-only (`coding_tool_adapter` = `grok`).
 
 | Intent | GrokBuild tool to use |
 | --- | --- |
-| Search/read-only worker | `spawn_subagent({ subagent_type: "explorer", background: true, description: "...", prompt: "TASK: ..." })` |
+| Search/read-only worker | `spawn_subagent({ subagent_type: "explore", background: true, description: "...", prompt: "TASK: ..." })` (host built-in; use `"explorer"` only for OMO persona) |
 | Planning worker | `spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })` |
 | Implementation or QA worker | `spawn_subagent({ subagent_type: "hephaestus" or "coding", background: true, description: "...", prompt: "TASK: ..." })` |
 

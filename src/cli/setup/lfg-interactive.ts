@@ -4,11 +4,9 @@ import { INTERNAL_GROK_INSTALL_COMMAND } from "../../grok/install/run-grok-insta
 import { applyModelPreset, defaultLazycodexAgentConfig, withReasoningEffort, type ModelDiscovery, type ReasoningEffortChoice, type SetupPreset } from "../models/lfg-models"
 import type { JsonObject } from "../../shared/json"
 import type { ResolveSetupDiscoveryResult } from "../../grok/install/resolve-setup-discovery"
-import { resolveSetupDiscovery } from "../../grok/install/resolve-setup-discovery"
 import { formatRecommendationTable } from "../../grok/models/model-recommendations"
 import { maybeRequestGitHubStars } from "../publish/github/lfg-github-stars"
 import { printCancelled, printCompleted, printInstallIntro, printInstallPlan, printMagicWord, printStep } from "./lfg-interactive-ui"
-import { resolveGrokSetupHome } from "../../grok/install/grok-home"
 import type { CodingToolAdapterId } from "../../shared/coding-tool-adapter"
 import {
   fallbackModelDiscovery,
@@ -113,38 +111,12 @@ function printInstallHeader(): void {
   printInstallIntro()
 }
 
-async function discoverModelsInteractively(reader: LineReader): Promise<ModelDiscovery | null> {
-  const home = resolveGrokSetupHome(process.env)
-
-  output.write("Use OpenAI-compatible CLI proxy for model routing? [y/N] ")
-  const proxyAns = await reader.next()
-  const wantsProxy = ["y", "yes"].includes((proxyAns.done === true ? "" : proxyAns.value).trim().toLowerCase())
-  if (!wantsProxy) {
-    // Optimized vanilla with OAuth: pass null discovery for dynamic Grok model selection
-    const vanilla = buildVanillaGrokDiscovery(await loadBundledDefaultOmoOverridesForInteractive(), undefined)
-    printVanillaDiscovery(vanilla)
-    return vanilla
-  }
-
-  const auto = await resolveSetupDiscovery({ home, cliBaseUrl: null })
-  if (auto && auto.discovery !== null && auto.discovery !== undefined) {
-    await printAutoDiscovery(auto)
-    return auto.discovery
-  }
-  output.write("OpenAI-compatible base URL (Enter = skip model mapping): ")
-  const answer = await reader.next()
-  const baseUrl = answer.done === true ? "" : answer.value.trim()
-  if (baseUrl.length === 0) {
-    output.write("Skipped model discovery. Installer will run without model mapping.\n\n")
-    return null
-  }
-  const manual = await resolveSetupDiscovery({ home, cliBaseUrl: baseUrl })
-  if (manual.discovery === null) {
-    output.write(`Could not fetch models from ${baseUrl}. Installer will run without model mapping.\n\n`)
-    return null
-  }
-  await printAutoDiscovery({ ...manual, baseUrlSource: "cli" })
-  return manual.discovery
+async function discoverModelsInteractively(_reader: LineReader): Promise<ModelDiscovery | null> {
+  // Install never asks about CLI proxy. Vanilla Grok is the only
+  // interactive default. Advanced multi-provider mapping is opt-in via `lfg setup --base-url ...`.
+  const vanilla = buildVanillaGrokDiscovery(await loadBundledDefaultOmoOverridesForInteractive(), undefined)
+  printVanillaDiscovery(vanilla)
+  return vanilla
 }
 
 function isHostAuthOnlyDiscovery(discovery: ModelDiscovery): boolean {

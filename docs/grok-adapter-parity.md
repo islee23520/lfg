@@ -28,7 +28,7 @@ lfg reports **two scores**. Do not collapse them: **adapter-scope 100 is not ful
 
 | Out-of-contract plane | Owner / isolated package surface | Why N/A for Score A |
 |----------------------|----------------------------------|---------------------|
-| `omo-senpi` / `senpi` task–team RPC | `@code-yeongyu/senpi`, `omo-senpi`, `senpi-task`, `team-core` under **`~/.senpi`** | Separate control plane; see `docs/omo-grokbuild-pi-agent-parity-adr.md` Config Root Separation and `docs/grok-orchestration-plane.md` (D)(E) |
+| `omo-senpi` / `senpi` task–team RPC | `@code-yeongyu/senpi`, `omo-senpi`, `senpi-task`, `team-core` under **`~/.senpi`** | Separate control plane; see `docs/grok-orchestration-plane.md` (D)(E) |
 | senpi / Codex **app-server** | senpi `app-server` / Codex app-server NDJSON | Not an lfg runtime dependency (task-11 spike: no product) |
 | `codex_app` team threads | Codex host (`codex_app.create_thread`) | No Grok equivalent; Grok teammode uses `spawn_subagent` instead — `codex_app` plane **N/A for Score A** |
 | Automatic Stop/SubagentStop reinject | Host lifecycle enforcement beyond guidance | Sisyphus + `lfg ulw-loop` substitutes are in-scope; **auto reinject** is out of contract |

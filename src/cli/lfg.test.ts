@@ -25,7 +25,7 @@ describe("lfg CLI", () => {
       codingToolAdapter: {
         selected: "grok",
         default: "grok",
-        supported: ["grok", "pi-agent"],
+        supported: ["grok"],
       },
       modelDiscovery: {
         baseUrl: "",
@@ -44,8 +44,8 @@ describe("lfg CLI", () => {
     const bin = await mkdtemp(join(tmpdir(), "lfg-launch-bin."))
     const marker = join(home, "launch.txt")
     await mkdir(join(home, ".grok"), { recursive: true })
-    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "pi-agent" }))
-    await writeFakeAdapter(join(bin, "pi-agent"), marker)
+    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "grok" }))
+    await writeFakeAdapter(join(bin, "grok"), marker)
 
     const result = await runLfgText([], "", {
       HOME: home,
@@ -54,7 +54,7 @@ describe("lfg CLI", () => {
     })
 
     expect(result.exitCode).toBe(78)
-    expect(result.stderr).toContain("Cannot launch pi-agent: required setup file is missing")
+    expect(result.stderr).toContain("Cannot launch grok: required setup file is missing")
     expect(result.stderr).toContain(join(home, ".grok", "plugins", "lfg"))
     await expect(access(marker)).rejects.toThrow()
   })
@@ -78,33 +78,15 @@ describe("lfg CLI", () => {
     await expect(access(marker)).rejects.toThrow()
   })
 
-  test("bare lfg launches the configured coding tool adapter when required files exist", async () => {
+  test("bare lfg launches Grok when required files exist", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-launch-ready-home."))
     const bin = await mkdtemp(join(tmpdir(), "lfg-launch-ready-bin."))
     const marker = join(home, "launch.txt")
     await mkdir(join(home, ".grok", "plugins", "lfg"), { recursive: true })
-    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "pi-agent" }))
-    await writeFakeAdapter(join(bin, "pi-agent"), marker)
-
-    const result = await runLfgText([], "", {
-      HOME: home,
-      PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
-      LFG_FAKE_ADAPTER_MARKER: marker,
-    })
-
-    expect(result.exitCode).toBe(0)
-    await expect(readFile(marker, "utf8")).resolves.toBe("pi-agent run\n")
-  })
-
-  test("bare lfg lets the CLI adapter flag override configured adapter", async () => {
-    const home = await mkdtemp(join(tmpdir(), "lfg-launch-override-home."))
-    const bin = await mkdtemp(join(tmpdir(), "lfg-launch-override-bin."))
-    const marker = join(home, "launch.txt")
-    await mkdir(join(home, ".grok", "plugins", "lfg"), { recursive: true })
-    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "pi-agent" }))
+    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "grok" }))
     await writeFakeAdapter(join(bin, "grok"), marker)
 
-    const result = await runLfgText(["--coding-tool-adapter", "grok"], "", {
+    const result = await runLfgText([], "", {
       HOME: home,
       PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
       LFG_FAKE_ADAPTER_MARKER: marker,
@@ -114,7 +96,25 @@ describe("lfg CLI", () => {
     await expect(readFile(marker, "utf8")).resolves.toBe("grok\n")
   })
 
-  test("bare lfg --json reports launch plan without spawning", async () => {
+  test("bare lfg ignores legacy pi-agent config and always launches grok", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-launch-override-home."))
+    const bin = await mkdtemp(join(tmpdir(), "lfg-launch-override-bin."))
+    const marker = join(home, "launch.txt")
+    await mkdir(join(home, ".grok", "plugins", "lfg"), { recursive: true })
+    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "pi-agent" }))
+    await writeFakeAdapter(join(bin, "grok"), marker)
+
+    const result = await runLfgText([], "", {
+      HOME: home,
+      PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+      LFG_FAKE_ADAPTER_MARKER: marker,
+    })
+
+    expect(result.exitCode).toBe(0)
+    await expect(readFile(marker, "utf8")).resolves.toBe("grok\n")
+  })
+
+  test("bare lfg --json reports Grok launch plan without spawning", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-launch-json-home."))
     await mkdir(join(home, ".grok"), { recursive: true })
     await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "pi-agent" }))
@@ -129,9 +129,9 @@ describe("lfg CLI", () => {
       dryRun: true,
       executed: false,
       codingToolAdapter: {
-        selected: "pi-agent",
+        selected: "grok",
         executionPlan: {
-          argv: ["pi-agent", "run"],
+          argv: ["grok"],
           executionStatus: "not_executed",
         },
       },
@@ -163,7 +163,7 @@ describe("lfg CLI", () => {
       ok: false,
       status: "invalid_coding_tool_adapter",
       error: "Unsupported coding tool adapter: python",
-      supportedCodingToolAdapters: ["grok", "pi-agent"],
+      supportedCodingToolAdapters: ["grok"],
     })
   })
 
@@ -310,7 +310,7 @@ describe("lfg CLI", () => {
     })
   })
 
-  test("interactive setup without proxy uses vanilla Grok without model optimization prompts", async () => {
+  test("interactive setup defaults to vanilla Grok without proxy or model optimization prompts", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-vanilla."))
     const result = await runLfgText(["setup", "--no-tui"], "n\nn\n", {
       HOME: home,
@@ -323,6 +323,7 @@ describe("lfg CLI", () => {
     expect(result.stdout).toContain("fast: grok-composer-2.5-fast")
     expect(result.stdout).toContain("reasoning: grok-4.5")
     expect(result.stdout).not.toContain("grok-3-mini-fast")
+    expect(result.stdout).not.toContain("Use OpenAI-compatible CLI proxy")
     expect(result.stdout).not.toContain("Use LLM recommendations from your available models?")
     expect(result.stdout).not.toContain("Choose one global model preset")
     expect(result.stdout).not.toContain("Global reasoning effort")
@@ -339,7 +340,7 @@ describe("lfg CLI", () => {
         ok: false,
         status: "error",
         code: "unsupported_command",
-        supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop", "codex"],
+        supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop"],
       })
     }
   })
@@ -348,15 +349,16 @@ describe("lfg CLI", () => {
     const result = await runLfgText(["help"], "", {})
 
     expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain("lfg                         # launches the selected adapter")
+    expect(result.stdout).toContain("lfg                         # launches GrokBuild (Grok-only; requires lfg setup)")
     expect(result.stdout).toContain("lfg setup")
-    expect(result.stdout).toContain("lfg --coding-tool-adapter pi-agent")
-    expect(result.stdout).toContain("lfg --json                  # prints the selected launch plan without spawning")
+    expect(result.stdout).toContain("lfg setup --run")
+    expect(result.stdout).toContain("lfg --json                  # prints the Grok launch plan without spawning")
     expect(result.stdout).toContain("npx @islee23520/lfg setup")
     expect(result.stdout).toContain("Setup run implementation:")
     expect(result.stdout).toContain("@islee23520/lfg internal grok-install")
     expect(result.stdout).not.toContain("npx lazycodex-ai install")
     expect(result.stdout).not.toContain("dry-setup")
+    expect(result.stdout).not.toContain("pi-agent")
     expect(result.stdout).not.toContain("doctor")
     expect(result.stdout).not.toContain("project-local")
     expect(result.stdout).not.toContain("bunx")

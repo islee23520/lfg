@@ -28,7 +28,7 @@ On Grok Build with lfg, teammode is **supported**. Do **not** stop because `code
 
 | `subagent_type` | Use for |
 | --- | --- |
-| `explorer` | OMO-style explore persona (lfg-owned; prefer when explorer prompts/models matter) |
+| `explorer` | OMO-style explore persona (lfg-owned; optional — prefer host `explore` for plain search) |
 | `hephaestus` / `coding` / `sisyphus-junior` | Implementation, deep execution |
 | `prometheus` / `plan` / `metis` | Strategic / pre-planning |
 | `oracle` / `reasoning` | Hard reasoning / debugging consult |

@@ -20,14 +20,14 @@ describe("setup plan JSON (ownership)", () => {
       codingToolAdapter: {
         selected: "grok",
         default: "grok",
-        supported: ["grok", "pi-agent"],
+        supported: ["grok"],
         contract: {
           id: "grok",
           command: "grok",
         },
         contracts: {
-          "pi-agent": {
-            command: "pi-agent",
+          grok: {
+            command: "grok",
             fallbackAdapter: null,
           },
         },

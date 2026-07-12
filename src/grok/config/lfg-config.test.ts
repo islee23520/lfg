@@ -29,14 +29,14 @@ describe("lfg-config", () => {
 
   test("writes selected coding tool adapter into lfg-owned config files", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-config-adapter-home-"))
-    await ensureLfgConfigFiles(home, { explorer: { model: "gpt-5.4-mini", reasoningLevel: "low" } }, "pi-agent")
+    await ensureLfgConfigFiles(home, { explorer: { model: "gpt-5.4-mini", reasoningLevel: "low" } }, "grok")
 
     const config = await readLfgConfigFile(home)
-    expect(config?.coding_tool_adapter).toBe("pi-agent")
+    expect(config?.coding_tool_adapter).toBe("grok")
 
     const runtimeRaw = await readFile(lfgRuntimeConfigPath(home), "utf8")
     const runtimeConfig = JSON.parse(runtimeRaw) as { readonly coding_tool_adapter?: string }
-    expect(runtimeConfig.coding_tool_adapter).toBe("pi-agent")
+    expect(runtimeConfig.coding_tool_adapter).toBe("grok")
   })
 
   test("default jsonc config accepts and applies fallback route fields", async () => {
