@@ -143,7 +143,7 @@ describe("plugin cache install acceptance (#27)", () => {
     expect(await readFile(configPath, "utf8")).toBe(customConfig)
     const hooksRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
     const hooks = parseHooksCommands(hooksRaw)
-    expect(countCommand(hooks, "lfg-config-loader.mjs")).toBe(2)
+    expect(countCommand(hooks, "lfg-config-loader.mjs")).toBe(3)
     expect(countCommand(hooks, "lfg-sisyphus-hooks.mjs")).toBe(9)
   })
 })

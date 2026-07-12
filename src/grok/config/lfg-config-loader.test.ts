@@ -197,6 +197,104 @@ describe("lfg-config-loader project .omo context", () => {
     expect(result.stderr).toContain(join(projectRoot, ".omo", "boulder.json"))
     expect(result.stdout).toBe("")
   })
+  test("PostCompact restores [models].default seed when absent (like SessionStart)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-loader-postcompact-seed-home-"))
+    await mkdir(join(home, ".grok"), { recursive: true })
+    const configPath = join(home, ".grok", "config.toml")
+    // No [models] section at all — fresh config.
+    await writeFile(configPath, '[omo.models]\ndefault = "gpt-5.5"\nreasoning = "gpt-5.5"\n', "utf8")
+
+    const result = await runLoader({
+      home,
+      payload: {
+        hookEventName: "PostCompact",
+        sessionId: "session-123",
+        cwd: await mkdtemp(join(tmpdir(), "lfg-loader-postcompact-seed-project-")),
+      },
+    })
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" })
+    const output = parseHookOutput(result.stdout)
+    expect(output.hookSpecificOutput?.additionalContext).toContain("LFG session model default: gpt-5.5 (restored in config.toml).")
+    await expect(readFile(configPath, "utf8")).resolves.toContain('[models]\ndefault = "gpt-5.5"')
+  })
+
+  test("PostCompact preserves existing [models].default (seed-only)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-loader-postcompact-preserve-home-"))
+    await mkdir(join(home, ".grok"), { recursive: true })
+    const configPath = join(home, ".grok", "config.toml")
+    // The user/Grok already chose grok-build; omo.models.default differs.
+    await writeFile(
+      configPath,
+      '[models]\ndefault = "grok-build"\n\n[omo.models]\ndefault = "gpt-5.5"\nreasoning = "gpt-5.5"\n',
+      "utf8",
+    )
+
+    const result = await runLoader({
+      home,
+      payload: {
+        hookEventName: "PostCompact",
+        sessionId: "session-123",
+        cwd: await mkdtemp(join(tmpdir(), "lfg-loader-postcompact-preserve-project-")),
+      },
+    })
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" })
+    const output = parseHookOutput(result.stdout)
+    // Reports the actual (preserved) default, without a restored note.
+    expect(output.hookSpecificOutput?.additionalContext).toContain("LFG session model default: grok-build.")
+    expect(output.hookSpecificOutput?.additionalContext).not.toContain("restored in config.toml")
+    // config.toml is unchanged — the user's choice persists.
+    await expect(readFile(configPath, "utf8")).resolves.toContain('[models]\ndefault = "grok-build"')
+    await expect(readFile(configPath, "utf8")).resolves.not.toContain('[models]\ndefault = "gpt-5.5"')
+  })
+
+  test("PostCompact emits project .omo context", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-loader-postcompact-context-home-"))
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-loader-postcompact-context-project-"))
+    await writeGlobalConfig(home)
+    await writeProjectOmo(projectRoot, "session-123", ["ledger one", "ledger two"])
+
+    const result = await runLoader({
+      home,
+      payload: {
+        hookEventName: "PostCompact",
+        sessionId: "session-123",
+        cwd: projectRoot,
+      },
+    })
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" })
+    const output = parseHookOutput(result.stdout)
+    expect(output.statusMessage).toContain("LFG:")
+    expect(output.hookSpecificOutput?.hookEventName).toBe("PostCompact")
+    expect(output.hookSpecificOutput?.additionalContext).toContain("LFG global config loaded from")
+    expect(output.hookSpecificOutput?.additionalContext).toContain(
+      `LFG project .omo ledger loaded from ${join(projectRoot, ".omo", "boulder.json")}.`,
+    )
+    expect(output.hookSpecificOutput?.additionalContext).toContain("Active work: demo-work")
+  })
+
+  test("PostCompact malformed .omo exits 0 with stderr warning", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-loader-postcompact-malformed-home-"))
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-loader-postcompact-malformed-project-"))
+    await mkdir(join(projectRoot, ".omo"), { recursive: true })
+    await writeFile(join(projectRoot, ".omo", "boulder.json"), "{broken", "utf8")
+
+    const result = await runLoader({
+      home,
+      payload: {
+        hookEventName: "PostCompact",
+        sessionId: "session-123",
+        workspaceRoot: projectRoot,
+      },
+    })
+
+    // PostCompact fails open (exit 0) but still warns on stderr.
+    expect(result.exitCode).toBe(0)
+    expect(result.stderr).toContain("LFG-OMO-LEDGER-ERROR")
+    expect(result.stderr).toContain(join(projectRoot, ".omo", "boulder.json"))
+  })
 })
 
 type ParsedHookOutput = {

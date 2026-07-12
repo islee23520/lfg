@@ -10,8 +10,8 @@
  * for coding|hephaestus|builder — same markers as src/grok/hooks/subagent-stop-evidence-verifier.ts.
  */
 
-import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 const { devLog } = await importFirst(["./lfg-dev-logger.mjs", "../log/lfg-dev-logger.mjs"]);
 
@@ -65,7 +65,14 @@ async function main() {
 
 async function runHook(input) {
   const event = normalizeHookEventName(input);
-  const context = renderSisyphusContext(event, input);
+  let context;
+  try {
+    context = renderSisyphusContext(event, input);
+  } catch (error) {
+    await devLog({ event, hook: "sisyphus", level: "error", detail: { failClosed: true, message: String(error?.message ?? error) } }).catch(() => {});
+    process.stdout.write(JSON.stringify({ statusMessage: `Sisyphus: ${event} (fail-closed, no injection)` }) + "\n");
+    return;
+  }
 
   await devLog({
     event,
@@ -93,6 +100,119 @@ async function runHook(input) {
   }
 }
 
+const BOULDER_MAX_BYTES = 128 * 1024;
+const PLAN_MAX_BYTES = 256 * 1024;
+
+function projectRootFromInput(record) {
+  return stringField(record ?? {}, ["cwd"]) ?? stringField(record ?? {}, ["workspaceRoot"]) ?? stringField(record ?? {}, ["workspace_root"]) ?? process.env.GROK_WORKSPACE_ROOT ?? process.cwd();
+}
+
+function readActiveWorkSnapshot(projectRoot) {
+  try {
+    const boulderPath = join(projectRoot, ".omo", "boulder.json");
+    if (!existsSync(boulderPath)) return null;
+    const st = statSync(boulderPath);
+    if (st.size > BOULDER_MAX_BYTES) return null;
+    const raw = readFileSync(boulderPath, "utf8");
+    const data = JSON.parse(raw);
+    if (typeof data !== "object" || data === null || Array.isArray(data)) return null;
+    // Try active_work_id -> works[id], else fall back to legacy mirror fields
+    let work = null;
+    let workId = null;
+    if (typeof data.active_work_id === "string" && data.works && typeof data.works === "object") {
+      work = data.works[data.active_work_id] ?? null;
+      workId = data.active_work_id;
+    }
+    if (!work) {
+      // Legacy mirror: top-level fields
+      work = data;
+      workId = data.work_id ?? data.active_work_id ?? "unknown";
+    }
+    return {
+      workId: String(workId),
+      planName: typeof work.plan_name === "string" ? work.plan_name : "",
+      status: typeof work.status === "string" ? work.status : "unknown",
+      activePlan: typeof work.active_plan === "string" ? work.active_plan : null,
+      worktreePath: typeof work.worktree_path === "string" ? work.worktree_path : null,
+      sessionCount: Array.isArray(work.session_ids) ? work.session_ids.length : 0,
+    };
+  } catch { return null; }
+}
+
+function readPlanChecklist(planPath) {
+  try {
+    if (!planPath || !existsSync(planPath)) return null;
+    const st = statSync(planPath);
+    if (st.size > PLAN_MAX_BYTES) return null;
+    const raw = readFileSync(planPath, "utf8");
+    const lines = raw.split("\n");
+    // Port of plan-checklist.ts: only ## TODOs and ## Final Verification Wave count
+    const TODO_HEADING = /^##\s+TODOs\b/i;
+    const FINAL_HEADING = /^##\s+Final Verification Wave\b/i;
+    const SECTION_PATTERN = /^##\s+/;
+    const CHECKED = /^- \[[xX]\] /;
+    const UNCHECKED = /^- \[ \] /;
+    const hasCountedSections = lines.some(l => TODO_HEADING.test(l) || FINAL_HEADING.test(l));
+    let isCountedSection = !hasCountedSections; // verbatim from TS source
+    let total = 0, completed = 0;
+    let nextTaskLabel = null;
+    for (const line of lines) {
+      if (SECTION_PATTERN.test(line)) {
+        isCountedSection = TODO_HEADING.test(line) || FINAL_HEADING.test(line) || (!hasCountedSections);
+        continue;
+      }
+      if (CHECKED.test(line) || UNCHECKED.test(line)) {
+        if (isCountedSection) {
+          total++;
+          if (CHECKED.test(line)) completed++;
+          else if (nextTaskLabel === null) nextTaskLabel = line.replace(UNCHECKED, "").trim();
+        }
+      }
+    }
+    return { total, completed, remaining: total - completed, nextTaskLabel };
+  } catch { return null; }
+}
+
+function readUlwLoopSessionCount(projectRoot) {
+  try {
+    const dir = join(projectRoot, ".omo", "ulw-loop");
+    if (!existsSync(dir)) return 0;
+    const entries = readdirSync(dir);
+    return entries.filter(e => /^[0-9a-f-]{8,}$/i.test(e)).length;
+  } catch { return 0; }
+}
+
+function resolvePlanPath(projectRoot, activePlan) {
+  if (!activePlan) return null;
+  try { return resolve(projectRoot, ".omo", "plans", activePlan); } catch { return null; }
+}
+
+function sanitizeBoulderField(value, maxLen = 120) {
+  if (typeof value !== "string") return "";
+  const cleaned = value.replace(/[\x00-\x1f\x7f]/g, "").trim().slice(0, maxLen);
+  if (/secret|password|api[_-]?key|token|credential/i.test(cleaned)) return "[redacted]";
+  return cleaned;
+}
+
+function renderDurableStateBlock(projectRoot) {
+  const snap = readActiveWorkSnapshot(projectRoot);
+  if (!snap) return "";
+  const lines = ["<sisyphus-durable-state>"];
+  lines.push(`Active work: ${sanitizeBoulderField(snap.workId)}`);
+  const planPath = resolvePlanPath(projectRoot, snap.activePlan);
+  if (planPath) {
+    lines.push(`Plan path: ${planPath}`);
+    const checklist = readPlanChecklist(planPath);
+    if (checklist) {
+      lines.push(`Checklist: ${checklist.completed}/${checklist.total} done, ${checklist.remaining} remaining (next: ${checklist.nextTaskLabel || "none"})`);
+    }
+  }
+  const ulwCount = readUlwLoopSessionCount(projectRoot);
+  if (ulwCount > 0) lines.push(`ULW-Loop sessions: ${ulwCount}`);
+  lines.push("Orchestrator mode: still active — re-assert Sisyphus orchestration discipline after compaction.");
+  lines.push("</sisyphus-durable-state>");
+  return lines.join("\n");
+}
 function renderSisyphusContext(event, input) {
   switch (event) {
     case "SessionStart":
@@ -110,7 +230,7 @@ function renderSisyphusContext(event, input) {
     case "Stop":
       return stopContext();
     case "PreCompact":
-      return preCompactContext();
+      return preCompactContext(input);
     case "Notification":
       return notificationContext(input);
     default:
@@ -154,6 +274,17 @@ function userPromptSubmitContext(input) {
   ];
   if (planningIntent !== null) {
     lines.push("", planningRoutingBlock(planningIntent));
+  }
+  const projectRoot = projectRootFromInput(input);
+  const snap = readActiveWorkSnapshot(projectRoot);
+  if (snap) {
+    lines.push("");
+    lines.push("<active-work>");
+    lines.push(`Active boulder work: ${sanitizeBoulderField(snap.workId)} (${sanitizeBoulderField(snap.planName)}, status=${sanitizeBoulderField(snap.status)}).`);
+    const planPath = resolvePlanPath(projectRoot, snap.activePlan);
+    if (planPath) lines.push(`Plan: ${planPath}`);
+    lines.push("Resume via boulder-state; continuation CLI remains Deferred.");
+    lines.push("</active-work>");
   }
   lines.push("", "</sisyphus-intent-routing>");
   return { statusLabel: planningIntent !== null ? "Planning intent routed to /ulw-plan" : "Intent routing hints injected", body: lines.join("\n") };
@@ -442,7 +573,7 @@ function stopContext() {
   return { statusLabel: "Final review gate", body: lines.join("\n") };
 }
 
-function preCompactContext() {
+function preCompactContext(input) {
   const lines = [
     "<sisyphus-state-preservation>",
     "Compaction imminent. Preserve Grok todo continuation state:",
@@ -457,6 +588,9 @@ function preCompactContext() {
     "",
     "</sisyphus-state-preservation>",
   ];
+  const projectRoot = projectRootFromInput(input);
+  const durableBlock = renderDurableStateBlock(projectRoot);
+  if (durableBlock) lines.push("", durableBlock);
   return { statusLabel: "State preservation before compaction", body: lines.join("\n") };
 }
 
@@ -702,7 +836,7 @@ function normalizeHookEventName(record) {
   const snake = raw.includes("_") ? raw : raw.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
   return (
     snake
-      .split("_")
+      .split(/[-_]/)
       .filter((part) => part.length > 0)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
       .join("") || "SessionStart"

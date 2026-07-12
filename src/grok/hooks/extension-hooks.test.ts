@@ -376,6 +376,129 @@ describe("sisyphus UserPromptSubmit /ulw-plan routing", () => {
   })
 })
 
+describe("sisyphus durable boulder-state injection", () => {
+  test("PreCompact injects durable boulder-state when .omo/boulder.json is present", async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-sisyphus-durable-"))
+    await mkdir(join(projectRoot, ".omo", "plans"), { recursive: true })
+    await writeFile(
+      join(projectRoot, ".omo", "boulder.json"),
+      JSON.stringify({
+        work_id: "wrk-durable-1",
+        plan_name: "Durable State Epic",
+        status: "in_progress",
+        active_plan: "durable-plan.md",
+      }),
+      "utf8",
+    )
+    await writeFile(
+      join(projectRoot, ".omo", "plans", "durable-plan.md"),
+      [
+        "## TODOs",
+        "- [x] Scaffold durable state reader",
+        "- [ ] Wire checklist into PreCompact",
+        "- [ ] Add fail-closed tests",
+        "",
+        "## Final Verification Wave",
+        "- [ ] Run full vitest suite",
+        "",
+      ].join("\n"),
+      "utf8",
+    )
+
+    const result = await runSisyphusLifecycleHookWithCwd("PreCompact", projectRoot)
+    expect(result.status).toBe(0)
+    const parsed = parseSisyphusOutput(result.stdout)
+    expect(parsed.statusMessage).toBe("Sisyphus: State preservation before compaction")
+    const ctx = parsed.hookSpecificOutput.additionalContext
+    expect(ctx).toContain("<sisyphus-durable-state>")
+    expect(ctx).toContain("Active work: wrk-durable-1")
+    expect(ctx).toContain("durable-plan.md")
+    expect(ctx).toContain("Checklist: 1/4 done, 3 remaining")
+    expect(ctx).toContain("Wire checklist into PreCompact")
+    expect(ctx).toContain("</sisyphus-durable-state>")
+    // Base state-preservation block still present
+    expect(ctx).toContain("<sisyphus-state-preservation>")
+  })
+
+  test("PreCompact omits durable block when .omo is absent", async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-sisyphus-no-omo-"))
+
+    const result = await runSisyphusLifecycleHookWithCwd("PreCompact", projectRoot)
+    expect(result.status).toBe(0)
+    const parsed = parseSisyphusOutput(result.stdout)
+    expect(parsed.statusMessage).toBe("Sisyphus: State preservation before compaction")
+    const ctx = parsed.hookSpecificOutput.additionalContext
+    expect(ctx).not.toContain("<sisyphus-durable-state>")
+    expect(ctx).toContain("<sisyphus-state-preservation>")
+  })
+
+  test("PreCompact fails closed on malformed .omo/boulder.json", async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-sisyphus-broken-"))
+    await mkdir(join(projectRoot, ".omo"), { recursive: true })
+    await writeFile(join(projectRoot, ".omo", "boulder.json"), "{not-json-broken", "utf8")
+
+    const result = await runSisyphusLifecycleHookWithCwd("PreCompact", projectRoot)
+    expect(result.status).toBe(0)
+    const parsed = parseSisyphusOutput(result.stdout)
+    const ctx = parsed.hookSpecificOutput.additionalContext
+    // Malformed JSON must NOT leak into injected context
+    expect(ctx).not.toContain("not-json-broken")
+    // Durable block silently omitted via per-reader fail-closed catch
+    expect(ctx).not.toContain("<sisyphus-durable-state>")
+    // Base state-preservation block still delivered
+    expect(ctx).toContain("<sisyphus-state-preservation>")
+  })
+
+  test("UserPromptSubmit injects active-work block when boulder present", async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-sisyphus-active-work-"))
+    await mkdir(join(projectRoot, ".omo", "plans"), { recursive: true })
+    await writeFile(
+      join(projectRoot, ".omo", "boulder.json"),
+      JSON.stringify({
+        work_id: "wrk-active-1",
+        plan_name: "Active Work Epic",
+        status: "in_progress",
+        active_plan: "active-plan.md",
+      }),
+      "utf8",
+    )
+
+    const result = await runSisyphusHookWithCwd("implement the auth module", projectRoot)
+    expect(result.status).toBe(0)
+    const parsed = parseSisyphusOutput(result.stdout)
+    const ctx = parsed.hookSpecificOutput.additionalContext
+    expect(ctx).toContain("<active-work>")
+    expect(ctx).toContain("wrk-active-1")
+    expect(ctx).toContain("Active Work Epic")
+    expect(ctx).toContain("status=in_progress")
+    expect(ctx).toContain("active-plan.md")
+    expect(ctx).toContain("</active-work>")
+    expect(ctx).toContain("</sisyphus-intent-routing>")
+  })
+
+  test("UserPromptSubmit omits active-work when no .omo", async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-sisyphus-no-active-"))
+
+    const result = await runSisyphusHookWithCwd("implement the login page", projectRoot)
+    expect(result.status).toBe(0)
+    const ctx = parseSisyphusOutput(result.stdout).hookSpecificOutput.additionalContext
+    expect(ctx).not.toContain("<active-work>")
+    expect(ctx).toContain("</sisyphus-intent-routing>")
+  })
+
+  test("PostCompact config-loader is registered in materialized hooks", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-sisyphus-postcompact-"))
+    const source = join(import.meta.dirname, "..", "fixture")
+    const { pluginRoot } = await installGrokPluginFromSource({ home, sourceRoot: source })
+    await mergePortedHooksIntoPlugin(pluginRoot)
+
+    const raw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
+    const parsed = JSON.parse(raw) as { hooks: Record<string, unknown[]> }
+    expect(parsed.hooks.PostCompact).toBeDefined()
+    expect(raw).toContain("lfg-config-loader.mjs")
+  })
+})
+
 type SisyphusOutput = {
   readonly statusMessage: string
   readonly hookSpecificOutput: {
@@ -402,6 +525,23 @@ async function runSisyphusLifecycleHook(event: string): Promise<HookAssetResult>
   const assetPath = join(import.meta.dirname, "..", "assets", "hooks", "lfg-sisyphus-hooks.mjs")
   return runHookAsset(assetPath, { GROK_HOOK_EVENT: event }, JSON.stringify({
     hookEventName: event,
+  }))
+}
+
+async function runSisyphusLifecycleHookWithCwd(event: string, cwd: string): Promise<HookAssetResult> {
+  const assetPath = join(import.meta.dirname, "..", "assets", "hooks", "lfg-sisyphus-hooks.mjs")
+  return runHookAsset(assetPath, { GROK_HOOK_EVENT: event }, JSON.stringify({
+    hookEventName: event,
+    cwd,
+  }))
+}
+
+async function runSisyphusHookWithCwd(prompt: string, cwd: string): Promise<HookAssetResult> {
+  const assetPath = join(import.meta.dirname, "..", "assets", "hooks", "lfg-sisyphus-hooks.mjs")
+  return runHookAsset(assetPath, { GROK_HOOK_EVENT: "UserPromptSubmit" }, JSON.stringify({
+    hookEventName: "UserPromptSubmit",
+    prompt,
+    cwd,
   }))
 }
 

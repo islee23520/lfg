@@ -131,6 +131,7 @@ function addLfgConfigLoaderHooks(hooksBlock: JsonRecord): JsonRecord {
     ...hooksBlock,
     SessionStart: appendConfigLoader(hooksBlock.SessionStart, "SessionStart"),
     UserPromptSubmit: appendConfigLoader(hooksBlock.UserPromptSubmit, "UserPromptSubmit"),
+    PostCompact: appendConfigLoader(hooksBlock.PostCompact, "PostCompact"),
   }
 }
 

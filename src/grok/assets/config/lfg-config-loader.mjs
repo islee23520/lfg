@@ -15,14 +15,18 @@ const home = resolveGrokHome(process.env);
 const configPath = join(home, ".grok", "lfg-config.jsonc");
 const grokConfigPath = join(home, ".grok", "config.toml");
 const config = await readConfig(configPath);
-const modelRestore = event === "SessionStart" ? await restoreSessionDefaultModel(grokConfigPath) : null;
+const modelRestore = (event === "SessionStart" || event === "PostCompact") ? await restoreSessionDefaultModel(grokConfigPath) : null;
 const projectRoot = projectRootFromInput(input);
 const sessionId = sessionIdFromInput(input);
 const ledger = await inspectProjectOmoLedger({ projectRoot, sessionId });
 if (ledger.status === "malformed") {
   await devLog({ event, hook: "config-loader", level: "error", detail: "malformed .omo ledger", boulderPath: ledger.boulderPath });
   process.stderr.write(`LFG-OMO-LEDGER-ERROR: malformed project .omo state at ${ledger.boulderPath}\n`);
-  process.exit(1);
+  if (event === "PostCompact") {
+    process.stdout.write(JSON.stringify({ statusMessage: `LFG: ${event} (malformed .omo, skipped)` }) + "\n");
+    process.exit(0);
+  }
+  process.exit(1); // SessionStart / UserPromptSubmit keep hard fail
 }
 const context = renderContext(configPath, config, ledger, modelRestore);
 
@@ -350,7 +354,7 @@ function normalizeHookEventName(record) {
   const raw = stringField(record ?? {}, "hookEventName") ?? stringField(record ?? {}, "hook_event_name") ?? process.env.GROK_HOOK_EVENT ?? "SessionStart";
   const snake = raw.includes("_") ? raw : raw.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
   return snake
-    .split("_")
+    .split(/[-_]/)
     .filter((part) => part.length > 0)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join("") || "SessionStart";
