@@ -1,7 +1,7 @@
 name = "writing"
 description = "OMO writing category agent for documentation, prose, and technical writing. Produces clear, well-structured documentation and written content."
 nickname_candidates = ["Writer"]
-model = "gemini-3.1-pro-low"
+model = "grok-3-mini-fast"
 model_reasoning_effort = "low"
 service_tier = "default"
 

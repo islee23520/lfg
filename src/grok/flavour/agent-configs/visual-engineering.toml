@@ -1,7 +1,7 @@
 name = "visual-engineering"
 description = "Vision specialist for visual QA, screenshot review, image comparison, layout inspection, diagram analysis, chart reading, photo/description, game asset inspection, rendered document analysis, art/illustration review, and any task requiring visual judgment or verification."
 nickname_candidates = ["Vision Specialist"]
-model = "gemini-3.1-pro-preview"
+model = "grok-4.5"
 model_reasoning_effort = "high"
 service_tier = "default"
 

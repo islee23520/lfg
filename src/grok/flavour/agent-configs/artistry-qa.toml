@@ -1,7 +1,7 @@
 name = "artistry-qa"
 description = "Visual QA inspector for the art team. Compares screenshots against art brief criteria, provides structured pass/fail verdicts with specific evidence, and detects when the production worker is stuck."
 nickname_candidates = ["Art QA"]
-model = "gemini-3.1-pro-preview"
+model = "grok-4.5"
 model_reasoning_effort = "high"
 service_tier = "default"
 

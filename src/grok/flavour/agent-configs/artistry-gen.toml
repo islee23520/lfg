@@ -1,7 +1,7 @@
 name = "artistry-gen"
 description = "Computer Use production worker for the art team. Executes tool operations in the user's creative application via Computer Use. Learns tool UI, performs actions, and reports progress back to artistry."
 nickname_candidates = ["Art Worker"]
-model = "gemini-3.1-pro-preview"
+model = "grok-4.5"
 model_reasoning_effort = "high"
 service_tier = "default"
 
