@@ -61,16 +61,21 @@ describe("subagent-routing", () => {
     }
   })
 
-  test("keeps host explore/general-purpose enabled (no forced lfg duplicate)", () => {
+  test("host builtins enabled but spawn-map redirects to OMO personas (Option 2C)", () => {
     const toggles = Object.fromEntries(LFG_SUBAGENT_TOGGLES)
 
     for (const name of GROK_HOST_BUILTINS_ENABLED) {
       expect(toggles[name], name).toBe(true)
-      expect(lfgSubagentForOmoSpawnType(name)).toBe(name)
     }
-    // OMO explorer persona remains available as an opt-in specialist
+    // Builtins redirect to OMO personas via spawn-map (host prompts cannot be overridden)
+    expect(lfgSubagentForOmoSpawnType("general-purpose")).toBe("sisyphus")
+    expect(lfgSubagentForOmoSpawnType("explore")).toBe("explorer")
+    expect(lfgSubagentForOmoSpawnType("plan")).toBe("prometheus")
+    // OMO personas remain available as identity-mapped specialists
     expect(toggles.explorer).toBe(true)
     expect(lfgSubagentForOmoSpawnType("explorer")).toBe("explorer")
+    expect(toggles.sisyphus).toBe(true)
+    expect(toggles.prometheus).toBe(true)
   })
 
   test("disables only shadow aliases that remap to lfg coding/reviewer", () => {

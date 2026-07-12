@@ -1,0 +1,1 @@
+{"schemaVersion":1,"kind":"cli-replay","replaySafe":true,"command":["git","show","--oneline","-1"],"cwd":".","env":{"LC_ALL":"C"},"timeoutMs":5000,"expectedExitCode":0,"recordedStdout":"6c91685 refactor: Grok-native model architecture","recordedStderr":"","invariants":[{"type":"substring","value":"6c91685"}]}

@@ -1,15 +1,19 @@
 /**
  * Map OMO/OpenCode spawn labels onto GrokBuild `subagent_type` ids.
- * Prefer host built-ins (`explore`, `general-purpose`) over lfg duplicates when the job is generic.
- * Keep lfg personas for OMO-specific roles (librarian, coding, sisyphus, …).
+ * Option 2C: redirect generic builtin labels to OMO personas that carry
+ * the desired behavior patterns (host builtins cannot be prompt-overridden).
+ * Specialists (librarian, oracle, momus, metis, coding, reviewer) stay identity-mapped.
  */
 export const OMO_SPAWN_TYPE_TO_LFG_SUBAGENT: Readonly<Record<string, string>> = {
-  explore: "explore",
-  explorer: "explorer",
-  "general-purpose": "general-purpose",
+  // Builtin redirects: OMO-originated spawns use persona prompts/models
+  explore: "explorer",
+  "general-purpose": "sisyphus",
+  plan: "prometheus",
+  // Shadow aliases
   "grok-build": "coding",
   builder: "reviewer",
-  plan: "plan",
+  // OMO personas (identity mapping)
+  explorer: "explorer",
   librarian: "librarian",
   oracle: "oracle",
   prometheus: "prometheus",

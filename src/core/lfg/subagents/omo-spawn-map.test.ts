@@ -2,29 +2,32 @@ import { describe, expect, test } from "vitest"
 import { lfgSubagentForOmoSpawnType } from "./omo-spawn-map"
 
 describe("omo-spawn-map", () => {
-  test("prefers host built-ins for generic explore and general-purpose", () => {
-    // Given: OMO labels that match Grok host built-ins.
-    const spawnTypes = ["explore", "general-purpose", "grok-build", "builder"] as const
+  test("redirects builtin labels to OMO personas (Option 2C)", () => {
+    // Given: builtin labels that should carry OMO behavior patterns.
+    const spawnTypes = ["explore", "general-purpose", "plan"] as const
 
-    // When: the host-neutral lfg spawn map is applied.
+    // When: the spawn map redirects builtins to OMO personas.
     const mapped = spawnTypes.map((spawnType) => lfgSubagentForOmoSpawnType(spawnType))
 
-    // Then: host explore/general-purpose stay identity; only shadow aliases remap.
-    expect(mapped).toEqual(["explore", "general-purpose", "coding", "reviewer"])
+    // Then: builtins redirect to OMO personas with installed prompts/models.
+    expect(mapped).toEqual(["explorer", "sisyphus", "prometheus"])
   })
 
-  test("keeps lfg explorer as an explicit OMO persona id", () => {
+  test("redirects shadow aliases to specialist personas", () => {
+    expect(lfgSubagentForOmoSpawnType("grok-build")).toBe("coding")
+    expect(lfgSubagentForOmoSpawnType("builder")).toBe("reviewer")
+  })
+
+  test("keeps OMO persona names identity-mapped", () => {
     expect(lfgSubagentForOmoSpawnType("explorer")).toBe("explorer")
+    expect(lfgSubagentForOmoSpawnType("sisyphus")).toBe("sisyphus")
+    expect(lfgSubagentForOmoSpawnType("librarian")).toBe("librarian")
+    expect(lfgSubagentForOmoSpawnType("oracle")).toBe("oracle")
+    expect(lfgSubagentForOmoSpawnType("prometheus")).toBe("prometheus")
   })
 
-  test("preserves OMO persona names and unknown extension names", () => {
-    // Given: spawn names that already belong to OMO/lfg or an extension.
-    const spawnTypes = ["plan", "librarian", "sisyphus-junior", "custom-worker"] as const
-
-    // When: the host-neutral lfg spawn map is applied.
-    const mapped = spawnTypes.map((spawnType) => lfgSubagentForOmoSpawnType(spawnType))
-
-    // Then: names without a replacement keep their original value.
-    expect(mapped).toEqual(["plan", "librarian", "sisyphus-junior", "custom-worker"])
+  test("passes through unknown extension names", () => {
+    expect(lfgSubagentForOmoSpawnType("custom-worker")).toBe("custom-worker")
+    expect(lfgSubagentForOmoSpawnType("sisyphus-junior")).toBe("sisyphus-junior")
   })
 })
