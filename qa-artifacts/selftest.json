@@ -1,1 +1,0 @@
-{"schemaVersion":1,"kind":"cli-replay","replaySafe":true,"command":["node","dist/self-test.js"],"cwd":".","env":{"LC_ALL":"C"},"timeoutMs":30000,"expectedExitCode":0,"recordedStdout":"check-1=ok\ncheck-2=ok\ncheck-3=ok\ncheck-4=ok\ncheck-5=ok","recordedStderr":"","invariants":[{"type":"substring","value":"check-5=ok"}]}

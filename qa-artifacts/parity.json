@@ -1,1 +1,0 @@
-{"schemaVersion":1,"kind":"cli-replay","replaySafe":true,"command":["node","scripts/assert-omo-parity.mjs"],"cwd":".","env":{"LC_ALL":"C"},"timeoutMs":30000,"expectedExitCode":0,"recordedStdout":"assert-omo-parity: ok upstream 4.16.3, skills=25, roots=3","recordedStderr":"","invariants":[{"type":"substring","value":"ok upstream"},{"type":"not-substring","value":"error"}]}
