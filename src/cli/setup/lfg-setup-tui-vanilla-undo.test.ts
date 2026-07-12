@@ -156,7 +156,7 @@ describe("lfg-setup-tui vanilla + undo", () => {
     const origSelect = prompts.select
     prompts.select = async (opts: any) => {
       const message = String(opts.message ?? "")
-      if (/Global model preset/.test(message)) return "balanced"
+      if (/Global model preset/.test(message)) return "grok"
       if (/Global reasoning effort/.test(message)) return "xhigh"
       return String(opts.options?.[0]?.value ?? "auto")
     }

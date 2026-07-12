@@ -19,51 +19,13 @@ export type ModelIDAliasResolution = {
   ruleID?: string
 }
 
-const EXACT_ALIAS_RULES: ReadonlyArray<ExactAliasRule> = [
-  {
-    aliasModelID: "gemini-3-pro-high",
-    ruleID: "gemini-3-pro-tier-alias",
-    canonicalModelID: "gemini-3-pro-preview",
-    rationale: "Legacy Gemini 3 tier suffixes still need to land on the canonical preview model.",
-  },
-  {
-    aliasModelID: "gemini-3-pro-low",
-    ruleID: "gemini-3-pro-tier-alias",
-    canonicalModelID: "gemini-3-pro-preview",
-    rationale: "Legacy Gemini 3 tier suffixes still need to land on the canonical preview model.",
-  },
-  {
-    aliasModelID: "k2pb",
-    ruleID: "kimi-k2pb-alias",
-    canonicalModelID: "k2p5",
-    rationale: "Kimi for Coding exposes k2pb while the bundled capabilities snapshot uses the canonical k2p5 ID.",
-  },
-  {
-    aliasModelID: "claude-opus-4.7",
-    ruleID: "claude-opus-dotted-version-alias",
-    canonicalModelID: "claude-opus-4-7",
-    rationale: "GitHub Copilot exposes Claude Opus 4.7 with dotted version syntax while the snapshot uses dashed syntax.",
-  },
-]
+const EXACT_ALIAS_RULES: ReadonlyArray<ExactAliasRule> = []
 
 const EXACT_ALIAS_RULES_BY_MODEL: ReadonlyMap<string, ExactAliasRule> = new Map(
   EXACT_ALIAS_RULES.map((rule) => [rule.aliasModelID, rule]),
 )
 
-const PATTERN_ALIAS_RULES: ReadonlyArray<PatternAliasRule> = [
-  {
-    ruleID: "claude-thinking-legacy-alias",
-    description: "Normalizes the legacy claude-opus-4-7-thinking id to the canonical snapshot ID.",
-    match: (normalizedModelID) => /^claude-opus-4-7-thinking$/.test(normalizedModelID),
-    canonicalize: () => "claude-opus-4-7",
-  },
-  {
-    ruleID: "gemini-3.1-pro-tier-alias",
-    description: "Normalizes Gemini 3.1 Pro tier suffixes to the canonical snapshot ID.",
-    match: (normalizedModelID) => /^gemini-3\.1-pro-(?:high|low)$/.test(normalizedModelID),
-    canonicalize: () => "gemini-3.1-pro",
-  },
-]
+const PATTERN_ALIAS_RULES: ReadonlyArray<PatternAliasRule> = []
 
 function normalizeLookupModelID(modelID: string): string {
   return modelID.trim().toLowerCase()

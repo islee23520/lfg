@@ -1,13 +1,4 @@
-export type ModelVariant =
-  | "default"
-  | "gpt"
-  | "gemini"
-  | "kimi"
-  | "glm"
-  | "planner"
-  | "codex"
-  | "opus-4-7"
-  | "minimax"
+export type ModelVariant = "default" | "codex"
 
 export type FilesystemPromptSource = {
   readonly kind?: "filesystem"

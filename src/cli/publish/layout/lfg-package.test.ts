@@ -128,7 +128,7 @@ describe("lfg package contract", () => {
     expect(json.selectedPreset).toBe("auto")
     const scopedDoctor = await execFileResultEnv(
       "npx",
-      ["@islee23520/lfg", "--json", "setup", "--preset", "gpt"],
+      ["@islee23520/lfg", "--json", "setup", "--preset", "grok"],
       installDir,
       { HOME: home },
     )
@@ -136,7 +136,7 @@ describe("lfg package contract", () => {
     const scopedJson = JSON.parse(scopedDoctor.stdout) as { readonly ok?: boolean; readonly command?: string; readonly selectedPreset?: string }
     expect(scopedJson.ok).toBe(true)
     expect(scopedJson.command).toBe("setup")
-    expect(scopedJson.selectedPreset).toBe("gpt")
+    expect(scopedJson.selectedPreset).toBe("grok")
     const doctor = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, { HOME: home })
     expect(doctor.exitCode).toBe(1)
     const unsupported = JSON.parse(doctor.stdout) as { readonly ok?: boolean; readonly code?: string; readonly supportedCommands?: readonly string[] }

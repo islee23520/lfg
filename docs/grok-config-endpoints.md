@@ -41,19 +41,14 @@ Or merge manually: delete `api_key` from `[endpoints]`; keep `models_base_url`.
 
 Supported presets:
 
-- `auto` (default): choose the best available routes from the discovered proxy catalog.
-- `balanced`: GPT default, Gemini fast, Grok reasoning/coding when available.
+- `auto` (default): choose the best available Grok-first routes from the discovered catalog.
 - `grok`: prefer Grok routes.
-- `gpt`: prefer GPT routes for default/reasoning while coding stays on recommended agent routes.
-- `gemini`: prefer Gemini long-context routes.
-- `glm`: prefer GLM routes.
-- `multi`: balanced routing plus provider-scoped `[model.*].base_url` values.
 
 Use `--reasoning-effort auto|low|medium|high|xhigh` to control global reasoning effort for derived OMO agent roles. `auto` keeps role defaults (`explorer=low`, `coding=medium`, `reasoning=high`) instead of trusting model-advertised reasoning metadata.
 
-## Multi-provider preset
+## Multi-provider discovery
 
-`lfg --json setup --preset multi` uses balanced global routing, but discovery metadata may group model ids by provider so generated `[model.*]` sections can carry provider-specific `base_url` values. In this mode, lfg does not write the single resolved global `api_key` into per-provider model sections. This is a GJC-style multi-provider configuration surface without reading `~/.gjc` or changing the default single-endpoint setup path.
+When discovery advertises provider-specific endpoints (e.g. via multi-endpoint provider discovery), generated `[model.*]` sections can carry provider-specific `base_url` values. In that mode, lfg does not write the single resolved global `api_key` into per-provider model sections. This is a multi-provider configuration surface without reading `~/.gjc` or changing the default single-endpoint setup path.
 
 ## Tests
 

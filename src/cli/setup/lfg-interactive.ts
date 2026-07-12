@@ -204,13 +204,8 @@ async function configureLazycodexAgentsFull(reader: LineReader, discovery: Model
   }
 
   output.write("Choose one global model preset. Individual agent model prompts have been removed.\n")
-  output.write("  1) auto: best available global routes (recommended)\n")
-  output.write("  2) balanced: GPT default, Gemini fast, Grok reasoning/coding\n")
-  output.write("  3) grok: prefer Grok for all routes\n")
-  output.write("  4) gpt: prefer GPT for default/reasoning while coding stays on recommended agent routes\n")
-  output.write("  5) gemini: prefer Gemini for long-context exploration\n")
-  output.write("  6) glm: prefer GLM for default/reasoning\n")
-  output.write("  7) multi: balanced routes plus provider-scoped base URLs\n")
+  output.write("  1) auto: best available Grok-first global routes (recommended)\n")
+  output.write("  2) grok: prefer Grok for all routes\n")
   const preset = await readSetupPreset(reader)
   const reasoningEffort = await readReasoningEffort(reader)
   const presetDiscovery = withReasoningEffort(applyModelPreset(discovery, preset), reasoningEffort)
@@ -243,12 +238,7 @@ async function readSetupPreset(reader: LineReader): Promise<SetupPreset> {
   const answer = await reader.next()
   const value = answer.done === true ? "" : answer.value.trim().toLowerCase()
   if (value.length === 0 || value === "1" || value === "auto") return "auto"
-  if (value === "2" || value === "balanced") return "balanced"
-  if (value === "3" || value === "grok") return "grok"
-  if (value === "4" || value === "gpt") return "gpt"
-  if (value === "5" || value === "gemini") return "gemini"
-  if (value === "6" || value === "glm") return "glm"
-  if (value === "7" || value === "multi") return "multi"
+  if (value === "2" || value === "grok") return "grok"
   output.write(`Unknown preset "${value}". Using auto.\n`)
   return "auto"
 }

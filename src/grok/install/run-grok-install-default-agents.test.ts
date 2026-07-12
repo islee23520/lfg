@@ -38,7 +38,7 @@ describe("runGrokInstall default agent surfaces", () => {
     expect(sisyphusRole).toContain('reasoning_effort = "low"')
 
     const atlasRole = await readFile(join(home, ".grok", "roles", "atlas.toml"), "utf8")
-    expect(atlasRole).toContain('model = "claude-sonnet-4-6"')
+    expect(atlasRole).toContain('model = "grok-4.5"')
     expect(atlasRole).toContain('reasoning_effort = "high"')
 
     const defaultAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "default.md"), "utf8")
@@ -108,11 +108,11 @@ describe("runGrokInstall default agent surfaces", () => {
     expect(run.ok).toBe(true)
 
     const oracleRole = await readFile(join(home, ".grok", "roles", "oracle.toml"), "utf8")
-    expect(oracleRole).toContain('model = "gpt-5.5"')
+    expect(oracleRole).toContain('model = "grok-4.5"')
     expect(oracleRole).toContain('reasoning_effort = "high"')
 
     const atlasRole = await readFile(join(home, ".grok", "roles", "atlas.toml"), "utf8")
-    expect(atlasRole).toContain('model = "claude-sonnet-4-6"')
+    expect(atlasRole).toContain('model = "grok-4.5"')
 
     const oraclePrompt = await readFile(join(home, ".grok", "prompts", "omo", "oracle.md"), "utf8")
     expect(oraclePrompt).toContain("OMO Oracle")
@@ -128,7 +128,7 @@ describe("runGrokInstall default agent surfaces", () => {
     expect(atlasAgent).toContain("name: atlas")
 
     const juniorRole = await readFile(join(home, ".grok", "roles", "sisyphus-junior.toml"), "utf8")
-    expect(juniorRole).toContain('model = "claude-sonnet-4-6"')
+    expect(juniorRole).toContain('model = "grok-4.5"')
     expect(juniorRole).toContain('reasoning_effort = "medium"')
 
     const juniorPrompt = await readFile(join(home, ".grok", "prompts", "omo", "sisyphus-junior.md"), "utf8")
@@ -154,11 +154,11 @@ describe("runGrokInstall default agent surfaces", () => {
     }
 
     const ultrabrainRole = await readFile(join(home, ".grok", "roles", "ultrabrain.toml"), "utf8")
-    expect(ultrabrainRole).toContain('model = "gpt-5.5"')
+    expect(ultrabrainRole).toContain('model = "grok-4.5"')
     expect(ultrabrainRole).toContain('reasoning_effort = "xhigh"')
 
     const quickRole = await readFile(join(home, ".grok", "roles", "quick.toml"), "utf8")
-    expect(quickRole).toContain('model = "gpt-5.4-mini-fast"')
+    expect(quickRole).toContain('model = "grok-3-mini-fast"')
 
     const overridesRaw = await readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")
     expect(overridesRaw).toContain('"ultrabrain"')

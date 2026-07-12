@@ -1,31 +1,7 @@
 import type { ModelVariant } from "../prompts-core"
-import {
-  isClaudeFable5Model,
-  isClaudeOpus46Model,
-  isClaudeOpus47Model,
-  isClaudeOpus47OrLaterModel,
-  isClaudeOpus48Model,
-  isGeminiModel,
-  isGlmModel,
-  isGptModel,
-  isKimiK2Model,
-  isKimiK27Model,
-  isMiniMaxModel,
-} from "../model-core"
+import { isClaudeOpus47OrLaterModel } from "../model-core"
 
-export {
-  isClaudeFable5Model,
-  isClaudeOpus46Model,
-  isClaudeOpus47Model,
-  isClaudeOpus47OrLaterModel,
-  isClaudeOpus48Model,
-  isGeminiModel,
-  isGlmModel,
-  isGptModel,
-  isKimiK2Model,
-  isKimiK27Model,
-  isMiniMaxModel,
-}
+export { isClaudeOpus47OrLaterModel }
 
 /**
  * Grok-neutral port of the upstream OmO agent type surface.
@@ -132,22 +108,6 @@ export type AgentPromptMetadata = {
   readonly dedicatedSection?: string
   readonly promptAlias?: string
   readonly keyTrigger?: string
-}
-
-function extractModelName(model: string): string {
-  return model.includes("/") ? (model.split("/").pop() ?? model) : model
-}
-
-const GPT_NATIVE_SISYPHUS_RE = /gpt-5[.-](?:(?:3[.-])?codex|[4-9]|\d{2,})/i
-
-export function isGptNativeSisyphusModel(model: string): boolean {
-  const modelName = extractModelName(model).toLowerCase()
-  return GPT_NATIVE_SISYPHUS_RE.test(modelName)
-}
-
-export function isGpt5_5Model(model: string): boolean {
-  const modelName = extractModelName(model).toLowerCase()
-  return modelName.includes("gpt-5.5") || modelName.includes("gpt-5-5")
 }
 
 export type BuiltinAgentName =

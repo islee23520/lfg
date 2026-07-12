@@ -13,7 +13,7 @@ export type ModelMapping = {
 
 export type ReasoningLevel = "low" | "medium" | "high" | "xhigh"
 export type ReasoningEffortChoice = ReasoningLevel | "auto"
-export type SetupPreset = "auto" | "balanced" | "grok" | "gpt" | "gemini" | "glm" | "multi"
+export type SetupPreset = "auto" | "grok"
 
 export type LazycodexAgentName = "explorer" | "reasoning" | "coding"
 
@@ -70,7 +70,7 @@ export function modelDiscoveryPlan(): JsonObject {
     endpoint: "OpenAI-compatible /v1/models",
     prompt: "OpenAI-compatible base URL (optional — auto from ~/.grok/config.toml or http://127.0.0.1:8317/v1)",
     autoSources: ["--base-url", "LFG_GROK_BASE_URL", "[endpoints].models_base_url", "default_proxy"],
-    presets: ["auto", "balanced", "grok", "gpt", "gemini", "glm", "multi"],
+    presets: ["auto", "grok"],
     defaultPreset: "auto",
   }
 }
@@ -296,57 +296,16 @@ function resolveAgentReasoning(fallback: ReasoningLevel, choice: ReasoningEffort
 
 export function applyModelPreset(discovery: ModelDiscovery, preset: SetupPreset): ModelDiscovery {
   const mapping = presetMapping(discovery.modelIds, preset)
-  const providerEndpoints = preset === "multi" ? multiProviderEndpoints(discovery) : discovery.providerEndpoints
-  return { ...discovery, mapping, preset, ...(providerEndpoints === undefined ? {} : { providerEndpoints }) }
+  return { ...discovery, mapping, preset }
 }
 
 function presetMapping(modelIds: readonly string[], preset: SetupPreset): ModelMapping {
   switch (preset) {
     case "auto":
       return autoBestMapping(modelIds)
-    case "balanced":
-    case "multi":
-      return balancedMapping(modelIds)
     case "grok":
       return grokCenteredMapping(modelIds)
-    case "gpt":
-      return gptCenteredMapping(modelIds)
-    case "gemini":
-      return geminiCenteredMapping(modelIds)
-    case "glm":
-      return glmCenteredMapping(modelIds)
   }
-}
-
-function multiProviderEndpoints(discovery: ModelDiscovery): readonly MultiProviderEndpoint[] {
-  const groups = new Map<string, string[]>()
-  for (const modelId of discovery.modelIds) {
-    const provider = providerForModel(modelId)
-    const ids = groups.get(provider) ?? []
-    ids.push(modelId)
-    groups.set(provider, ids)
-  }
-  return [...groups.entries()].map(([id, modelIds]) => ({ id, baseUrl: providerBaseUrl(id, discovery.baseUrl), modelIds }))
-}
-
-function providerForModel(modelId: string): string {
-  const explicit = modelId.includes("/") ? modelId.split("/")[0] : null
-  if (explicit !== null && explicit.length > 0) return explicit
-  const lowered = modelId.toLowerCase()
-  if (lowered.startsWith("grok-")) return "xai"
-  if (lowered.startsWith("glm-")) return "glm"
-  if (lowered.startsWith("gemini-")) return "google"
-  if (lowered.startsWith("claude-")) return "anthropic"
-  return "openai-compatible"
-}
-
-function providerBaseUrl(provider: string, fallbackBaseUrl: string): string {
-  if (provider === "xai") return "https://api.x.ai/v1"
-  if (provider === "openai") return "https://api.openai.com/v1"
-  if (provider === "google") return "https://generativelanguage.googleapis.com/v1beta/openai"
-  if (provider === "anthropic") return "https://api.anthropic.com/v1"
-  if (provider === "glm") return "https://open.bigmodel.cn/api/paas/v4"
-  return fallbackBaseUrl
 }
 
 function normalizeModelUrls(inputBaseUrl: string): { readonly baseUrl: string; readonly modelsUrl: string } {
@@ -397,10 +356,10 @@ function mapModels(modelIds: readonly string[]): ModelMapping {
     throw new ModelDiscoveryError("Cannot map an empty model list")
   }
   return {
-    default: findModel(modelIds, ["grok-4.5", "gpt-5.5", "grok-4.3", "glm-5.2", "gemini-3.1-pro-preview", "gemini-3-pro-preview", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "grok-4", "grok", "grok-build"]) ?? canonicalModelFor(modelIds, first),
-    fast: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-3-mini-fast", "gpt-5.4-mini-fast", "grok-4.20-0309-non-reasoning", "gemini-3-pro-low", "glm-5-turbo", "mini", "flash", "small", "fast"]) ?? canonicalModelFor(modelIds, first),
-    reasoning: findModel(modelIds, ["grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5", "glm-5.2", "gemini-3-pro-high", "reasoning", "reason", "o1", "o3", "o4", "r1", "grok-4", "gpt-5"]) ?? canonicalModelFor(modelIds, first),
-    coding: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-4.20-0309-non-reasoning", "grok-build", "glm-5-turbo", "gemini-3-pro-low", "codex-auto-review", "code", "coder", "gpt", "grok", "claude"]) ?? canonicalModelFor(modelIds, first),
+    default: findModel(modelIds, ["grok-4.5", "grok-4.3", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "grok-4", "grok", "grok-build"]) ?? canonicalModelFor(modelIds, first),
+    fast: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-3-mini-fast", "grok-4.20-0309-non-reasoning"]) ?? canonicalModelFor(modelIds, first),
+    reasoning: findModel(modelIds, ["grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3", "grok-4"]) ?? canonicalModelFor(modelIds, first),
+    coding: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-4.20-0309-non-reasoning", "grok-build", "grok"]) ?? canonicalModelFor(modelIds, first),
   }
 }
 
@@ -410,63 +369,22 @@ function autoBestMapping(modelIds: readonly string[]): ModelMapping {
     throw new ModelDiscoveryError("Cannot map an empty model list")
   }
   return {
-    default: findModel(modelIds, ["grok-4.5", "grok-build-0.1", "grok-build", "gpt-5.5", "glm-5.2", "gpt-5", "glm", "grok-4.3", "gemini-3.1-pro-preview", "gemini-3-pro-preview", "grok-4.20-0309-reasoning", "grok-4"]) ?? canonicalModelFor(modelIds, first),
-    fast: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "gpt-5.4-mini-fast", "gpt-5.4-mini", "glm-5-turbo", "gemini-3-flash", "gemini-3.1-flash-lite", "fast", "mini", "flash", "lite", "turbo", "air", "grok-3-mini-fast"]) ?? canonicalModelFor(modelIds, first),
-    reasoning: findModel(modelIds, ["grok-4.5", "gpt-5.5", "glm-5.2", "gpt-5", "glm", "reasoning", "think", "o1", "o3", "o4", "r1", "grok-4.3", "grok-4.20-0309-reasoning", "gemini-3-pro-high", "grok-4"]) ?? canonicalModelFor(modelIds, first),
-    coding: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "code", "coder", "coding", "build", "grok-4.20-0309-non-reasoning", "grok-build", "glm-5-turbo", "gpt", "grok"]) ?? canonicalModelFor(modelIds, first),
-  }
-}
-
-function balancedMapping(modelIds: readonly string[]): ModelMapping {
-  const fallback = mapModels(modelIds)
-  return {
-    default: findModel(modelIds, ["gpt-5.5", "gpt-5.4", "gpt-5", "grok-4.5", "grok-4.3", "glm-5.2", "gemini-3.1-pro-preview", "gemini-3-pro-preview"]) ?? fallback.default,
-    fast: findModel(modelIds, ["gemini-3-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini", "grok-composer-2.5-fast", "grok-3-mini-fast", "gpt-5.4-mini-fast", "flash", "fast", "mini"]) ?? fallback.fast,
-    reasoning: findModel(modelIds, ["grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3", "glm-5.2", "gpt-5.5", "gemini-3.1-pro-preview", "reasoning", "grok-4"]) ?? fallback.reasoning,
-    coding: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-4.20-0309-non-reasoning", "grok-build", "glm-5-turbo", "codex-auto-review", "code", "coder"]) ?? fallback.coding,
+    default: findModel(modelIds, ["grok-4.5", "grok-build-0.1", "grok-build", "grok-4.3", "grok-4.20-0309-reasoning", "grok-4"]) ?? canonicalModelFor(modelIds, first),
+    fast: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-3-mini-fast"]) ?? canonicalModelFor(modelIds, first),
+    reasoning: findModel(modelIds, ["grok-4.5", "grok-4.3", "grok-4.20-0309-reasoning", "grok-4"]) ?? canonicalModelFor(modelIds, first),
+    coding: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-4.20-0309-non-reasoning", "grok-build"]) ?? canonicalModelFor(modelIds, first),
   }
 }
 
 function grokCenteredMapping(modelIds: readonly string[]): ModelMapping {
   const fallback = mapModels(modelIds)
   return {
-    default: findModel(modelIds, ["grok-4.5", "grok-4.3", "grok-4.20-0309-non-reasoning", "grok-3-mini-fast", "grok-3-mini", "grok-build", "grok", "gpt-5.5"]) ?? fallback.default,
-    fast: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-3-mini-fast", "grok-4.20-0309-non-reasoning", "grok-3-mini", "mini", "fast", "gemini-3-flash"]) ?? fallback.fast,
-    reasoning: findModel(modelIds, ["grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3", "grok-4", "reasoning", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"]) ?? fallback.reasoning,
-    coding: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-4.20-0309-non-reasoning", "grok-build", "grok", "codex-auto-review", "glm-5-turbo", "gemini-3-pro-low"]) ?? fallback.coding,
+    default: findModel(modelIds, ["grok-4.5", "grok-4.3", "grok-4.20-0309-non-reasoning", "grok-3-mini-fast", "grok-3-mini", "grok-build", "grok"]) ?? fallback.default,
+    fast: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-3-mini-fast", "grok-4.20-0309-non-reasoning", "grok-3-mini"]) ?? fallback.fast,
+    reasoning: findModel(modelIds, ["grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3", "grok-4"]) ?? fallback.reasoning,
+    coding: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-4.20-0309-non-reasoning", "grok-build", "grok"]) ?? fallback.coding,
   }
 }
-
-function gptCenteredMapping(modelIds: readonly string[]): ModelMapping {
-  const fallback = mapModels(modelIds)
-  return {
-    default: findModel(modelIds, ["gpt-5.5", "gpt-5.4-mini", "gpt-5", "gpt", "grok-4.5", "grok-4.3", "glm-5.2", "gemini-3-pro-high"]) ?? fallback.default,
-    fast: findModel(modelIds, ["gpt-5.4-mini-fast", "gpt-5.4-mini", "gemini-3-pro-low", "grok-4.20-0309-non-reasoning", "glm-5-turbo", "mini", "fast"]) ?? fallback.fast,
-    reasoning: findModel(modelIds, ["gpt-5.5", "gpt-5", "grok-4.5", "grok-4.20-0309-reasoning", "glm-5.2", "gemini-3-pro-high", "reasoning", "o3", "o4"]) ?? fallback.reasoning,
-    coding: findModel(modelIds, ["grok-composer-2.5-fast", "grok-composer", "grok-4.20-0309-non-reasoning", "glm-5-turbo", "gemini-3-pro-low", "gpt"]) ?? fallback.coding,
-  }
-}
-
-function geminiCenteredMapping(modelIds: readonly string[]): ModelMapping {
-  const fallback = mapModels(modelIds)
-  return {
-    default: findModel(modelIds, ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-2.5-pro", "gemini-pro", "gemini", "gpt-5.5", "grok-4.5", "grok-4.3"]) ?? fallback.default,
-    fast: findModel(modelIds, ["gemini-3-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini", "flash", "grok-3-mini-fast"]) ?? fallback.fast,
-    reasoning: findModel(modelIds, ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-2.5-pro", "grok-4.5", "grok-4.20-0309-reasoning", "glm-5.2", "gpt-5.5"]) ?? fallback.reasoning,
-    coding: findModel(modelIds, ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-2.5-pro", "grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning"]) ?? fallback.coding,
-  }
-}
-
-function glmCenteredMapping(modelIds: readonly string[]): ModelMapping {
-  const fallback = mapModels(modelIds)
-  return {
-    default: findModel(modelIds, ["glm-5.2", "glm-4.7", "glm", "gpt-5.5", "grok-4.5", "grok-4.3"]) ?? fallback.default,
-    fast: findModel(modelIds, ["glm-5-turbo", "glm-5v-turbo", "glm-4.5-air", "glm", "gemini-3-flash", "grok-3-mini-fast", "fast"]) ?? fallback.fast,
-    reasoning: findModel(modelIds, ["glm-5.2", "grok-4.5", "grok-4.20-0309-reasoning", "gpt-5.5", "reasoning"]) ?? fallback.reasoning,
-    coding: findModel(modelIds, ["glm-5-turbo", "glm-5.2", "grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning"]) ?? fallback.coding,
-  }
-}
-
 function findModel(modelIds: readonly string[], needles: readonly string[]): string | null {
   const candidateIds = modelIds.filter((id) => !isCodexSparkModel(id))
   for (const needle of needles) {

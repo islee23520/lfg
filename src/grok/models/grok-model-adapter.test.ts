@@ -4,7 +4,7 @@ import {
   buildGrokModelCatalog,
   resolveGrokModel,
 } from "./grok-model-adapter"
-import { AGENT_MODEL_REQUIREMENTS, fuzzyMatchModel, isGptModel, isGeminiModel } from "../../core/omo/model-core"
+import { AGENT_MODEL_REQUIREMENTS, fuzzyMatchModel } from "../../core/omo/model-core"
 
 describe("buildGrokModelCatalog", () => {
   test("normalizes bare Grok model ids to xai/provider form", () => {
@@ -22,12 +22,11 @@ describe("buildGrokModelCatalog", () => {
     expect(catalog.connectedProviders).toContain("anthropic")
   })
 
-  test("infers provider from prefix for mixed catalogs", () => {
-    const catalog = buildGrokModelCatalog({ modelIds: ["grok-4", "gpt-5.5", "claude-opus-4-7", "gemini-3-pro"] })
+  test("infers xai provider for Grok model ids", () => {
+    const catalog = buildGrokModelCatalog({ modelIds: ["grok-4", "grok-3-mini"] })
     expect(catalog.availableModels.has("xai/grok-4")).toBe(true)
-    expect(catalog.availableModels.has("openai/gpt-5.5")).toBe(true)
-    expect(catalog.availableModels.has("anthropic/claude-opus-4-7")).toBe(true)
-    expect(catalog.availableModels.has("google/gemini-3-pro")).toBe(true)
+    expect(catalog.availableModels.has("xai/grok-3-mini")).toBe(true)
+    expect(catalog.connectedProviders).toEqual(["xai"])
   })
 
   test("honors explicit connectedProviders override", () => {
@@ -72,7 +71,7 @@ describe("resolveGrokModel", () => {
 
   test("resolves via upstream chain when an upstream provider is connected", () => {
     const catalog = buildGrokModelCatalog({
-      modelIds: ["grok-4", "gpt-5.5"],
+      modelIds: ["grok-4", "openai/gpt-5.5"],
       connectedProviders: ["xai", "openai"],
     })
     const { resolved } = resolveGrokModel({
@@ -127,12 +126,6 @@ describe("model-core-vendored sanity (Grok gap confirmation)", () => {
     const available = new Set(["xai/grok-4", "openai/gpt-5.5"])
     expect(fuzzyMatchModel("grok-4", available)).toBe("xai/grok-4")
     expect(fuzzyMatchModel("gpt-5.5", available)).toBe("openai/gpt-5.5")
-  })
-
-  test("Grok models do not match OpenAI/Claude family detectors (the gap)", () => {
-    expect(isGptModel("xai/grok-4")).toBe(false)
-    expect(isGeminiModel("xai/grok-4")).toBe(false)
-    // This confirms why Phase 2 needs the Grok adapter fallback entry.
   })
 })
 

@@ -175,11 +175,8 @@ function stripProviderPrefix(model: string): string {
 }
 
 function providerModel(model: string): string {
-  if (model.includes("/")) return model
-  // Vanilla Grok / grok-build or explicit Grok models: keep native for GrokBuild auth.
-  if (isGrokNativeModel(model)) return model
-  // Proxy-resolved non-Grok ids (e.g. "gpt-5.5") get the cliproxy/ prefix for routing.
-  return `cliproxy/${model}`
+  // Grok-only runtime: models are written verbatim (no cliproxy/ routing prefix).
+  return model
 }
 
 function isGrokNativeModel(model: string): boolean {

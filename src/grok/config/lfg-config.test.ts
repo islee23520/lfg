@@ -96,14 +96,14 @@ describe("lfg-config", () => {
       readonly categories: Record<string, { readonly model: string; readonly variant?: string; readonly fallback_models?: readonly { readonly model: string; readonly variant?: string }[] }>
       readonly runtime_fallback?: { readonly enabled?: boolean }
     }
-    // Non-Grok proxy models get cliproxy/ prefix; Grok-native fallbacks stay bare (vanilla Grok auth path)
+    // Grok-only runtime: models are written verbatim (no cliproxy/ routing prefix)
     expect(parsed.agents.explorer).toMatchObject({
-      model: "cliproxy/gpt-5.4-mini",
+      model: "gpt-5.4-mini",
       variant: "low",
       fallback_models: [{ model: "grok-3-mini-fast", variant: "low" }],
     })
     expect(parsed.categories.ultrabrain).toMatchObject({
-      model: "cliproxy/gpt-5.5",
+      model: "gpt-5.5",
       variant: "xhigh",
       fallback_models: [{ model: "grok-4.20-0309-reasoning", variant: "high" }],
     })

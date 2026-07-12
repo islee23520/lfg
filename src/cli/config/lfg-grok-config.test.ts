@@ -40,7 +40,7 @@ describe("lfg Grok config persistence", () => {
       expect(config).toContain('[model."o3-mini"]')
       expect(config).toContain("[omo.models]")
       expect(config).toContain('default = "gpt-4.1-mini"')
-      expect(config).toContain('reasoning = "o3-mini"')
+      expect(config).toContain('reasoning = "gpt-4.1-mini"')
       expect(json).not.toContain(apiKey)
       const explorerRole = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
       expect(explorerRole).toContain('model = "gpt-4.1-mini"')
@@ -94,7 +94,7 @@ describe("lfg Grok config persistence", () => {
       expect(section(config, 'model."claude-sonnet-4-6"')).toContain('model = "claude-sonnet-4-6"')
       expect(section(config, 'model."codex-auto-review"')).toContain('model = "codex-auto-review"')
       expect(section(config, "omo.agents.explorer")).toContain('model = "gpt-5.2"')
-      expect(section(config, "omo.agents.coding")).toContain('model = "codex-auto-review"')
+      expect(section(config, "omo.agents.coding")).toContain('model = "gpt-5.2"')
     })
   })
 
@@ -102,7 +102,7 @@ describe("lfg Grok config persistence", () => {
     const apiKey = "sk-agent-key"
     await withModelServer(["gpt-5.5", "gemini-3-flash", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "codex-auto-review"], { requiredApiKey: apiKey }, async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-      const input = "n\nbalanced\nhigh\ny\n"
+      const input = "n\ngrok\nhigh\ny\n"
 
       const result = await runLfgText(["setup", "--no-tui", "--base-url", baseUrl], input, {
         HOME: home,
@@ -114,14 +114,13 @@ describe("lfg Grok config persistence", () => {
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain("Choose one global model preset")
       expect(result.stdout).not.toContain("Configure LazyCodex role agents")
-      expect(section(config, "omo.agents.explorer")).toContain('model = "gemini-3-flash"')
+      expect(section(config, "omo.agents.explorer")).toContain('model = "grok-4.20-0309-non-reasoning"')
       expect(section(config, "omo.agents.explorer")).toContain('reasoning_level = "high"')
       expect(section(config, "omo.agents.reasoning")).toContain('model = "grok-4.20-0309-reasoning"')
       expect(section(config, "omo.agents.reasoning")).toContain('reasoning_level = "high"')
       expect(section(config, "omo.agents.coding")).toContain('model = "grok-4.20-0309-non-reasoning"')
       expect(section(config, "omo.agents.coding")).toContain('reasoning_level = "high"')
       expect(section(config, "omo.agents.metis")).toContain('model = "grok-4.20-0309-reasoning"')
-      expect(section(config, "omo.agents.metis")).toContain('model_fallback = "gpt-5.5"')
       expect(section(config, "omo.agents.momus")).toContain('model = "grok-4.20-0309-reasoning"')
     })
   })

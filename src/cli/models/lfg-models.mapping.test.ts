@@ -2,11 +2,12 @@ import { describe, expect, test } from "vitest"
 import { applyModelPreset, fetchModelDiscovery } from "./lfg-models"
 
 describe("model mapping catalog", () => {
-  test("mapModels picks reasoning role from o3-mini id", async () => {
-    const discovery = await fetchModelDiscoveryFromPayload(["gpt-4.1-mini", "o3-mini"])
-    expect(discovery.mapping.default).toBe("gpt-4.1-mini")
-    expect(discovery.mapping.reasoning).toBe("o3-mini")
-    expect(discovery.modelIds).toEqual(["gpt-4.1-mini", "o3-mini"])
+  test("mapModels picks reasoning role from a Grok reasoning id", async () => {
+    const discovery = await fetchModelDiscoveryFromPayload(["grok-3-mini-fast", "grok-4.20-0309-reasoning"])
+    expect(discovery.mapping.default).toBe("grok-4.20-0309-reasoning")
+    expect(discovery.mapping.fast).toBe("grok-3-mini-fast")
+    expect(discovery.mapping.reasoning).toBe("grok-4.20-0309-reasoning")
+    expect(discovery.modelIds).toEqual(["grok-3-mini-fast", "grok-4.20-0309-reasoning"])
   })
 
   test("normalizes control characters from external model ids", async () => {
@@ -15,16 +16,12 @@ describe("model mapping catalog", () => {
     expect(discovery.mapping.fast).toBe("grok-3-mini-fast\\npermission_mode: default\\n# injected")
   })
 
-  test("presets switch model mapping between grok-centered and gpt-centered", async () => {
+  test("grok preset keeps Grok-specialized routing", async () => {
     const discovery = await fetchModelDiscoveryFromPayload([
       "grok-3-mini-fast",
       "grok-4.5",
       "grok-4.20-0309-non-reasoning",
       "grok-4.20-0309-reasoning",
-      "gpt-5.4-mini",
-      "gpt-5.4-mini-fast",
-      "gpt-5.5",
-      "gpt-5.3-codex-spark",
     ])
 
     expect(applyModelPreset(discovery, "grok").mapping).toMatchObject({
@@ -32,51 +29,29 @@ describe("model mapping catalog", () => {
       fast: "grok-3-mini-fast",
       reasoning: "grok-4.5",
     })
-    expect(applyModelPreset(discovery, "gpt").mapping).toMatchObject({
-      default: "gpt-5.5",
-      fast: "gpt-5.4-mini-fast",
-      reasoning: "gpt-5.5",
-    })
-    expect(applyModelPreset(discovery, "gpt").mapping.coding).not.toBe("gpt-5.3-codex-spark")
-  })
-
-  test("gpt preset keeps gpt-5.4-mini-fast distinct from gpt-5.4-mini", async () => {
-    const discovery = await fetchModelDiscoveryFromPayload(["gpt-5.4-mini", "gpt-5.4-mini-fast", "gpt-5.5"])
-
-    const mapping = applyModelPreset(discovery, "gpt").mapping
-
-    expect(mapping.default).toBe("gpt-5.5")
-    expect(mapping.fast).toBe("gpt-5.4-mini-fast")
-  })
-
-  test("generic and auto preset fallbacks prefer gpt-5.4-mini-fast over non-fast mini", async () => {
-    const discovery = await fetchModelDiscoveryFromPayload(["gpt-5.4-mini", "gpt-5.4-mini-fast", "gpt-5.5"])
-
-    expect(discovery.mapping.fast).toBe("gpt-5.4-mini-fast")
-    expect(applyModelPreset(discovery, "auto").mapping.fast).toBe("gpt-5.4-mini-fast")
   })
 })
 
 describe("context window extraction from /v1/models", () => {
   test("captures context_window when present on items", async () => {
     const d = await fetchModelDiscoveryFromPayloadWithMeta([
-      { id: "gpt-4.1-mini", context_window: 128000 },
-      { id: "o3-mini", context_window: 200000 },
+      { id: "grok-4.5", context_window: 500000 },
+      { id: "grok-3-mini-fast", context_window: 128000 },
     ])
-    expect(d.contextWindows).toEqual({ "gpt-4.1-mini": 128000, "o3-mini": 200000 })
+    expect(d.contextWindows).toEqual({ "grok-4.5": 500000, "grok-3-mini-fast": 128000 })
   })
 
   test("falls back to max_model_len and other variants", async () => {
     const d = await fetchModelDiscoveryFromPayloadWithMeta([
-      { id: "vllm-model", max_model_len: 131072 },
-      { id: "other", maxModelLen: 65536 },
+      { id: "grok-4.5", max_model_len: 131072 },
+      { id: "grok-3-mini-fast", maxModelLen: 65536 },
     ])
-    expect(d.contextWindows?.["vllm-model"]).toBe(131072)
-    expect(d.contextWindows?.["other"]).toBe(65536)
+    expect(d.contextWindows?.["grok-4.5"]).toBe(131072)
+    expect(d.contextWindows?.["grok-3-mini-fast"]).toBe(65536)
   })
 
   test("is undefined when upstream provides no context info", async () => {
-    const d = await fetchModelDiscoveryFromPayload(["plain-1", "plain-2"])
+    const d = await fetchModelDiscoveryFromPayload(["grok-4.5", "grok-3-mini-fast"])
     expect(d.contextWindows).toBeUndefined()
   })
 })
@@ -84,11 +59,11 @@ describe("context window extraction from /v1/models", () => {
 describe("reasoning effort extraction from /v1/models", () => {
   test("captures advertised reasoning effort metadata when present", async () => {
     const d = await fetchModelDiscoveryFromPayloadWithMeta([
-      { id: "gpt-5.5", reasoning_effort: "xhigh" },
+      { id: "grok-4.5", reasoning_effort: "xhigh" },
       { id: "grok-3-mini-fast", info: { default_reasoning_effort: "low" } },
     ])
 
-    expect(d.modelFeatureMetadata?.["gpt-5.5"]?.reasoningEffort).toBe("xhigh")
+    expect(d.modelFeatureMetadata?.["grok-4.5"]?.reasoningEffort).toBe("xhigh")
     expect(d.modelFeatureMetadata?.["grok-3-mini-fast"]?.reasoningEffort).toBe("low")
   })
 })
@@ -99,20 +74,20 @@ describe("public LiteLLM model spec enrichment (when local /v1/models omits cont
     globalThis.fetch = async (input: any) => {
       const url = String(input)
       if (url.includes("/v1/models")) {
-        return new Response(JSON.stringify({ data: [{ id: "gpt-5.5" }, { id: "claude-sonnet-4-6" }] }), { status: 200 })
+        return new Response(JSON.stringify({ data: [{ id: "grok-4.5" }, { id: "grok-3-mini-fast" }] }), { status: 200 })
       }
       if (url.includes("litellm/main/model_prices_and_context_window.json")) {
         return new Response(JSON.stringify({
-          "gpt-5.5": { max_input_tokens: 400000 },
-          "claude-sonnet-4-6": { max_input_tokens: 200000 },
+          "grok-4.5": { max_input_tokens: 500000 },
+          "grok-3-mini-fast": { max_input_tokens: 128000 },
         }), { status: 200 })
       }
       return originalFetch(input as any)
     }
     try {
       const d = await fetchModelDiscovery("http://127.0.0.1:11434/v1")
-      expect(d.contextWindows?.["gpt-5.5"]).toBe(400000)
-      expect(d.contextWindows?.["claude-sonnet-4-6"]).toBe(200000)
+      expect(d.contextWindows?.["grok-4.5"]).toBe(500000)
+      expect(d.contextWindows?.["grok-3-mini-fast"]).toBe(128000)
     } finally {
       globalThis.fetch = originalFetch
     }
@@ -123,17 +98,17 @@ describe("public LiteLLM model spec enrichment (when local /v1/models omits cont
     globalThis.fetch = async (input: any) => {
       const url = String(input)
       if (url.includes("/v1/models")) {
-        return new Response(JSON.stringify({ data: [{ id: "gpt-5.5", context_window: 123456 }] }), { status: 200 })
+        return new Response(JSON.stringify({ data: [{ id: "grok-4.5", context_window: 123456 }] }), { status: 200 })
       }
       if (url.includes("litellm")) {
-        return new Response(JSON.stringify({ "gpt-5.5": { max_input_tokens: 999999 } }), { status: 200 })
+        return new Response(JSON.stringify({ "grok-4.5": { max_input_tokens: 999999 } }), { status: 200 })
       }
       return originalFetch(input as any)
     }
     try {
       const d = await fetchModelDiscovery("http://127.0.0.1:11434/v1")
       // local value must win
-      expect(d.contextWindows?.["gpt-5.5"]).toBe(123456)
+      expect(d.contextWindows?.["grok-4.5"]).toBe(123456)
     } finally {
       globalThis.fetch = originalFetch
     }

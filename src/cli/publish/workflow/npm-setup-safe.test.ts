@@ -57,7 +57,7 @@ describe("npm setup script safety", () => {
   })
 
   test("root npm run setup -- --run preserves existing Grok setup assets while syncing discovered config", async () => {
-    await withModelServer(["grok-3-mini-fast", "gpt-5.4-mini", "gpt-5.5"], async (baseUrl) => {
+    await withModelServer(["grok-3-mini-fast", "grok-4.5"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-npm-setup-existing-home."))
       const pluginRoot = join(home, ".grok", "plugins", "lfg")
       const configPath = join(home, ".grok", "config.toml")
@@ -85,13 +85,13 @@ describe("npm setup script safety", () => {
         expect(result.agentOverridesPath).toBe(join(home, ".grok", "omo-agent-overrides.json"))
         expect(result.agentPaths?.length).toBeGreaterThanOrEqual(1)
         const configText = await readFile(configPath, "utf8")
-        expect(configText).toContain('default = "gpt-5.5"')
-        expect(configText).toContain('fast = "gpt-5.4-mini"')
+        expect(configText).toContain('default = "grok-4.5"')
+        expect(configText).toContain('fast = "grok-3-mini-fast"')
         await expect(readFile(agentPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
         await expect(readFile(join(home, ".grok", "agents-toml-backup-lfg", "explorer.toml"), "utf8")).resolves.toContain(
           'model = "user-kept-agent"',
         )
-        await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "gpt-5.4-mini"')
+        await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "grok-3-mini-fast"')
         await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")).resolves.toContain(
           "name: explorer",
         )
@@ -101,19 +101,19 @@ describe("npm setup script safety", () => {
     })
   })
 
-  test("root npm run setup -- --json exposes an explicit gpt-centered preset plan", async () => {
-    await withModelServer(["grok-3-mini-fast", "gpt-5.4-mini", "gpt-5.5"], async (baseUrl) => {
+  test("root npm run setup -- --json exposes an explicit grok-centered preset plan", async () => {
+    await withModelServer(["grok-3-mini-fast", "grok-4.5"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-npm-setup-preset-home."))
       try {
-        const { stdout } = await execFileAsync("npm", ["run", "--silent", "setup", "--", "--json", "--preset", "gpt", "--base-url", baseUrl], {
+        const { stdout } = await execFileAsync("npm", ["run", "--silent", "setup", "--", "--json", "--preset", "grok", "--base-url", baseUrl], {
           env: { ...process.env, HOME: home },
         })
         const result = JSON.parse(stdout) as {
           readonly selectedPreset?: string
           readonly modelDiscovery?: { readonly mapping?: { readonly default?: string; readonly reasoning?: string } }
         }
-        expect(result.selectedPreset).toBe("gpt")
-        expect(result.modelDiscovery?.mapping).toMatchObject({ default: "gpt-5.5", reasoning: "gpt-5.5" })
+        expect(result.selectedPreset).toBe("grok")
+        expect(result.modelDiscovery?.mapping).toMatchObject({ default: "grok-4.5", reasoning: "grok-4.5" })
       } finally {
         await rm(home, { recursive: true, force: true })
       }

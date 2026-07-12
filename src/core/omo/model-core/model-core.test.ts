@@ -3,9 +3,6 @@ import { describe, expect, test } from "vitest";
 import {
   AGENT_MODEL_REQUIREMENTS,
   fuzzyMatchModel,
-  isGeminiModel,
-  isGptModel,
-  isKimiK2Model,
   resolveModelPipeline,
   transformModelForProvider,
 } from "./index";
@@ -112,23 +109,13 @@ describe("model-core", () => {
     ).toBe("openai/gpt-5.5-mini");
   });
 
-  test("model family detectors identify GPT, Gemini, and Kimi K2 without treating Grok as GPT", () => {
-    expect(isGptModel("openai/gpt-5.5")).toBe(true);
-    expect(isGeminiModel("google/gemini-3.1-pro")).toBe(true);
-    expect(isKimiK2Model("moonshotai/kimi-k2.6")).toBe(true);
-    expect(isGptModel("xai/grok-4")).toBe(false);
-  });
-
   test("AGENT_MODEL_REQUIREMENTS includes sisyphus and hephaestus", () => {
     expect(AGENT_MODEL_REQUIREMENTS.sisyphus?.fallbackChain.length).toBeGreaterThan(0);
     expect(AGENT_MODEL_REQUIREMENTS.hephaestus?.fallbackChain.length).toBeGreaterThan(0);
   });
 
-  test("transformModelForProvider applies provider-specific transforms", () => {
-    expect(transformModelForProvider("openai", "gpt-5.5")).toBe("gpt-5.5");
-    expect(transformModelForProvider("vercel", "gpt-5.5")).toBe("openai/gpt-5.5");
-    expect(transformModelForProvider("google", "gemini-3.1-pro")).toBe(
-      "gemini-3.1-pro-preview",
-    );
+  test("transformModelForProvider is identity for Grok models", () => {
+    expect(transformModelForProvider("xai", "grok-4.5")).toBe("grok-4.5");
+    expect(transformModelForProvider("xai", "grok-3-mini-fast")).toBe("grok-3-mini-fast");
   });
 });

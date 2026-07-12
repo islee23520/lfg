@@ -167,8 +167,20 @@ describe("lfg CLI", () => {
     })
   })
 
+  test("setup rejects removed presets with invalid_preset", async () => {
+    const result = await runLfg(["--json", "setup", "--preset", "gpt"], { LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.json).toMatchObject({
+      ok: false,
+      status: "invalid_preset",
+      error: "Unsupported setup preset: gpt",
+      supportedPresets: ["auto", "grok"],
+    })
+  })
+
   test("json setup can fetch OpenAI-compatible models and map them", async () => {
-    await withModelServer(["gpt-4.1-mini", "o3-mini"], async (baseUrl) => {
+    await withModelServer(["grok-3-mini-fast", "grok-4.5"], async (baseUrl) => {
       const result = await runLfg(["--json", "setup", "--base-url", baseUrl], {})
 
       expect(result.exitCode).toBe(0)
@@ -178,12 +190,12 @@ describe("lfg CLI", () => {
         modelDiscovery: {
           baseUrl,
           modelsUrl: `${baseUrl}/v1/models`,
-          modelIds: ["gpt-4.1-mini", "o3-mini"],
+          modelIds: ["grok-3-mini-fast", "grok-4.5"],
           mapping: {
-            default: "gpt-4.1-mini",
-            fast: "gpt-4.1-mini",
-            reasoning: "o3-mini",
-            coding: "gpt-4.1-mini",
+            default: "grok-4.5",
+            fast: "grok-3-mini-fast",
+            reasoning: "grok-4.5",
+            coding: "grok-3-mini-fast",
           },
         },
       })
@@ -245,7 +257,7 @@ describe("lfg CLI", () => {
   })
 
   test("setup run passes fetched model mapping to the upstream installer", async () => {
-    await withModelServer(["gpt-4.1-mini", "o3-mini"], async (baseUrl) => {
+    await withModelServer(["grok-3-mini-fast", "grok-4.5"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
       const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home, OPENAI_API_KEY: "sk-test" })
 
@@ -256,13 +268,13 @@ describe("lfg CLI", () => {
         modelDiscovery: {
           baseUrl,
           mapping: {
-            default: "gpt-4.1-mini",
-            reasoning: "o3-mini",
+            default: "grok-4.5",
+            reasoning: "grok-4.5",
           },
         },
       })
       expect(JSON.stringify(result.json)).toContain("configUpdated")
-      expect(JSON.stringify(result.json)).toContain("gpt-4.1-mini")
+      expect(JSON.stringify(result.json)).toContain("grok-4.5")
     })
   })
 

@@ -127,7 +127,7 @@ async function main(argv: readonly string[]): Promise<number> {
 
 async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   if (args.presetError !== null) {
-    return { ok: false, status: "invalid_preset", error: args.presetError, supportedPresets: ["auto", "balanced", "grok", "gpt", "gemini", "glm", "multi"] }
+    return { ok: false, status: "invalid_preset", error: args.presetError, supportedPresets: ["auto", "grok"] }
   }
   if (args.codingToolAdapterError !== null) {
     return invalidCodingToolAdapterJson(args.codingToolAdapterError)
@@ -466,7 +466,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 }
 
 function isSetupPreset(value: unknown): value is SetupPreset {
-  return value === "auto" || value === "balanced" || value === "grok" || value === "gpt" || value === "gemini" || value === "glm" || value === "multi"
+  return value === "auto" || value === "grok"
 }
 
 function isReasoningEffortChoice(value: unknown): value is ReasoningEffortChoice {
@@ -519,8 +519,7 @@ function help(): string {
     "  lfg --json setup --run",
     "  lfg setup --run",
     "  lfg --json setup --preset auto",
-    "  lfg --json setup --preset balanced",
-    "  lfg --json setup --preset grok|gpt|gemini|glm|multi",
+    "  lfg --json setup --preset grok",
     "  lfg --json setup --reasoning-effort auto|low|medium|high|xhigh",
     "  lfg --json setup --run --force",
     "  lfg --json setup --run --install-only",

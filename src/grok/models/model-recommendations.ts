@@ -2,9 +2,9 @@
  *
  * Recommendations are availability-aware: setup only recommends models that
  * the user's OpenAI-compatible /v1/models endpoint actually exposes. The
- * preference order is benchmark-informed and Grok-centered, with GPT used for
- * critical review help when available. GLM and Gemini are included as measured
- * fallback/alternative families.
+ * preference order is benchmark-informed and Grok-only: every role resolves to
+ * a Grok first-party model, with fast Grok utility / composer paths for
+ * high-volume work and the Grok 4.5 frontier for reasoning and review.
  */
 
 export type ModelPerf = {
@@ -59,65 +59,56 @@ export const PERF_SNAPSHOT: Readonly<Record<string, ModelPerf>> = {
   "grok-3-mini-fast": { model: "grok-3-mini-fast", latencyMs: 4046, tokensPerSec: 129, codingQuality: 2, reasoningQuality: 1, available: true },
   "grok-composer-2.5-fast": { model: "grok-composer-2.5-fast", latencyMs: 2389, tokensPerSec: 139, codingQuality: 2, reasoningQuality: 2, available: true },
   "grok-build-0.1": { model: "grok-build-0.1", latencyMs: 4549, tokensPerSec: 121, codingQuality: 2, reasoningQuality: 2, available: true },
-  "gpt-5.5": { model: "gpt-5.5", latencyMs: 2440, tokensPerSec: 23, codingQuality: 2, reasoningQuality: 2, available: true },
-  "gpt-5.4-mini-fast": { model: "gpt-5.4-mini-fast", latencyMs: 980, tokensPerSec: 85, codingQuality: 2, reasoningQuality: 1, available: true },
-  "gpt-5.4-mini": { model: "gpt-5.4-mini", latencyMs: 980, tokensPerSec: 85, codingQuality: 2, reasoningQuality: 1, available: true },
-  "gemini-3-pro-low": { model: "gemini-3-pro-low", latencyMs: 448, tokensPerSec: 73, codingQuality: 2, reasoningQuality: 2, available: true },
-  "gemini-3-pro-high": { model: "gemini-3-pro-high", latencyMs: 603, tokensPerSec: 49, codingQuality: 2, reasoningQuality: 2, available: true },
-  "glm-5-turbo": { model: "glm-5-turbo", latencyMs: 3745, tokensPerSec: 54, codingQuality: 2, reasoningQuality: 2, available: true },
-  "glm-5.2": { model: "glm-5.2", latencyMs: 6979, tokensPerSec: 30, codingQuality: 2, reasoningQuality: 2, available: true },
-  "gemini-3.1-flash-lite": { model: "gemini-3.1-flash-lite", latencyMs: 1681, tokensPerSec: 27, codingQuality: 2, reasoningQuality: 1, available: true },
-  "gemini-3.5-flash-low": { model: "gemini-3.5-flash-low", latencyMs: 2174, tokensPerSec: 17, codingQuality: 2, reasoningQuality: 1, available: true },
 }
 
 const ROLE_PROFILES: readonly RoleProfile[] = [
   {
     role: "explorer",
     reasoningEffort: "medium",
-    rationale: "Fast Grok utility path for high-volume codebase search and exploration. GPT/Gemini fallbacks when available.",
-    preferredModels: ["grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning", "grok-3-mini-fast", "grok-build-0.1", "gpt-5.4-mini-fast", "gemini-3-pro-low", "glm-5-turbo"],
+    rationale: "Fast Grok utility path for high-volume codebase search and exploration.",
+    preferredModels: ["grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning", "grok-3-mini-fast", "grok-build-0.1"],
   },
   {
     role: "librarian",
     reasoningEffort: "low",
     rationale: "Grok-first research route. Fast utility models for external doc lookup.",
-    preferredModels: ["grok-composer-2.5-fast", "grok-3-mini-fast", "grok-4.20-0309-non-reasoning", "gpt-5.4-mini-fast", "gpt-5.4-mini", "glm-5-turbo", "gemini-3.1-flash-lite"],
+    preferredModels: ["grok-composer-2.5-fast", "grok-3-mini-fast", "grok-4.20-0309-non-reasoning"],
   },
   {
     role: "plan",
     reasoningEffort: "high",
-    rationale: "Strategic planning uses Grok 4.5 frontier; older Grok-4.x and GPT-5.5 remain strong alternatives.",
-    preferredModels: ["grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"],
+    rationale: "Strategic planning uses Grok 4.5 frontier; older Grok-4.x remain strong alternatives.",
+    preferredModels: ["grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3"],
   },
   {
     role: "metis",
     reasoningEffort: "high",
     rationale: "Pre-planning analysis prefers Grok 4.5 frontier reasoning.",
-    preferredModels: ["grok-4.5", "grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"],
+    preferredModels: ["grok-4.5", "grok-4.3", "grok-4.20-0309-reasoning"],
   },
   {
     role: "momus",
     reasoningEffort: "high",
-    rationale: "Critical plan review uses Grok 4.5 primary; GPT-5.5 as strong second opinion.",
-    preferredModels: ["grok-4.5", "gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.3", "glm-5.2", "gemini-3-pro-high"],
+    rationale: "Critical plan review uses Grok 4.5 frontier reasoning.",
+    preferredModels: ["grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3"],
   },
   {
     role: "codex-ultrawork-reviewer",
     reasoningEffort: "high",
-    rationale: "Final ultrawork review uses Grok 4.5 frontier; GPT as strong second opinion.",
-    preferredModels: ["grok-4.5", "gpt-5.5", "grok-4.20-0309-reasoning", "grok-4.3", "glm-5.2", "gemini-3-pro-high"],
+    rationale: "Final ultrawork review uses Grok 4.5 frontier reasoning.",
+    preferredModels: ["grok-4.5", "grok-4.20-0309-reasoning", "grok-4.3"],
   },
   {
     role: "reasoning",
     reasoningEffort: "medium",
     rationale: "General reasoning role uses Grok 4.5 as the GrokBuild frontier default.",
-    preferredModels: ["grok-4.5", "grok-4.3", "grok-4.20-0309-reasoning", "gpt-5.5", "glm-5.2", "gemini-3-pro-high"],
+    preferredModels: ["grok-4.5", "grok-4.3", "grok-4.20-0309-reasoning"],
   },
   {
     role: "coding",
     reasoningEffort: "medium",
-    rationale: "Coding uses fast Grok composer/non-reasoning path; upstream marks GPT-5.3 Codex Spark as not recommended for OMO agents.",
-    preferredModels: ["grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning", "grok-build-0.1", "grok-4.5", "glm-5-turbo", "gemini-3-pro-low", "gpt-5.5"],
+    rationale: "Coding uses fast Grok composer/non-reasoning path.",
+    preferredModels: ["grok-composer-2.5-fast", "grok-4.20-0309-non-reasoning", "grok-build-0.1", "grok-4.5"],
   },
 ]
 

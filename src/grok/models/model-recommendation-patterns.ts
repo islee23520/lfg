@@ -4,9 +4,7 @@
  * these functions scan the actually-discovered model IDs and pattern-match
  * to assign the best available model per agent.
  *
- * Default (GrokBuild) patterns are Grok-first: grok-4.5 for reasoning/critical,
- * Composer for coding, Gemini for visual. The "gpt" preset flips reasoning/utility
- * preference toward GPT families while keeping coding/visual patterns.
+ * Patterns are Grok-only: grok-4.5 for reasoning/critical/visual, Composer for coding.
  */
 
 import type { LazycodexAgentOverrideMap, ServiceTier } from "../agents/lazycodex-agent-overrides"
@@ -96,7 +94,7 @@ const AGENT_REASONING_LEVEL: Readonly<Record<string, ReasoningLevel>> = {
   writing: "low",
 }
 
-/** Pattern arrays ordered by preference. Grok-first for GrokBuild, then GPT/Gemini/Claude. */
+/** Pattern arrays ordered by preference. Grok-only for GrokBuild. */
 
 // Reasoning-capable models: deep-chain-of-thought models for planning/analysis/review.
 export const REASONING_MODEL_PATTERNS: readonly RegExp[] = [
@@ -105,16 +103,6 @@ export const REASONING_MODEL_PATTERNS: readonly RegExp[] = [
   /grok-4\.[0-9]+.*reasoning/i,
   /grok-4\.[0-9]+/i,
   /grok.*reasoning/i,
-  /gpt-5\.5/i,
-  /glm-5\.2/i,
-  /gpt-5(?!.*mini)/i,
-  /glm-5/i,
-  /gemini-3.*pro.*high/i,
-  /gemini.*pro/i,
-  /claude.*opus/i,
-  /o[1-4]/i,
-  /reasoning/i,
-  /reason/i,
 ]
 
 // Utility models: fast, cheap, high-volume agents (explorer, librarian).
@@ -128,43 +116,18 @@ export const UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
   /grok-3-mini/i,
   /grok.*mini/i,
   /grok-build/i,
-  /gpt-5\.[0-9]+-mini.*fast/i,
-  /gpt-5\.[0-9]+.*mini/i,
-  /glm-5.*turbo/i,
-  /gemini-3\.1-flash-lite/i,
-  /gemini-3.*flash/i,
-  /gpt.*mini/i,
-  /gemini-3.*pro.*low/i,
-  /gemini-3.*pro.*high/i,
-  /glm-5\.2/i,
-  /mini/i,
-  /fast/i,
-  /flash/i,
-  /gpt-5\.[0-9]+/i,
-  /gpt-5/i,
 ]
 
 export const CRITICAL_MODEL_PATTERNS: readonly RegExp[] = [
   /grok-4\.5/i,
   /grok-4\.3/i,
   /grok-4\.[0-9]+.*reasoning/i,
-  /gpt-5\.5/i,
-  /glm-5\.2/i,
-  /glm-5.*turbo/i,
-  /gemini-3.*pro.*high/i,
-  /gemini.*pro/i,
 ]
 
 export const VISUAL_MODEL_PATTERNS: readonly RegExp[] = [
-  /gemini-3.*pro.*high/i,
-  /gemini-3\.1.*pro/i,
-  /gemini.*pro/i,
-  /gemini.*vision/i,
-  /gemini/i,
-  /gpt-5\.5/i,
-  /glm-5\.2/i,
   /grok-4\.5/i,
   /grok-4\.3/i,
+  /grok-4\.[0-9]+/i,
 ]
 
 export const CODING_MODEL_PATTERNS: readonly RegExp[] = [
@@ -173,54 +136,9 @@ export const CODING_MODEL_PATTERNS: readonly RegExp[] = [
   /grok-4\.[0-9]+.*non-reasoning/i,
   /grok-build/i,
   /grok-4\.5/i,
-  /glm-5.*turbo/i,
-  /gemini-3.*pro.*low/i,
-  /gemini-3.*pro.*high/i,
 ]
 
-// GPT-first variant patterns (used when preset === "gpt").
-export const GPT_REASONING_MODEL_PATTERNS: readonly RegExp[] = [
-  /gpt-5\.5/i,
-  /gpt-5(?!.*mini)/i,
-  /grok-4\.5/i,
-  /grok-4\.[0-9]+.*reasoning/i,
-  /grok-4\.3/i,
-  /grok-4\.[0-9]+/i,
-  /glm-5\.2/i,
-  /gemini.*pro/i,
-  /claude.*opus/i,
-  /o[1-4]/i,
-  /reasoning/i,
-]
-
-export const GPT_UTILITY_MODEL_PATTERNS: readonly RegExp[] = [
-  /gpt-5\.[0-9]+-mini/i,
-  /gpt-5\.[0-9]+.*mini/i,
-  /gpt.*mini/i,
-  /grok-4\.[0-9]+.*non-reasoning/i,
-  /gemini-3.*pro.*low/i,
-  /glm-5.*turbo/i,
-  /mini/i,
-  /fast/i,
-  /flash/i,
-  /grok-3-mini-fast/i,
-  /grok-3-mini/i,
-  /grok.*mini/i,
-  /grok.*fast/i,
-  /grok-build/i,
-  /gpt-5\.[0-9]+/i,
-  /gpt-5/i,
-]
-
-export type RecommendationPreset = "grok" | "gpt"
-
-function patternsForKind(kind: PatternKind, preset?: RecommendationPreset): readonly RegExp[] {
-  if (preset === "gpt") {
-    if (kind === "critical" || kind === "reasoning") return GPT_REASONING_MODEL_PATTERNS
-    if (kind === "coding") return CODING_MODEL_PATTERNS
-    if (kind === "visual") return VISUAL_MODEL_PATTERNS
-    return GPT_UTILITY_MODEL_PATTERNS
-  }
+function patternsForKind(kind: PatternKind): readonly RegExp[] {
   if (kind === "critical") return CRITICAL_MODEL_PATTERNS
   if (kind === "coding") return CODING_MODEL_PATTERNS
   if (kind === "visual") return VISUAL_MODEL_PATTERNS
@@ -231,9 +149,8 @@ function patternsForKind(kind: PatternKind, preset?: RecommendationPreset): read
 export function selectModelForPatterns(
   models: readonly string[],
   kind: PatternKind,
-  preset?: RecommendationPreset,
 ): string | undefined {
-  const patterns = patternsForKind(kind, preset)
+  const patterns = patternsForKind(kind)
   for (const pattern of patterns) {
     const matches = models.filter((model) => pattern.test(model))
     // Filter out negated matches: e.g. a "reasoning" pattern must not match
@@ -267,14 +184,13 @@ function isNegatedMatch(model: string, _pattern: RegExp, kind: PatternKind): boo
 export function recommendAgentModelFields(
   agentName: string,
   models: readonly string[],
-  preset?: RecommendationPreset,
 ): RecommendedModelFields | undefined {
   const isCritical = CRITICAL_REVIEW_AGENT_NAMES.has(agentName)
   const isReasoning = REASONING_AGENT_NAMES.has(agentName)
   const isCoding = CODING_AGENT_NAMES.has(agentName)
   const isVisual = VISUAL_AGENT_NAMES.has(agentName)
   const kind: PatternKind = isCritical ? "critical" : isCoding ? "coding" : isVisual ? "visual" : isReasoning ? "reasoning" : "utility"
-  const model = selectModelForPatterns(models, kind, preset)
+  const model = selectModelForPatterns(models, kind)
   if (model === undefined) return undefined
   const optimalLevel = AGENT_REASONING_LEVEL[agentName]
   return {
@@ -290,11 +206,10 @@ export function recommendAgentModelFields(
 export function buildRecommendedModelOverrides(
   overrides: LazycodexAgentOverrideMap,
   models: readonly string[],
-  preset?: RecommendationPreset,
 ): Map<string, RecommendedModelFields> {
   const recommendations = new Map<string, RecommendedModelFields>()
   for (const agentName of Object.keys(overrides)) {
-    const fields = recommendAgentModelFields(agentName, models, preset)
+    const fields = recommendAgentModelFields(agentName, models)
     if (fields !== undefined) {
       recommendations.set(agentName, fields)
     }

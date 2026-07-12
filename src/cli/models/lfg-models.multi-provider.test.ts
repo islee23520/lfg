@@ -6,33 +6,33 @@ describe("fetchMultiProviderDiscovery (OpenGrok multi-endpoint)", () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = async (input: any) => {
       const url = String(input)
-      if (url.startsWith("https://api.openai.com/v1/models")) {
-        return new Response(JSON.stringify({ data: [{ id: "gpt-5.5" }, { id: "gpt-5.5-mini" }] }), { status: 200 })
+      if (url.startsWith("https://api.xai-1.com/v1/models")) {
+        return new Response(JSON.stringify({ data: [{ id: "grok-4.5" }, { id: "grok-3-mini-fast" }] }), { status: 200 })
       }
-      if (url.startsWith("https://api.anthropic.com/v1/models")) {
-        return new Response(JSON.stringify({ data: [{ id: "claude-opus-4-7" }] }), { status: 200 })
+      if (url.startsWith("https://api.xai-2.com/v1/models")) {
+        return new Response(JSON.stringify({ data: [{ id: "grok-4.20-0309-reasoning" }] }), { status: 200 })
       }
       return new Response("not found", { status: 404 })
     }
     try {
       const providers: ProviderSource[] = [
-        { id: "openai", baseUrl: "https://api.openai.com/v1", envKey: "OPENAI_API_KEY" },
-        { id: "anthropic", baseUrl: "https://api.anthropic.com/v1", apiKey: "sk-ant-test" },
+        { id: "xai-primary", baseUrl: "https://api.xai-1.com/v1", envKey: "XAI_API_KEY" },
+        { id: "xai-secondary", baseUrl: "https://api.xai-2.com/v1", apiKey: "sk-xai-test" },
       ]
       const discovery = await fetchMultiProviderDiscovery(providers)
 
-      expect(discovery.modelIds).toEqual(expect.arrayContaining(["gpt-5.5", "gpt-5.5-mini", "claude-opus-4-7"]))
+      expect(discovery.modelIds).toEqual(expect.arrayContaining(["grok-4.5", "grok-3-mini-fast", "grok-4.20-0309-reasoning"]))
       expect(discovery.modelIds).toHaveLength(3)
 
-      const openai = discovery.providerEndpoints?.find((endpoint) => endpoint.id === "openai")
-      expect(openai?.baseUrl).toBe("https://api.openai.com/v1")
-      expect(openai?.envKey).toBe("OPENAI_API_KEY")
-      expect(openai?.modelIds).toEqual(["gpt-5.5", "gpt-5.5-mini"])
+      const primary = discovery.providerEndpoints?.find((endpoint) => endpoint.id === "xai-primary")
+      expect(primary?.baseUrl).toBe("https://api.xai-1.com/v1")
+      expect(primary?.envKey).toBe("XAI_API_KEY")
+      expect(primary?.modelIds).toEqual(["grok-4.5", "grok-3-mini-fast"])
 
-      const anthropic = discovery.providerEndpoints?.find((endpoint) => endpoint.id === "anthropic")
-      expect(anthropic?.baseUrl).toBe("https://api.anthropic.com/v1")
-      expect(anthropic?.apiKey).toBe("sk-ant-test")
-      expect(anthropic?.modelIds).toEqual(["claude-opus-4-7"])
+      const secondary = discovery.providerEndpoints?.find((endpoint) => endpoint.id === "xai-secondary")
+      expect(secondary?.baseUrl).toBe("https://api.xai-2.com/v1")
+      expect(secondary?.apiKey).toBe("sk-xai-test")
+      expect(secondary?.modelIds).toEqual(["grok-4.20-0309-reasoning"])
     } finally {
       globalThis.fetch = originalFetch
     }
@@ -42,19 +42,19 @@ describe("fetchMultiProviderDiscovery (OpenGrok multi-endpoint)", () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = async (input: any) => {
       const url = String(input)
-      if (url.startsWith("https://api.openai.com/v1/models")) {
-        return new Response(JSON.stringify({ data: [{ id: "gpt-5.5" }] }), { status: 200 })
+      if (url.startsWith("https://api.xai.com/v1/models")) {
+        return new Response(JSON.stringify({ data: [{ id: "grok-4.5" }] }), { status: 200 })
       }
       return new Response("down", { status: 500 })
     }
     try {
       const providers: ProviderSource[] = [
-        { id: "openai", baseUrl: "https://api.openai.com/v1" },
+        { id: "xai", baseUrl: "https://api.xai.com/v1" },
         { id: "dead", baseUrl: "https://dead.example.com/v1" },
       ]
       const discovery = await fetchMultiProviderDiscovery(providers)
-      expect(discovery.modelIds).toEqual(["gpt-5.5"])
-      expect(discovery.providerEndpoints?.map((endpoint) => endpoint.id)).toEqual(["openai"])
+      expect(discovery.modelIds).toEqual(["grok-4.5"])
+      expect(discovery.providerEndpoints?.map((endpoint) => endpoint.id)).toEqual(["xai"])
     } finally {
       globalThis.fetch = originalFetch
     }
@@ -71,4 +71,5 @@ describe("fetchMultiProviderDiscovery (OpenGrok multi-endpoint)", () => {
       globalThis.fetch = originalFetch
     }
   })
+
 })

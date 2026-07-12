@@ -1,6 +1,6 @@
 import type { ReasoningLevel } from "../../cli/models/lfg-models"
 import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap, ServiceTier } from "../agents/lazycodex-agent-overrides"
-import { recommendAgentModelFields, type RecommendationPreset } from "./model-recommendation-patterns"
+import { recommendAgentModelFields } from "./model-recommendation-patterns"
 
 const CURATED_OVERRIDE_AGENT_NAMES = new Set([
   "explorer",
@@ -24,13 +24,12 @@ type AvailableFallback = {
 export function applyRecommendationsToOverrideMap(
   overrides: LazycodexAgentOverrideMap,
   models: readonly string[],
-  preset?: RecommendationPreset,
 ): LazycodexAgentOverrideMap {
   if (models.length === 0) return overrides
   const availableModels = new Set(models)
   const out: Record<string, LazycodexAgentModelOverride> = {}
   for (const [name, setting] of Object.entries(overrides)) {
-    out[name] = availableOverrideFor(name, setting, models, availableModels, preset)
+    out[name] = availableOverrideFor(name, setting, models, availableModels)
   }
   return out
 }
@@ -40,7 +39,6 @@ function availableOverrideFor(
   setting: LazycodexAgentModelOverride,
   models: readonly string[],
   availableModels: ReadonlySet<string>,
-  preset?: RecommendationPreset,
 ): LazycodexAgentModelOverride {
   if (CURATED_OVERRIDE_AGENT_NAMES.has(name) && availableModels.has(setting.model)) {
     return stripUnavailableFallback(setting, availableModels)
@@ -59,7 +57,7 @@ function availableOverrideFor(
       )
     }
   }
-  const recommendation = recommendAgentModelFields(name, models, preset)
+  const recommendation = recommendAgentModelFields(name, models)
   if (recommendation === undefined) {
     return stripUnavailableFallback(setting, availableModels)
   }

@@ -8,12 +8,6 @@ export interface ProviderDescriptor {
 
 export const DEFAULT_PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   { providerId: "xai", modelPrefixes: ["grok-"] },
-  { providerId: "anthropic", modelPrefixes: ["claude-"] },
-  { providerId: "openai", modelPrefixes: ["gpt-", "o1", "o3", "o4"] },
-  { providerId: "google", modelPrefixes: ["gemini-"] },
-  { providerId: "moonshotai", modelPrefixes: ["kimi-", "k2"] },
-  { providerId: "zai", modelPrefixes: ["glm-"] },
-  { providerId: "minimax", modelPrefixes: ["minimax-"] },
 ]
 
 export interface GrokModelCatalogInput {

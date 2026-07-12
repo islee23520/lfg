@@ -1,6 +1,6 @@
 import type { JsonObject } from "../../shared/json"
 import { grokConfigJson, writeGrokModelConfig } from "../../cli/config/lfg-grok-config"
-import type { ModelDiscovery, SetupPreset } from "../../cli/models/lfg-models"
+import type { ModelDiscovery } from "../../cli/models/lfg-models"
 import { modelDiscoveryEnv } from "../../cli/models/lfg-models"
 import { grokRoutedOverrideMap } from "../../cli/models/resolve-tier-model"
 import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentModels } from "./grok-plugins-enable"
@@ -95,7 +95,6 @@ export async function runGrokInstall(
       : applyRecommendationsToOverrideMap(
           await resolveLazycodexAgentOverrides(home, resolvedAgents),
           discovery?.modelIds ?? [],
-          recommendationPreset(discovery?.preset),
         )
     const fullAgentModels = grokRoutedOverrideMap(options.fullAgentModels ?? overrideMap, discovery)
     const hasRealProxyDiscovery = discovery !== null && typeof discovery.baseUrl === "string" && discovery.baseUrl.trim().length > 0
@@ -169,7 +168,6 @@ export async function runGrokInstall(
     : applyRecommendationsToOverrideMap(
         await resolveLazycodexAgentOverrides(home, resolvedAgents),
         discovery?.modelIds ?? [],
-        recommendationPreset(discovery?.preset),
       )
   const fullAgentModels = grokRoutedOverrideMap(options.fullAgentModels ?? overrideMap, discovery)
   const hasRealProxyDiscovery = discovery !== null && typeof discovery.baseUrl === "string" && discovery.baseUrl.trim().length > 0
@@ -217,10 +215,6 @@ export async function runGrokInstall(
     subagentModels,
     hooks: hooksFresh,
   }
-}
-
-function recommendationPreset(preset: SetupPreset | undefined): "grok" | "gpt" | undefined {
-  return preset === "gpt" ? "gpt" : preset === undefined ? undefined : "grok"
 }
 
 function subagentModelMappingFromDiscovery(

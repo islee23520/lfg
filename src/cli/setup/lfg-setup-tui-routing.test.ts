@@ -46,7 +46,7 @@ vi.mock("./lfg-installer.js", () => installerMock)
 import * as tui from "./lfg-setup-tui"
 
 describe("lfg-setup-tui model routing", () => {
-  test("balanced preset becomes the persisted global default model", async () => {
+  test("grok preset becomes the persisted global default model", async () => {
     const prompts = await import("@clack/prompts") as any
     prompts.__calls.length = 0
     installerMock.runLazycodexInstaller.mockClear()
@@ -55,7 +55,7 @@ describe("lfg-setup-tui model routing", () => {
     const origAutocomplete = prompts.autocomplete
     prompts.select = async (options: any) => {
       const message = String(options.message ?? "")
-      if (/Global model preset/i.test(message)) return "balanced"
+      if (/Global model preset/i.test(message)) return "grok"
       if (/Global reasoning effort/i.test(message)) return "auto"
       if (/Model customization/i.test(message)) return "none"
       return String(options.options?.[0]?.value ?? "auto")

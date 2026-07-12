@@ -126,13 +126,8 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     const modelMode = await prompts.select({
       message: "Global model preset",
       options: [
-        { value: "auto", label: "Auto best available (recommended)", hint: "GrokBuild orchestration, GLM fast, Composer coding when available" },
-        { value: "balanced", label: "Balanced multi-provider", hint: "GPT default, Gemini fast, Grok reasoning/coding" },
+        { value: "auto", label: "Auto best available (recommended)", hint: "GrokBuild orchestration with Grok-first routing" },
         { value: "grok", label: "Grok-specialized", hint: "Prefer Grok models for all global routes" },
-        { value: "gpt", label: "GPT-centered", hint: "Prefer GPT for default/reasoning while keeping coding on recommended agent routes" },
-        { value: "gemini", label: "Gemini-centered", hint: "Prefer Gemini for long-context exploration and summaries" },
-        { value: "glm", label: "GLM-centered", hint: "Prefer GLM for default/reasoning with Grok/GPT fallback" },
-        { value: "multi", label: "Provider-scoped config", hint: "Balanced routes plus provider base URLs for xAI/Gemini/GLM/GPT" },
         { value: "vanilla", label: "Vanilla Grok models", hint: "built-in Grok defaults, no proxy discovery" },
       ],
       initialValue: "auto",
@@ -216,14 +211,14 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
           resultsText = discovery === null
             ? "No model discovery was available. Installer will preserve existing model configuration."
             : formatPresetResults(selectedPreset, discovery);
-          modelConfigLine = `Model config: ${selectedPreset} global preset${selectedPreset === "multi" ? " with provider-scoped base URLs" : ""}`;
+          modelConfigLine = `Model config: ${selectedPreset} global preset`;
         }
       } else {
         configuredForInstall = discovery;
         resultsText = discovery === null
           ? "No model discovery was available. Installer will preserve existing model configuration."
           : formatPresetResults(selectedPreset, discovery);
-        modelConfigLine = `Model config: ${selectedPreset} global preset${selectedPreset === "multi" ? " with provider-scoped base URLs" : ""}`;
+        modelConfigLine = `Model config: ${selectedPreset} global preset`;
       }
     }
   }

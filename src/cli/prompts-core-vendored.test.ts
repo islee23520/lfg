@@ -39,42 +39,20 @@ function expectLoadedPrompt(loaded: LoadedPrompt, filePath: string): void {
 }
 
 describe("prompts-core: prompt tables", () => {
-  it("atlas has all expected variants with bundled content", () => {
-    const variantNames = Object.keys(atlas)
-    expect(variantNames).toEqual(
-      expect.arrayContaining([
-        "default",
-        "gpt",
-        "gemini",
-        "kimi",
-        "kimi-k2-7",
-        "glm",
-        "opus-4-7",
-      ]),
-    )
-    for (const name of variantNames) {
-      const entry = bundled(atlas, name)
-      expectBundledPromptSource(entry, `packages/prompts-core/prompts/atlas/${name}.md`)
-    }
+  it("atlas has only the default variant with bundled content", () => {
+    expect(Object.keys(atlas)).toEqual(["default"])
+    expectBundledPromptSource(bundled(atlas, "default"), "packages/prompts-core/prompts/atlas/default.md")
   })
 
-  it("ultrawork has planner, gpt, gemini, glm, default variants", () => {
-    const variantNames = Object.keys(ultrawork)
-    expect(variantNames).toEqual(
-      expect.arrayContaining(["planner", "gpt", "gemini", "glm", "default"]),
-    )
-    for (const name of variantNames) {
-      const entry = bundled(ultrawork, name)
-      expectBundledPromptSource(entry, `packages/prompts-core/prompts/ultrawork/${name}.md`)
-    }
+  it("ultrawork has only the default variant", () => {
+    expect(Object.keys(ultrawork)).toEqual(["default"])
+    expectBundledPromptSource(bundled(ultrawork, "default"), "packages/prompts-core/prompts/ultrawork/default.md")
   })
 
   it("ultrawork planning routes through the ulw-plan skill", () => {
-    for (const variant of ["default", "gpt", "gemini", "glm"]) {
-      const prompt = bundled(ultrawork, variant).content
-      expect(prompt).toContain("ulw-plan")
-      expect(prompt).not.toContain("task(subagent_type=\"plan\"")
-    }
+    const prompt = bundled(ultrawork, "default").content
+    expect(prompt).toContain("ulw-plan")
+    expect(prompt).not.toContain("task(subagent_type=\"plan\"")
     expect(HYPERPLAN_MODE_PROMPT).toContain("ulw-plan")
     expect(HYPERPLAN_MODE_PROMPT).not.toContain("task(subagent_type=\"plan\"")
   })
@@ -96,36 +74,10 @@ describe("prompts-core: prompt tables", () => {
 })
 
 describe("prompts-core: resolveVariant", () => {
-  it("returns planner for prometheus agent when planner variant exists", () => {
-    const variant = resolveVariant({
-      agentName: "prometheus",
-      variants: ultrawork,
-    })
-    expect(variant).toBe("planner")
-  })
-
-  it("returns gpt variant for gpt model", () => {
-    const variant = resolveVariant({
-      modelID: "openai/gpt-5",
-      variants: ultrawork,
-    })
-    expect(variant).toBe("gpt")
-  })
-
-  it("returns gemini variant for gemini model", () => {
-    const variant = resolveVariant({
-      modelID: "google/gemini-2.5-pro",
-      variants: ultrawork,
-    })
-    expect(variant).toBe("gemini")
-  })
-
-  it("falls back to default for grok models (no family match)", () => {
-    const variant = resolveVariant({
-      modelID: "xai/grok-4",
-      variants: ultrawork,
-    })
-    expect(variant).toBe("default")
+  it("returns default variant regardless of model or agent", () => {
+    expect(resolveVariant({ modelID: "xai/grok-4", variants: ultrawork })).toBe("default")
+    expect(resolveVariant({ modelID: "openai/gpt-5", variants: ultrawork })).toBe("default")
+    expect(resolveVariant({ agentName: "prometheus", variants: ultrawork })).toBe("default")
   })
 
   it("returns first variant when no default exists and no match", () => {
@@ -199,11 +151,11 @@ describe("grok-prompt-adapter: resolveGrokAgentPrompt", () => {
     expectLoadedPrompt(result, "packages/prompts-core/prompts/ultrawork/codex.md")
   })
 
-  it("falls back to gpt variant when a gpt model is used", () => {
+  it("resolves default variant for non-grok models too", () => {
     const result = resolveGrokAgentPrompt({
       agent: "ultrawork",
       modelID: "openai/gpt-5",
     })
-    expectLoadedPrompt(result, "packages/prompts-core/prompts/ultrawork/gpt.md")
+    expectLoadedPrompt(result, "packages/prompts-core/prompts/ultrawork/default.md")
   })
 })

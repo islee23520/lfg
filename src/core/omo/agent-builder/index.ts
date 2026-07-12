@@ -27,19 +27,7 @@ export type {
 } from "./types"
 export {
   buildClaudeThinkingConfig,
-  isClaudeFable5Model,
-  isClaudeOpus46Model,
-  isClaudeOpus47Model,
   isClaudeOpus47OrLaterModel,
-  isClaudeOpus48Model,
-  isGeminiModel,
-  isGlmModel,
-  isGpt5_5Model,
-  isGptModel,
-  isGptNativeSisyphusModel,
-  isKimiK2Model,
-  isKimiK27Model,
-  isMiniMaxModel,
 } from "./types"
 export type {
   AvailableAgent,

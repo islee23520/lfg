@@ -30,11 +30,6 @@ describe("pattern-based model auto-assignment", () => {
     expect(selected).toBe("grok-4.5")
   })
 
-  test("selectModelForPatterns gpt preset still prefers GPT reasoning", () => {
-    const models = ["gpt-5.5", "glm-5.2", "grok-4.5", "grok-4.20-0309-reasoning"]
-    expect(selectModelForPatterns(models, "reasoning", "gpt")).toBe("gpt-5.5")
-  })
-
   test("selectModelForPatterns picks Grok composer utility before GPT mini", () => {
     const models = ["gpt-5.4-mini", "glm-5-turbo", "grok-composer-2.5-fast", "grok-3-mini-fast", "grok-4.3"]
     const selected = selectModelForPatterns(models, "utility")
@@ -130,9 +125,9 @@ describe("pattern-based model auto-assignment", () => {
     expect(selected).toBe("grok-composer-2.5-fast")
   })
 
-  test("visual patterns prefer Gemini", () => {
-    const models = ["gpt-5.5", "grok-4.3", "gemini-3-pro-high"]
+  test("visual patterns prefer Grok", () => {
+    const models = ["grok-4.3", "grok-4.5", "grok-4.20-0309-reasoning"]
     const selected = selectModelForPatterns(models, "visual")
-    expect(selected).toBe("gemini-3-pro-high")
+    expect(selected).toBe("grok-4.5")
   })
 })
