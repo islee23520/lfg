@@ -4,6 +4,7 @@ import { createNativeGrokHooksForLegacyFallback, isGrokEventHooksJson, isLegacyM
 import { normalizeHookCommandPaths, wrapLazyCodexHookCommand } from "./hook-command-normalization"
 import { materializeActiveGrokHooksJson } from "./normalize-plugin-hooks-active"
 import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset"
+import { addBashTimeoutHook, NATIVE_BASH_TIMEOUT_FILE } from "./bash-timeout-hook"
 import { addCommentCheckerHook, NATIVE_COMMENT_CHECKER_FILE } from "./comment-checker-hook"
 import { addNativeRulesHooks, NATIVE_RULES_FILE } from "./native-rules-hook-registration"
 import { addNativeWorkflowSelectorHook, NATIVE_WORKFLOW_SELECTOR_FILE } from "./native-workflow-selector-hook-registration"
@@ -32,6 +33,7 @@ export async function syncGrokHookBridgeIntoPlugin(pluginRoot: string): Promise<
   await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_ULTRAWORK_FILE), join(pluginRoot, "hooks", NATIVE_ULTRAWORK_FILE))
   await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_WORKFLOW_SELECTOR_FILE), join(pluginRoot, "hooks", NATIVE_WORKFLOW_SELECTOR_FILE))
   await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_COMMENT_CHECKER_FILE), join(pluginRoot, "hooks", NATIVE_COMMENT_CHECKER_FILE))
+  await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_BASH_TIMEOUT_FILE), join(pluginRoot, "hooks", NATIVE_BASH_TIMEOUT_FILE))
   await copyFile(await resolveAssetNearBridge(assetPath, "log", DEV_LOGGER_FILE), join(pluginRoot, "hooks", DEV_LOGGER_FILE))
   // .mcp.json is written by materializeGrokMcpRuntimes() during installGrokPluginFromSource — do not overwrite here with dev-only absolute paths.
   return destPath
@@ -84,7 +86,7 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
       }),
     )
   }
-  const nextPayload = { hooks: addSisyphusHooks(addCommentCheckerHook(addNativeRulesHooks(addNativeWorkflowSelectorHook(addLfgConfigLoaderHooks(nextBlock))))) }
+  const nextPayload = { hooks: addSisyphusHooks(addBashTimeoutHook(addCommentCheckerHook(addNativeRulesHooks(addNativeWorkflowSelectorHook(addLfgConfigLoaderHooks(nextBlock)))))) }
   const trust = validateGrokHooksJson(nextPayload)
   if (!trust.ok) {
     throw new Error(trust.error ?? "invalid hooks after normalize")

@@ -113,6 +113,7 @@ try {
   const nativeUltraworkSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-ultrawork.mjs`
   const nativeWorkflowSelectorSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-workflow-selector.mjs`
   const nativeCommentCheckerSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-comment-checker.mjs`
+  const nativeBashTimeoutSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-bash-timeout.mjs`
   const devLoggerSrc = `${GROK_INSTALL_ASSETS_SRC}/log/lfg-dev-logger.mjs`
   const xaiGrokMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-xai-grok-mcp.mjs`
   const astGrepMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-ast-grep-mcp.mjs`
@@ -149,6 +150,7 @@ try {
   await cp(nativeUltraworkSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-ultrawork.mjs`)
   await cp(nativeWorkflowSelectorSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-workflow-selector.mjs`)
   await cp(nativeCommentCheckerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-comment-checker.mjs`)
+  await cp(nativeBashTimeoutSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-bash-timeout.mjs`)
   await cp(devLoggerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-dev-logger.mjs`)
   await cp(xaiGrokMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-xai-grok-mcp.mjs`)
   await cp(astGrepMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-ast-grep-mcp.mjs`)
