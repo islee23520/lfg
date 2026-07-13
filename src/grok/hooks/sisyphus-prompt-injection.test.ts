@@ -14,8 +14,10 @@ describe("T-PROMPT-HOOK-01 sisyphus additionalContext markers", () => {
     expect(ctx?.body).toMatch(/NO RE-ASK/i)
     expect(ctx?.body).toMatch(/SELF-ANSWER/i)
     expect(ctx?.body).toMatch(/true blocker/i)
-    // Slightly higher budget: SELF-ANSWER gate must stay in the injection body.
-    expect(ctx?.body.length).toBeLessThan(700)
+    expect(ctx?.body).toMatch(/STANDING INTENT/i)
+    expect(ctx?.body).toMatch(/residual/i)
+    // Budget: STANDING INTENT residual-finish must stay in the injection body.
+    expect(ctx?.body.length).toBeLessThan(900)
     expect(ctx?.statusLabel).toMatch(/Orchestrator/i)
   })
 
@@ -32,6 +34,9 @@ describe("T-PROMPT-HOOK-01 sisyphus additionalContext markers", () => {
     expect(ctx?.body).toMatch(/NO RE-ASK/i)
     expect(ctx?.body).toMatch(/SELF-ANSWER/i)
     expect(ctx?.body).toMatch(/true blocker/i)
+    expect(ctx?.body).toMatch(/RESIDUAL FINISH/i)
+    expect(ctx?.body).toMatch(/standing authorization/i)
+    expect(ctx?.body).toMatch(/shall I|would you like|want me to/i)
   })
 
   test("Stop gate includes SELF-ANSWER ban on preference-menu endings", async () => {
@@ -40,6 +45,8 @@ describe("T-PROMPT-HOOK-01 sisyphus additionalContext markers", () => {
     expect(ctx).not.toBeNull()
     expect(ctx?.body).toMatch(/SELF-ANSWER/i)
     expect(ctx?.body).toMatch(/if you want/i)
+    expect(ctx?.body).toMatch(/RESIDUAL FINISH/i)
+    expect(ctx?.body).toMatch(/permission-begging/i)
   })
 
   test("UserPromptSubmit planning intent routes toward /ulw-plan", async () => {
@@ -50,5 +57,17 @@ describe("T-PROMPT-HOOK-01 sisyphus additionalContext markers", () => {
     })
     expect(ctx).not.toBeNull()
     expect(ctx?.body).toMatch(/ulw-plan/i)
+  })
+
+  test("UserPromptSubmit residual-finish markers fire even for short nudges", async () => {
+    const mod = await import("../assets/hooks/lfg-sisyphus-hooks.mjs")
+    const ctx = mod.renderSisyphusContext("UserPromptSubmit", {
+      hookEventName: "UserPromptSubmit",
+      prompt: "all done??",
+    })
+    expect(ctx).not.toBeNull()
+    expect(ctx?.body).toMatch(/RESIDUAL FINISH/i)
+    expect(ctx?.body).toMatch(/standing authorization/i)
+    expect(ctx?.body).toMatch(/if you want/i)
   })
 })
