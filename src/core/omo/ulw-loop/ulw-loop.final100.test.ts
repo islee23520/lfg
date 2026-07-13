@@ -323,6 +323,37 @@ describe("ulw-loop final 100% line hits", () => {
     ).rejects.toThrow(/Unknown|not found/i)
   })
 
+  test("review-blockers ulwLoopError path goal not in progress", async () => {
+    const r = await root()
+    const plan = await createUlwLoopPlan(r, { brief: "rb-status\n" })
+    const goalId = plan.goals[0]!.id
+    await expect(
+      recordFinalReviewBlockers(r, {
+        goalId,
+        title: "t",
+        objective: "o",
+        evidence: "e",
+        codexGoalJson: "{}",
+      }),
+    ).rejects.toThrow(/is pending/i)
+  })
+
+  test("review-blockers ulwLoopError path codex snapshot mismatch", async () => {
+    const r = await root()
+    await createUlwLoopPlan(r, { brief: "rb-snapshot\n", codexGoalMode: "aggregate" })
+    const started = await startNextUlwLoop(r)
+    if (!("goal" in started)) throw new Error("expected goal")
+    await expect(
+      recordFinalReviewBlockers(r, {
+        goalId: started.goal.id,
+        title: "t",
+        objective: "o",
+        evidence: "e",
+        codexGoalJson: JSON.stringify({ goal: { objective: "totally-different-objective", status: "active" } }),
+      }),
+    ).rejects.toThrow(/mismatch/i)
+  })
+
   test("evidence ledgerKind default via invalid status cast", async () => {
     // default branch only via force - recordEvidence types prevent invalid status
     // criteriaSummary default is also hard - force invalid criterion status on plan

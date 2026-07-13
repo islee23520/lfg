@@ -50,11 +50,13 @@ export default defineConfig({
       // Ratchet toward 100% TDD coverage of the ulw-loop product surface.
       // Floors track the latest measured train; raise only when tests land.
       // Target remains 100/100/100/100 (see AGENTS.md + coverage evidence).
+      // 2026-07-14: raised after quality-gate-blockers.ts hit 100% branches and
+      // review-blockers.ts not-in-progress guard was covered.
       thresholds: {
-        lines: 90,
-        functions: 95,
-        branches: 70,
-        statements: 85,
+        lines: 98,
+        functions: 99,
+        branches: 86,
+        statements: 95,
       },
     },
   },
