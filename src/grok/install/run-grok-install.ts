@@ -26,6 +26,7 @@ import { resolveGrokSetupHome } from "./grok-home"
 import { resolveExistingStampedLfgSetup } from "./run-grok-install-existing"
 import { syncPostInstallPluginPayload, type PostInstallPluginSyncResult } from "./run-grok-install-post-sync"
 import { ensureXaiGrokMcpConfig, type EnsureXaiGrokMcpConfigResult } from "../mcp/xai-mcp-config"
+import { ensureAgentsSkillsPath } from "./ensure-agents-skills-path"
 
 export const INTERNAL_GROK_INSTALL_PACKAGE = "lfg-grok-install" as const
 export const INTERNAL_GROK_INSTALL_COMMAND = "@islee23520/lfg internal grok-install" as const
@@ -123,6 +124,7 @@ export async function runGrokInstall(
     const omoAgents = await syncLazycodexAgentsToGrokLedger(home, fullAgentModels)
     const pluginsEnabled = await ensureLfgPluginsEnabled(home)
     await ensureLfgAgentsPreferred(home)
+    await ensureAgentsSkillsPath(home)
     const subagentModels = await ensureLfgSubagentModels(
       home,
       subagentModelMappingFromDiscovery(discovery, resolvedAgents),
@@ -203,6 +205,7 @@ export async function runGrokInstall(
   const omoAgents = await syncLazycodexAgentsToGrokLedger(home, fullAgentModels)
   const pluginsEnabled = await ensureLfgPluginsEnabled(home)
   await ensureLfgAgentsPreferred(home)
+  await ensureAgentsSkillsPath(home)
   const subagentModels = await ensureLfgSubagentModels(
     home,
     subagentModelMappingFromDiscovery(discovery, resolvedAgents),
