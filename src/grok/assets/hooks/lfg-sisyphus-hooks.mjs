@@ -239,19 +239,12 @@ function renderSisyphusContext(event, input) {
 }
 
 function sessionStartContext() {
+  // Keep short: Grok often trims long hook additionalContext; agent.md owns full discipline.
   const lines = [
     "<sisyphus-orchestrator-mode>",
     "Sisyphus orchestrator mode is active for this Grok Build session.",
-    "",
-    "Operating principles:",
-    "- Parse intent before acting. Map surface form to true intent.",
-    "- NEVER start implementing unless explicitly requested.",
-    "- Create todos BEFORE starting non-trivial work.",
-    "- Delegate to specialists: visual-engineering for UI, ultrabrain for hard logic, oracle for architecture.",
-    "- Fire explore/librarian agents in PARALLEL for codebase/external research.",
-    "- Collect ALL agent results before delivering final answer.",
-    "- Verify with evidence: lsp_diagnostics, build, tests. NO EVIDENCE = NOT COMPLETE.",
-    "",
+    "NO RE-ASK: never re-ask known facts (user msg, prior turns, AGENTS.md, .omo/, tools, explicit instructions). Infer defaults. At most ONE new question for a true blocker only.",
+    "Do not implement unless explicitly requested. Verify with evidence.",
     "</sisyphus-orchestrator-mode>",
   ];
   return { statusLabel: "Orchestrator mode initialized", body: lines.join("\n") };
@@ -261,16 +254,11 @@ function userPromptSubmitContext(input) {
   const prompt = stringField(input ?? {}, ["prompt", "userQuery", "user_query"]) ?? "";
   const intentHints = detectIntentHints(prompt);
   const planningIntent = detectPlanningIntent(prompt);
+  // Thin signal only (length + intent labels). Full routing lives in agent prompt, not hook essay.
   const lines = [
     "<sisyphus-intent-routing>",
     `User prompt received (${prompt.length} chars). Intent signals: ${intentHints.join(", ") || "none detected"}.`,
-    "",
-    "Routing reminders:",
-    "- 'explain/how does' -> research: fire explore/librarian, synthesize, answer.",
-    "- 'implement/add/create' -> implementation: plan -> delegate or execute.",
-    "- 'look into/check/investigate' -> investigation: explore, report findings.",
-    "- 'fix/broken/error' -> diagnose: find root cause, fix minimally.",
-    "- Ambiguous scope -> ask ONE clarifying question before proceeding.",
+    "NO RE-ASK: treat this prompt + session history + project rules as already answered. Do not re-confirm known intent. Execute with inferred defaults; at most one new question only if a true blocker remains.",
   ];
   if (planningIntent !== null) {
     lines.push("", planningRoutingBlock(planningIntent));
@@ -286,7 +274,7 @@ function userPromptSubmitContext(input) {
     lines.push("Resume via boulder-state; continuation CLI remains Deferred.");
     lines.push("</active-work>");
   }
-  lines.push("", "</sisyphus-intent-routing>");
+  lines.push("</sisyphus-intent-routing>");
   return { statusLabel: planningIntent !== null ? "Planning intent routed to /ulw-plan" : "Intent routing hints injected", body: lines.join("\n") };
 }
 
@@ -515,7 +503,7 @@ function subagentStopContext(input) {
     "<sisyphus-delegation-result>",
     "Subagent completed. Before proceeding:",
     "- Collect the result via get_command_or_subagent_output or the subagent return value.",
-    "- For Grok todo continuation, store the subagent id and use resume_from for follow-up turns instead of Codex task(task_id=ses_...).",
+    "- For GrokBuild todo continuation, store the subagent id and use resume_from for follow-up turns (spawn_subagent transport; do not use Codex task_id=ses_... paths).",
     "- Verify: does the result match expected outcome?",
     "- Does it follow existing codebase patterns?",
     "- Did the agent follow MUST DO and MUST NOT DO requirements?",
@@ -681,21 +669,8 @@ function planningRoutingBlock(intentKind) {
 
   return [
     `<sisyphus-planning-routing kind="${intentKind}">`,
-    `PLANNING INTENT DETECTED (${kindLabel}).`,
-    "",
-    "Route through OMO /ulw-plan discipline instead of Grok native plan mode:",
-    "- Invoke /ulw-plan to activate Prometheus (explore-first planning consultant).",
-    "- Prometheus explores the codebase, asks only the forks exploration cannot resolve,",
-    "  writes ONE decision-complete plan under .omo/plans/, and waits for explicit approval.",
-    "- Metis (gap analysis) and Momus (high-accuracy review) gates verify the plan before execution.",
-    "- Do NOT bypass /ulw-plan with Grok's built-in enter_plan_mode for this request.",
-    "",
-    "/ulw-plan classification:",
-    "- CLEAR (outcome known, only tradeoffs open): ask surviving forks, run approval gate.",
-    "- UNCLEAR (outcome fuzzy): research maximally, adopt best-practice defaults, auto-run Momus review.",
-    "- ON THE FENCE: treat as CLEAR, ask exactly ONE question.",
-    "",
-    "After /ulw-plan produces an approved plan, execution begins via $start-work or delegation.",
+    `PLANNING INTENT DETECTED (${kindLabel}). Use /ulw-plan (Prometheus), not Grok enter_plan_mode.`,
+    "Explore/research first; never re-ask facts already in the brief or repo. At most one real fork. After approval: Metis + Momus, then /start-work.",
     "</sisyphus-planning-routing>",
   ].join("\n");
 }

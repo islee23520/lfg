@@ -43,6 +43,8 @@ export const NATIVE_SISYPHUS_JUNIOR_MARKER = "OMO Sisyphus-Junior" as const
 export const NATIVE_METIS_MARKER = "OMO Metis" as const
 export const NATIVE_MOMUS_MARKER = "OMO Momus" as const
 
+export const BUILTIN_OVERLAY_AGENT_NAMES: ReadonlySet<string> = new Set(["plan"])
+
 export function nativeOmoFallbackPrompt(sourceName: string): string {
   if (sourceName === "default") return nativeSisyphusDefaultPrompt()
   if (sourceName === "sisyphus") return nativeSisyphusPrompt()
@@ -76,11 +78,13 @@ function nativeSisyphusPrompt(): string {
   return [
     `You are ${NATIVE_SISYPHUS_MARKER}, the main orchestrator from OhMyOpenCode adapted for Grok Build.`,
     "Your role is to orchestrate: decompose ambitious work into evidence-bound steps, choose the right specialist for each step, and keep progress visible across the session.",
+    "Grok tends to over-ask: resolve unknowns from the repo, prior messages, AGENTS.md, .omo/ state, tool results, and explicit user instructions before interviewing.",
+    "NO RE-ASK: never re-ask facts or directions the user already gave (including earlier turns and durable instructions). Infer sensible defaults. At most ONE new clarifying question, and only for a true blocker that no available context can resolve — never for re-confirming known intent.",
     "Use deep reasoning for task decomposition, specialist selection, dependency ordering, and stop conditions before dispatching work.",
     "Prefer routing to specialized Grok subagents over doing everything yourself: hephaestus for deep execution, atlas for todo-list completion, oracle for reasoning, explorer via [subagents.toggle] for codebase investigation, and librarian for external documentation or examples.",
-    "Read .omo/ state from hook-injected context to maintain work loop awareness, including active plan, current step, findings, and ULW session state.",
+    "When hook/context state is provided, use it; otherwise inspect project .omo/ files (boulder, plans, evidence) directly for work-loop awareness.",
     "Use the ulw-loop skill for continuous work sessions, and use ulw-plan first when a durable .omo/plans plan is needed.",
-    "Verify each completed slice with concrete evidence before moving on. Surface unresolved ambiguity to the user rather than guessing.",
+    "Verify each completed slice with concrete evidence before moving on.",
     "",
   ].join("\n")
 }

@@ -18,16 +18,10 @@ function ulwLoopFail(message: string, code: string, details: Record<string, unkn
 }
 
 function ledgerKind(status: EvidenceStatus): UlwLoopLedgerEntry["kind"] {
-	switch (status) {
-		case "pass":
-			return "evidence_captured";
-		case "fail":
-			return "criterion_failed";
-		case "blocked":
-			return "criterion_blocked";
-		default:
-			return ulwLoopFail("Invalid criterion status.", "ULW_LOOP_CRITERION_STATUS_INVALID", { status });
-	}
+	if (status === "pass") return "evidence_captured";
+	if (status === "fail") return "criterion_failed";
+	if (status === "blocked") return "criterion_blocked";
+	return ulwLoopFail("Invalid criterion status.", "ULW_LOOP_CRITERION_STATUS_INVALID", { status });
 }
 
 function findGoal(plan: UlwLoopPlan, goalId: string): UlwLoopItem {
@@ -151,24 +145,14 @@ export function criteriaSummary(plan: UlwLoopPlan): {
 		for (const criterion of goal.successCriteria) {
 			totalCriteria += 1;
 			if (criterion.status !== "pass") unresolved = true;
-			switch (criterion.status) {
-				case "pass":
-					passCount += 1;
-					break;
-				case "pending":
-					pendingCount += 1;
-					break;
-				case "fail":
-					failCount += 1;
-					break;
-				case "blocked":
-					blockedCount += 1;
-					break;
-				default:
-					ulwLoopFail("Invalid criterion status.", "ULW_LOOP_CRITERION_STATUS_INVALID", {
-						status: criterion.status,
-					});
-			}
+			if (criterion.status === "pass") passCount += 1;
+			else if (criterion.status === "pending") pendingCount += 1;
+			else if (criterion.status === "fail") failCount += 1;
+			else if (criterion.status === "blocked") blockedCount += 1;
+			else
+				ulwLoopFail("Invalid criterion status.", "ULW_LOOP_CRITERION_STATUS_INVALID", {
+					status: criterion.status,
+				});
 		}
 		if (unresolved) goalsWithUnresolvedCriteria.push(goal.id);
 	}

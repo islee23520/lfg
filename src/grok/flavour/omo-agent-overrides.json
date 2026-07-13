@@ -115,13 +115,13 @@
       "role_rationale": "Prometheus strategic planner: Grok 4.5 frontier primary; Grok 4.20 reasoning as availability fallback"
     },
     "multimodal-looker": {
-      "model": "grok-4.5",
+      "model": "gemini-3.1-pro-low",
       "model_reasoning_effort": "medium",
       "service_tier": "default",
-      "model_fallback": "grok-4.20-0309-reasoning",
+      "model_fallback": "grok-4.5",
       "model_fallback_reasoning_effort": "medium",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Vision specialist: Grok 4.5 multimodal for image/screenshot analysis"
+      "role_rationale": "Vision specialist: Gemini 3.1 Pro vision primary (topology vision); Grok 4.5 multimodal fallback"
     },
     "sisyphus": {
       "model": "grok-4.5",
@@ -142,13 +142,13 @@
       "role_rationale": "Atlas todo-list orchestrator: Grok 4.5 frontier for task coordination"
     },
     "oracle": {
-      "model": "grok-4.5",
+      "model": "gpt-5.5",
       "model_reasoning_effort": "high",
       "service_tier": "default",
-      "model_fallback": "grok-4.20-0309-reasoning",
+      "model_fallback": "grok-4.5",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Oracle reasoning consultant: Grok 4.5 frontier for deep analysis"
+      "role_rationale": "Oracle reasoning consultant: GPT-5.5 deep analysis primary (topology deep_oracle); Grok 4.5 frontier fallback"
     },
     "sisyphus-junior": {
       "model": "grok-4.5",
@@ -214,13 +214,13 @@
       "role_rationale": "Writing category: Grok mini-fast for content generation"
     },
     "visual-engineering": {
-      "model": "grok-4.5",
+      "model": "gemini-3.1-pro-low",
       "model_reasoning_effort": "high",
       "service_tier": "default",
-      "model_fallback": "grok-4.20-0309-reasoning",
+      "model_fallback": "grok-4.5",
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
-      "role_rationale": "Visual-engineering: Grok 4.5 multimodal for visual analysis tasks"
+      "role_rationale": "Visual-engineering: Gemini 3.1 Pro vision primary (topology vision); Grok 4.5 multimodal fallback"
     },
     "artistry": {
       "model": "grok-4.5",

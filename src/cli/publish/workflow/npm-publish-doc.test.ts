@@ -8,8 +8,8 @@ const ROOT = process.cwd()
 describe("docs/npm-publish.md (#22)", () => {
   test("documents assert-pack, assert-publish-auth, and repo-root publish", async () => {
     const doc = await readFile(join(ROOT, "docs/npm-publish.md"), "utf8")
-    expect(doc).toContain("assert-publish-auth")
-    expect(doc).toContain("pre-publish-check")
+    expect(doc).toContain("assert-npm-publish-auth.mjs")
+    expect(doc).toContain("pre-publish-check.mjs")
     expect(doc).toContain("repository root")
     expect(doc).toContain("bin/lfg.js")
     expect(doc).toContain("assert-pack")

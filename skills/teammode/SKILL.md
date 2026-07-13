@@ -75,7 +75,7 @@ Use a TEAM when EITHER holds:
 - one task still needs exploration, yet its GOAL is already clear - parallel investigation under
   a fixed objective.
 
-Use plain fire-and-forget subagents (`$ulw` / one-off `spawn_agent` workers) - NOT a team - when
+Use plain fire-and-forget subagents (`/ulw` / one-off `spawn_agent` workers) - NOT a team - when
 EITHER holds:
 - the work IS perfectly isolated, so there is no coordination cost worth paying; or
 - the GOAL is still ambiguous, where one mind should resolve direction before any fan-out.

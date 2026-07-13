@@ -80,12 +80,8 @@ function required(argv: readonly string[], flag: string, code: string): string {
 }
 
 function evidenceStatus(value: string): RecordEvidenceCliArgs["status"] {
-	switch (value) {
-		case "pass": return "pass";
-		case "fail": return "fail";
-		case "blocked": return "blocked";
-		default: throw new UlwLoopError("Invalid --status; expected pass, fail, or blocked.", "ULW_LOOP_EVIDENCE_STATUS_INVALID", { details: { status: value } });
-	}
+	if (value === "pass" || value === "fail" || value === "blocked") return value;
+	throw new UlwLoopError("Invalid --status; expected pass, fail, or blocked.", "ULW_LOOP_EVIDENCE_STATUS_INVALID", { details: { status: value } });
 }
 
 export function parseRecordEvidenceArgs(argv: readonly string[]): RecordEvidenceCliArgs {

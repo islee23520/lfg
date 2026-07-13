@@ -218,21 +218,33 @@ describe("lfg internal grok install contract", () => {
     expect(Array.isArray(parsed.hooks.SessionStart)).toBe(true)
   })
 
-  test("doctor remains internal and the public CLI advertises setup only", async () => {
+  test("doctor is a public remediating verifier and purges invalid model settings", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-cli-doc-"))
     const source = join(dirname(fileURLToPath(import.meta.url)), "..", "grok", "fixture")
     const pluginRoot = join(home, ".grok", "plugins", "lfg")
     await installGrokPluginFromSource({ home, sourceRoot: source })
     await mergePortedHooksIntoPlugin(pluginRoot)
-    const result = await runLfg(["--json", "doctor"], { HOME: home })
-    expect(result.exitCode).toBe(1)
+    await writeFile(
+      join(home, ".grok", "config.toml"),
+      `[plugins]\nenabled = ["lfg", "ocx-models"]\n\n[subagents.models]\nplan = "gpt-5.5"\n`,
+      "utf8",
+    )
+    await writeFile(
+      join(home, ".grok", "models_cache.json"),
+      JSON.stringify({ models: { "grok-4.5": {} } }),
+      "utf8",
+    )
+    const result = await runLfg(["--json", "doctor"], { HOME: home, LFG_ALLOW_TEST_GROK_HOME: "1" })
+    expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({
-      ok: false,
-      status: "error",
-      code: "unsupported_command",
+      ok: true,
       command: "doctor",
-      supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop"],
+      lfgIsPlugin: false,
     })
+    expect(result.json).toHaveProperty("invalidModelSettings")
+    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    expect(config).not.toContain("gpt-5.5")
+    expect(config).not.toContain("ocx-models")
     const stampRaw = await readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stampRaw).toContain("@islee23520/lfg")
   })

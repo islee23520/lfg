@@ -226,7 +226,7 @@ lfg-install.json, lfg-component-inventory.json
 
 Active hook registration is global: `~/.grok/hooks/lfg-hooks.json`. Plugin-local `hooks/hooks.json` is removed after normalization; `hooks/hooks.source.json` is retained only as the lfg-owned normalized source payload for idempotent repair.
 
-Adjacent `~/.grok` writes (lfg-owned): `config.toml` (`[lazycodex.agents.*]`, `[endpoints]`, `[model.*]` sections), `lazycodex-agent-overrides.json`, `~/.grok/agents/*.toml` + `~/.grok/prompts/omo/*.md`. Legacy `~/.grok/prompts/lazycodex` prompts are migrated into `omo` and removed during setup.
+Adjacent `~/.grok` writes (lfg-owned): `config.toml` (`[omo.agents.*]`, `[omo.models]`, `[subagents.*]`, `[endpoints]`, `[model.*]` sections), `omo-agent-overrides.json` (legacy `lazycodex-agent-overrides.json` filename still readable as fallback), `~/.grok/agents/*.toml` + `~/.grok/prompts/omo/*.md`. Retired `[lazycodex.*]` config namespaces are stripped on setup/refresh/purge. Legacy `~/.grok/prompts/lazycodex` prompts are migrated into `omo` and removed during setup.
 
 ## Development Commands
 
@@ -235,12 +235,16 @@ npm run build              # esbuild bundle + asset staging (scripts/build.mjs)
 npm test                   # build + vitest on src/cli, src/core, src/grok (exclude src/grok/skills/**/*.test.ts)
 npm run typecheck          # tsc --noEmit
 npm run assert-omo-parity  # build + validate upstream-derived OMO parity payloads
+npm run assert-skills-smoke # every skills/*/SKILL.md + scripts syntax + cheap CLI probes
+npm run test:ulw-loop      # unit + lifecycle TDD suite for durable ulw-loop
+npm run coverage:ulw-loop  # v8 coverage gate for ulw-loop (ratchet toward 100%; floors in vitest.config.ts)
 npm run self-test          # build + node dist/self-test.js (smoke harness)
-npm run verify             # assert-pack → assert-omo-parity → npm test → typecheck → self-test
+npm run verify             # assert-pack → assert-omo-parity → assert-skills-smoke → npm test → coverage:ulw-loop → typecheck → self-test
 npm run assert-pack        # node scripts/assert-npm-pack-bin.mjs
-npm run pre-publish-check  # build + composite publish gate (gap + auth + registry bin)
-npm run assert-publish-auth
-npm run record-publish-gap
+# optional publish helpers (no package.json aliases):
+#   node scripts/pre-publish-check.mjs
+#   node scripts/assert-npm-publish-auth.mjs
+#   node scripts/record-publish-gap.mjs
 ```
 
 Runtime smoke:

@@ -51,9 +51,9 @@ describe("pre-publish-check integration (#22)", () => {
     }
   }, 30_000)
 
-  test("npm run pre-publish-check wires build then exits 2 when not logged in (#22)", async () => {
+  test("node scripts/pre-publish-check.mjs exits 2 when not logged in (#22)", async () => {
     try {
-      await execFileAsync("npm", ["run", "pre-publish-check"], {
+      await execFileAsync("node", ["scripts/pre-publish-check.mjs"], {
         cwd: ROOT,
         encoding: "utf8",
         env: { ...process.env, LFG_NPM_WHOAMI: "" },
@@ -63,7 +63,6 @@ describe("pre-publish-check integration (#22)", () => {
       const err = error as { code?: number; stdout?: string; stderr?: string }
       expect(err.code).toBe(2)
       const combined = `${err.stdout ?? ""}\n${err.stderr ?? ""}`
-      expect(combined).toContain("build.mjs")
       expect(combined).toContain('"hasBin": true')
       expect(combined).toContain('"publishReady":')
       expect(combined).toContain('"legacyWrongTarget":')

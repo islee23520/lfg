@@ -121,10 +121,39 @@ async function adaptSkillPayload(skillName, skillRoot) {
   } else if (skillName === "teammode") {
     await rewriteSkillMarkdown(skillRoot, adaptTeammodeSkill)
     await ensureTeammodeGrokScripts(skillRoot)
+  } else if (skillName === "lsp") {
+    await rewriteSkillMarkdown(skillRoot, adaptLspSkillForGrok)
+  } else if (skillName === "comment-checker") {
+    await rewriteSkillMarkdown(skillRoot, adaptCommentCheckerSkillForGrok)
+  } else if (skillName === "rules") {
+    await rewriteSkillMarkdown(skillRoot, adaptRulesSkillForGrok)
   }
   if (grokBuildSpawnSubagentMappingSkills.has(skillName)) {
     await rewriteSkillMarkdown(skillRoot, ensureGrokBuildSpawnSubagentMapping)
   }
+  await rewriteSkillTreeTextFiles(skillRoot, convertCodexSkillCommandsToGrokSlash)
+}
+
+// Allowlist only: avoid rewriting ast-grep metavars ($MSG) and shell vars.
+const grokSlashSkillNames = new Set([
+  ...managedSkills,
+  "ulw",
+  "cua-driver",
+  "xai",
+  "xai-generate-text",
+  "xai-image-generate",
+  "xai-tts",
+  "xai-video-generate",
+  "xai-web-search",
+  "xai-x-search",
+])
+
+export function convertCodexSkillCommandsToGrokSlash(text) {
+  return text
+    .replaceAll(/\$omo:([a-z][a-z0-9_-]*)/g, "/$1")
+    .replaceAll(/(?<![A-Za-z0-9_/])\$([a-z][a-z0-9_-]*)/g, (match, name) =>
+      grokSlashSkillNames.has(name) ? `/${name}` : match,
+    )
 }
 
 async function adaptAgentMetadata(skillName, skillRoot) {
@@ -139,7 +168,7 @@ async function adaptAgentMetadata(skillName, skillRoot) {
 
 function adaptAgentYaml(skillName, content) {
   if (skillName === "lfg-doctor") {
-    return `interface:
+    return convertCodexSkillCommandsToGrokSlash(`interface:
   display_name: "lfg-doctor (lfg)"
   short_description: "Diagnose lfg GrokBuild adapter install health"
   search_terms:
@@ -147,11 +176,11 @@ function adaptAgentYaml(skillName, content) {
     - "lfg doctor"
     - "lfg setup health"
     - "grok plugin lfg health"
-  default_prompt: "Use $lfg-doctor to diagnose this lfg GrokBuild adapter installation, inspect the installed ~/.grok/plugins/lfg payload, hooks, skills, agents, MCP manifests, model config, and latest islee23520/lfg source, then report evidence-backed findings without mutating user config."
-`
+  default_prompt: "Use /lfg-doctor to diagnose this lfg GrokBuild adapter installation, inspect the installed ~/.grok/plugins/lfg payload, hooks, skills, agents, MCP manifests, model config, and latest islee23520/lfg source, then report evidence-backed findings without mutating user config."
+`)
   }
   if (skillName === "lfg-report-bug") {
-    return `interface:
+    return convertCodexSkillCommandsToGrokSlash(`interface:
   display_name: "lfg-report-bug (lfg)"
   short_description: "Route lfg or GrokBuild adapter bugs with source evidence"
   search_terms:
@@ -160,11 +189,11 @@ function adaptAgentYaml(skillName, content) {
     - "lfg issue"
     - "grok adapter bug"
     - "grok plugin lfg issue"
-  default_prompt: "Use $lfg-report-bug to investigate this lfg or GrokBuild adapter bug, compare runtime evidence with latest islee23520/lfg source, search existing islee23520/lfg issues, and prepare a high-signal issue or comment with reproduction, root cause, fix guidance, and the lfg-generated footer."
-`
+  default_prompt: "Use /lfg-report-bug to investigate this lfg or GrokBuild adapter bug, compare runtime evidence with latest islee23520/lfg source, search existing islee23520/lfg issues, and prepare a high-signal issue or comment with reproduction, root cause, fix guidance, and the lfg-generated footer."
+`)
   }
   if (skillName === "lfg-contribute-bug-fix") {
-    return `interface:
+    return convertCodexSkillCommandsToGrokSlash(`interface:
   display_name: "lfg-contribute-bug-fix (lfg)"
   short_description: "Contribute verified lfg or GrokBuild adapter bug fixes"
   search_terms:
@@ -173,31 +202,56 @@ function adaptAgentYaml(skillName, content) {
     - "lfg bug fix"
     - "grok adapter fix"
     - "grok plugin lfg fix"
-  default_prompt: "Use $lfg-contribute-bug-fix to debug this lfg or GrokBuild adapter bug in islee23520/lfg, capture failing-before evidence, implement the smallest verified patch, run focused and setup-surface verification, and prepare the lfg-generated fix evidence for an issue, branch, or PR when requested."
-`
+  default_prompt: "Use /lfg-contribute-bug-fix to debug this lfg or GrokBuild adapter bug in islee23520/lfg, capture failing-before evidence, implement the smallest verified patch, run focused and setup-surface verification, and prepare the lfg-generated fix evidence for an issue, branch, or PR when requested."
+`)
   }
 
-  return content
-    .replaceAll(" (omo)", " (lfg)")
-    .replaceAll("(OmO)", "(lfg)")
-    .replaceAll("lcx-contribute-bug-fix", "lfg-contribute-bug-fix")
-    .replaceAll("lcx-doctor", "lfg-doctor")
-    .replaceAll("lcx-report-bug", "lfg-report-bug")
-    .replaceAll("omo-codex bug fix", "lfg bug fix")
-    .replaceAll("omo-codex bug", "lfg bug")
-    .replaceAll("openai codex bug", "lfg bug")
-    .replaceAll("codex upstream issue", "lfg upstream issue")
-    .replaceAll("codex bug fix pr", "lfg bug fix")
-    .replaceAll("LazyCodex or Codex", "lfg or GrokBuild adapter")
-    .replaceAll("LazyCodex/Codex", "lfg/GrokBuild")
-    .replaceAll("LazyCodex and Codex", "lfg and GrokBuild")
-    .replaceAll("LazyCodex", "lfg")
-    .replaceAll("lazycodex", "lfg")
-    .replaceAll("Codex", "GrokBuild")
-    .replaceAll("openai/codex", "islee23520/lfg")
-    .replaceAll("code-yeongyu/lazycodex", "islee23520/lfg")
-    .replaceAll("code-yeongyu/lfg", "islee23520/lfg")
-    .replaceAll("lfg-generated", "lfg-generated")
+  return convertCodexSkillCommandsToGrokSlash(
+    content
+      .replaceAll(" (omo)", " (lfg)")
+      .replaceAll("(OmO)", "(lfg)")
+      .replaceAll("lcx-contribute-bug-fix", "lfg-contribute-bug-fix")
+      .replaceAll("lcx-doctor", "lfg-doctor")
+      .replaceAll("lcx-report-bug", "lfg-report-bug")
+      .replaceAll("omo-codex bug fix", "lfg bug fix")
+      .replaceAll("omo-codex bug", "lfg bug")
+      .replaceAll("openai codex bug", "lfg bug")
+      .replaceAll("codex upstream issue", "lfg upstream issue")
+      .replaceAll("codex bug fix pr", "lfg bug fix")
+      .replaceAll("LazyCodex or Codex", "lfg or GrokBuild adapter")
+      .replaceAll("LazyCodex/Codex", "lfg/GrokBuild")
+      .replaceAll("LazyCodex and Codex", "lfg and GrokBuild")
+      .replaceAll("LazyCodex", "lfg")
+      .replaceAll("lazycodex", "lfg")
+      .replaceAll("Codex", "GrokBuild")
+      .replaceAll("openai/codex", "islee23520/lfg")
+      .replaceAll("code-yeongyu/lazycodex", "islee23520/lfg")
+      .replaceAll("code-yeongyu/lfg", "islee23520/lfg")
+      .replaceAll("lfg-generated", "lfg-generated"),
+  )
+}
+
+async function rewriteSkillTreeTextFiles(skillRoot, transform) {
+  const stack = [skillRoot]
+  while (stack.length > 0) {
+    const dir = stack.pop()
+    let entries = []
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const entry of entries) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (entry.name === "node_modules" || entry.name === ".git") continue
+        stack.push(path)
+        continue
+      }
+      if (!/\.(md|ya?ml|txt)$/i.test(entry.name)) continue
+      await rewriteOptionalFile(path, transform)
+    }
+  }
 }
 
 async function rewriteSkillMarkdown(skillRoot, transform) {
@@ -268,6 +322,34 @@ node "<skill-root>/scripts/team.mjs" bind-subagent --team <id> --id A --subagent
 Codex sections below (\`multi_agent_v2\`, \`codex_app\`) still apply when those tools exist. **Never mix transports** on one team.
 
 `
+
+function adaptLspSkillForGrok(content) {
+  return content
+    .replace(/^description:\s*.*$/m, "description: Use when GrokBuild needs language-server diagnostics, definitions, references, symbols, or rename safety checks in the current workspace (lfg MCP lsp surface).")
+    .replace(/^# Codex LSP\b/m, "# GrokBuild LSP (lfg)")
+    .replace(/Use when Codex needs/g, "Use when GrokBuild needs")
+    .replace(/\.codex\/lsp-client\.json/g, "project LSP config (not Codex ~/.codex/lsp-client.json)")
+    .replace(/~\/\.codex\/lsp-client\.json/g, "project/editor LSP config (GrokBuild; not Codex home)")
+}
+
+function adaptCommentCheckerSkillForGrok(content) {
+  return content
+    .replace(/^description:\s*.*$/m, "description: Use when GrokBuild needs to understand or respond to automatic comment-checker feedback emitted after an edit-like PostToolUse hook (lfg native hook).")
+    .replace(/^# Codex Comment Checker\b/m, "# GrokBuild Comment Checker (lfg)")
+    .replace(/When comment-checker reports a warning after a patch, Codex receives/g, "When comment-checker reports a warning after a patch, the GrokBuild session receives")
+    .replace(/so normal Codex work can continue/g, "so normal GrokBuild work can continue")
+    .replace(/Codex receives blocking feedback/g, "the GrokBuild session receives bounded feedback")
+}
+
+function adaptRulesSkillForGrok(content) {
+  return content
+    .replace(/^description:\s*.*$/m, "description: Use when the user asks about lfg/GrokBuild rules injection, project rules files, matching, or environment configuration.")
+    .replace(/^# Codex Rules\b/m, "# GrokBuild Rules (lfg)")
+    .replace(/Codex Rules is automatic/g, "Rules injection is automatic once the lfg Grok plugin is enabled")
+    .replace(/after Codex `apply_patch`/g, "after edit-like tools via PostToolUse")
+    .replace(/Codex Rules does not rewrite/g, "lfg native rules do not rewrite")
+    .replace(/CODEX_RULES_/g, "LFG_RULES_")
+}
 
 function adaptTeammodeSkill(content) {
   let next = content
@@ -350,7 +432,7 @@ git -C /tmp/lfg-source checkout -B "$DEFAULT_BRANCH" FETCH_HEAD
    - lfg-owned Grok config sections in \`~/.grok/config.toml\`.
 3. Probe the real setup surface with \`node dist/lfg.js --json setup --run\` or \`lfg --json setup --run\`, then inspect \`postInstallVerify\`.
 4. Compare local payload shape and generated skill manifest against \`/tmp/lfg-source\`; cite exact files and command output.
-5. Recommend \`$lfg-report-bug\` for a product defect or \`$lfg-contribute-bug-fix\` when the user wants a verified patch.
+5. Recommend \`/lfg-report-bug\` for a product defect or \`/lfg-contribute-bug-fix\` when the user wants a verified patch.
 
 ## Report Template
 

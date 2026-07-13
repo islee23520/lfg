@@ -173,7 +173,7 @@ Order rule (safest → riskiest): comments → dead code → defensive → dupli
 
 ### Phase 4: Parallel slop removal via `deep` agents in batches of 5
 
-Files are processed by `deep` category agents with the `$omo:remove-ai-slops` skill loaded, **batched 5 at a time in parallel**. The executable skill name is `remove-ai-slops`. The `deep` category gives the agent enough thoroughness to correctly evaluate the 9 categories and respect the KEEP rules without slipping into surface fixes; the 5-wide batch is the sweet spot — more than 5 creates result-merging noise and context contention, fewer wastes parallelism.
+Files are processed by `deep` category agents with the `/remove-ai-slops` skill loaded, **batched 5 at a time in parallel**. The executable skill name is `remove-ai-slops`. The `deep` category gives the agent enough thoroughness to correctly evaluate the 9 categories and respect the KEEP rules without slipping into surface fixes; the 5-wide batch is the sweet spot — more than 5 creates result-merging noise and context contention, fewer wastes parallelism.
 
 **Batching protocol** (strict):
 

@@ -69,7 +69,7 @@ describe("sync-omo-skills-to-grok", () => {
       await expect(readFile(join(target, "review-work", "SKILL.md"), "utf8")).resolves.toContain("aggregate review-work source")
       await expect(readFile(join(target, "ultraresearch", "SKILL.md"), "utf8")).resolves.toContain("Grok native x_search")
       await expect(readFile(join(target, "git-master", "agents", "grok.yaml"), "utf8")).resolves.toContain("git-master (lfg)")
-      await expect(readFile(join(target, "ulw-plan", "agents", "grok.yaml"), "utf8")).resolves.toContain("Use $ulw-plan")
+      await expect(readFile(join(target, "ulw-plan", "agents", "grok.yaml"), "utf8")).resolves.toContain("Use /ulw-plan")
       await expect(readFile(join(target, "ulw-plan", "agents", "openai.yaml"), "utf8")).rejects.toThrow()
       await expect(readFile(join(target, "lfg-doctor", "SKILL.md"), "utf8")).resolves.toContain("lfg-doctor")
       await expect(readFile(join(target, "lfg-doctor", "SKILL.md"), "utf8")).resolves.toContain("~/.grok/plugins/lfg")
@@ -201,3 +201,52 @@ async function writeSkillFile(source: string, sourcePath: string, skillName: str
   await mkdir(join(dir, "scripts"), { recursive: true })
   await writeFile(join(dir, "SKILL.md"), `---\nname: ${skillName}\n---\n\n${body}`, "utf8")
 }
+
+describe("T-SKILL-SLASH-01 GrokBuild skill activation forms", () => {
+  test("convertCodexSkillCommandsToGrokSlash rewrites managed $skill to /skill", async () => {
+    const script = join(ROOT, "scripts", "sync-omo-skills-to-grok.mjs")
+    const { stdout } = await execFileAsync(
+      "node",
+      [
+        "--input-type=module",
+        "-e",
+        `import { convertCodexSkillCommandsToGrokSlash } from ${JSON.stringify(script)};
+const cases = [
+  ["Use $coding-agent-sessions now", "Use /coding-agent-sessions now"],
+  ["Use $ulw-plan before code", "Use /ulw-plan before code"],
+  ["pattern $MSG stays", "pattern $MSG stays"],
+];
+for (const [input, expected] of cases) {
+  const got = convertCodexSkillCommandsToGrokSlash(input);
+  if (got !== expected) {
+    console.error(JSON.stringify({ input, expected, got }));
+    process.exit(2);
+  }
+}
+console.log("ok");`,
+      ],
+      { cwd: ROOT, encoding: "utf8" },
+    )
+    expect(stdout.trim()).toBe("ok")
+  })
+
+  test("synced grok.yaml default_prompt uses slash form not $skill", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-sync-slash-"))
+    const source = join(home, "omo")
+    const target = join(home, "skills-out")
+    await writeUpstreamSkillSource(source)
+    await writeFile(
+      join(source, managedSourceMap["coding-agent-sessions"], "agents", "openai.yaml"),
+      'interface:\n  display_name: "Coding Agent Sessions"\n  default_prompt: "Use $coding-agent-sessions to find sessions."\n',
+      "utf8",
+    )
+    await execFileAsync(
+      "node",
+      [join(ROOT, "scripts", "sync-omo-skills-to-grok.mjs"), "--source", source, "--target", target],
+      { cwd: ROOT, encoding: "utf8" },
+    )
+    const grokYaml = await readFile(join(target, "coding-agent-sessions", "agents", "grok.yaml"), "utf8")
+    expect(grokYaml).toContain("/coding-agent-sessions")
+    expect(grokYaml).not.toMatch(/(?<![A-Za-z0-9_/])\$coding-agent-sessions\b/)
+  })
+})

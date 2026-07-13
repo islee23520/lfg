@@ -1,4 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
+import type { ModelDiscovery } from "../models/lfg-models";
+import type { LazycodexInstallerOptions } from "./lfg-installer";
 
 // We test the pure logic + the TUI runner with a fully mocked @clack/prompts surface.
 // This mirrors LFP's setup-tui.test.mjs structure but for the lfg adapter.
@@ -49,7 +51,12 @@ vi.mock("picocolors", () => ({
 }));
 
 const installerMock = vi.hoisted(() => ({
-  runLazycodexInstaller: vi.fn(async () => ({ ok: true, stdout: "", stderr: "" })),
+  runLazycodexInstaller: vi.fn(
+    // Match the real runLazycodexInstaller(discovery, options) signature so
+    // mock.calls carries typed args (a paramless vi.fn types calls as empty tuples).
+    async (_discovery: ModelDiscovery | null, _options: LazycodexInstallerOptions) =>
+      ({ ok: true, stdout: "", stderr: "" })
+  ),
 }));
 
 vi.mock("./lfg-installer.js", () => installerMock);
@@ -157,7 +164,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     const installSummaryBody = String(installSummary?.[2] ?? "");
     expect(installSummaryBody).toContain("Coding adapter: grok -> grok");
     expect(installSummaryBody).toContain("fallback: none");
-    const installed = installerMock.runLazycodexInstaller.mock.calls[0]?.[0] as { baseUrl?: string } | null;
+    const installed = installerMock.runLazycodexInstaller.mock.calls[0]?.[0] ?? null;
     expect(installed?.baseUrl ?? "").toBe("");
     expect(installerMock.runLazycodexInstaller.mock.calls[0]?.[1]).toEqual({ codingToolAdapter: "grok" });
   });

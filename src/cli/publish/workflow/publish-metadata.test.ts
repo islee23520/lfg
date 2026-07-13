@@ -19,12 +19,13 @@ describe("npm publish metadata (#22)", () => {
     expect(String(pkg.bugs?.url)).toContain("issues")
   })
 
-  test("root scripts wire publish-gap evidence recorder (#22)", async () => {
+  test("root scripts keep assert-pack; publish-gap helper stays as scripts/*.mjs (#22)", async () => {
     const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>
     }
-    expect(pkg.scripts?.["record-publish-gap"]).toMatch(/^npm run build &&/)
-    expect(pkg.scripts?.["record-publish-gap"]).toContain("record-publish-gap.mjs")
     expect(pkg.scripts?.["assert-pack"]).toContain("assert-npm-pack-bin.mjs")
+    expect(pkg.scripts).not.toHaveProperty("record-publish-gap")
+    const doc = await readFile(join(ROOT, "docs/npm-publish.md"), "utf8")
+    expect(doc).toContain("scripts/record-publish-gap.mjs")
   })
 })

@@ -45,5 +45,5 @@ npm test
 node dist/lfg.js --json setup
 node dist/lfg.js --json setup --run
 npm run assert-pack
-npm run pre-publish-check
+node scripts/pre-publish-check.mjs
 ```

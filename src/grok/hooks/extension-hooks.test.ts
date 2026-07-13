@@ -267,7 +267,7 @@ describe("sisyphus UserPromptSubmit /ulw-plan routing", () => {
     expect(ctx).toContain("Prometheus")
     expect(ctx).toContain("Metis")
     expect(ctx).toContain("Momus")
-    expect(ctx).toContain("Do NOT bypass /ulw-plan")
+    expect(ctx).toMatch(/not Grok enter_plan_mode|Use \/ulw-plan/i)
   })
 
   test("ambiguous scope prompt routes to /ulw-plan", async () => {
@@ -370,7 +370,7 @@ describe("sisyphus UserPromptSubmit /ulw-plan routing", () => {
     expect(ctx).toContain("get_command_or_subagent_output")
     expect(ctx).toContain("store the subagent id")
     expect(ctx).toContain("resume_from")
-    expect(ctx).toContain("instead of Codex task(task_id=ses_...)")
+    expect(ctx).toMatch(/Codex task_id=ses_\.\.\.|instead of Codex task\(task_id=ses_\.\.\.\)/)
     expect(ctx).toContain("Evidence verification:")
     expect(ctx).toContain("lfg ulw-loop")
   })

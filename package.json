@@ -37,23 +37,23 @@
   ],
   "scripts": {
     "setup": "sh bin/lfg.js setup",
+    "doctor": "sh bin/lfg.js doctor",
     "test": "npm run build && vitest run src/cli/*.test.ts src/cli/**/*.test.ts src/core/*.test.ts src/core/**/*.test.ts src/grok/*.test.ts src/grok/**/*.test.ts --exclude src/grok/skills/**/*.test.ts",
-    "verify": "npm run assert-pack && npm run assert-omo-parity && npm test && npm run typecheck && npm run self-test",
+    "test:ulw-loop": "vitest run src/core/omo/ulw-loop src/cli/ulw-loop src/cli/feature-coverage.inventory.test.ts",
+    "coverage:ulw-loop": "vitest run --coverage src/core/omo/ulw-loop src/cli/ulw-loop src/cli/feature-coverage.inventory.test.ts",
+    "verify": "npm run assert-pack && npm run assert-omo-parity && npm run assert-skills-smoke && npm test && npm run coverage:ulw-loop && npm run typecheck && npm run self-test",
     "self-test": "npm run build && node dist/self-test.js",
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
-    "sync-omo-skills": "node scripts/sync-omo-skills-to-grok.mjs",
-    "omo-parity-upkeep": "node scripts/omo-parity-upkeep.mjs",
     "assert-omo-parity": "npm run build && node scripts/assert-omo-parity.mjs",
-    "prepack": "npm run build",
-    "prepublishOnly": "npm run verify",
+    "assert-skills-smoke": "node scripts/assert-skills-smoke.mjs",
     "assert-pack": "npm run build && node scripts/assert-npm-pack-bin.mjs",
-    "record-publish-gap": "npm run build && node scripts/record-publish-gap.mjs",
-    "assert-publish-auth": "npm run build && node scripts/assert-npm-publish-auth.mjs",
-    "pre-publish-check": "npm run build && node scripts/pre-publish-check.mjs"
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run verify"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
     "vitest": "^4.0.14"

@@ -11,6 +11,7 @@ import {
 } from "../../grok/install/run-grok-install"
 import { verifyGrokInstallSurface } from "../../grok/doctor/post-install-verify"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
+import { purgeInvalidModelSettingsJson } from "../../grok/config/purge-invalid-model-settings"
 import { readLfgRuntimeConfigFile } from "../../grok/models/lfg-runtime-config"
 import { codingToolAdapterSelectionJson, DEFAULT_CODING_TOOL_ADAPTER, type CodingToolAdapterId } from "../../shared/coding-tool-adapter"
 
@@ -36,7 +37,7 @@ export type LazycodexInstallerOptions = {
   readonly codingToolAdapter?: CodingToolAdapterId
 }
 
-/** Grok-first setup: materialize lazycodex under ~/.grok via internal grok-install (no Codex npx). */
+/** Grok-first setup: materialize lfg/OMO adapter under ~/.grok via internal grok-install (no Codex npx). */
 export async function runLazycodexInstaller(
   discovery: ModelDiscovery | null = null,
   options: LazycodexInstallerOptions = {},
@@ -56,10 +57,13 @@ export async function runLazycodexInstaller(
   const internalResult = grokInstallStepJson(grokRun.internalStep) as InstallerStepResult
   const ok = grokRun.ok
   const postInstallVerify = await verifyGrokInstallSurface({ home })
-  const agentPaths = grokRun.omoAgents?.written ?? grokRun.lazycodexAgents?.written ?? []
+  const agentPaths = grokRun.omoAgents?.written ?? []
   const agentOverridesPath = grokRun.agentOverridesPath ?? null
   const lfgConfigPath = grokRun.lfgConfigPath ?? null
   const hooks = grokRun.hooks ?? null
+  const invalidModelSettings =
+    grokRun.invalidModelSettings === null ? null : purgeInvalidModelSettingsJson(grokRun.invalidModelSettings)
+  const xaiMcp = grokRun.xaiMcp
   return installJson({
     ok,
     status: ok ? "installed" : "install_failed",
@@ -75,6 +79,19 @@ export async function runLazycodexInstaller(
     agentOverridesPath,
     lfgConfigPath,
     hooks,
+    ...(invalidModelSettings === null ? {} : { invalidModelSettings }),
+    ...(xaiMcp === null
+      ? {}
+      : {
+          xaiMcp: {
+            ok: xaiMcp.ok,
+            status: xaiMcp.status,
+            changed: xaiMcp.changed,
+            configPath: xaiMcp.configPath,
+            runtimeCli: xaiMcp.runtimeCli,
+            message: xaiMcp.message,
+          },
+        }),
     installPath: "grok",
     preservedExistingSetup: grokRun.internalStep.skippedExistingSetup === true,
   })

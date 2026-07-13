@@ -352,7 +352,7 @@ describe("lfg CLI", () => {
         ok: false,
         status: "error",
         code: "unsupported_command",
-        supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop"],
+        supportedCommands: ["setup", "doctor", "set-tier", "xai", "zai", "mcp", "claude", "ulw", "ulw-loop"],
       })
     }
   })
@@ -364,6 +364,7 @@ describe("lfg CLI", () => {
     expect(result.stdout).toContain("lfg                         # launches GrokBuild (Grok-only; requires lfg setup)")
     expect(result.stdout).toContain("lfg setup")
     expect(result.stdout).toContain("lfg setup --run")
+    expect(result.stdout).toContain("lfg doctor")
     expect(result.stdout).toContain("lfg --json                  # prints the Grok launch plan without spawning")
     expect(result.stdout).toContain("npx @islee23520/lfg setup")
     expect(result.stdout).toContain("Setup run implementation:")
@@ -371,7 +372,6 @@ describe("lfg CLI", () => {
     expect(result.stdout).not.toContain("npx lazycodex-ai install")
     expect(result.stdout).not.toContain("dry-setup")
     expect(result.stdout).not.toContain("pi-agent")
-    expect(result.stdout).not.toContain("doctor")
     expect(result.stdout).not.toContain("project-local")
     expect(result.stdout).not.toContain("bunx")
   })

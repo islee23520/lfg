@@ -235,9 +235,8 @@ export function parseUlwLoopSteeringDirective(text: string): UlwLoopSteeringProp
 	try {
 		const parsed: unknown = JSON.parse(match[1].trim());
 		return isProposal(parsed) ? parsed : null;
-	} catch (error) {
-		if (error instanceof SyntaxError) return null;
-		throw error;
+	} catch {
+		return null;
 	}
 }
 

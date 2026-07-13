@@ -122,7 +122,13 @@ async function readAgentSetting(
   const tierDefault = defaultTierPromptForAgent(agentName)
   const tier =
     typeof options.tierSelector === "function"
-      ? await readTierChoice(reader, `  ${agentName} service tier [${tierDefault}]: `, tierDefault, agentName, options.tierSelector)
+      ? await readTierChoice(
+          reader,
+          `  ${agentName} model-id tier (Grok routes by model id) [${tierDefault}]: `,
+          tierDefault,
+          agentName,
+          options.tierSelector,
+        )
       : undefined
   const model =
     tier !== undefined

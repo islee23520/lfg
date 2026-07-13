@@ -178,6 +178,7 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("#5745")
     expect(text).toContain("difficulty-tier-workers")
     expect(text).toContain("lazycodex-worker-")
+    expect(text).toContain("LFG_AUTO_WORKFLOW")
     expect(text).toContain("OMO_CODEX_AUTO_WORKFLOW")
     expect(text).toContain("Upstream package test infrastructure remains Unsupported")
     expect(text).toContain("test-only support code outside the Grok runtime payload")

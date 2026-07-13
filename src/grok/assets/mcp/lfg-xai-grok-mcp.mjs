@@ -127,12 +127,14 @@ const tools = [
   },
   {
     name: "xai_auth_set_api_key",
-    description: "Save a dedicated xAI API key for this MCP runtime. Does not modify Grok host auth.json.",
+    description:
+      "Save a dedicated xAI API key for this MCP runtime. Optional base_url targets a local CLI proxy (OpenAI-compatible). Does not modify Grok host auth.json.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
       properties: {
         api_key: { type: "string", minLength: 1 },
+        base_url: { type: "string", minLength: 1, description: "Optional OpenAI-compatible base URL (e.g. http://127.0.0.1:8317/v1)" },
       },
       required: ["api_key"],
     },
@@ -327,7 +329,16 @@ function xaiAuthStatus() {
 
 function xaiAuthSetApiKey(args) {
   const apiKey = requiredString(args.api_key, "api_key").trim()
-  writeDedicatedMcpAuth({ provider: "lfg-xai-mcp", access: apiKey, refresh: "", expires: Number.MAX_SAFE_INTEGER, tokenEndpoint: XAI_OAUTH_TOKEN_URL, tokenType: "Bearer" })
+  const baseUrlArg = typeof args.base_url === "string" ? args.base_url.trim().replace(/\/$/, "") : ""
+  writeDedicatedMcpAuth({
+    provider: "lfg-xai-mcp",
+    access: apiKey,
+    refresh: "",
+    expires: Number.MAX_SAFE_INTEGER,
+    tokenEndpoint: XAI_OAUTH_TOKEN_URL,
+    tokenType: "Bearer",
+    ...(baseUrlArg ? { baseUrl: baseUrlArg } : {}),
+  })
   return {
     ok: true,
     status: "xai_auth_saved",
@@ -462,10 +473,14 @@ async function resolveXaiCredentials() {
       (dedicated.expires - Date.now() <= REFRESH_SKEW_MS || accessTokenIsExpiring(dedicated.access))
         ? await refreshStoredAuth(dedicated)
         : dedicated
-    return { provider: current.provider, apiKey: current.access, baseUrl: XAI_BASE_URL }
+    const baseUrl = normalizeBaseUrl(current.baseUrl) || XAI_BASE_URL
+    return { provider: current.provider, apiKey: current.access, baseUrl }
   }
   const apiKey = (process.env.XAI_API_KEY || "").trim()
-  if (apiKey) return { provider: "xai", apiKey, baseUrl: XAI_BASE_URL }
+  if (apiKey) {
+    const envBase = normalizeBaseUrl(process.env.XAI_BASE_URL) || XAI_BASE_URL
+    return { provider: "xai", apiKey, baseUrl: envBase }
+  }
   const grokOidc = readGrokStoredAuth(grokHostAuthPath())
   if (grokOidc && grokOidc.access) {
     if (grokOidc.expires - Date.now() <= REFRESH_SKEW_MS || accessTokenIsExpiring(grokOidc.access)) {
@@ -474,8 +489,13 @@ async function resolveXaiCredentials() {
     return { provider: grokOidc.provider, apiKey: grokOidc.access, baseUrl: XAI_BASE_URL }
   }
   throw new Error(
-    "xAI credentials not found. Run: lfg xai auth set-api-key, lfg xai auth set-oauth, set XAI_API_KEY, or sign in to Grok for read-only host fallback.",
+    "xAI credentials not found. Run: lfg xai auth set-api-key (auto local CLI proxy), lfg xai auth set-oauth, set XAI_API_KEY, or sign in to Grok for read-only host fallback.",
   )
+}
+
+function normalizeBaseUrl(value) {
+  if (typeof value !== "string") return ""
+  return value.trim().replace(/\/$/, "")
 }
 
 async function refreshStoredAuth(auth) {
@@ -509,6 +529,7 @@ function readDedicatedMcpAuth(path) {
     const data = JSON.parse(readFileSync(path, "utf8"))
     if (!isRecord(data)) return undefined
     if (typeof data.apiKey === "string" && data.apiKey.trim().length > 0) {
+      const baseUrl = typeof data.baseUrl === "string" ? data.baseUrl.trim().replace(/\/$/, "") : undefined
       return {
         provider: "lfg-xai-mcp",
         access: data.apiKey.trim(),
@@ -516,11 +537,13 @@ function readDedicatedMcpAuth(path) {
         expires: Number.MAX_SAFE_INTEGER,
         tokenEndpoint: XAI_OAUTH_TOKEN_URL,
         tokenType: "Bearer",
+        ...(baseUrl ? { baseUrl } : {}),
       }
     }
     if (data.access && data.refresh && data.expires) {
       const tokenEndpoint = safeXaiOAuthTokenEndpoint(data.tokenEndpoint)
       if (!tokenEndpoint) return undefined
+      const baseUrl = typeof data.baseUrl === "string" ? data.baseUrl.trim().replace(/\/$/, "") : undefined
       return {
         provider: typeof data.provider === "string" ? data.provider : "xai-oauth",
         access: String(data.access),
@@ -528,6 +551,7 @@ function readDedicatedMcpAuth(path) {
         expires: Number(data.expires),
         tokenEndpoint,
         tokenType: typeof data.tokenType === "string" ? data.tokenType : "Bearer",
+        ...(baseUrl ? { baseUrl } : {}),
       }
     }
     return undefined
@@ -571,8 +595,10 @@ function readGrokStoredAuth(path) {
     if (!isRecord(data)) return undefined
     for (const value of Object.values(data)) {
       if (!isRecord(value)) continue
-      if (value.auth_mode !== "oidc" || value.oidc_issuer !== XAI_OAUTH_ISSUER || value.oidc_client_id !== XAI_OAUTH_CLIENT_ID)
-        continue
+      // GrokBuild host OIDC may use client_id "grok-cli" or a host-assigned UUID.
+      if (value.auth_mode !== "oidc" || value.oidc_issuer !== XAI_OAUTH_ISSUER) continue
+      const clientId = typeof value.oidc_client_id === "string" ? value.oidc_client_id.trim() : ""
+      if (!clientId) continue
       const access = typeof value.key === "string" ? value.key : ""
       const refresh = typeof value.refresh_token === "string" ? value.refresh_token : ""
       const expiresAt = typeof value.expires_at === "string" ? Date.parse(value.expires_at) : Number.NaN
@@ -595,6 +621,7 @@ function readGrokStoredAuth(path) {
 function writeDedicatedMcpAuth(auth) {
   const path = dedicatedAuthPath()
   const tokenEndpoint = parseXaiOAuthTokenEndpoint(auth.tokenEndpoint)
+  const baseUrl = typeof auth.baseUrl === "string" && auth.baseUrl.trim() ? auth.baseUrl.trim().replace(/\/$/, "") : undefined
   const body =
     auth.refresh && auth.refresh.length > 0
       ? {
@@ -605,12 +632,14 @@ function writeDedicatedMcpAuth(auth) {
           expires: auth.expires,
           tokenEndpoint,
           tokenType: auth.tokenType || "Bearer",
+          ...(baseUrl ? { baseUrl } : {}),
           updated_at: new Date().toISOString(),
         }
       : {
           provider: "lfg-xai-mcp",
           auth_mode: "api_key",
           apiKey: auth.access,
+          ...(baseUrl ? { baseUrl } : {}),
           updated_at: new Date().toISOString(),
         }
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 })

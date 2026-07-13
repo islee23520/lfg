@@ -3,6 +3,7 @@ import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { isBareKey, removeTomlKey, removeTomlSectionsByPrefix, tomlString, upsertSection, upsertTomlKey } from "./lfg-grok-config-toml"
 import { upsertModelSections } from "./lfg-grok-model-sections"
+import { aliasGroupKey } from "../models/lfg-model-context-catalog"
 import type { JsonObject } from "../../shared/json"
 import { defaultLazycodexAgentConfig, type LazycodexAgentConfig, type ModelDiscovery } from "../models/lfg-models"
 
@@ -17,8 +18,18 @@ export type GrokConfigOptions = {
   readonly apiKey?: string
   readonly agentConfig?: LazycodexAgentConfig
   readonly hostAuthOnly?: boolean
-  /** Full per-agent model+reasoning map (roles + LFP/omo imported + flavour-pack). When present, used for all [lazycodex.agents.*] sections. */
-  readonly fullAgentModels?: Readonly<Record<string, { model: string; reasoningLevel: string }>>
+  /** Full per-agent model+reasoning map (roles + OMO imported + flavour-pack). When present, used for all [omo.agents.*] sections. */
+  readonly fullAgentModels?: Readonly<
+    Record<
+      string,
+      {
+        readonly model: string
+        readonly reasoningLevel: string
+        readonly modelFallback?: string
+        readonly modelFallbackReasoningLevel?: string
+      }
+    >
+  >
 }
 
 /** Sections lfg merges in ~/.grok/config.toml. writeGrokModelConfig owns install-time writes; the SessionStart config-loader may only seed models.default from omo.models.default when absent (never overwrite). */
@@ -36,15 +47,21 @@ export async function writeGrokModelConfig(discovery: ModelDiscovery, options: G
   const path = join(home, ".grok", "config.toml")
   const baseUrl = modelsBaseUrl(discovery)
   const current = await readTextIfExists(path)
-  const endpoints = options.hostAuthOnly === true
+  const endpointsRaw = options.hostAuthOnly === true
     ? removeTomlSectionsByPrefix(
         removeTomlKey(removeTomlKey(current, "endpoints", "models_base_url"), "endpoints", "api_key"),
         "model.",
       )
     : removeTomlKey(upsertTomlKey(current, "endpoints", "models_base_url", baseUrl), "endpoints", "api_key")
+  // hostAuthOnly may leave a bare [endpoints] header with no keys — drop it so Grok does not see junk.
+  const endpoints = options.hostAuthOnly === true ? removeEmptyTomlSection(endpointsRaw, "endpoints") : endpointsRaw
   const agentConfig = options.agentConfig ?? discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
+  // When discovery is live, drop only stale [model.*] aliases not in this discovery (keep section
+  // order stable for aliases that remain — full strip+reappend reorders and breaks idempotency).
+  const modelSource =
+    options.hostAuthOnly === true ? endpoints : removeStaleModelSections(endpoints, discovery)
   const modelConfig = upsertModelSections(
-    upsertSection(endpoints, "models", [`default = ${tomlString(discovery.mapping.default)}`]),
+    upsertSection(modelSource, "models", [`default = ${tomlString(discovery.mapping.default)}`]),
     discovery,
     options.hostAuthOnly === true ? null : baseUrl,
     options.apiKey,
@@ -63,10 +80,50 @@ export async function writeGrokModelConfig(discovery: ModelDiscovery, options: G
   if (discovery.modelIds.length > 0) {
     omoModelsLines.push(`available = [${discovery.modelIds.map((id) => tomlString(id)).join(", ")}]`)
   }
-  const next = upsertSection(withAgents, "omo.models", omoModelsLines)
+  // Drop retired lazycodex.* config namespaces (omo.* + subagents.* are the active surfaces).
+  const next = removeTomlSectionsByPrefix(upsertSection(withAgents, "omo.models", omoModelsLines), "lazycodex")
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, next, "utf8")
   return { status: "configured", path, modelsBaseUrl: baseUrl }
+}
+
+/** Remove a TOML table that has no assignment lines left (bare `[section]` only). */
+function removeEmptyTomlSection(source: string, section: string): string {
+  const header = `[${section}]`
+  const start = source.indexOf(header)
+  if (start === -1) return source
+  const afterHeader = start + header.length
+  const endMatch = /\n\[[^\n]+]/.exec(source.slice(afterHeader))
+  const end = endMatch?.index === undefined ? source.length : afterHeader + endMatch.index + 1
+  const body = source.slice(afterHeader, end)
+  // Keep the section if it still has any key = value assignment.
+  if (/^\s*[A-Za-z0-9_.-]+\s*=/m.test(body)) return source
+  const before = source.slice(0, start)
+  const after = source.slice(end)
+  return `${before}${after}`.replace(/\n{3,}/g, "\n\n")
+}
+
+/** Drop [model.*] sections whose alias is not grok-build and not in the live discovery set. */
+function removeStaleModelSections(source: string, discovery: ModelDiscovery): string {
+  // Keep exact ids plus alias-group keys so display aliases (e.g. "GPT-5.5") survive when
+  // discovery lists the canonical form ("gpt-5.5") — matches upsertModelSections T1 behavior.
+  const keepExact = new Set<string>(["grok-build", ...discovery.modelIds])
+  const keepGroups = new Set<string>(["grok-build", ...discovery.modelIds.map((id) => aliasGroupKey(id))])
+  const lines = source.split("\n")
+  const kept: string[] = []
+  let dropping = false
+  for (const line of lines) {
+    const match = /^\s*\[model\.(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_.-]+))\]\s*$/.exec(line)
+    if (match) {
+      const alias = match[1] ?? match[2] ?? match[3] ?? ""
+      dropping =
+        alias.length > 0 && !keepExact.has(alias) && !keepGroups.has(aliasGroupKey(alias))
+    } else if (/^\s*\[[^\]]+\]\s*$/.test(line)) {
+      dropping = false
+    }
+    if (!dropping) kept.push(line)
+  }
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n")
 }
 
 export function grokConfigJson(update: GrokConfigUpdate): JsonObject {

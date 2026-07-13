@@ -10,6 +10,7 @@ Tarball-shipped skill tree under npm `files`. Three skill roots must stay in par
 |------|----------|-------|
 | Sync driver | `../scripts/sync-omo-skills-to-grok.mjs` | Writes managed skills into `skills/` + `src/grok/skills/`. |
 | Parity gate | `../scripts/assert-omo-parity.mjs` | Manifest, managed skills, supplemental xai-*, no `openai.yaml`. |
+| Smoke gate | `../scripts/assert-skills-smoke.mjs` | Every `skills/*/SKILL.md` frontmatter + script syntax + cheap behavioral probes; mirrors + installed plugin. `npm run assert-skills-smoke`. |
 | Sync marker | `.lfg-omo-skill-sync.json` | Provenance / upstream version. |
 | Hand-maintained | `lfg/`, `cua-driver/`, `xai/`, `xai-*` | Not overwritten by managed sync list. |
 | Managed OMO skills | most other dirs | Edit via sync adapters only; do not hand-patch bulk trees. |

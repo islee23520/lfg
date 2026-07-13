@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "vitest"
-import { mkdtemp, rm, readFile, access } from "node:fs/promises"
+import { mkdtemp, rm, readFile, writeFile, access } from "node:fs/promises"
 import { join, dirname } from "node:path"
 import { tmpdir } from "node:os"
 import { fileURLToPath } from "node:url"
@@ -15,6 +15,7 @@ import {
   type TeamStatus,
 } from "./team-ledger"
 import { lfgSubagentForOmoSpawnType } from "./subagents/omo-spawn-map"
+import { z } from "zod"
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../..")
 const TEAMMODE_SKILL_MD = join(REPO_ROOT, "skills/teammode/SKILL.md")
@@ -58,6 +59,14 @@ function spawnSubagentShapedMetadata(args: {
     },
   }
 }
+// spawn_metadata is a free-form persisted blob; narrow only the nested fields these
+// assertions read through a focused Zod view (no `any`, no inline cast access).
+const SpawnMetaView = z
+  .object({
+    args: z.object({ subagent_type: z.string() }).passthrough().optional(),
+    result: z.object({ phase: z.string().optional() }).passthrough().optional(),
+  })
+  .passthrough()
 
 describe("team-ledger (Grok-native team MVP)", () => {
   let tempRoot: string
@@ -289,11 +298,11 @@ describe("team-ledger (Grok-native team MVP)", () => {
     })
     expect(member1.spawnMetadata?.subagentId).toBe("subagent-impl-001")
     expect(member1.spawnMetadata?.lastHeartbeat).toBe("hb-1")
-    expect(member1.spawnMetadata?.result?.phase).toBe("running")
+    expect(SpawnMetaView.parse(member1.spawnMetadata ?? {}).result?.phase).toBe("running")
     expect(member1.spawnMetadata?.recordedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
 
     expect(member2.spawnMetadata?.tool).toBe("spawn_subagent")
-    expect(member2.spawnMetadata?.args?.subagent_type).toBe("sisyphus")
+    expect(SpawnMetaView.parse(member2.spawnMetadata ?? {}).args?.subagent_type).toBe("sisyphus")
     expect(member2.spawnMetadata?.team_context).toEqual({
       teamRunId: teamId,
       memberId: "m02",
@@ -393,5 +402,65 @@ describe("team-ledger (Grok-native team MVP)", () => {
     // Section explicitly bans codex_app on the Grok member-launch path
     expect(grokSection).toMatch(/NO codex_app/i)
     expect(grokSection).toContain("spawn_subagent")
+  })
+  test("concurrent appendMessage calls never lose messages (per-team lock serializes RMW)", async () => {
+    const team = await createTeam(teamsRoot, "concurrency-squad", "locks serialize read-modify-write")
+    await addMemberSlot(teamsRoot, team, { id: "m01", focus: "writer a", subagent_type: "coding" })
+    await addMemberSlot(teamsRoot, team, { id: "m02", focus: "writer b", subagent_type: "reviewer" })
+
+    const N = 20
+    const sends = Array.from({ length: N }, (_, i) =>
+      appendMessage(teamsRoot, team, i % 2 === 0 ? "m01" : "m02", "lead", `msg-${i}`)
+    )
+    await Promise.all(sends)
+
+    const status = await getStatus(teamsRoot, team)
+    // Without the per-team lock, concurrent read->modify->write would lose updates;
+    // every one of the N messages must survive.
+    expect(status.state.messages).toHaveLength(N)
+    const contents = status.state.messages.map((m) => m.content).sort()
+    expect(contents).toEqual(
+      Array.from({ length: N }, (_, i) => `msg-${i}`).sort()
+    )
+  })
+
+  test("mixed concurrent mutations (appendMessage + recordSpawnMetadata) serialize without deadlock or lost updates", async () => {
+    const team = await createTeam(teamsRoot, "mixed-concurrency", "")
+    await addMemberSlot(teamsRoot, team, { id: "m01", focus: "area a", subagent_type: "coding" })
+
+    const ops: Promise<unknown>[] = []
+    for (let i = 0; i < 8; i++) {
+      ops.push(appendMessage(teamsRoot, team, "m01", "lead", `m-${i}`))
+    }
+    for (let i = 0; i < 4; i++) {
+      ops.push(recordSpawnMetadata(teamsRoot, team, "m01", { heartbeat: `hb-${i}` }))
+    }
+    await Promise.all(ops)
+
+    const status = await getStatus(teamsRoot, team)
+    expect(status.state.messages).toHaveLength(8)
+    // recordSpawnMetadata overlays serialize; recordedAt is always stamped
+    expect(status.config.members[0].spawnMetadata?.recordedAt).toBeTruthy()
+  })
+
+  test("malformed persisted state fails closed with a labelled error", async () => {
+    const team = await createTeam(teamsRoot, "corrupt-state", "")
+    await addMemberSlot(teamsRoot, team, { id: "m01", focus: "x" })
+
+    const statePath = join(teamsRoot, team, "state.json")
+    await writeFile(statePath, "{ not valid json ", "utf8")
+
+    await expect(getStatus(teamsRoot, team)).rejects.toThrow(/fails closed/i)
+    await expect(appendMessage(teamsRoot, team, "lead", "m01", "late")).rejects.toThrow(/fails closed/i)
+  })
+
+  test("wrong-shape persisted config fails closed", async () => {
+    const team = await createTeam(teamsRoot, "corrupt-config", "")
+    const configPath = join(teamsRoot, team, "config.json")
+    // valid JSON, but missing the required `members` array -> schema rejects
+    await writeFile(configPath, JSON.stringify({ id: team, name: "x" }), "utf8")
+
+    await expect(getStatus(teamsRoot, team)).rejects.toThrow(/fails closed/i)
+    await expect(addMemberSlot(teamsRoot, team, { focus: "y" })).rejects.toThrow(/fails closed/i)
   })
 })

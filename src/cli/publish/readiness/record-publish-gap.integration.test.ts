@@ -7,14 +7,12 @@ const execFileAsync = promisify(execFile)
 const ROOT = process.cwd()
 
 describe("record-publish-gap integration (#22)", () => {
-  test("npm run record-publish-gap builds dist and prints gap JSON with evidencePath", async () => {
-    const { stdout, stderr } = await execFileAsync("npm", ["run", "record-publish-gap"], {
+  test("node scripts/record-publish-gap.mjs prints gap JSON with evidencePath", async () => {
+    const { stdout } = await execFileAsync("node", ["scripts/record-publish-gap.mjs"], {
       cwd: ROOT,
       encoding: "utf8",
       maxBuffer: 2_000_000,
     })
-    const combined = `${stdout}\n${stderr}`
-    expect(combined).toContain("build.mjs")
     const line = stdout
       .split("\n")
       .map((l) => l.trim())

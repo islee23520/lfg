@@ -16,7 +16,7 @@ describe("agent tomls acceptance (#30)", () => {
     }
     const run = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
     expect(run.ok).toBe(true)
-    expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
+    expect(run.omoAgents?.written.length).toBeGreaterThanOrEqual(1)
     const reasoning = await readFile(join(home, ".grok", "roles", "reasoning.toml"), "utf8")
     expect(reasoning).toContain('model = "o3-mini"')
     expect(reasoning).toContain("reasoning_effort")
@@ -33,15 +33,15 @@ describe("agent tomls acceptance (#30)", () => {
     await mkdir(grokDir, { recursive: true })
     await writeFile(
       join(grokDir, "config.toml"),
-      `[lazycodex.agents.explorer]
+      `[omo.agents.explorer]
 model = "ledger-explorer"
 reasoning_level = "low"
 
-[lazycodex.agents.reasoning]
+[omo.agents.reasoning]
 model = "ledger-reason"
 reasoning_level = "high"
 
-[lazycodex.agents.coding]
+[omo.agents.coding]
 model = "ledger-code"
 reasoning_level = "medium"
 `,

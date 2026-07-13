@@ -29,6 +29,7 @@ describe("native OMO agents", () => {
   test("renders Grok-native prompt markers for dynamic Sisyphus surfaces", () => {
     expect(nativeOmoFallbackPrompt("default")).toContain("OMO Sisyphus")
     expect(nativeOmoFallbackPrompt("sisyphus")).toContain("OMO Sisyphus")
+    expect(nativeOmoFallbackPrompt("sisyphus")).toMatch(/NO RE-ASK|over-ask|at most ONE/i)
     expect(nativeOmoFallbackPrompt("hephaestus")).toContain("OMO Hephaestus")
     expect(nativeOmoFallbackPrompt("prometheus")).toContain("OMO Prometheus")
     expect(nativeOmoFallbackPrompt("atlas")).toContain("OMO Atlas")

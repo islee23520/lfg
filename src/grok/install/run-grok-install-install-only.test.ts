@@ -19,10 +19,18 @@ describe("runGrokInstall install-only", () => {
 
     expect(run.ok).toBe(true)
     expect(run.configUpdate).toBeNull()
-    expect(run.lazycodexAgents).toBeNull()
+    expect(run.omoAgents).toBeNull()
     expect(run.agentOverridesPath).toBeNull()
     await expect(access(join(home, ".grok", "plugins", "lfg", "lfg-install.json"))).resolves.toBeUndefined()
-    await expect(readFile(join(home, ".grok", "config.toml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    // install-only may write MCP registration (xai_grok) but not agent overrides / model discovery routes.
+    try {
+      const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+      expect(config).not.toMatch(/\[omo\.agents\./)
+      expect(config).not.toMatch(/\[subagents\.models\]/)
+      expect(config).not.toMatch(/\bgpt-5\.5\b/)
+    } catch (error) {
+      expect(error).toMatchObject({ code: "ENOENT" })
+    }
     await expect(readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expect(readFile(join(home, ".grok", "lazycodex-agent-overrides.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })

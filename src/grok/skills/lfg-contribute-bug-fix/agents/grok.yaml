@@ -7,4 +7,4 @@ interface:
     - "lfg bug fix"
     - "grok adapter fix"
     - "grok plugin lfg fix"
-  default_prompt: "Use $lfg-contribute-bug-fix to debug this lfg or GrokBuild adapter bug in islee23520/lfg, capture failing-before evidence, implement the smallest verified patch, run focused and setup-surface verification, and prepare the lfg-generated fix evidence for an issue, branch, or PR when requested."
+  default_prompt: "Use /lfg-contribute-bug-fix to debug this lfg or GrokBuild adapter bug in islee23520/lfg, capture failing-before evidence, implement the smallest verified patch, run focused and setup-surface verification, and prepare the lfg-generated fix evidence for an issue, branch, or PR when requested."

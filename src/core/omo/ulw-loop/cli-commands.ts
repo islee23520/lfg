@@ -75,8 +75,11 @@ export async function ulwLoopCommand(argv: readonly string[]): Promise<number> {
 				return await captureEvidence(repoRoot, rest, json, scope);
 			case "record-review-blockers":
 				return await reviewBlockers(repoRoot, rest, json, scope);
-			default:
-				return unhandledSubcommand(command);
+			default: {
+				// Exhaustiveness guard — TypeScript `never`; unreachable at runtime.
+				const _exhaustive: never = command;
+				throw new UlwLoopError(`Unhandled ulw-loop subcommand: ${String(_exhaustive)}.`, "ULW_LOOP_SUBCOMMAND_UNHANDLED");
+			}
 		}
 	} catch (error) {
 		if (json) {
@@ -88,10 +91,6 @@ export async function ulwLoopCommand(argv: readonly string[]): Promise<number> {
 		else process.stderr.write("[ulw-loop] unknown error\n");
 		return 1;
 	}
-}
-
-function unhandledSubcommand(command: never): never {
-	throw new UlwLoopError(`Unhandled ulw-loop subcommand: ${String(command)}.`, "ULW_LOOP_SUBCOMMAND_UNHANDLED");
 }
 
 const SESSION_ID_FLAG = "--session-id";

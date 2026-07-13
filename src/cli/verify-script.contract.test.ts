@@ -13,12 +13,16 @@ describe("npm run verify script chain (#22)", () => {
     const verify = pkg.scripts?.verify ?? ""
     expect(verify).toContain("assert-pack")
     expect(verify).toContain("assert-omo-parity")
+    expect(verify).toContain("assert-skills-smoke")
     expect(verify).toContain("npm test")
+    expect(verify).toContain("coverage:ulw-loop")
     expect(verify).toContain("typecheck")
     expect(verify).toContain("self-test")
     expect(verify.indexOf("assert-pack")).toBeLessThan(verify.indexOf("npm test"))
     expect(verify.indexOf("assert-omo-parity")).toBeLessThan(verify.indexOf("npm test"))
-    expect(verify.indexOf("npm test")).toBeLessThan(verify.indexOf("self-test"))
+    expect(verify.indexOf("assert-skills-smoke")).toBeLessThan(verify.indexOf("npm test"))
+    expect(verify.indexOf("npm test")).toBeLessThan(verify.indexOf("coverage:ulw-loop"))
+    expect(verify.indexOf("coverage:ulw-loop")).toBeLessThan(verify.indexOf("self-test"))
   })
 
   test("assert-pack and OMO parity scripts invoke release gates (#22)", async () => {
@@ -27,6 +31,9 @@ describe("npm run verify script chain (#22)", () => {
     }
     expect(pkg.scripts?.["assert-pack"]).toBe("npm run build && node scripts/assert-npm-pack-bin.mjs")
     expect(pkg.scripts?.["assert-omo-parity"]).toBe("npm run build && node scripts/assert-omo-parity.mjs")
+    expect(pkg.scripts?.["assert-skills-smoke"]).toBe("node scripts/assert-skills-smoke.mjs")
+    expect(pkg.scripts?.["coverage:ulw-loop"]).toContain("--coverage")
+    expect(pkg.scripts?.["test:ulw-loop"]).toContain("ulw-loop")
     expect(pkg.scripts?.prepack).toContain("build")
     expect(pkg.scripts?.prepublishOnly).toBe("npm run verify")
   })

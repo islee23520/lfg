@@ -45,9 +45,8 @@ async function snapshotObjectiveMapsToUlwLoopPlan(
 	try {
 		const brief = normalizeObjective(await readFile(ulwLoopBriefPath(repoRoot, scope), "utf8")).toLowerCase();
 		return brief.length >= 24 && (brief.includes(actual) || actual.includes(brief));
-	} catch (error) {
-		if (error instanceof Error) return false;
-		throw error;
+	} catch {
+		return false;
 	}
 }
 

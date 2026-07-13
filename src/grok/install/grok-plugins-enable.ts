@@ -3,9 +3,11 @@ import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { LFG_SUBAGENT_TOGGLES, lfgOwnedSubagentModels, lfgOwnedSubagentReasoningEffort, type SubagentModelMapping } from "./subagent-routing"
 
-const PLUGIN_IDS = ["lfg", "lazycodex"] as const
+const PLUGIN_IDS = ["lfg"] as const
+/** Legacy plugin id — never re-enable; strip if present in enabled. */
+const RETIRED_PLUGIN_IDS = new Set(["lazycodex"])
 
-/** Ensure [plugins].enabled lists lfg (and lazycodex alias) so Grok loads adapter hooks. */
+/** Ensure [plugins].enabled lists lfg so Grok loads adapter hooks. Drops retired lazycodex id. */
 export async function ensureLfgPluginsEnabled(home: string = homedir()): Promise<{ readonly path: string; readonly changed: boolean }> {
   const path = join(home, ".grok", "config.toml")
   const current = await readTextIfExists(path)
@@ -47,9 +49,9 @@ export async function ensureLfgSubagentModels(
 }
 
 function upsertPluginsEnabled(source: string): string {
-  const lines = parseEnabledArray(source)
+  const lines = parseEnabledArray(source).filter((id) => !RETIRED_PLUGIN_IDS.has(id))
   const merged = mergeUnique(lines, [...PLUGIN_IDS])
-  if (arraysEqual(lines, merged)) {
+  if (arraysEqual(parseEnabledArray(source), merged)) {
     return source
   }
   const enabledBlock = `enabled = [\n${merged.map((id) => `    ${tomlString(id)},`).join("\n")}\n]`
@@ -112,10 +114,42 @@ function upsertSubagentToggles(source: string): string {
   return upsertTomlSection(source, "subagents.toggle", block)
 }
 
+/** lfg-owned / known-stale sticky agent names we may replace with sisyphus. */
+const LFG_OWNED_OR_STALE_STICKY_AGENTS = new Set([
+  "sisyphus",
+  "ulw",
+  "default",
+  "hephaestus",
+  "grok-build",
+  "builder",
+  "cursor",
+  "browser-use",
+])
+
 function upsertAgentPreference(source: string): string {
   const disabled = ["cursor", "browser-use"] as const
   const block = `default = ${tomlString("sisyphus")}\ndisabled = [\n${disabled.map((id) => `    ${tomlString(id)},`).join("\n")}\n]`
-  return upsertTomlSection(source, "agents", block)
+  const withAgents = upsertTomlSection(source, "agents", block)
+  return upsertStickyAgentName(withAgents, "sisyphus")
+}
+
+/**
+ * Sticky [agent].name is what headless/main sessions resolve first.
+ * Preserve user-chosen agents; only set/replace when missing, empty, or known lfg-owned/stale.
+ */
+export function upsertStickyAgentName(source: string, preferred: string = "sisyphus"): string {
+  const current = readStickyAgentName(source)
+  if (current !== null && current.length > 0 && !LFG_OWNED_OR_STALE_STICKY_AGENTS.has(current)) {
+    return source
+  }
+  return upsertTomlSection(source, "agent", `name = ${tomlString(preferred)}`)
+}
+
+export function readStickyAgentName(source: string): string | null {
+  const section = source.match(/(?:^|\n)\[agent\]\n([\s\S]*?)(?=\n\[[^\n]+\]|$)/)
+  if (section?.[1] === undefined) return null
+  const match = section[1].match(/^\s*name\s*=\s*"([^"]*)"\s*$/m)
+  return match?.[1] ?? null
 }
 
 /** LFG-owned [subagents.models] routing. Matches model-recommendations.ts + setup choices:

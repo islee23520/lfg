@@ -66,7 +66,7 @@ describe("npm setup script safety", () => {
       await mkdir(join(home, ".grok", "agents"), { recursive: true })
       await cp(fixtureRoot, pluginRoot, { recursive: true })
       await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"existing"}\n', "utf8")
-      await writeFile(configPath, '[lazycodex.models]\ndefault = "user-kept-model"\n', "utf8")
+      await writeFile(configPath, '[omo.models]\ndefault = "user-kept-model"\n', "utf8")
       await writeFile(agentPath, 'model = "user-kept-agent"\n', "utf8")
 
       try {

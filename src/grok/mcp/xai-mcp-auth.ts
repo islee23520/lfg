@@ -19,6 +19,8 @@ export type XaiMcpAuthStatus = {
   readonly expiresAt: string | null
   readonly provider: string | null
   readonly message: string
+  readonly baseUrl: string | null
+  readonly source: string | null
 }
 
 export type XaiMcpPackageAuth = {
@@ -29,6 +31,10 @@ export type XaiMcpPackageAuth = {
   readonly tokenEndpoint: string
   readonly tokenType: string
   readonly apiKey?: string
+  /** Optional OpenAI-compatible base URL (local CLI proxy). Defaults to api.x.ai when omitted. */
+  readonly baseUrl?: string
+  /** Where the key/base came from (env, codex provider, cliproxy, …). Never includes the secret. */
+  readonly source?: string
 }
 
 export function defaultXaiMcpAuthPath(home: string = resolveGrokSetupHome()): string {
@@ -63,6 +69,8 @@ export async function readXaiMcpPackageAuth(path: string): Promise<XaiMcpPackage
       return null
     }
     if (typeof data.apiKey === "string" && data.apiKey.trim().length > 0) {
+      const baseUrl = typeof data.baseUrl === "string" && data.baseUrl.trim().length > 0 ? data.baseUrl.trim().replace(/\/$/, "") : undefined
+      const source = typeof data.source === "string" && data.source.trim().length > 0 ? data.source.trim() : undefined
       return {
         provider: "lfg-xai-mcp",
         access: data.apiKey.trim(),
@@ -71,6 +79,8 @@ export async function readXaiMcpPackageAuth(path: string): Promise<XaiMcpPackage
         tokenEndpoint: XAI_OAUTH_TOKEN_URL,
         tokenType: "Bearer",
         apiKey: data.apiKey.trim(),
+        ...(baseUrl === undefined ? {} : { baseUrl }),
+        ...(source === undefined ? {} : { source }),
       }
     }
     if (typeof data.access === "string" && typeof data.refresh === "string" && typeof data.expires === "number") {
@@ -78,6 +88,7 @@ export async function readXaiMcpPackageAuth(path: string): Promise<XaiMcpPackage
       if (tokenEndpoint === null) {
         return null
       }
+      const baseUrl = typeof data.baseUrl === "string" && data.baseUrl.trim().length > 0 ? data.baseUrl.trim().replace(/\/$/, "") : undefined
       return {
         provider: "xai-oauth",
         access: data.access,
@@ -85,6 +96,7 @@ export async function readXaiMcpPackageAuth(path: string): Promise<XaiMcpPackage
         expires: data.expires,
         tokenEndpoint,
         tokenType: typeof data.tokenType === "string" ? data.tokenType : "Bearer",
+        ...(baseUrl === undefined ? {} : { baseUrl }),
       }
     }
     return null
@@ -93,15 +105,27 @@ export async function readXaiMcpPackageAuth(path: string): Promise<XaiMcpPackage
   }
 }
 
-export async function writeXaiMcpApiKey(path: string, apiKey: string): Promise<void> {
+export async function writeXaiMcpApiKey(
+  path: string,
+  apiKey: string,
+  options: { readonly baseUrl?: string | null; readonly source?: string | null } = {},
+): Promise<void> {
   const trimmed = apiKey.trim()
   if (trimmed.length === 0) {
     throw new Error("API key must be non-empty")
   }
+  const baseUrl =
+    typeof options.baseUrl === "string" && options.baseUrl.trim().length > 0
+      ? options.baseUrl.trim().replace(/\/$/, "")
+      : undefined
+  const source =
+    typeof options.source === "string" && options.source.trim().length > 0 ? options.source.trim() : undefined
   const body = {
     provider: "lfg-xai-mcp",
     auth_mode: "api_key",
     apiKey: trimmed,
+    ...(baseUrl === undefined ? {} : { baseUrl }),
+    ...(source === undefined ? {} : { source }),
     updated_at: new Date().toISOString(),
   }
   await writeAuthFile(path, JSON.stringify(body, null, 2))
@@ -160,7 +184,11 @@ export async function getXaiMcpAuthStatus(env: NodeJS.ProcessEnv = process.env):
         authFile,
         expiresAt: null,
         provider: dedicated.provider,
-        message: "xai_grok MCP uses dedicated API key (Grok host auth.json is not modified).",
+        baseUrl: dedicated.baseUrl ?? null,
+        source: dedicated.source ?? null,
+        message: dedicated.baseUrl
+          ? `xai_grok MCP uses dedicated API key via ${dedicated.baseUrl} (Grok host auth.json is not modified).`
+          : "xai_grok MCP uses dedicated API key (Grok host auth.json is not modified).",
       }
     }
     const expired = dedicated.expires <= Date.now()
@@ -170,6 +198,8 @@ export async function getXaiMcpAuthStatus(env: NodeJS.ProcessEnv = process.env):
       authFile,
       expiresAt: new Date(dedicated.expires).toISOString(),
       provider: dedicated.provider,
+      baseUrl: dedicated.baseUrl ?? null,
+      source: dedicated.source ?? null,
       message: expired
         ? "Dedicated OAuth tokens expired; run lfg xai auth set-oauth after re-login or use lfg xai auth set-api-key."
         : "xai_grok MCP uses dedicated OAuth store (Grok host auth.json is not modified).",
@@ -183,6 +213,8 @@ export async function getXaiMcpAuthStatus(env: NodeJS.ProcessEnv = process.env):
       authFile,
       expiresAt: null,
       provider: "env",
+      baseUrl: null,
+      source: "env:XAI_API_KEY",
       message: "Using XAI_API_KEY from environment (no dedicated file yet).",
     }
   }
@@ -195,6 +227,8 @@ export async function getXaiMcpAuthStatus(env: NodeJS.ProcessEnv = process.env):
       authFile,
       expiresAt: new Date(grokOidc.expires).toISOString(),
       provider: "grok-oauth",
+      baseUrl: null,
+      source: "grok:auth.json",
       message: expired
         ? "No dedicated xAI MCP auth; Grok host OIDC is expired. Use: lfg xai auth set-oauth or lfg xai auth set-api-key"
         : "No dedicated file; falling back to read-only Grok host ~/.grok/auth.json (host file is never written by xai_grok MCP).",
@@ -206,7 +240,10 @@ export async function getXaiMcpAuthStatus(env: NodeJS.ProcessEnv = process.env):
     authFile,
     expiresAt: null,
     provider: null,
-    message: "No xAI credentials. Run: lfg xai auth set-api-key, lfg xai auth set-oauth, or sign in to Grok for read-only fallback.",
+    baseUrl: null,
+    source: null,
+    message:
+      "No xAI credentials. Run: lfg xai auth set-api-key (auto-discovers local CLI proxy), lfg xai auth set-oauth, or sign in to Grok for read-only fallback.",
   }
 }
 
@@ -231,7 +268,13 @@ export async function readGrokHostOidcForXai(
       if (!isRecord(value)) {
         continue
       }
-      if (value.auth_mode !== "oidc" || value.oidc_issuer !== XAI_OAUTH_ISSUER || value.oidc_client_id !== XAI_OAUTH_CLIENT_ID) {
+      // GrokBuild host OIDC may use client_id "grok-cli" or a host-assigned UUID.
+      // Accept any non-empty client_id when issuer is xAI and tokens are present.
+      if (value.auth_mode !== "oidc" || value.oidc_issuer !== XAI_OAUTH_ISSUER) {
+        continue
+      }
+      const clientId = typeof value.oidc_client_id === "string" ? value.oidc_client_id.trim() : ""
+      if (clientId.length === 0) {
         continue
       }
       const access = typeof value.key === "string" ? value.key : ""

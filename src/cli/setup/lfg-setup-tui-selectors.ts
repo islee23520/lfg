@@ -1,8 +1,8 @@
 import * as clack from "@clack/prompts"
 
 export const SERVICE_TIERS = [
-  { value: "default", label: "default (non-fast model id)" },
-  { value: "fast", label: "fast (prefer *-fast catalog id)" },
+  { value: "default", label: "default (non-fast model id; Grok routes by model id)" },
+  { value: "fast", label: "fast (prefer catalog *-fast model id)" },
 ] as const
 
 export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const
@@ -107,7 +107,9 @@ function createTierSelector(prompts: typeof clack): TierSelector {
       hint: tier.value === current ? "current" : undefined,
     }))
     const selected = await prompts.select({
-      message: agentName ? `${agentName} service tier` : "Service tier",
+      message: agentName
+        ? `${agentName} tier (Grok routes by model id, not Codex service_tier)`
+        : "Tier (Grok routes by model id, not Codex service_tier)",
       options,
       initialValue: current,
     })

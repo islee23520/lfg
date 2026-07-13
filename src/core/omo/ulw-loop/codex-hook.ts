@@ -49,8 +49,7 @@ export function parseUserPromptSubmitPayload(raw: string): UserPromptSubmitPaylo
 	try {
 		const parsed: unknown = JSON.parse(raw);
 		return isUserPromptSubmitPayload(parsed) ? parsed : null;
-	} catch (error) {
-		if (error instanceof SyntaxError) return null;
+	} catch {
 		return null;
 	}
 }
@@ -60,8 +59,7 @@ export function parsePreToolUsePayload(raw: string): PreToolUsePayload | null {
 	try {
 		const parsed: unknown = JSON.parse(raw);
 		return isPreToolUsePayload(parsed) ? parsed : null;
-	} catch (error) {
-		if (error instanceof SyntaxError) return null;
+	} catch {
 		return null;
 	}
 }
@@ -88,8 +86,7 @@ export async function applyUserPromptUlwLoopSteering(
 			source: result.audit.source,
 			deduped: result.deduped,
 		});
-	} catch (error) {
-		if (error instanceof Error) return "";
+	} catch {
 		return "";
 	}
 }
@@ -127,8 +124,7 @@ export async function runUlwLoopHookCli(
 		if (payload === null) return;
 		const output = await applyUserPromptUlwLoopSteering(payload, options);
 		if (output.length > 0) stdout.write(output);
-	} catch (error) {
-		if (error instanceof Error) return;
+	} catch {
 		return;
 	}
 }
@@ -142,8 +138,7 @@ export async function runPreToolUseGoalBudgetGuardCli(
 		if (payload === null) return;
 		const output = applyPreToolUseGoalBudgetGuard(payload);
 		if (output.length > 0) stdout.write(output);
-	} catch (error) {
-		if (error instanceof Error) return;
+	} catch {
 		return;
 	}
 }

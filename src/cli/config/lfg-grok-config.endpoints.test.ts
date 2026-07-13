@@ -188,13 +188,45 @@ describe("grok config endpoints (#24)", () => {
     await writeGrokModelConfig(vanillaGrok, { home, apiKey: "sk-test", hostAuthOnly: true })
 
     const config = await readFile(path, "utf8")
-    expect(section(config, "endpoints")).not.toContain("models_base_url")
-    expect(section(config, "endpoints")).not.toContain("api_key")
+    // Bare empty [endpoints] must not linger after host-auth-only strip.
+    expect(config).not.toContain("[endpoints]")
+    expect(config).not.toContain("models_base_url")
     expect(section(config, 'model."grok-build"')).toContain('model = "grok-build"')
     expect(section(config, 'model."grok-build"')).not.toContain("base_url")
     expect(section(config, 'model."grok-build"')).not.toContain("api_key")
     expect(section(config, 'model."gpt-5.5"')).toBe("")
     expect(config).not.toContain('base_url = "http://127.0.0.1:8317/v1"')
+  })
+
+  test("writeGrokModelConfig drops stale [model.*] not in discovery (valid-only)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-stale-models-"))
+    const path = join(home, ".grok", "config.toml")
+    await mkdir(join(home, ".grok"), { recursive: true })
+    await writeFile(
+      path,
+      [
+        "[endpoints]",
+        'models_base_url = "http://127.0.0.1:11434/v1"',
+        "",
+        '[model."gpt-5.5"]',
+        'model = "gpt-5.5"',
+        'base_url = "http://127.0.0.1:11434/v1"',
+        "",
+        '[model."grok-4.20-0309-reasoning"]',
+        'model = "grok-4.20-0309-reasoning"',
+        'base_url = "http://127.0.0.1:11434/v1"',
+      ].join("\n"),
+      "utf8",
+    )
+
+    await writeGrokModelConfig(discovery, { home, apiKey: "sk-test" })
+
+    const config = await readFile(path, "utf8")
+    expect(config).toContain('[model."gpt-4.1-mini"]')
+    expect(config).toContain('[model."grok-build"]')
+    expect(config).not.toContain("gpt-5.5")
+    expect(config).not.toContain("grok-4.20-0309-reasoning")
+    expect(section(config, "endpoints")).toContain('models_base_url = "http://127.0.0.1:11434/v1"')
   })
 })
 

@@ -5,9 +5,12 @@ const LFG_PACKAGE = "@islee23520/lfg"
 
 const LFG_OWNED_FIRST_ARGS = [
   "setup",
+  "doctor",
+  "set-tier",
   "xai",
   "zai",
   "mcp",
+  "claude",
   "ulw",
   "ulw-loop",
   "help",

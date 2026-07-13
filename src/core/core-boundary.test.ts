@@ -47,8 +47,8 @@ async function listTypeScriptFiles(dir: string): Promise<readonly string[]> {
       files.push(...(await listTypeScriptFiles(absolutePath)))
       continue
     }
-
-    if (entry.isFile() && absolutePath.endsWith(".ts")) {
+    // Product boundary applies to runtime sources only — *.test.ts may import CLI for e2e/coverage.
+    if (entry.isFile() && absolutePath.endsWith(".ts") && !absolutePath.endsWith(".test.ts")) {
       files.push(absolutePath)
     }
   }

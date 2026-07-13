@@ -5,18 +5,18 @@ import { describe, expect, test } from "vitest"
 import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled } from "./grok-plugins-enable"
 
 describe("ensureLfgPluginsEnabled", () => {
-  test("appends lfg and lazycodex without dropping disabled list", async () => {
+  test("appends lfg without re-enabling retired lazycodex or dropping disabled list", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-plugins-enable-"))
     const configPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok"), { recursive: true })
     await writeFile(
       configPath,
-      `[plugins]\nenabled = [\n    "other",\n]\ndisabled = [\n    "user/old",\n]\n`,
+      `[plugins]\nenabled = [\n    "other",\n    "lazycodex",\n]\ndisabled = [\n    "user/old",\n]\n`,
     )
     await ensureLfgPluginsEnabled(home)
     const text = await readFile(configPath, "utf8")
     expect(text).toContain('"lfg"')
-    expect(text).toContain('"lazycodex"')
+    expect(text).not.toContain('"lazycodex"')
     expect(text).toContain('"other"')
     expect(text).toContain("disabled")
     expect(text).toContain('"user/old"')
@@ -63,7 +63,23 @@ describe("ensureLfgPluginsEnabled", () => {
     expect(text).toContain("artistry-qa = true")
     expect(text).toContain("ulw = true")
     expect(text).toContain('default = "sisyphus"')
+    expect(text).toMatch(/\[agent\]\s*\nname\s*=\s*"sisyphus"/)
     expect(text).not.toContain('"grok-build"')
+  })
+
+  test("preserves user sticky [agent].name when not lfg-owned/stale", async () => {
+    const { upsertStickyAgentName, readStickyAgentName } = await import("./grok-plugins-enable.ts")
+    const source = `[agent]\nname = "my-custom-agent"\n\n[agents]\ndefault = "sisyphus"\n`
+    const next = upsertStickyAgentName(source, "sisyphus")
+    expect(readStickyAgentName(next)).toBe("my-custom-agent")
+    expect(next).toContain('name = "my-custom-agent"')
+  })
+
+  test("replaces missing or stale sticky [agent].name with sisyphus", async () => {
+    const { upsertStickyAgentName, readStickyAgentName } = await import("./grok-plugins-enable.ts")
+    expect(readStickyAgentName(upsertStickyAgentName("", "sisyphus"))).toBe("sisyphus")
+    expect(readStickyAgentName(upsertStickyAgentName(`[agent]\nname = "ulw"\n`, "sisyphus"))).toBe("sisyphus")
+    expect(readStickyAgentName(upsertStickyAgentName(`[agent]\nname = "default"\n`, "sisyphus"))).toBe("sisyphus")
   })
 
   test("baseline: does not write [subagents.models] when absent (characterization for T2)", async () => {

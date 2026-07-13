@@ -148,6 +148,31 @@ describe("xai-mcp-auth", () => {
     expect(status.ok).toBe(true)
   })
 
+  test("status accepts GrokBuild host OIDC with UUID client_id (not only grok-cli)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-xai-auth-uuid-"))
+    homes.push(home)
+    await mkdir(join(home, ".grok"), { recursive: true })
+    const clientId = "b1a00492-073a-47ea-816f-4c329264a828"
+    await writeFile(
+      grokHostAuthPath(home),
+      JSON.stringify({
+        [`https://auth.x.ai::${clientId}`]: {
+          auth_mode: "oidc",
+          oidc_issuer: "https://auth.x.ai",
+          oidc_client_id: clientId,
+          key: "host-access-uuid",
+          refresh_token: "host-refresh-uuid",
+          expires_at: new Date(Date.now() + 3600_000).toISOString(),
+        },
+      }),
+      "utf8",
+    )
+    const status = await getXaiMcpAuthStatus({ HOME: home, LFG_ALLOW_TEST_GROK_HOME: "1" })
+    expect(status.ok).toBe(true)
+    expect(status.mode).toBe("grok_oidc_readonly")
+    expect(status.provider).toBe("grok-oauth")
+  })
+
   test("clear removes only dedicated file", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-xai-auth-"))
     homes.push(home)

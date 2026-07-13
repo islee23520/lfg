@@ -26,16 +26,19 @@ describe("npm publish workflow (#22)", () => {
     expect(gap.localVersion).toBe(pkg.version)
   })
 
-  test("pre-publish-check script exists on root package", async () => {
+  test("root package keeps verify/prepublishOnly; publish helpers are scripts/*.mjs only", async () => {
     const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>
     }
     expect(pkg.scripts?.verify).toContain("assert-pack")
-    expect(pkg.scripts?.["pre-publish-check"]).toMatch(/^npm run build &&/)
-    expect(pkg.scripts?.["pre-publish-check"]).toContain("pre-publish-check.mjs")
     expect(pkg.scripts?.prepublishOnly).toBe("npm run verify")
-    expect(pkg.scripts?.["record-publish-gap"]).toContain("record-publish-gap.mjs")
-    expect(pkg.scripts?.["assert-publish-auth"]).toContain("assert-npm-publish-auth.mjs")
+    expect(pkg.scripts).not.toHaveProperty("pre-publish-check")
+    expect(pkg.scripts).not.toHaveProperty("record-publish-gap")
+    expect(pkg.scripts).not.toHaveProperty("assert-publish-auth")
+    const doc = await readFile(join(ROOT, "docs/npm-publish.md"), "utf8")
+    expect(doc).toContain("scripts/pre-publish-check.mjs")
+    expect(doc).toContain("scripts/record-publish-gap.mjs")
+    expect(doc).toContain("scripts/assert-npm-publish-auth.mjs")
   })
 
   test("publish gap blockedReason null only when publishReady (#22)", () => {

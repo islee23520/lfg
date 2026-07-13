@@ -29,12 +29,15 @@ describe("publish owner checklist (#22)", () => {
     expect(doc).toContain("npm publish --access public")
   })
 
-  test("root package.json exposes verify and pre-publish-check", async () => {
+  test("root package.json exposes verify; publish helpers stay as scripts/*.mjs", async () => {
     const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>
     }
     expect(pkg.scripts?.verify).toContain("assert-pack")
-    expect(pkg.scripts?.["pre-publish-check"]).toContain("pre-publish-check.mjs")
-    expect(pkg.scripts?.["record-publish-gap"]).toContain("record-publish-gap.mjs")
+    expect(pkg.scripts).not.toHaveProperty("pre-publish-check")
+    expect(pkg.scripts).not.toHaveProperty("record-publish-gap")
+    const doc = await readFile(join(ROOT, "docs/npm-publish.md"), "utf8")
+    expect(doc).toContain("scripts/pre-publish-check.mjs")
+    expect(doc).toContain("scripts/record-publish-gap.mjs")
   })
 })

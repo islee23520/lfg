@@ -27,6 +27,13 @@ const OMO_MANAGED_SKILLS = [
 ] as const
 const RETIRED_OMO_SKILL_NAMES = ["lcx-contribute-bug-fix", "lcx-doctor", "lcx-report-bug"] as const
 
+/**
+ * lfg-owned skills shipped with the package (not OMO upstream managed list).
+ * Always materialised into ~/.grok/plugins/lfg/skills on setup so they are
+ * Grok-discoverable without a separate install step.
+ */
+export const LFG_NATIVE_SKILLS = ["claude-code-inventory"] as const
+
 export async function ensureUlwWorkflowSkills(pluginRoot: string): Promise<{ readonly ensured: boolean; readonly paths: string[] }> {
   const ensuredPaths: string[] = []
   let anyEnsured = false
@@ -55,20 +62,72 @@ export async function ensureUlwWorkflowSkills(pluginRoot: string): Promise<{ rea
     ensuredPaths.push(targetFile)
   }
 
+  const native = await ensureLfgNativeSkills(pluginRoot)
+  if (native.ensured) anyEnsured = true
+  ensuredPaths.push(...native.paths)
+
   return { ensured: anyEnsured, paths: ensuredPaths }
 }
 
-async function resolveBundledSkillDir(skillName: string): Promise<string | null> {
+/** Always install/refresh lfg-native skills (e.g. claude-code-inventory) into the plugin skill tree. */
+export async function ensureLfgNativeSkills(pluginRoot: string): Promise<{ readonly ensured: boolean; readonly paths: string[] }> {
+  const ensuredPaths: string[] = []
+  let anyEnsured = false
+  for (const skill of LFG_NATIVE_SKILLS) {
+    const targetDir = join(pluginRoot, "skills", skill)
+    const targetFile = join(targetDir, "SKILL.md")
+    const bundled = await resolveBundledSkillDir(skill)
+    if (!bundled) continue
+    await rm(targetDir, { recursive: true, force: true })
+    await mkdir(targetDir, { recursive: true })
+    await cp(bundled, targetDir, { recursive: true, force: true })
+    anyEnsured = true
+    ensuredPaths.push(targetFile)
+  }
+  // Also seed Claude Code's own skills dir so Claude sessions can load the same skill.
+  const claudeSeed = await ensureClaudeHomeLfgBridgeSkill()
+  if (claudeSeed.ensured) {
+    anyEnsured = true
+    ensuredPaths.push(claudeSeed.path)
+  }
+  return { ensured: anyEnsured, paths: ensuredPaths }
+}
+
+/**
+ * Copy claude-code-inventory into ~/.claude/skills so Claude Code can discover
+ * the bridge/memory docs without a separate Claude-side install.
+ */
+export async function ensureClaudeHomeLfgBridgeSkill(
+  homeDir: string = process.env.HOME ?? "",
+): Promise<{ readonly ensured: boolean; readonly path: string }> {
+  const claudeHome = process.env.CLAUDE_HOME?.trim() || process.env.CLAUDE_CONFIG_DIR?.trim() || join(homeDir || process.env.HOME || "", ".claude")
+  const targetDir = join(claudeHome, "skills", "claude-code-inventory")
+  const targetFile = join(targetDir, "SKILL.md")
+  const bundled = await resolveBundledSkillDir("claude-code-inventory")
+  if (!bundled) return { ensured: false, path: targetFile }
+  try {
+    await mkdir(join(claudeHome, "skills"), { recursive: true })
+    await rm(targetDir, { recursive: true, force: true })
+    await mkdir(targetDir, { recursive: true })
+    await cp(bundled, targetDir, { recursive: true, force: true })
+    return { ensured: true, path: targetFile }
+  } catch {
+    return { ensured: false, path: targetFile }
+  }
+}
+
+export async function resolveBundledSkillDir(skillName: string): Promise<string | null> {
   const here = dirname(fileURLToPath(import.meta.url))
   const candidates = [
-    // dist layout
+    // dist layout (bundled entry: dist/lfg.js → dist/grok-install/skills)
     join(here, "grok-install", "skills", skillName),
     join(here, "..", "grok-install", "skills", skillName),
-    // source tree
+    // source tree: src/grok/doctor → src/grok/skills
     join(here, "skills", skillName),
     join(here, "..", "skills", skillName),
-    // published package root
+    // published package root skills/ (npx package)
     join(here, "..", "..", "skills", skillName),
+    join(here, "..", "..", "..", "skills", skillName),
   ]
   for (const p of candidates) {
     try {

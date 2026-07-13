@@ -18,7 +18,15 @@ describe("lfg setup --install-only", () => {
       postInstallVerify: { ok: true, status: "verified" },
     })
     await expect(readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8")).resolves.toContain("@islee23520/lfg")
-    await expect(readFile(join(home, ".grok", "config.toml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    // install-only may seed [mcp_servers.xai_grok] but must not write agent overrides / roles / model routes.
+    try {
+      const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+      expect(config).not.toMatch(/\[omo\.agents\./)
+      expect(config).not.toMatch(/\[subagents\.models\]/)
+      expect(config).not.toMatch(/\[models\]/)
+    } catch (error) {
+      expect(error).toMatchObject({ code: "ENOENT" })
+    }
     await expect(readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
   }, 15_000)

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Code Inventory"
+  short_description: "List and read Claude Code plugins and skills"
+  default_prompt: "List Claude Code plugins and skills available on this machine using lfg claude inventory."

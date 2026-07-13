@@ -31,9 +31,9 @@ describe("assert-npm-publish-auth integration (#22)", () => {
     }
   }, 15_000)
 
-  test("npm run assert-publish-auth wires build then exits 2 when not logged in (#22)", async () => {
+  test("node scripts/assert-npm-publish-auth.mjs exits 2 when not logged in (#22)", async () => {
     try {
-      await execFileAsync("npm", ["run", "assert-publish-auth"], {
+      await execFileAsync("node", [join(ROOT, "scripts/assert-npm-publish-auth.mjs")], {
         cwd: ROOT,
         encoding: "utf8",
         env: { ...process.env, LFG_NPM_WHOAMI: "" },
@@ -43,7 +43,6 @@ describe("assert-npm-publish-auth integration (#22)", () => {
       const err = error as { code?: number; stdout?: string; stderr?: string }
       expect(err.code).toBe(2)
       const combined = `${err.stdout ?? ""}\n${err.stderr ?? ""}`
-      expect(combined).toContain("build.mjs")
       expect(combined).toContain('"ok":false')
       expect(combined).toContain("npm login")
     }

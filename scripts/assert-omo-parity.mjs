@@ -44,6 +44,10 @@ const requiredSupplementalSkills = [
   "xai-web-search",
   "xai-x-search",
 ]
+/** lfg-owned skills (not OMO managed list) that must ship in all three skill roots. */
+const requiredLfgNativeSkills = [
+  "claude-code-inventory",
+]
 const excludedSupplementalSkills = ["xai-grok", "xai-login-instructions", "xai-status"]
 const generatedSkillRoots = [
   "src/grok/skills",
@@ -139,6 +143,11 @@ async function assertSkillRoot(root) {
     await assertTextContains(join(root, skillName, "SKILL.md"), ["Preferred Grok Tool Flow", "search_tool"])
     await assertTextExcludes(join(root, skillName, "SKILL.md"), ["codex-xai-oauth", "~/.config/codex-xai-oauth"])
   }
+  for (const skillName of requiredLfgNativeSkills) {
+    await assertExists(join(root, skillName, "SKILL.md"))
+    await assertTextContains(join(root, skillName, "SKILL.md"), ["lfg claude", "Claude Code"])
+    await assertExists(join(root, skillName, "agents", "grok.yaml"))
+  }
   for (const skillName of excludedSupplementalSkills) {
     await assertMissing(join(root, skillName, "SKILL.md"))
   }
@@ -150,6 +159,7 @@ async function assertSkillRoot(root) {
   }
   for (const grokAgent of await findFiles(root, "grok.yaml")) {
     await assertTextExcludes(grokAgent, staleAgentMetadataNeedles)
+    await assertNoResidualCodexSkillInvokes(grokAgent)
   }
   await assertExists(join(root, "teammode", "scripts", "team.mjs"))
   await assertExists(join(root, "ulw-plan", "scripts", "scaffold-plan.mjs"))
@@ -173,6 +183,13 @@ async function assertSkillRoot(root) {
     "Inspect GrokBuild `/goal` state",
     "GrokBuild sessions are `grok:<session_id>`",
   ])
+  // Managed component skills must be GrokBuild-framed (not Codex-primary leftovers).
+  await assertTextContains(join(root, "lsp", "SKILL.md"), ["GrokBuild LSP", "GrokBuild"])
+  await assertTextExcludes(join(root, "lsp", "SKILL.md"), ["# Codex LSP"])
+  await assertTextContains(join(root, "comment-checker", "SKILL.md"), ["GrokBuild Comment Checker", "GrokBuild"])
+  await assertTextExcludes(join(root, "comment-checker", "SKILL.md"), ["# Codex Comment Checker"])
+  await assertTextContains(join(root, "rules", "SKILL.md"), ["GrokBuild Rules", "lfg Grok plugin"])
+  await assertTextExcludes(join(root, "rules", "SKILL.md"), ["# Codex Rules", "Codex Rules is automatic"])
 }
 
 async function assertParityUpkeep() {
@@ -231,6 +248,19 @@ async function assertTextExcludes(path, needles) {
   for (const needle of needles) {
     if (content.includes(needle)) {
       failures.push(`${path}: contains stale metadata ${JSON.stringify(needle)}`)
+    }
+  }
+}
+
+/** GrokBuild activates skills as /name; residual $name in agents/grok.yaml is Codex-shaped. */
+async function assertNoResidualCodexSkillInvokes(path) {
+  const content = await readText(path)
+  if (content === null) return
+  const ban = new Set([...requiredManagedSkills, ...requiredSupplementalSkills, ...requiredLfgNativeSkills, "ulw", "cua-driver", "xai"])
+  for (const match of content.matchAll(/(?<![A-Za-z0-9_/])\$([a-z][a-z0-9_-]*)/g)) {
+    const name = match[1]
+    if (ban.has(name)) {
+      failures.push(`${path}: residual Codex skill invoke $${name} (use /${name} for GrokBuild)`)
     }
   }
 }

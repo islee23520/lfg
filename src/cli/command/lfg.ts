@@ -3,6 +3,9 @@ import { unsupportedCommand } from "./lfg-command"
 import { runInstallWizard } from "../setup/lfg-interactive"
 import { runLazycodexInstaller } from "../setup/lfg-installer"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../../grok/install/run-grok-install"
+import { runGrokDoctor } from "../../grok/doctor/doctor"
+import { applyAgentServiceTier } from "../models/set-agent-service-tier"
+import type { ServiceTier } from "../../grok/agents/lazycodex-agent-overrides"
 import { applyModelPreset, withReasoningEffort, type ReasoningEffortChoice, type SetupPreset } from "../models/lfg-models"
 import { resolveSetupDiscovery } from "../../grok/install/resolve-setup-discovery"
 import { isRecord, type JsonObject } from "../../shared/json"
@@ -14,6 +17,7 @@ import { buildRefreshExecutedJson, refreshPlan, runRefreshWizard, setupPlan } fr
 import { dispatchXaiAuthCommand } from "../xai/xai-auth-command"
 import { dispatchZaiCommand } from "../zai/zai-command"
 import { dispatchMcpCompanionCommand } from "../mcp/companion-command"
+import { dispatchClaudeCommand } from "../claude/claude-command"
 import { codingToolLaunchPlan, formatLaunchError, launchCodingToolAdapter } from "./coding-tool-launcher"
 import { loadBundledDefaultOmoOverrides } from "../../grok/agents/lazycodex-agent-overrides"
 import { buildVanillaGrokDiscovery } from "../setup/lfg-setup-tui-data"
@@ -32,6 +36,7 @@ type ParsedArgs = {
   readonly refresh: boolean
   readonly installOnly: boolean
   readonly noTui: boolean
+  readonly noProbe: boolean
   readonly preset: SetupPreset
   readonly presetError: string | null
   readonly codingToolAdapter: CodingToolAdapterId
@@ -48,6 +53,8 @@ type ParsedArgs = {
   readonly xaiOauthTokenEndpoint: string | null
   readonly xaiOauthTokenType: string | null
   readonly zaiMode: string | null
+  readonly agent: string | null
+  readonly tier: ServiceTier | null
   readonly positional: readonly string[]
 }
 
@@ -149,6 +156,8 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     return dispatchXaiAuthCommand(third, {
       json: args.json,
       apiKeyFlag: args.xaiApiKey,
+      baseUrlFlag: args.baseUrl,
+      noProbe: args.noProbe,
       oauthAccessToken: args.xaiOauthAccessToken,
       oauthRefreshToken: args.xaiOauthRefreshToken,
       oauthExpiresAt: args.xaiOauthExpiresAt,
@@ -172,10 +181,67 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
       rest: effectivePos.slice(3),
     })
   }
+  if (command === "claude") {
+    return dispatchClaudeCommand(subcommand, third, {
+      json: args.json,
+      rest: effectivePos.slice(3),
+    })
+  }
   if (command === "ulw" || command === "ulw-loop") {
     // Should have been handled in main(); keep as safety net for programmatic dispatch.
     const code = await dispatchUlwLoopArgv(effectivePos)
     return { ok: code === 0, status: code === 0 ? "ulw_loop_ok" : "ulw_loop_error", exitCode: code, lfgIsPlugin: false }
+  }
+  if (command === "doctor") {
+    const home = resolveGrokSetupHome(process.env)
+    const registryVersion = process.env.LFG_DOCTOR_REGISTRY_VERSION ?? null
+    const doctor = await runGrokDoctor({
+      home,
+      moduleUrl: import.meta.url,
+      ...(registryVersion === null ? {} : { registryVersion }),
+    })
+    return { ...doctor, lfgIsPlugin: false }
+  }
+  if (command === "set-tier") {
+    const home = resolveGrokSetupHome(process.env)
+    const agent = args.agent ?? (typeof subcommand === "string" && !subcommand.startsWith("-") ? subcommand : null)
+    const tier = args.tier
+    if (agent === null || agent.length === 0) {
+      return {
+        ok: false,
+        status: "invalid_set_tier",
+        error: "set-tier requires --agent <name>",
+        usage: "lfg --json set-tier --agent <name> --tier default|fast",
+        lfgIsPlugin: false,
+      }
+    }
+    if (tier === null) {
+      return {
+        ok: false,
+        status: "invalid_set_tier",
+        error: "set-tier requires --tier default|fast",
+        usage: "lfg --json set-tier --agent <name> --tier default|fast",
+        lfgIsPlugin: false,
+      }
+    }
+    try {
+      const result = await applyAgentServiceTier({ home, agent, tier })
+      return {
+        ok: true,
+        status: "set_tier_ok",
+        ...result,
+        lfgIsPlugin: false,
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        status: "set_tier_error",
+        error: error instanceof Error ? error.message : String(error),
+        agent,
+        tier,
+        lfgIsPlugin: false,
+      }
+    }
   }
   const isForceOnly = (subcommand === "--force" || subcommand === "force")
   const isConfigTui = subcommand === "config" || subcommand === "tui"
@@ -310,6 +376,8 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let xaiOauthTokenEndpoint: string | null = null
   let xaiOauthTokenType: string | null = null
   let zaiMode: string | null = null
+  let agent: string | null = null
+  let tier: ServiceTier | null = null
   let preset: SetupPreset = DEFAULT_SETUP_PRESET
   let presetError: string | null = null
   let codingToolAdapter: CodingToolAdapterId = DEFAULT_CODING_TOOL_ADAPTER
@@ -319,7 +387,15 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let reasoningEffortError: string | null = null
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
-    if (arg === "--json" || arg === "--run" || arg === "--force" || arg === "--refresh" || arg === "--install-only" || arg === "--no-tui") {
+    if (
+      arg === "--json" ||
+      arg === "--run" ||
+      arg === "--force" ||
+      arg === "--refresh" ||
+      arg === "--install-only" ||
+      arg === "--no-tui" ||
+      arg === "--no-probe"
+    ) {
       continue
     }
     if (arg === "--preset") {
@@ -434,6 +510,26 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         continue
       }
     }
+    if (arg === "--agent") {
+      const value = argv[index + 1]
+      if (typeof value === "string") {
+        agent = value
+        index += 1
+        continue
+      }
+    }
+    if (arg === "--tier") {
+      const value = argv[index + 1]
+      if (value === "default" || value === "fast") {
+        tier = value
+        index += 1
+        continue
+      }
+      if (typeof value === "string") {
+        index += 1
+        continue
+      }
+    }
     if (typeof arg === "string") {
       positional.push(arg)
     }
@@ -445,6 +541,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     refresh: argv.includes("--refresh"),
     installOnly: argv.includes("--install-only"),
     noTui: argv.includes("--no-tui"),
+    noProbe: argv.includes("--no-probe"),
     preset,
     presetError,
     codingToolAdapter,
@@ -461,6 +558,8 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     xaiOauthTokenEndpoint,
     xaiOauthTokenType,
     zaiMode,
+    agent,
+    tier,
     positional,
   }
 }
@@ -493,8 +592,13 @@ function help(): string {
     "  lfg",
     "  lfg setup",
     "  lfg setup config",
+    "  lfg doctor                                 # verify install + purge invalid model settings",
+    "  lfg set-tier --agent <name> --tier default|fast  # flip model-id tier (Grok has no service_tier host field)",
     "  lfg xai auth status",
-    "  lfg xai auth set-api-key [--api-key KEY]",
+    "  lfg xai auth detect [--base-url URL] [--no-probe]",
+    "    (algorithm: collect → normalize → score → probe → select)",
+    "  lfg xai auth set-api-key [--api-key KEY] [--base-url URL] [--no-probe]",
+    "    (omit --api-key to auto-select via detection algorithm)",
     "  lfg xai auth set-oauth --access-token TOKEN --refresh-token TOKEN --expires-at ISO_TIME",
     "  lfg xai auth logout",
     "  lfg zai auth status",
@@ -503,6 +607,9 @@ function help(): string {
     "  lfg zai mcp install all|vision|web-search|web-reader|zread",
     "  lfg zai mcp uninstall all|vision|web-search|web-reader|zread",
     "  lfg mcp companion status|install|uninstall   # independent @islee23520/lfg-mcp plugin",
+    "  lfg claude inventory|skills|plugins          # read Claude Code plugins + skills",
+    "  lfg claude skill <name> [--body]             # Claude skill metadata / SKILL.md",
+    "  lfg claude plugin <name>                     # Claude plugin metadata",
     "  lfg ulw-loop <subcommand>                    # durable .omo/ulw-loop CLI",
     "  lfg ulw <subcommand>                         # alias for ulw-loop",
     "",
@@ -518,6 +625,10 @@ function help(): string {
     "  lfg --json setup",
     "  lfg --json setup --run",
     "  lfg setup --run",
+    "  lfg --json doctor",
+    "  lfg doctor",
+    "  lfg --json set-tier --agent <name> --tier default|fast",
+    "  lfg set-tier --agent <name> --tier default|fast",
     "  lfg --json setup --preset auto",
     "  lfg --json setup --preset grok",
     "  lfg --json setup --reasoning-effort auto|low|medium|high|xhigh",
@@ -534,7 +645,7 @@ function help(): string {
     "",
     "Refresh (model list + context windows + safe model auth):",
     "  Re-discovers models from the current base URL (proxy + public LiteLLM catalog for context sizes),",
-    "  then writes fresh [model.*] sections (including grok-build alias) and lazycodex.models into ~/.grok/config.toml.",
+    "  then writes fresh [model.*] sections (including grok-build alias) and omo.models into ~/.grok/config.toml.",
     "  Does not touch the Grok plugin tree, hooks, or agent TOMLs. Existing prior context_window values are preserved",
     "  when the current discovery does not advertise a size for a model. OPENAI_API_KEY/XAI_API_KEY, or the active",
     "  Codex provider token when env is unset, is written only for single-endpoint discovery; multi-provider",

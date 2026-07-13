@@ -48,7 +48,7 @@ describe("sync lazycodex agents to grok", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-sync-agents-"))
     const run = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
     expect(run.ok).toBe(true)
-    expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
+    expect(run.omoAgents?.written.length).toBeGreaterThanOrEqual(1)
     const explorerAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")
     expect(explorerAgent).toContain("name: explorer")
     expect(explorerAgent).toContain('model: "gpt-4.1-mini"')
@@ -64,12 +64,43 @@ describe("sync lazycodex agents to grok", () => {
     expect(run.agentOverridesPath).toContain("omo-agent-overrides.json")
     const pluginPackage = await readFile(join(home, ".grok", "plugins", "lfg", "package.json"), "utf8")
     expect(JSON.parse(pluginPackage)).toMatchObject({ name: "LFG", type: "module" })
-    // LFG no longer writes bundled shadow agents for Grok builtins (general-purpose, explore, grok-build, builder).
-    // Real agents (sisyphus, prometheus, atlas, etc.) come from the OMO agent tree + LFP-style overrides.
-    await expect(readFile(join(home, ".grok", "agents", "general-purpose.md"), "utf8")).rejects.toThrow()
-    await expect(readFile(join(home, ".grok", "agents", "explore.md"), "utf8")).rejects.toThrow()
+    // Grok built-ins stay host-owned: LFG adds role prompt overlays instead of shadow agent definitions.
+    for (const builtin of ["general-purpose", "explore", "plan"] as const) {
+      await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", `${builtin}.md`), "utf8")).rejects.toThrow()
+      const role = await readFile(join(home, ".grok", "roles", `${builtin}.toml`), "utf8")
+      expect(role).toContain(`builtin-${builtin}.md`)
+    }
+    await expect(readFile(join(home, ".grok", "prompts", "omo", "builtin-general-purpose.md"), "utf8")).resolves.toContain(
+      "host-owned general-purpose subagent",
+    )
+    await expect(readFile(join(home, ".grok", "prompts", "omo", "builtin-explore.md"), "utf8")).resolves.toContain(
+      "OMP Scout discipline",
+    )
+    await expect(readFile(join(home, ".grok", "prompts", "omo", "builtin-plan.md"), "utf8")).resolves.toContain(
+      "planning",
+    )
     await expect(readFile(join(home, ".grok", "agents", "ulw.md"), "utf8")).rejects.toThrow()
     await expect(readFile(join(home, ".grok", "agents", "grok-build.md"), "utf8")).rejects.toThrow()
+    // Main-session agents must live under ~/.grok/agents (Grok host discovery), not only plugin tree.
+    await expect(readFile(join(home, ".grok", "agents", "sisyphus.md"), "utf8")).resolves.toContain("OMO Sisyphus")
+    await expect(readFile(join(home, ".grok", "agents", "default.md"), "utf8")).resolves.toContain("OMO Sisyphus")
+  })
+
+  test("preserves user definitions for Grok built-ins while removing stale plugin shadows", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-sync-builtin-preserve-"))
+    const userAgents = join(home, ".grok", "agents")
+    const pluginAgents = join(home, ".grok", "plugins", "lfg", "agents")
+    await mkdir(userAgents, { recursive: true })
+    await writeFile(join(userAgents, "explore.md"), "user explore definition\n", "utf8")
+
+    await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
+    await mkdir(pluginAgents, { recursive: true })
+    await writeFile(join(pluginAgents, "explore.md"), "stale lfg shadow\n", "utf8")
+    await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
+
+    await expect(readFile(join(userAgents, "explore.md"), "utf8")).resolves.toBe("user explore definition\n")
+    await expect(readFile(join(pluginAgents, "explore.md"), "utf8")).rejects.toThrow()
+    await expect(readFile(join(home, ".grok", "roles", "explore.toml"), "utf8")).resolves.toContain("builtin-explore.md")
   })
 
   test("runGrokInstall removes retired visual-looker generated surfaces", async () => {

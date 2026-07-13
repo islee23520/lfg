@@ -28,7 +28,7 @@ git -C /tmp/lfg-source checkout -B "$DEFAULT_BRANCH" FETCH_HEAD
    - lfg-owned Grok config sections in `~/.grok/config.toml`.
 3. Probe the real setup surface with `node dist/lfg.js --json setup --run` or `lfg --json setup --run`, then inspect `postInstallVerify`.
 4. Compare local payload shape and generated skill manifest against `/tmp/lfg-source`; cite exact files and command output.
-5. Recommend `$lfg-report-bug` for a product defect or `$lfg-contribute-bug-fix` when the user wants a verified patch.
+5. Recommend `/lfg-report-bug` for a product defect or `/lfg-contribute-bug-fix` when the user wants a verified patch.
 
 ## Report Template
 

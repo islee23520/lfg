@@ -15,6 +15,8 @@ import { renderYamlDoubleQuotedScalar } from "../models/model-id-safety"
 import { resolveFlavourPackAssetsRoot } from "../payload/resolve-flavour-pack-asset"
 
 const ULTRAWORK_AGENTS_DIR = join("components", "ultrawork", "agents")
+const GROK_BUILTIN_AGENT_NAMES = ["general-purpose", "explore", "plan"] as const
+const RETIRED_SHADOW_AGENT_NAMES = ["general-purpose", "explore", "plan", "grok-build", "builder"] as const
 
 /**
  * Maps codex component/ultrawork agent TOML names to Grok agent names.
@@ -66,7 +68,6 @@ export type SyncLazycodexAgentsResult = {
   readonly sourcePluginRoot: string
 }
 
-/** Install omo/lazycodex definitions as plugin-owned Grok agents plus documented roles/personas. */
 export async function syncLazycodexAgentsToGrokLedger(
   home: string,
   agentOverrides: LazycodexAgentOverrideMap,
@@ -87,6 +88,7 @@ export async function syncLazycodexAgentsToGrokLedger(
   await mkdir(promptsDir, { recursive: true })
   await migrateLegacyLazycodexPrompts(home)
   await removeRetiredGrokAgentSurfaces({ agentsDir, rolesDir, personasDir, promptsDir })
+  await removeBuiltinShadowAgents(agentsDir)
   await moveConflictingUserAgentsAside(home, conflictingUserAgentNames())
 
   const written: string[] = []
@@ -96,7 +98,11 @@ export async function syncLazycodexAgentsToGrokLedger(
     const grokName = GROK_AGENT_NAMES[sourceName] ?? sourceName
     const codexText = await readFile(join(sourceDir, fileName), "utf8")
     const override = overrideForAgent(agentOverrides, sourceName)
-    written.push(...(await writeMappedAgentSurfaces({ codexText, sourceName, grokName, override, agentsDir, rolesDir, personasDir, promptsDir })))
+    if (grokName === "plan") {
+      written.push(...(await writeBuiltinRoleOverlay({ name: "plan", prompt: parseCodexAgentMeta(codexText).instructions, override: override ?? DEFAULT_NATIVE_AGENT_OVERRIDE, rolesDir, promptsDir })))
+    } else {
+      written.push(...(await writeMappedAgentSurfaces({ codexText, sourceName, grokName, override, agentsDir, rolesDir, personasDir, promptsDir })))
+    }
     syncedNames.add(sourceName)
   }
 
@@ -112,20 +118,41 @@ export async function syncLazycodexAgentsToGrokLedger(
     syncedNames.add(sourceName)
   }
 
-  // Always materialize every GROK_AGENT_NAMES entry even when no model override is present.
-  // Skipping override-less agents left nativeAgents status "missing" (e.g. hephaestus) on CI/fixture installs.
   for (const [sourceName, grokName] of Object.entries(GROK_AGENT_NAMES)) {
     if (syncedNames.has(sourceName)) continue
     const override = overrideForAgent(agentOverrides, sourceName) ?? DEFAULT_NATIVE_AGENT_OVERRIDE
-    written.push(...(await writeMinimalAgentSurfaces({ sourceName, grokName, override, agentsDir, rolesDir, promptsDir })))
+    if (grokName === "plan") {
+      written.push(...(await writeBuiltinRoleOverlay({ name: "plan", prompt: nativeOmoFallbackPrompt("plan"), override, rolesDir, promptsDir })))
+    } else {
+      written.push(...(await writeMinimalAgentSurfaces({ sourceName, grokName, override, agentsDir, rolesDir, promptsDir })))
+    }
   }
+  written.push(...(await writeBuiltinRoleOverlay({ name: "general-purpose", prompt: builtinGeneralPurposeEnhancementPrompt(), override: overrideForAgent(agentOverrides, "coding") ?? DEFAULT_NATIVE_AGENT_OVERRIDE, rolesDir, promptsDir })))
+  written.push(...(await writeBuiltinRoleOverlay({ name: "explore", prompt: builtinExploreEnhancementPrompt(), override: overrideForAgent(agentOverrides, "explorer") ?? DEFAULT_NATIVE_AGENT_OVERRIDE, rolesDir, promptsDir })))
 
-  // Agents adapted from the OMO opencode tree (default/sisyphus, hephaestus, prometheus, atlas, oracle,
-  // multimodal-looker, sisyphus-junior) use Grok-native fallback prompts.
-  // Codex-origin agents (explorer, librarian, metis, momus, plan, reviewer) use TOML definitions
-  // from components/ultrawork/agents. Grok builtins remain available unless overridden.
+  written.push(...(await installPreferredUserScopedAgents(home, agentsDir)))
 
   return { ok: true, agentsDir, rolesDir, personasDir, promptsDir, written, sourcePluginRoot: resolved.pluginRoot }
+}
+
+const PREFERRED_USER_SCOPED_AGENT_NAMES = ["sisyphus", "default"] as const
+
+async function installPreferredUserScopedAgents(home: string, pluginAgentsDir: string): Promise<string[]> {
+  const userAgentsDir = join(home, ".grok", "agents")
+  await mkdir(userAgentsDir, { recursive: true })
+  const installed: string[] = []
+  for (const name of PREFERRED_USER_SCOPED_AGENT_NAMES) {
+    const source = join(pluginAgentsDir, `${name}.md`)
+    const dest = join(userAgentsDir, `${name}.md`)
+    try {
+      const body = await readFile(source, "utf8")
+      await writeFile(dest, body, "utf8")
+      installed.push(dest)
+    } catch (error) {
+      if (!isNodeError(error) || error.code !== "ENOENT") throw error
+    }
+  }
+  return installed
 }
 
 async function writeMappedAgentSurfaces(args: {
@@ -184,6 +211,38 @@ async function writeMinimalAgentSurfaces(args: {
   await writeFile(rolePath, renderMinimalGrokRoleToml(args.grokName, args.override, promptPath), "utf8")
   await writeFile(agentPath, renderAgentMarkdown(args.grokName, meta, args.sourceName, args.override, "lfg-owned fallback prompt"), "utf8")
   return [agentPath, rolePath, promptPath]
+}
+
+async function writeBuiltinRoleOverlay(args: {
+  readonly name: (typeof GROK_BUILTIN_AGENT_NAMES)[number]
+  readonly prompt: string
+  readonly override: LazycodexAgentModelOverride
+  readonly rolesDir: string
+  readonly promptsDir: string
+}): Promise<string[]> {
+  const promptPath = join(args.promptsDir, `builtin-${args.name}.md`)
+  const rolePath = join(args.rolesDir, `${args.name}.toml`)
+  await writeFile(promptPath, `${args.prompt.trim()}\n`, "utf8")
+  await writeFile(rolePath, renderMinimalGrokRoleToml(args.name, args.override, promptPath), "utf8")
+  return [rolePath, promptPath]
+}
+
+function builtinGeneralPurposeEnhancementPrompt(): string {
+  return [
+    "You are GrokBuild's host-owned general-purpose subagent, enhanced with OMO execution discipline.",
+    "Keep the native full-capability toolset. Complete the assigned slice directly; subagents cannot spawn nested subagents.",
+    "Read applicable installed skills before acting, reuse repository conventions, keep scope tight, and preserve user work.",
+    "Return concrete evidence: changed paths, observable behavior, focused verification, and any remaining blocker.",
+  ].join("\n")
+}
+
+function builtinExploreEnhancementPrompt(): string {
+  return [
+    "You are GrokBuild's host-owned explore subagent, enhanced with OMO Explorer and OMP Scout discipline.",
+    "Keep the native read-only tool contract. Investigate only the requested surface; never edit files.",
+    "Search before reading, follow definitions and references when available, and report exact paths, symbols, contracts, and risks.",
+    "Compress findings for handoff. Separate observed facts from inference and name any unanswered question.",
+  ].join("\n")
 }
 
 function renderAgentMarkdown(
@@ -293,7 +352,11 @@ async function moveConflictingUserAgentsAside(home: string, names: readonly stri
 }
 
 function conflictingUserAgentNames(): string[] {
-  return [...Object.values(GROK_AGENT_NAMES)]
+  return Object.values(GROK_AGENT_NAMES).filter((name) => !GROK_BUILTIN_AGENT_NAMES.includes(name as (typeof GROK_BUILTIN_AGENT_NAMES)[number]))
+}
+
+async function removeBuiltinShadowAgents(agentsDir: string): Promise<void> {
+  for (const name of RETIRED_SHADOW_AGENT_NAMES) await removeIfExists(join(agentsDir, `${name}.md`))
 }
 
 async function removeRetiredGrokAgentSurfaces(dirs: {

@@ -23,11 +23,16 @@ describe("lfg package contract", () => {
       prepack: "npm run build",
       "assert-pack": "npm run build && node scripts/assert-npm-pack-bin.mjs",
       "assert-omo-parity": "npm run build && node scripts/assert-omo-parity.mjs",
-      verify: "npm run assert-pack && npm run assert-omo-parity && npm test && npm run typecheck && npm run self-test",
-      "pre-publish-check": "npm run build && node scripts/pre-publish-check.mjs",
-      "record-publish-gap": "npm run build && node scripts/record-publish-gap.mjs",
-      "assert-publish-auth": "npm run build && node scripts/assert-npm-publish-auth.mjs",
+      verify: "npm run assert-pack && npm run assert-omo-parity && npm run assert-skills-smoke && npm test && npm run coverage:ulw-loop && npm run typecheck && npm run self-test",
+      "assert-skills-smoke": "node scripts/assert-skills-smoke.mjs",
+      "coverage:ulw-loop": "vitest run --coverage src/core/omo/ulw-loop src/cli/ulw-loop src/cli/feature-coverage.inventory.test.ts",
+      "test:ulw-loop": "vitest run src/core/omo/ulw-loop src/cli/ulw-loop src/cli/feature-coverage.inventory.test.ts",
     })
+    expect(root.scripts).not.toHaveProperty("sync-omo-skills")
+    expect(root.scripts).not.toHaveProperty("omo-parity-upkeep")
+    expect(root.scripts).not.toHaveProperty("pre-publish-check")
+    expect(root.scripts).not.toHaveProperty("record-publish-gap")
+    expect(root.scripts).not.toHaveProperty("assert-publish-auth")
     expect((root as { name?: string }).name).toBe("@islee23520/lfg")
     expect(String(root.description)).toContain("GrokBuild port")
     expect(String(root.description)).toContain("Grok Build plugin payload")
@@ -137,10 +142,20 @@ describe("lfg package contract", () => {
     expect(scopedJson.ok).toBe(true)
     expect(scopedJson.command).toBe("setup")
     expect(scopedJson.selectedPreset).toBe("grok")
-    const doctor = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, { HOME: home })
-    expect(doctor.exitCode).toBe(1)
-    const unsupported = JSON.parse(doctor.stdout) as { readonly ok?: boolean; readonly code?: string; readonly supportedCommands?: readonly string[] }
-    expect(unsupported).toMatchObject({ ok: false, code: "unsupported_command", supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop"] })
+    const installRun = await execFileResultEnv(
+      "npx",
+      ["lfg", "--json", "setup", "--run", "--install-only"],
+      installDir,
+      { HOME: home, LFG_ALLOW_TEST_GROK_HOME: "1" },
+    )
+    expect(installRun.exitCode).toBe(0)
+    const doctor = await execFileResultEnv("npx", ["lfg", "--json", "doctor"], installDir, {
+      HOME: home,
+      LFG_ALLOW_TEST_GROK_HOME: "1",
+    })
+    expect(doctor.exitCode).toBe(0)
+    const doctorJson = JSON.parse(doctor.stdout) as { readonly ok?: boolean; readonly command?: string; readonly lfgIsPlugin?: boolean }
+    expect(doctorJson).toMatchObject({ ok: true, command: "doctor", lfgIsPlugin: false })
     await rm(installDir, { recursive: true, force: true })
     await rm(packDir, { recursive: true, force: true })
   }, 120_000)

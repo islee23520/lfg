@@ -12,9 +12,10 @@ Root build bundler and the publish/pack/auth readiness gates. These scripts are 
 | Stage install payload | `build.mjs` | Copies `fixture/`, `assets/`, `flavour/`, `skills/`; generates MCP runtime CLIs. |
 | Pack tarball guard | `assert-npm-pack-bin.mjs` | `npm run assert-pack`; required paths + bin target. |
 | OMO parity guard | `assert-omo-parity.mjs` | `npm run assert-omo-parity`; validates generated OMO skill payloads, docs, inventory, and build cache guard. |
-| Publish readiness | `pre-publish-check.mjs` | `npm run pre-publish-check`; exits 2 if not ready. |
-| Publish auth | `assert-npm-publish-auth.mjs` | `npm run assert-publish-auth`. |
-| Version gap record | `record-publish-gap.mjs` | `npm run record-publish-gap`. |
+| Skills smoke | `assert-skills-smoke.mjs` | `npm run assert-skills-smoke`; every package skill SKILL.md frontmatter, script syntax, cheap behavioral probes, mirror/install roots. |
+| Publish readiness | `pre-publish-check.mjs` | `node scripts/pre-publish-check.mjs`; exits 2 if not ready. |
+| Publish auth | `assert-npm-publish-auth.mjs` | `node scripts/assert-npm-publish-auth.mjs`. |
+| Version gap record | `record-publish-gap.mjs` | `node scripts/record-publish-gap.mjs`. |
 | Fast-tier smoke | `verify-fast-tier-tmux.sh` | tmux-driven live check. |
 
 ## CONVENTIONS

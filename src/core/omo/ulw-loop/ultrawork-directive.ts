@@ -56,9 +56,8 @@ function hasUltraworkDirectiveAlreadyInTranscript(transcriptPath: string | null 
 				return true;
 			}
 		}
-	} catch (error) {
-		if (error instanceof Error) return false;
-		throw error;
+	} catch {
+		return false;
 	}
 	return false;
 }
@@ -81,9 +80,8 @@ function isContextPressureTranscript(transcriptPath: string | null | undefined):
 	if (transcriptPath === undefined || transcriptPath === null) return false;
 	try {
 		return isContextPressureRecoveryPrompt(readTranscriptTail(transcriptPath));
-	} catch (error) {
-		if (error instanceof Error) return false;
-		throw error;
+	} catch {
+		return false;
 	}
 }
 
@@ -108,9 +106,8 @@ function parseJsonLine(line: string): unknown | null {
 	try {
 		const parsed: unknown = JSON.parse(line);
 		return parsed;
-	} catch (error) {
-		if (error instanceof Error) return null;
-		throw error;
+	} catch {
+		return null;
 	}
 }
 

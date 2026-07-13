@@ -49,7 +49,7 @@ Execute a Prometheus work plan until every top-level checkbox is complete. Use G
 ## Usage
 
 ```text
-$start-work [plan-name] [--worktree <absolute-path>]
+/start-work [plan-name] [--worktree <absolute-path>]
 ```
 
 - `plan-name` (optional): a full or partial file stem under `.omo/plans/`.
@@ -68,7 +68,7 @@ $start-work [plan-name] [--worktree <absolute-path>]
 
 ### No-plan bootstrap
 
-When the user explicitly said `start work` / `$start-work` and no selectable plan exists, treat that phrase as approval: bootstrap `ulw-plan` to create the approved plan before execution and implementation, instead of stalling or asking for generic approval again. A brief or notes file without waves, checkboxes, and acceptance criteria is NOT decision-complete — enter this bootstrap too.
+When the user explicitly said `start work` / `/start-work` and no selectable plan exists, treat that phrase as approval: bootstrap `ulw-plan` to create the approved plan before execution and implementation, instead of stalling or asking for generic approval again. A brief or notes file without waves, checkboxes, and acceptance criteria is NOT decision-complete — enter this bootstrap too.
 
 1. Invoke the `ulw-plan` skill from the current request and require its dynamic adversarial workflow: collect, verify, design, adversarial plan-review, synthesize.
 2. The generated Prometheus plan must be saved under `.omo/plans/<slug>.md` before implementation or Boulder state writes that point at plan work.

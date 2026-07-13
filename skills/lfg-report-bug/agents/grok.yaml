@@ -7,4 +7,4 @@ interface:
     - "lfg issue"
     - "grok adapter bug"
     - "grok plugin lfg issue"
-  default_prompt: "Use $lfg-report-bug to investigate this lfg or GrokBuild adapter bug, compare runtime evidence with latest islee23520/lfg source, search existing islee23520/lfg issues, and prepare a high-signal issue or comment with reproduction, root cause, fix guidance, and the lfg-generated footer."
+  default_prompt: "Use /lfg-report-bug to investigate this lfg or GrokBuild adapter bug, compare runtime evidence with latest islee23520/lfg source, search existing islee23520/lfg issues, and prepare a high-signal issue or comment with reproduction, root cause, fix guidance, and the lfg-generated footer."

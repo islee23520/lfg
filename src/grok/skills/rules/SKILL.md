@@ -1,16 +1,16 @@
 ---
 name: rules
-description: Use when the user asks about Codex Rules behavior, injected project rules, supported rule file locations, matching, or environment configuration.
+description: Use when the user asks about lfg/GrokBuild rules injection, project rules files, matching, or environment configuration.
 ---
 
-# Codex Rules
+# GrokBuild Rules (lfg)
 
-Codex Rules is automatic once the plugin is enabled. It injects:
+Rules injection is automatic once the lfg Grok plugin is enabled. It injects:
 
-- static project instructions on `SessionStart` and `UserPromptSubmit`
-- matching file-specific rules after Codex `apply_patch` by default
+- static project instructions on `SessionStart` and `UserPromptSubmit` (native rules hook + config loader)
+- matching file-specific rules after edit-like tools via PostToolUse (rules-injector glue)
 
-Dynamic `PostToolUse` output is injected as additional context and is deduplicated per plugin data session. Codex Rules does not rewrite tool output.
+Dynamic PostToolUse output is injected as additional context when the host attaches hook output. If hook context is not visible, read matching rule files from disk directly.
 
 Supported project sources:
 
@@ -20,13 +20,12 @@ Supported project sources:
 - `.cursor/rules/**/*.md`
 - `.github/instructions/**/*.md`
 - `.github/copilot-instructions.md`
+- Root / nested `AGENTS.md` (fail-closed project awareness)
 
-Supported environment knobs:
+## Environment (lfg / Grok)
 
-- `CODEX_RULES_DISABLED=1`
-- `CODEX_RULES_MODE=both|static|dynamic|off`
-- `CODEX_RULES_MAX_RULE_CHARS=<number>`
-- `CODEX_RULES_MAX_RESULT_CHARS=<number>`
-- `CODEX_RULES_ENABLED_SOURCES=CONTEXT.md,.omo/rules`
+Prefer lfg/Grok-owned knobs when present. Codex-only `CODEX_RULES_*` names may appear in upstream OMO docs as historical reference; on GrokBuild do not require `CODEX_HOME` or Codex plugin layout.
 
-The legacy `PI_RULES_*` variables are accepted as fallbacks for users migrating from `pi-rules`.
+## Cross-host note
+
+Upstream may brand this as "Codex Rules". On GrokBuild the owner is **lfg native rules** (`lfg-native-rules.mjs` + `src/core/omo/rules-engine`).

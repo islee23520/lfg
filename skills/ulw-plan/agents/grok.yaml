@@ -4,4 +4,4 @@ interface:
   search_terms:
     - "ulw-plan"
     - "plan"
-  default_prompt: "Use $ulw-plan to explore the codebase, surface the open questions, and wait for my okay before producing a decision-complete plan."
+  default_prompt: "Use /ulw-plan to explore the codebase, surface the open questions, and wait for my okay before producing a decision-complete plan."

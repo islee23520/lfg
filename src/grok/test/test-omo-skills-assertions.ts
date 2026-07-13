@@ -24,11 +24,36 @@ export async function expectUpstreamOmoWorkflowSkills(pluginRoot: string): Promi
   expect(loopWorkflow).toContain("## Execution Loop")
   expect(startWork).toContain("Codex Harness Tool Compatibility")
   expect(startWork).toContain("ABSOLUTE RULE: YOU ARE AN ORCHESTRATOR")
-  await expect(readFile(join(skillsRoot, "rules", "SKILL.md"), "utf8")).resolves.toContain("name: rules")
-  await expect(readFile(join(skillsRoot, "lsp", "SKILL.md"), "utf8")).resolves.toContain("name: lsp")
-  await expect(readFile(join(skillsRoot, "comment-checker", "SKILL.md"), "utf8")).resolves.toContain("name: comment-checker")
+  const rulesSkill = await readFile(join(skillsRoot, "rules", "SKILL.md"), "utf8")
+  expect(rulesSkill).toContain("name: rules")
+  expect(rulesSkill).toMatch(/GrokBuild Rules|lfg Grok plugin/i)
+  expect(rulesSkill).not.toContain("# Codex Rules")
+  const lspSkill = await readFile(join(skillsRoot, "lsp", "SKILL.md"), "utf8")
+  expect(lspSkill).toContain("name: lsp")
+  expect(lspSkill).toMatch(/GrokBuild LSP/i)
+  expect(lspSkill).not.toContain("# Codex LSP")
+  const commentSkill = await readFile(join(skillsRoot, "comment-checker", "SKILL.md"), "utf8")
+  expect(commentSkill).toContain("name: comment-checker")
+  expect(commentSkill).toMatch(/GrokBuild Comment Checker/i)
+  expect(commentSkill).not.toContain("# Codex Comment Checker")
   await expect(readFile(join(skillsRoot, "review-work", "SKILL.md"), "utf8")).resolves.toContain("name: review-work")
   await expect(readFile(join(skillsRoot, "visual-qa", "SKILL.md"), "utf8")).resolves.toContain("name: visual-qa")
   await expect(readFile(join(skillsRoot, "lfg-doctor", "SKILL.md"), "utf8")).resolves.toContain("name: lfg-doctor")
   await expect(readFile(join(skillsRoot, "lcx-doctor", "SKILL.md"), "utf8")).rejects.toThrow()
+  await expectGrokBuildSkillActivationSurface(pluginRoot)
+}
+
+export async function expectGrokBuildSkillActivationSurface(pluginRoot: string): Promise<void> {
+  const skillsRoot = join(pluginRoot, "skills")
+  const planGrok = await readFile(join(skillsRoot, "ulw-plan", "agents", "grok.yaml"), "utf8")
+  expect(planGrok).toMatch(/\/ulw-plan/)
+  expect(planGrok).not.toMatch(/(?<![A-Za-z0-9_/])\$ulw-plan\b/)
+  await expect(readFile(join(skillsRoot, "ulw-plan", "agents", "openai.yaml"), "utf8")).rejects.toThrow()
+  await expect(readFile(join(skillsRoot, "git-master", "agents", "openai.yaml"), "utf8")).rejects.toThrow()
+  try {
+    const cas = await readFile(join(skillsRoot, "coding-agent-sessions", "agents", "grok.yaml"), "utf8")
+    expect(cas).not.toMatch(/(?<![A-Za-z0-9_/])\$coding-agent-sessions\b/)
+  } catch {
+    /* skill may omit agents/ in fixture installs */
+  }
 }

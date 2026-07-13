@@ -12,15 +12,15 @@ describe("readLazycodexAgentsFromGrokConfig", () => {
     await mkdir(configDir, { recursive: true })
     await writeFile(
       join(configDir, "config.toml"),
-      `[lazycodex.agents.explorer]
+      `[omo.agents.explorer]
 model = "m-explorer"
 reasoning_level = "low"
 
-[lazycodex.agents.reasoning]
+[omo.agents.reasoning]
 model = "m-reason"
 reasoning_level = "xhigh"
 
-[lazycodex.agents.coding]
+[omo.agents.coding]
 model = "m-code"
 reasoning_level = "medium"
 `,
@@ -32,13 +32,13 @@ reasoning_level = "medium"
     expect(agents?.coding.model).toBe("m-code")
   })
 
-  test("fills missing agent sections from lazycodex.models", async () => {
+  test("fills missing agent sections from omo.models", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-read-agents-models-"))
     const configDir = join(home, ".grok")
     await mkdir(configDir, { recursive: true })
     await writeFile(
       join(configDir, "config.toml"),
-      `[lazycodex.models]
+      `[omo.models]
 default = "d"
 reasoning = "r"
 coding = "c"
@@ -59,15 +59,15 @@ describe("resolveGlobalLazycodexAgentConfig", () => {
     await mkdir(configDir, { recursive: true })
     await writeFile(
       join(configDir, "config.toml"),
-      `[lazycodex.agents.explorer]
+      `[omo.agents.explorer]
 model = "from-config"
 reasoning_level = "high"
 
-[lazycodex.agents.reasoning]
+[omo.agents.reasoning]
 model = "from-config"
 reasoning_level = "high"
 
-[lazycodex.agents.coding]
+[omo.agents.coding]
 model = "from-config"
 reasoning_level = "high"
 `,

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * Lazycodex component hooks expect Codex-shaped stdin + PLUGIN_ROOT/PLUGIN_DATA.
- * Grok sends camelCase hook JSON and GROK_PLUGIN_* env. This bridge adapts both.
+ * GrokBuild bridge for OMO component CLIs that still speak a Codex-shaped hook
+ * stdin + PLUGIN_ROOT/PLUGIN_DATA contract. Grok sends camelCase JSON and
+ * GROK_PLUGIN_* env; this adapter maps both so first-party native hooks stay
+ * Grok-native while shared component CLIs keep working.
  * lfg-grok-hook-bridge.mjs
  */
 import { spawn } from "node:child_process";

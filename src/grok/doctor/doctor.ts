@@ -7,6 +7,7 @@ import { buildDoctorChecks, doctorChecksJson } from "./doctor-checks"
 import { doctorPublishGapJson } from "./doctor-publish-gap"
 import { readLfgPackageVersionFromBundle, readPublishRootVersionFromBundle } from "../payload/package-version"
 import { resolveGrokAdapterPluginRoot } from "../payload/grok-adapter-paths"
+import { purgeInvalidGrokModelSettings, purgeInvalidModelSettingsJson } from "../config/purge-invalid-model-settings"
 import { verifyGrokInstallSurface } from "./post-install-verify"
 
 export type GrokDoctorOptions = {
@@ -15,6 +16,7 @@ export type GrokDoctorOptions = {
   readonly moduleUrl?: string
   /** Optional registry version for #22 publish gap (env `LFG_DOCTOR_REGISTRY_VERSION` in CLI). */
   readonly registryVersion?: string | null
+  readonly purgeInvalidSettings?: boolean
 }
 
 export async function runGrokDoctor(options: GrokDoctorOptions): Promise<JsonObject> {
@@ -27,6 +29,10 @@ export async function runGrokDoctor(options: GrokDoctorOptions): Promise<JsonObj
   const stamp = pluginExists ? await readGrokInstallStamp(pluginRoot) : null
   const moduleUrl = options.moduleUrl ?? import.meta.url
   const cli = await resolveLfgCliLayout(moduleUrl)
+  const invalidModelSettings =
+    options.purgeInvalidSettings === false
+      ? null
+      : await purgeInvalidGrokModelSettings({ home: options.home })
   const installSurface = await verifyGrokInstallSurface({
     home: options.home,
     ...(options.pluginDirName === undefined ? {} : { pluginDirName: options.pluginDirName }),
@@ -53,6 +59,7 @@ export async function runGrokDoctor(options: GrokDoctorOptions): Promise<JsonObj
     configExists,
     distribution: stamp === null ? null : { packageName: stamp.packageName, version: stamp.version },
     installSurface,
+    ...(invalidModelSettings === null ? {} : { invalidModelSettings: purgeInvalidModelSettingsJson(invalidModelSettings) }),
     ...checkReport,
     ...(publishGap === null ? {} : { publishGap }),
     cli: {

@@ -71,9 +71,9 @@ describe("runGrokInstall default agent surfaces", () => {
     const planRole = await readFile(join(home, ".grok", "roles", "plan.toml"), "utf8")
     expect(planRole).toContain('description = "LazyCodex plan agent"')
     expect(planRole).toContain('reasoning_effort = "xhigh"')
-    expect(planRole).toContain(`prompt_file = "${join(home, ".grok", "prompts", "omo", "plan.md")}"`)
+    expect(planRole).toContain(`prompt_file = "${join(home, ".grok", "prompts", "omo", "builtin-plan.md")}"`)
 
-    const planPrompt = await readFile(join(home, ".grok", "prompts", "omo", "plan.md"), "utf8")
+    const planPrompt = await readFile(join(home, ".grok", "prompts", "omo", "builtin-plan.md"), "utf8")
     expect(planPrompt).toContain("OMO Prometheus")
     expect(planPrompt).toContain("Never implement code directly")
     expect(planPrompt).toContain(".omo/plans/<slug>.md")
@@ -108,7 +108,7 @@ describe("runGrokInstall default agent surfaces", () => {
     expect(run.ok).toBe(true)
 
     const oracleRole = await readFile(join(home, ".grok", "roles", "oracle.toml"), "utf8")
-    expect(oracleRole).toContain('model = "grok-4.5"')
+    expect(oracleRole).toContain('model = "gpt-5.5"')
     expect(oracleRole).toContain('reasoning_effort = "high"')
 
     const atlasRole = await readFile(join(home, ".grok", "roles", "atlas.toml"), "utf8")

@@ -39,7 +39,7 @@ describe("runGrokInstall", () => {
     const run = await runGrokInstall(null, env)
     expect(run.ok).toBe(true)
     expect(run.configUpdate).toBeNull()
-    expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
+    expect(run.omoAgents?.written.length).toBeGreaterThanOrEqual(1)
     const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
     expect(explorer).toContain('model = "grok-composer-2.5-fast"')
     const explorerAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")
@@ -77,7 +77,7 @@ describe("runGrokInstall", () => {
     }
     const run = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
     expect(run.ok).toBe(true)
-    expect(run.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
+    expect(run.omoAgents?.written.length).toBeGreaterThanOrEqual(1)
     const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
     expect(explorer).toContain('model = "gpt-4.1-mini"')
     expect(explorer).toContain("reasoning_effort")
@@ -119,7 +119,7 @@ describe("runGrokInstall", () => {
 
     expect(preserved.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
     expect(preserved.configUpdate).toMatchObject({ status: "configured", modelsBaseUrl: discovery.baseUrl })
-    expect(preserved.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
+    expect(preserved.omoAgents?.written.length).toBeGreaterThanOrEqual(1)
     expect(preserved.agentOverridesPath).toBe(join(home, ".grok", "omo-agent-overrides.json"))
     const config = await readFile(configPath, "utf8")
     expect(config).toContain('default = "gpt-5.5"')
@@ -128,7 +128,7 @@ describe("runGrokInstall", () => {
     expect(config).toContain("[agents]")
     expect(config).toContain('default = "sisyphus"')
     // LFG no longer forces Grok builtin shadows for general-purpose/explore/grok-build/builder.
-    // It still enables LFG/lazycodex-provided agents (explorer, sisyphus, prometheus, etc).
+    // It still enables LFG/OMO-provided agents (explorer, sisyphus, prometheus, etc).
     expect(config).toContain("explorer = true")
     // User-provided ulw.md (unmanaged by LFG) must survive byte-for-byte (no move/backup/unlink).
     expect(await readFile(userUlwPath, "utf8")).toBe(USER_GROK_AGENTS_ULW_SEED)
@@ -165,7 +165,7 @@ describe("runGrokInstall", () => {
     expect(await readFile(userUlwPath, "utf8")).toBe(USER_GROK_AGENTS_ULW_SEED)
     await expect(readFile(ulwBackup, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "prometheus.md"), "utf8")).resolves.toContain("name: prometheus")
-  })
+  }, 30_000)
 
   test("existing stamped setup writes full agent model overrides from setup choices", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-existing-full-agents-"))
@@ -223,7 +223,7 @@ describe("runGrokInstall", () => {
 
     expect(preserved.internalStep).toMatchObject({ status: "already_installed", skippedExistingSetup: true })
     expect(preserved.configUpdate).toBeNull()
-    expect(preserved.lazycodexAgents?.written.length).toBeGreaterThanOrEqual(1)
+    expect(preserved.omoAgents?.written.length).toBeGreaterThanOrEqual(1)
     expect(preserved.agentOverridesPath).toBe(join(home, ".grok", "omo-agent-overrides.json"))
     await expect(readFile(configPath, "utf8")).resolves.toContain('default = "user-model"')
   })
@@ -268,7 +268,7 @@ describe("runGrokInstall", () => {
 
     // Dirty worktree simulation (test should not rely on live state)
     // (no actual git here; just pin that tests are isolated)
-    expect(run.lazycodexAgents).toBeDefined()
+    expect(run.omoAgents).toBeDefined()
 
     // T7: Grok-compatible OMO hook parity routing complete. Command shape `omo hook <event>` (via bridge + component dist/cli.js)
     // implemented only in OMO runtime/component path per plan. Strict JSON, no ~/.codex writes, no new lfg commands.

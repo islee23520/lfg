@@ -16,7 +16,7 @@ export async function readLazycodexAgentsFromGrokConfig(home: string): Promise<L
   const models = readOmoModelsSection(text)
   const partial: { [K in LazycodexAgentName]?: { model: string; reasoningLevel: ReasoningLevel } } = {}
   for (const name of AGENT_NAMES) {
-    const section = readTomlSectionWithFallback(text, `omo.agents.${name}`, `lazycodex.agents.${name}`)
+    const section = readTomlSection(text, `omo.agents.${name}`)
     const model = parseTomlString(section.model)
     const reasoningLevel = parseReasoningLevel(section.reasoning_level)
     if (model !== null) {
@@ -67,17 +67,12 @@ function readOmoModelsSection(text: string): {
   readonly reasoning: string | null
   readonly coding: string | null
 } {
-  const section = readTomlSectionWithFallback(text, "omo.models", "lazycodex.models")
+  const section = readTomlSection(text, "omo.models")
   return {
     default: parseTomlString(section.default),
     reasoning: parseTomlString(section.reasoning),
     coding: parseTomlString(section.coding),
   }
-}
-
-function readTomlSectionWithFallback(source: string, primary: string, legacy: string): Readonly<Record<string, string>> {
-  const section = readTomlSection(source, primary)
-  return Object.keys(section).length > 0 ? section : readTomlSection(source, legacy)
 }
 
 function readTomlSection(source: string, sectionName: string): Readonly<Record<string, string>> {

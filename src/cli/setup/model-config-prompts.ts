@@ -1,6 +1,6 @@
 export const SERVICE_TIERS = [
-  { value: "default", label: "default (non-fast)" },
-  { value: "fast", label: "fast" },
+  { value: "default", label: "default (non-fast model id; Grok routes by model id)" },
+  { value: "fast", label: "fast (prefer catalog *-fast model id)" },
 ] as const
 
 export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const
@@ -173,7 +173,9 @@ export async function promptForServiceTier(
   }
   if (!rl || typeof rl.question !== "function") return options.current ?? "default"
   const answer = await rl.question(
-    options.current ? `Service tier [Enter=${options.current}]: ` : "Service tier: ",
+    options.current
+      ? `Model-id tier (Grok routes by model id) [Enter=${options.current}]: `
+      : "Model-id tier (Grok routes by model id): ",
   )
   if (answer.trim() === "") return options.current ?? "default"
   const values = SERVICE_TIERS.map((t) => t.value)

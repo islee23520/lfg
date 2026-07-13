@@ -2,7 +2,7 @@
 
 Publish **from repository root** — not `src` alone. A broken publish shipped hundreds of workspace files (`fileCount` ~505 on early registry builds); root `files` allowlist keeps the tarball small (`npm-pack-contract.test.ts`).
 
-Root `package.json` must expose `"bin": { "lfg": "bin/lfg.js" }` (shell shim → `dist/lfg.js`). There is no nested workspace publish surface; `npm run assert-pack` and `npm run pre-publish-check` reject other `bin.lfg` targets (e.g. `dist/lfg.js` only). The `prepack` lifecycle (`prepack` → `npm run build`) regenerates `dist/`, so the published tarball always matches source.
+Root `package.json` must expose `"bin": { "lfg": "bin/lfg.js" }` (shell shim → `dist/lfg.js`). There is no nested workspace publish surface; `npm run assert-pack` and `node scripts/pre-publish-check.mjs` reject other `bin.lfg` targets (e.g. `dist/lfg.js` only). The `prepack` lifecycle (`prepack` → `npm run build`) regenerates `dist/`, so the published tarball always matches source.
 
 ## Automated release (primary)
 
@@ -25,12 +25,13 @@ Required secret: GitHub repo secret `NPM_TOKEN` (npm access token, Automation/Gr
 ## Local pre-flight (optional, before tagging)
 
 ```sh
-npm run record-publish-gap    # local vs registry version + registryBin gap
-npm run pre-publish-check     # gap + auth + registryBin JSON; exit 0 only when ready
-npm run assert-publish-auth   # exit 0 when logged in; exit 2 + JSON when not
+npm run build
+node scripts/record-publish-gap.mjs      # local vs registry version + registryBin gap
+node scripts/pre-publish-check.mjs       # gap + auth + registryBin JSON; exit 0 only when ready
+node scripts/assert-npm-publish-auth.mjs # exit 0 when logged in; exit 2 + JSON when not
 ```
 
-`npm run record-publish-gap` and `npm run pre-publish-check` include `registryBin` (live npm `bin.lfg` vs publish contract). `npm run assert-pack` runs `npm pack --dry-run` (triggers `prepack` → `npm run build`) then checks root `bin.lfg` and required dist paths.
+`scripts/record-publish-gap.mjs` and `scripts/pre-publish-check.mjs` include `registryBin` (live npm `bin.lfg` vs publish contract). `npm run assert-pack` runs `npm pack --dry-run` (triggers `prepack` → `npm run build`) then checks root `bin.lfg` and required dist paths.
 
 ## Manual fallback (if CI publish is unavailable)
 

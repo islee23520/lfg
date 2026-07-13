@@ -16,6 +16,6 @@ export function unsupportedCommand(positional: readonly string[]): JsonObject {
     grokInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     lfpInstallerCommand: INTERNAL_GROK_INSTALL_COMMAND,
     lfgIsPlugin: false,
-    supportedCommands: ["setup", "xai", "zai", "mcp", "ulw", "ulw-loop"],
+    supportedCommands: ["setup", "doctor", "set-tier", "xai", "zai", "mcp", "claude", "ulw", "ulw-loop"],
   }
 }
