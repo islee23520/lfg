@@ -243,7 +243,7 @@ function sessionStartContext() {
   const lines = [
     "<sisyphus-orchestrator-mode>",
     "Sisyphus orchestrator mode is active for this Grok Build session.",
-    "NO RE-ASK: never re-ask known facts (user msg, prior turns, AGENTS.md, .omo/, tools, explicit instructions). Infer defaults. At most ONE new question for a true blocker only.",
+    "NO RE-ASK: never re-ask known facts (user msg, prior turns, AGENTS.md, .omo/, tools, explicit instructions). SELF-ANSWER first: before any preference/'if you want' question, check whether this turn's analysis or available context already answers it — if yes, act; do not re-offer menus. At most ONE new question for a true blocker only.",
     "Do not implement unless explicitly requested. Verify with evidence.",
     "</sisyphus-orchestrator-mode>",
   ];
@@ -258,7 +258,7 @@ function userPromptSubmitContext(input) {
   const lines = [
     "<sisyphus-intent-routing>",
     `User prompt received (${prompt.length} chars). Intent signals: ${intentHints.join(", ") || "none detected"}.`,
-    "NO RE-ASK: treat this prompt + session history + project rules as already answered. Do not re-confirm known intent. Execute with inferred defaults; at most one new question only if a true blocker remains.",
+    "NO RE-ASK: treat this prompt + session history + project rules as already answered. SELF-ANSWER first: before asking the user's will/preference, verify you cannot resolve it from your own analysis or prior context; never end with verdict + 'if you want A/B' when a clear path already exists — execute that path. At most one new question only if a true blocker remains.",
   ];
   if (planningIntent !== null) {
     lines.push("", planningRoutingBlock(planningIntent));
@@ -553,6 +553,7 @@ function stopContext() {
     "- Diagnostics clean on changed files?",
     "- Build passes (if applicable)?",
     "- User's original request fully addressed?",
+    "- SELF-ANSWER gate: if this turn already concluded a clear action, do it or state the decision as done — do not stop on 'if you want' preference menus.",
     "- If any check fails: fix issues, do NOT declare done.",
     "- For durable continuation across sessions, use `lfg ulw-loop` (or `lfg ulw`) to checkpoint and resume; no automatic reinjection (start-work-continuation remains Deferred).",
     "",

@@ -12,8 +12,10 @@ describe("T-PROMPT-HOOK-01 sisyphus additionalContext markers", () => {
     expect(ctx?.body).toContain("<sisyphus-orchestrator-mode>")
     expect(ctx?.body).toContain("Grok Build session")
     expect(ctx?.body).toMatch(/NO RE-ASK/i)
+    expect(ctx?.body).toMatch(/SELF-ANSWER/i)
     expect(ctx?.body).toMatch(/true blocker/i)
-    expect(ctx?.body.length).toBeLessThan(500)
+    // Slightly higher budget: SELF-ANSWER gate must stay in the injection body.
+    expect(ctx?.body.length).toBeLessThan(700)
     expect(ctx?.statusLabel).toMatch(/Orchestrator/i)
   })
 
@@ -28,7 +30,16 @@ describe("T-PROMPT-HOOK-01 sisyphus additionalContext markers", () => {
     expect(ctx?.body).toMatch(/implementation/i)
     expect(ctx?.body).toContain("Intent signals:")
     expect(ctx?.body).toMatch(/NO RE-ASK/i)
+    expect(ctx?.body).toMatch(/SELF-ANSWER/i)
     expect(ctx?.body).toMatch(/true blocker/i)
+  })
+
+  test("Stop gate includes SELF-ANSWER ban on preference-menu endings", async () => {
+    const mod = await import("../assets/hooks/lfg-sisyphus-hooks.mjs")
+    const ctx = mod.renderSisyphusContext("Stop", { hookEventName: "Stop" })
+    expect(ctx).not.toBeNull()
+    expect(ctx?.body).toMatch(/SELF-ANSWER/i)
+    expect(ctx?.body).toMatch(/if you want/i)
   })
 
   test("UserPromptSubmit planning intent routes toward /ulw-plan", async () => {

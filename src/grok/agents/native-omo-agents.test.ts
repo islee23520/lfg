@@ -30,6 +30,7 @@ describe("native OMO agents", () => {
     expect(nativeOmoFallbackPrompt("default")).toContain("OMO Sisyphus")
     expect(nativeOmoFallbackPrompt("sisyphus")).toContain("OMO Sisyphus")
     expect(nativeOmoFallbackPrompt("sisyphus")).toMatch(/NO RE-ASK|over-ask|at most ONE/i)
+    expect(nativeOmoFallbackPrompt("sisyphus")).toMatch(/SELF-ANSWER/i)
     expect(nativeOmoFallbackPrompt("hephaestus")).toContain("OMO Hephaestus")
     expect(nativeOmoFallbackPrompt("prometheus")).toContain("OMO Prometheus")
     expect(nativeOmoFallbackPrompt("atlas")).toContain("OMO Atlas")
