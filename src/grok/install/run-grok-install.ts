@@ -78,6 +78,22 @@ export async function runGrokInstall(
     if (pluginRootAfterInstall) {
       hooksFresh = await syncPostInstallPluginPayload(pluginRootAfterInstall)
     }
+    // Materialize roles/agents/prompts from resolved/bundled defaults without writing
+    // omo-agent-overrides.json, lfg runtime config, or [model.*]/[omo.agents]/[subagents.models].
+    const resolvedAgentsInstallOnly = await resolveGlobalLazycodexAgentConfig(home, discovery)
+    const agentOverrideMapInstallOnly = discovery?.agentOverrideMap
+    const overrideMapInstallOnly =
+      agentOverrideMapInstallOnly !== undefined
+        ? agentOverrideMapInstallOnly
+        : applyRecommendationsToOverrideMap(
+            await resolveLazycodexAgentOverrides(home, resolvedAgentsInstallOnly),
+            discovery?.modelIds ?? [],
+          )
+    const fullAgentModelsInstallOnly = grokRoutedOverrideMap(
+      options.fullAgentModels ?? overrideMapInstallOnly,
+      discovery,
+    )
+    const omoAgentsInstallOnly = await syncLazycodexAgentsToGrokLedger(home, fullAgentModelsInstallOnly)
     // Keep PATH wrapper current (e.g. new lfg-owned commands like `claude`).
     await ensureGrokBinLfgWrapper(home)
     // Built-in xai_grok MCP still registers on install-only so /mcps gets enhanced search without full model config merge.
@@ -86,7 +102,7 @@ export async function runGrokInstall(
       ok: internalStep.ok === true,
       configUpdate: null,
       internalStep: { ...internalStep, installOnly: true },
-      omoAgents: null,
+      omoAgents: omoAgentsInstallOnly,
       agentOverridesPath: null,
       lfgConfigPath: null,
       pluginsEnabled: null,

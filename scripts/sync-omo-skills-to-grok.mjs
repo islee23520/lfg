@@ -264,12 +264,19 @@ async function rewriteOptionalFile(path, transform) {
   await writeFile(path, transform(content), "utf8")
 }
 
+const DIFFICULTY_TIER_GROK_MAPPING = `### Delegation by difficulty (GrokBuild tier workers)
+
+When lfg has installed difficulty-tier workers, size each implementation lane by difficulty and pass the matching \`subagent_type\` on \`spawn_subagent\` (not Codex \`agent_type\`): LOW (one-file fix, boilerplate, config/copy) -> \`lazycodex-worker-low\`; MEDIUM (standard feature, few files, known patterns) -> \`lazycodex-worker-medium\`; HIGH (new module, cross-module refactor, concurrency/security/migration) -> \`lazycodex-worker-high\`. Example: \`spawn_subagent({ subagent_type: "lazycodex-worker-medium", background: true, description: "...", prompt: "TASK: ..." })\`. Explorer/librarian research lanes keep their own roles. Difficulty (model power) is orthogonal to LIGHT/HEAVY rigor. This is **orchestrator-selected** routing — Grok does not auto-classify tier or enforce host-side difficulty dispatch.
+
+`
+
 function ensureGrokBuildSpawnSubagentMapping(content) {
-  if (/GrokBuild (Harness )?Tool (Compatibility|Mapping)/.test(content)) return content
   // teammode has a fuller dual-catalog section applied by adaptTeammodeSkill
   if (/GrokBuild teammode \(primary on lfg\)/.test(content)) return content
 
-  const section = `## GrokBuild Tool Mapping
+  let next = content
+  if (!/GrokBuild (Harness )?Tool (Compatibility|Mapping)/.test(next)) {
+    const section = `## GrokBuild Tool Mapping
 
 On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild \`spawn_subagent\` calls. Prefer lfg OMO personas when installed; GrokBuild host built-ins (\`general-purpose\`, \`explore\`, \`plan\`) are also valid. This contract is GrokBuild-only (\`coding_tool_adapter\` = \`grok\`).
 
@@ -278,10 +285,29 @@ On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to 
 | Search/read-only worker | \`spawn_subagent({ subagent_type: "explore" or "explorer", background: true, description: "...", prompt: "TASK: ..." })\` |
 | Planning worker | \`spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })\` |
 | Implementation or QA worker | \`spawn_subagent({ subagent_type: "hephaestus" or "coding" or "general-purpose", background: true, description: "...", prompt: "TASK: ..." })\` |
+| Difficulty-tier implementation | \`spawn_subagent({ subagent_type: "lazycodex-worker-low" \\| "lazycodex-worker-medium" \\| "lazycodex-worker-high", background: true, description: "...", prompt: "TASK: ..." })\` |
 
 `
-
-  return content.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n${section}`)
+    next = next.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n${section}`)
+  } else if (!/lazycodex-worker-low/.test(next.split("## Codex")[0] ?? next)) {
+    // Existing Grok mapping: ensure tier workers appear in the Grok section (not only Codex agent_type).
+    next = next.replace(
+      /\| Implementation or QA worker \|[^\n]+\n/,
+      (row) =>
+        `${row}| Difficulty-tier implementation | \`spawn_subagent({ subagent_type: "lazycodex-worker-low" | "lazycodex-worker-medium" | "lazycodex-worker-high", background: true, description: "...", prompt: "TASK: ..." })\` |\n`,
+    )
+  }
+  if (!/### Delegation by difficulty \(GrokBuild tier workers\)/.test(next)) {
+    const insertAfter =
+      next.match(/## GrokBuild Tool Mapping[\s\S]*?(?=\n## )/)?.[0] ??
+      null
+    if (insertAfter) {
+      next = next.replace(insertAfter, `${insertAfter}\n${DIFFICULTY_TIER_GROK_MAPPING}`)
+    } else {
+      next = next.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n${DIFFICULTY_TIER_GROK_MAPPING}`)
+    }
+  }
+  return next
 }
 
 const TEAMMODE_GROK_SECTION = `## GrokBuild teammode (primary on lfg)
@@ -620,7 +646,7 @@ function adaptStartWorkSkill(content) {
 }
 
 function adaptUlwLoopReference(content) {
-  return content
+  let next = content
     .replaceAll("CODEX_HOME=\"${CODEX_HOME:-$HOME/.codex}\"", "GROK_HOME=\"${GROK_HOME:-$HOME/.grok}\"")
     .replaceAll("cached Codex component CLI", "OMO-owned local CLI")
     .replaceAll("stable local installer bin or cached Codex component CLI — same CLI, so PATH absence is not a blocker", "lfg packages a durable ulw-loop CLI as `lfg ulw-loop` / `lfg ulw` (upstream `omo` remains compatible if present)")
@@ -658,6 +684,14 @@ function adaptUlwLoopReference(content) {
       "The shell command emits a model-facing handoff; in GrokBuild, use `/goal` plus the host-visible todo/plan tool instead of Codex-only `get_goal`, `create_goal`, `update_goal`, or `update_plan` APIs.",
     )
     .replace("Codex `get_goal` reports a different active goal", "Host `/goal` reports a different active goal")
+  // Grok difficulty-tier mapping: prefer spawn_subagent subagent_type; keep Codex agent_type as secondary note.
+  if (next.includes("lazycodex-worker-") && !next.includes("GrokBuild difficulty-tier")) {
+    next = next.replace(
+      /\| Implementation — pick difficulty:.*\|$/m,
+      "| Implementation — pick difficulty: LOW (one-file fix, boilerplate) / MEDIUM (standard feature, known patterns) / HIGH (new module, cross-module, concurrency/security/migration) | **GrokBuild difficulty-tier:** `spawn_subagent({ subagent_type: \"lazycodex-worker-low|medium|high\", ...})` (orchestrator-selected). Codex-only: `agent_type: \"lazycodex-worker-<low|medium|high>\"` when exposed; else state tier in `message`. |",
+    )
+  }
+  return next
 }
 
 function adaptUlwPlanReference(content) {

@@ -49,6 +49,9 @@ export const CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
   "artistry-gen",
   "artistry-qa",
   "ulw",
+  "lazycodex-worker-low",
+  "lazycodex-worker-medium",
+  "lazycodex-worker-high",
 ] as const
 
 type StoredOverrideFields = {

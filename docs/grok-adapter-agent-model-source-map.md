@@ -31,6 +31,9 @@ Evidence target: `.omo/evidence/grokbuild-omo-porting/task-5-upstream-dts.txt`. 
 | Momus plan reviewer | `momus` | `src/grok/agents/sync-lazycodex-agents-to-grok.ts` |
 | Sisyphus-Junior delegated executor | `sisyphus-junior` | `src/grok/agents/native-omo-agents.ts` |
 | Grok convenience role routes | `reasoning`, `coding`, `plan`, `reviewer` | `src/grok/agents/sync-lazycodex-agents-to-grok.ts`, `src/cli/setup/lfg-setup-tui-agents.ts` |
+| Difficulty-tier implementation workers (upstream lazycodex-worker-low\|medium\|high) | `lazycodex-worker-low`, `lazycodex-worker-medium`, `lazycodex-worker-high` | `src/core/lfg/subagents/difficulty-tier-routing.ts`, `src/core/lfg/subagents/omo-spawn-map.ts`, `src/grok/install/subagent-routing.ts`, `src/grok/flavour/agent-configs/lazycodex-worker-*.toml`, `src/grok/agents/lazycodex-agent-overrides.ts` |
+
+Difficulty-tier Grok surface: install writes roles/personas/agents + model/effort routes; orchestrators pick tier via `spawn_subagent` `subagent_type` (`lazycodex-worker-low|medium|high`). Not host auto-classification, not Codex `agent_type`, not OpenCode per-turn transform.
 
 ## Verification Hooks
 

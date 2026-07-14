@@ -5,6 +5,12 @@ import { describe, expect, test } from "vitest"
 import type { ModelDiscovery } from "../../cli/models/lfg-models"
 import { runGrokInstall } from "./run-grok-install"
 
+const DIFFICULTY_TIER_WORKERS = [
+  "lazycodex-worker-low",
+  "lazycodex-worker-medium",
+  "lazycodex-worker-high",
+] as const
+
 describe("runGrokInstall install-only", () => {
   test("refreshes plugin payload without writing model config or agent overrides", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-install-only-"))
@@ -19,8 +25,8 @@ describe("runGrokInstall install-only", () => {
 
     expect(run.ok).toBe(true)
     expect(run.configUpdate).toBeNull()
-    expect(run.omoAgents).toBeNull()
     expect(run.agentOverridesPath).toBeNull()
+    expect(run.lfgConfigPath).toBeNull()
     await expect(access(join(home, ".grok", "plugins", "lfg", "lfg-install.json"))).resolves.toBeUndefined()
     // install-only may write MCP registration (xai_grok) but not agent overrides / model discovery routes.
     try {
@@ -33,6 +39,40 @@ describe("runGrokInstall install-only", () => {
     }
     await expect(readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expect(readFile(join(home, ".grok", "lazycodex-agent-overrides.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
-    await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    // Full role ledger is install-only agent surface sync; discovery model ids must not land in overrides file.
+    await expect(readFile(join(home, ".grok", "lfg.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+  })
+
+  test("install-only materializes difficulty-tier roles, plugin agents, and omo prompts from bundled defaults", async () => {
+    // Given: fresh temp Grok home on the shipped install-only path (no override/config writers).
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-install-only-tier-"))
+
+    // When: runGrokInstall with installOnly (same contract as CLI --install-only).
+    const run = await runGrokInstall(null, { HOME: home }, { installOnly: true })
+
+    // Then: tier surfaces exist; override/config files stay absent.
+    expect(run.ok).toBe(true)
+    expect(run.configUpdate).toBeNull()
+    expect(run.agentOverridesPath).toBeNull()
+    expect(run.lfgConfigPath).toBeNull()
+    expect(run.omoAgents).not.toBeNull()
+    expect(run.omoAgents?.ok).toBe(true)
+
+    for (const name of DIFFICULTY_TIER_WORKERS) {
+      const role = await readFile(join(home, ".grok", "roles", `${name}.toml`), "utf8")
+      expect(role).toContain("model =")
+      expect(role).toContain("reasoning_effort")
+      expect(role).toMatch(/prompt_file\s*=/)
+
+      const pluginAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", `${name}.md`), "utf8")
+      expect(pluginAgent).toContain(`name: ${name}`)
+
+      const prompt = await readFile(join(home, ".grok", "prompts", "omo", `${name}.md`), "utf8")
+      expect(prompt.length).toBeGreaterThan(0)
+      expect(prompt).toMatch(/worker|difficulty|implementation/i)
+    }
+
+    await expect(readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(home, ".grok", "lfg.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
   })
 })

@@ -10,8 +10,16 @@ export type SubagentModelMapping = {
   readonly defaultReasoning?: string
 }
 
-/** Host built-ins stay enabled (true): explore / general-purpose avoid duplicating OMO explorer.
- * Shadow aliases (grok-build, builder, cursor, browser-use) stay off; lfg personas stay on.
+/**
+ * Host built-ins stay enabled (true): explore / general-purpose remain available
+ * while OMO spawn-map can still redirect labels to personas.
+ * Shadow aliases (grok-build, builder, cursor, browser-use) stay off.
+ *
+ * Buckets follow OMO configuration + agent-model-matching guide roles:
+ * - Communicators / planners / deep specialists → reasoning model
+ * - Utility runners (explore/librarian/quick) → fast model
+ * - Visual / artistry categories → reasoning (OMO: Gemini-class; Grok has no separate vision tier)
+ * - Implementation workers → coding model
  */
 export const LFG_SUBAGENT_TOGGLES: readonly (readonly [string, boolean])[] = [
   ["cursor", false],
@@ -45,8 +53,12 @@ export const LFG_SUBAGENT_TOGGLES: readonly (readonly [string, boolean])[] = [
   ["artistry-gen", true],
   ["artistry-qa", true],
   ["ulw", true],
+  ["lazycodex-worker-low", true],
+  ["lazycodex-worker-medium", true],
+  ["lazycodex-worker-high", true],
 ] as const
 
+/** OMO communicators, planners, deep specialists, visual categories. */
 const REASONING_SUBAGENTS = [
   "default",
   "sisyphus",
@@ -61,25 +73,40 @@ const REASONING_SUBAGENTS = [
   "ultrabrain",
   "deep",
   "unspecified-high",
+  // OMO visual/artistry categories need a strong model (Gemini-class upstream).
+  "visual-engineering",
   "artistry",
   "artistry-gen",
   "artistry-qa",
+  "multimodal-looker",
   "ulw",
+  "lazycodex-worker-high",
 ] as const
 
+/** OMO utility runners: explore/librarian/quick — speed over intelligence. */
 const FAST_SUBAGENTS = [
   "general-purpose",
-  "multimodal-looker",
-  "visual-engineering",
   "explore",
   "explorer",
   "librarian",
   "quick",
-  "unspecified-low",
   "writing",
+  "lazycodex-worker-low",
 ] as const
 
-const CODING_SUBAGENTS = ["coding", "grok-build", "builder", "reviewer"] as const
+/**
+ * Implementation / medium workers.
+ * unspecified-low is OMO's moderate-task category (GPT-class with high effort upstream);
+ * on Grok it rides the coding tier rather than pure-fast utility.
+ */
+const CODING_SUBAGENTS = [
+  "coding",
+  "grok-build",
+  "builder",
+  "reviewer",
+  "unspecified-low",
+  "lazycodex-worker-medium",
+] as const
 
 export function lfgOwnedSubagentModels(mapping: SubagentModelMapping = {}): Record<string, string> {
   const fastRoute = mapping.fast || mapping.default || "grok-3-mini-fast"
@@ -104,6 +131,25 @@ export function lfgOwnedSubagentReasoningEffort(mapping: SubagentModelMapping = 
     ...subagentRouteEntries(CODING_SUBAGENTS, coding),
     default: orchestrator,
     sisyphus: orchestrator,
+    // OMO effort variants that differ from bucket defaults.
+    prometheus: "xhigh",
+    plan: "xhigh",
+    momus: "xhigh",
+    ultrabrain: "xhigh",
+    hephaestus: "high",
+    oracle: "high",
+    metis: "high",
+    "visual-engineering": "high",
+    artistry: "high",
+    "artistry-gen": "high",
+    "artistry-qa": "high",
+    "multimodal-looker": "medium",
+    "unspecified-low": "medium",
+    "unspecified-high": "high",
+    // Difficulty-tier workers: effort is fixed to tier (low/medium/high).
+    "lazycodex-worker-low": "low",
+    "lazycodex-worker-medium": "medium",
+    "lazycodex-worker-high": "high",
   }
 }
 

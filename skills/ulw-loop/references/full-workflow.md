@@ -44,7 +44,7 @@ Size each worker to the task. Put the intended role, rigor level, and specialty 
 | Deep debugging / race / perf / subtle cross-module reasoning | `TASK: act as a deep debugging worker. ...` |
 | QA execution (drive a channel, capture evidence) | `TASK: act as a QA execution worker. ...` |
 | Read-only codebase search | `TASK: act as an explorer. ...` |
-| Implementation — pick difficulty: LOW (one-file fix, boilerplate) / MEDIUM (standard feature, known patterns) / HIGH (new module, cross-module, concurrency/security/migration) | `TASK: act as a <low|medium|high>-difficulty implementation worker. ...` + `agent_type: "lazycodex-worker-<low|medium|high>"` when exposed |
+| Implementation — pick difficulty: LOW (one-file fix, boilerplate) / MEDIUM (standard feature, known patterns) / HIGH (new module, cross-module, concurrency/security/migration) | **GrokBuild difficulty-tier:** `spawn_subagent({ subagent_type: "lazycodex-worker-low|medium|high", ...})` (orchestrator-selected). Codex-only: `agent_type: "lazycodex-worker-<low|medium|high>"` when exposed; else state tier in `message`. |
 | External library / docs research | `TASK: act as a librarian. ...` |
 | Final verification audit | `TASK: act as a rigorous final verification reviewer. ...` |
 

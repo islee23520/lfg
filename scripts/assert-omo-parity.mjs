@@ -55,8 +55,8 @@ const generatedSkillRoots = [
   "dist/grok-install/skills",
 ]
 const retiredSkillNames = ["lcx-contribute-bug-fix", "lcx-doctor", "lcx-report-bug"]
-const deferredComponents = ["lazycodex-executor-verify", "workflow-selector", "difficulty-tier-workers"]
-const grokAdaptedComponents = ["teammode"]
+const deferredComponents = ["lazycodex-executor-verify", "workflow-selector"]
+const grokAdaptedComponents = ["teammode", "difficulty-tier-workers"]
 const unsupportedComponents = ["test-support"]
 const staleAgentMetadataNeedles = [
   "code-yeongyu/lfg",
@@ -81,8 +81,9 @@ await assertTextContains("src/grok/payload/component-inventory.ts", [
 await assertTextContains("docs/grok-adapter-parity.md", [
   "`lazycodex-ai` / OMO `v4.16.3`",
   "Scoped Grok-first OMO parity",
-  "nativeAgentsStatus: \"missing\"",
-  "Full native OMO agent behavioral parity is not claimed",
+  "nativeAgentsStatus: \"verified\"",
+  "postInstallVerify.nativeAgents.status: \"verified\"",
+  "Full native OMO agent **behavioral** parity is not claimed",
   "`teammode`",
   "`lazycodex-executor-verify`",
   "`workflow-selector`",
@@ -100,7 +101,7 @@ await assertTextContains("AGENTS.md", [
   "`teammode` | GrokBuild spawn_subagent transport + host built-ins and lfg OMO agents; Codex multi_agent_v2/codex_app still available on Codex | Grok-adapted",
   "`lazycodex-executor-verify` | T3: pure `verifySubagentStopEvidence` in Sisyphus SubagentStop; no dedicated host-enforced CLI (host dependency class: Stop/SubagentStop hook) | Deferred",
   "`workflow-selector` | Upstream removed from omo-codex components (#5745); lfg optional native opt-in retained, Deferred pending GrokBuild host receipt | Deferred",
-  "`difficulty-tier-workers` | Upstream lazycodex-worker-low|medium|high + difficulty routing (v4.16.x); not Grok-adapted | Deferred",
+  "`difficulty-tier-workers` | Host-neutral resolver + Grok roles/agents/prompts + config model/effort + orchestrator `spawn_subagent` (`lazycodex-worker-low|medium|high`); not host auto-classification | Grok-adapted",
   "`test-support` | Upstream package test infrastructure, not a Grok plugin runtime component | Unsupported",
   "host dependency class",
   "grok-orchestration-plane.md",
@@ -182,6 +183,16 @@ async function assertSkillRoot(root) {
     "Execute a Prometheus work plan in GrokBuild with `/goal` state",
     "Inspect GrokBuild `/goal` state",
     "GrokBuild sessions are `grok:<session_id>`",
+    "lazycodex-worker-low",
+    "lazycodex-worker-medium",
+    "lazycodex-worker-high",
+    "Delegation by difficulty (GrokBuild tier workers)",
+    "subagent_type",
+  ])
+  await assertTextContains(join(root, "ulw-loop", "references", "full-workflow.md"), [
+    "GrokBuild difficulty-tier",
+    "lazycodex-worker-low|medium|high",
+    "orchestrator-selected",
   ])
   // Managed component skills must be GrokBuild-framed (not Codex-primary leftovers).
   await assertTextContains(join(root, "lsp", "SKILL.md"), ["GrokBuild LSP", "GrokBuild"])

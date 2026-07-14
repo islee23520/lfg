@@ -257,6 +257,33 @@
       "model_fallback_reasoning_effort": "high",
       "model_fallback_service_tier": "default",
       "role_rationale": "ULW loop surface: Grok 4.5 primary aligned with Sisyphus/Prometheus deep-work routing"
+    },
+    "lazycodex-worker-low": {
+      "model": "grok-3-mini-fast",
+      "model_reasoning_effort": "low",
+      "service_tier": "fast",
+      "model_fallback": "grok-4.20-0309-non-reasoning",
+      "model_fallback_reasoning_effort": "low",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "Difficulty-tier low implementation worker: Grok mini-fast for trivial/one-file tasks; not host-enforced dispatch"
+    },
+    "lazycodex-worker-medium": {
+      "model": "grok-composer-2.5-fast",
+      "model_reasoning_effort": "medium",
+      "service_tier": "default",
+      "model_fallback": "grok-4.20-0309-non-reasoning",
+      "model_fallback_reasoning_effort": "medium",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "Difficulty-tier medium implementation worker: Grok Composer coding path for standard multi-file features; not host-enforced dispatch"
+    },
+    "lazycodex-worker-high": {
+      "model": "grok-4.5",
+      "model_reasoning_effort": "high",
+      "service_tier": "default",
+      "model_fallback": "grok-4.20-0309-reasoning",
+      "model_fallback_reasoning_effort": "high",
+      "model_fallback_service_tier": "default",
+      "role_rationale": "Difficulty-tier high implementation worker: Grok 4.5 reasoning for hard refactors/concurrency/security; not host-enforced dispatch"
     }
   }
 }

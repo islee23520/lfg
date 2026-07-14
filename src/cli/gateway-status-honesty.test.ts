@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest"
 import { runLfg } from "./test/test-process"
 
 describe("gateway status honesty", () => {
-  test("install-only setup reports missing native agents without overclaiming plugin identity", async () => {
+  test("install-only setup materializes native agents without overclaiming plugin identity", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-gateway-honesty-"))
     const result = await runLfg(["--json", "setup", "--run", "--install-only"], {
       HOME: home,
@@ -19,7 +19,8 @@ describe("gateway status honesty", () => {
       postInstallVerify: {
         nativeHookStatus: "native_grok_events",
         bridgeFallback: false,
-        nativeAgents: { status: "missing" },
+        // install-only now syncs agent surfaces from bundled defaults (still not a plugin identity).
+        nativeAgents: { status: "verified" },
       },
     })
     expect(JSON.stringify(result.json)).not.toContain("@islee23520/lfp")

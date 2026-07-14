@@ -25,11 +25,13 @@ describe("subagent-routing", () => {
     expect(models["artistry-gen"]).toBe("reasoning-model")
     expect(models["artistry-qa"]).toBe("reasoning-model")
     expect(models.ulw).toBe("reasoning-model")
-    expect(models["multimodal-looker"]).toBe("fast-model")
-    expect(models["visual-engineering"]).toBe("fast-model")
+    // OMO visual/artistry + multimodal need a strong model (Gemini-class upstream).
+    expect(models["multimodal-looker"]).toBe("reasoning-model")
+    expect(models["visual-engineering"]).toBe("reasoning-model")
     expect(models["visual-looker"]).toBeUndefined()
     expect(models.quick).toBe("fast-model")
-    expect(models["unspecified-low"]).toBe("fast-model")
+    // OMO unspecified-low is moderate-task (not pure utility) → coding tier on Grok.
+    expect(models["unspecified-low"]).toBe("coding-model")
     expect(models.writing).toBe("fast-model")
     expect(models.coding).toBe("coding-model")
     expect(models.reviewer).toBe("coding-model")
@@ -41,10 +43,13 @@ describe("subagent-routing", () => {
 
     expect(Object.keys(efforts).sort()).toEqual(Object.keys(models).sort())
     expect(efforts.oracle).toBe("high")
-    expect(efforts["visual-engineering"]).toBe("low")
+    expect(efforts["visual-engineering"]).toBe("high")
+    expect(efforts.prometheus).toBe("xhigh")
+    expect(efforts.momus).toBe("xhigh")
     expect(efforts.reviewer).toBe("medium")
     expect(efforts.default).toBe("low")
     expect(efforts.sisyphus).toBe("low")
+    expect(efforts["unspecified-low"]).toBe("medium")
   })
 
   test("enables host built-ins and every routed OMO/Grok category subagent", () => {
@@ -86,5 +91,33 @@ describe("subagent-routing", () => {
       expect(toggles[name]).toBe(false)
       expect(toggles[replacement]).toBe(true)
     }
+  })
+
+  test("routes difficulty-tier workers on model, reasoning, and toggle surfaces", () => {
+    // Given: owned subagent model/reasoning maps and toggle table after install wiring.
+    const models = lfgOwnedSubagentModels({
+      fast: "fast-model",
+      reasoning: "reasoning-model",
+      coding: "coding-model",
+    })
+    const efforts = lfgOwnedSubagentReasoningEffort()
+    const toggles = Object.fromEntries(LFG_SUBAGENT_TOGGLES)
+
+    // When: difficulty-tier worker keys are read from the install routing tables.
+    // Then: low uses fast, medium uses coding, high uses reasoning; all are enabled.
+    expect(models["lazycodex-worker-low"]).toBe("fast-model")
+    expect(models["lazycodex-worker-medium"]).toBe("coding-model")
+    expect(models["lazycodex-worker-high"]).toBe("reasoning-model")
+    expect(efforts["lazycodex-worker-low"]).toBe("low")
+    expect(efforts["lazycodex-worker-medium"]).toBe("medium")
+    expect(efforts["lazycodex-worker-high"]).toBe("high")
+    expect(toggles["lazycodex-worker-low"]).toBe(true)
+    expect(toggles["lazycodex-worker-medium"]).toBe(true)
+    expect(toggles["lazycodex-worker-high"]).toBe(true)
+
+    // Spawn map keeps upstream worker names identity-mapped for Grok subagent_type.
+    expect(lfgSubagentForOmoSpawnType("lazycodex-worker-low")).toBe("lazycodex-worker-low")
+    expect(lfgSubagentForOmoSpawnType("lazycodex-worker-medium")).toBe("lazycodex-worker-medium")
+    expect(lfgSubagentForOmoSpawnType("lazycodex-worker-high")).toBe("lazycodex-worker-high")
   })
 })

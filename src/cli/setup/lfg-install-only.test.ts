@@ -4,6 +4,12 @@ import { join } from "node:path"
 import { describe, expect, test } from "vitest"
 import { runLfg } from "../test/test-process"
 
+const DIFFICULTY_TIER_WORKERS = [
+  "lazycodex-worker-low",
+  "lazycodex-worker-medium",
+  "lazycodex-worker-high",
+] as const
+
 describe("lfg setup --install-only", () => {
   test("updates plugin without writing agent override settings", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-cli-install-only-"))
@@ -18,7 +24,7 @@ describe("lfg setup --install-only", () => {
       postInstallVerify: { ok: true, status: "verified" },
     })
     await expect(readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8")).resolves.toContain("@islee23520/lfg")
-    // install-only may seed [mcp_servers.xai_grok] but must not write agent overrides / roles / model routes.
+    // install-only may seed [mcp_servers.xai_grok] and agent surfaces, but must not write overrides / model routes.
     try {
       const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
       expect(config).not.toMatch(/\[omo\.agents\./)
@@ -28,6 +34,12 @@ describe("lfg setup --install-only", () => {
       expect(error).toMatchObject({ code: "ENOENT" })
     }
     await expect(readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
-    await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(home, ".grok", "lfg.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+
+    for (const name of DIFFICULTY_TIER_WORKERS) {
+      await expect(readFile(join(home, ".grok", "roles", `${name}.toml`), "utf8")).resolves.toMatch(/model\s*=/)
+      await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", `${name}.md`), "utf8")).resolves.toContain(`name: ${name}`)
+      await expect(readFile(join(home, ".grok", "prompts", "omo", `${name}.md`), "utf8")).resolves.toMatch(/worker|difficulty|implementation/i)
+    }
   }, 15_000)
 })

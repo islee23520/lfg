@@ -12,6 +12,12 @@ On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to 
 | Search/read-only worker | `spawn_subagent({ subagent_type: "explore", background: true, description: "...", prompt: "TASK: ..." })` (host built-in; use `"explorer"` only for OMO persona) |
 | Planning worker | `spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })` |
 | Implementation or QA worker | `spawn_subagent({ subagent_type: "hephaestus" or "coding", background: true, description: "...", prompt: "TASK: ..." })` |
+| Difficulty-tier implementation | `spawn_subagent({ subagent_type: "lazycodex-worker-low" | "lazycodex-worker-medium" | "lazycodex-worker-high", background: true, description: "...", prompt: "TASK: ..." })` |
+
+
+### Delegation by difficulty (GrokBuild tier workers)
+
+When lfg has installed difficulty-tier workers, size each implementation lane by difficulty and pass the matching `subagent_type` on `spawn_subagent` (not Codex `agent_type`): LOW (one-file fix, boilerplate, config/copy) -> `lazycodex-worker-low`; MEDIUM (standard feature, few files, known patterns) -> `lazycodex-worker-medium`; HIGH (new module, cross-module refactor, concurrency/security/migration) -> `lazycodex-worker-high`. Example: `spawn_subagent({ subagent_type: "lazycodex-worker-medium", background: true, description: "...", prompt: "TASK: ..." })`. Explorer/librarian research lanes keep their own roles. Difficulty (model power) is orthogonal to LIGHT/HEAVY rigor. This is **orchestrator-selected** routing — Grok does not auto-classify tier or enforce host-side difficulty dispatch.
 
 
 ## ABSOLUTE RULE: YOU ARE AN ORCHESTRATOR — NEVER THE IMPLEMENTER

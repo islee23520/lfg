@@ -81,8 +81,11 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("bridge fallback")
     expect(text).toContain("Grok-first OMO parity")
     expect(text).toContain("Scoped Grok-first OMO parity")
-    expect(text).toContain("nativeAgentsStatus: \"missing\"")
-    expect(text).toContain("Full native OMO agent behavioral parity is not claimed")
+    expect(text).toContain("nativeAgentsStatus: \"verified\"")
+    expect(text).toContain("postInstallVerify.nativeAgents.status: \"verified\"")
+    expect(text).toContain("Install-only")
+    expect(text).toContain("does **not** write agent override")
+    expect(text).toContain("Full native OMO agent **behavioral** parity is not claimed")
     expect(text).toContain("native Grok hook")
     // Also pin full OMO + hook surfaces for package mapping
     expect(text).toContain("lfg-grok-hook-bridge.mjs")
@@ -115,10 +118,14 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("Score A 100 does not imply Score B 100")
     expect(text).toContain("### Score A — GrokBuild adapter scope")
     expect(text).toContain("### Score B — Full OMO host surface")
-    expect(text).toContain("Honest formula (gap-fill train → Score B)")
-    expect(text).toContain("Status promotions Deferred → Grok-adapted/Implemented")
+    expect(text).toContain("Honest formula (gap-fill train T0–T11 historical snapshot → Score B")
+    expect(text).toContain("Status promotions Deferred → Grok-adapted/Implemented **during T0–T11**")
     expect(text).toContain("Explicit residual **WAIVE** bookkeeping")
-    expect(text).toContain("Not Score B 90–93")
+    expect(text).toContain("Not Score B 90–93 from the gap-fill plan alone")
+    expect(text).toContain("last audited score snapshot")
+    expect(text).toContain("Post-audit status")
+    expect(text).toContain("not** assigned ad hoc arithmetic points")
+    expect(text).toContain("one formula across all rows")
     expect(text).toContain("T11-score.txt")
     expect(text).toContain("DUAL-SCORE-100-adapter-scope.md")
     expect(text).toContain("#98")
@@ -161,7 +168,7 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
       ["teammode", "Grok-adapted"],
       ["lazycodex-executor-verify", "Deferred"],
       ["workflow-selector", "Deferred"],
-      ["difficulty-tier-workers", "Deferred"],
+      ["difficulty-tier-workers", "Grok-adapted"],
       ["telemetry", "Unsupported"],
       ["test-support", "Unsupported"],
     ] as const) {
@@ -214,7 +221,10 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("ledger-backed pure helper")
     expect(text).toContain("T5-runtime.txt")
     expect(text).toContain("hook-time `additionalContext` guidance only")
-    expect(text).toContain("workflow-selector` (lfg optional historical; upstream removed #5745), `difficulty-tier-workers`, `lazycodex-executor-verify`, `start-work-continuation`")
+    expect(text).toContain("workflow-selector` (lfg optional historical; upstream removed #5745), `lazycodex-executor-verify`, `start-work-continuation`")
+    expect(text).toContain("`difficulty-tier-workers` Grok-adapted")
+    expect(text).toContain("orchestrator-selected")
+    expect(text).toContain("not** host-enforced automatic classification")
     expect(text).toContain("Deferred for automatic lifecycle hook reinjection")
     expect(text).toContain("MCP runtime Grok-adapted; automatic PostToolUse/PostCompact reinjection not claimed")
     // refreshed for task 3/6 of orchestration epic
