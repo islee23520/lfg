@@ -17,7 +17,7 @@ export async function createMcpPackageFixture(skip: readonly string[] = []): Pro
 }
 
 export async function createComponentShimFixture(packageRoot: string): Promise<void> {
-  for (const dir of ["ast-grep", "git-bash", "lsp"] as const) {
+  for (const dir of ["ast-grep", "git-bash", "lsp", "eval"] as const) {
     const cli = join(packageRoot, "components", dir, "dist", "cli.js")
     await mkdir(join(packageRoot, "components", dir, "dist"), { recursive: true })
     await writeFile(cli, "#!/usr/bin/env node\n", "utf8")

@@ -17,6 +17,11 @@ import { configureAgentOverrides, configureRoleAgents } from "./lfg-setup-tui-ag
 import { DEFAULT_CODING_TOOL_ADAPTER, isCodingToolAdapterId, type CodingToolAdapterId } from "../../shared/coding-tool-adapter";
 import { executeTuiInstall, type TuiGlobalInstaller } from "./lfg-setup-tui-execute";
 import { formatCustomResults, formatInstallSummary, formatIntroNote, formatPresetResults, formatRecommendedResults } from "./lfg-setup-tui-results";
+import { DEFAULT_CLI_BACKEND, defaultBackendRoutingConfig, type CliBackend } from "../../core/lfg/backend-routing";
+import { configureBackendRouting } from "./lfg-setup-tui-backends";
+import { readBackendRoutingConfig } from "../config/lfg-grok-config";
+import { resolveGrokSetupHome } from "../../grok/install/grok-home";
+import { ensureCodexLazyCodexPrereqsInTui } from "./lfg-setup-tui-prereqs";
 
 export function shouldUseSetupTui(args: { readonly noTui?: boolean }, options: { readonly check?: boolean; readonly input?: { readonly isTTY?: boolean }; readonly output?: { readonly isTTY?: boolean } }): boolean {
   if (options.check || args.noTui === true) return false;
@@ -38,9 +43,10 @@ export type RunSetupTuiOptions = {
     },
   ) => Promise<void>;
   readonly globalInstaller?: TuiGlobalInstaller;
+  readonly ensurePrereqs?: typeof ensureCodexLazyCodexPrereqsInTui;
 };
 
-export async function runSetupTui(args: { readonly noTui?: boolean; readonly codingToolAdapter?: CodingToolAdapterId }, context: unknown, deps: RunSetupTuiOptions = {}) {
+export async function runSetupTui(args: { readonly noTui?: boolean; readonly codingToolAdapter?: CodingToolAdapterId; readonly backendEngine?: CliBackend; readonly backendEngineExplicit?: boolean }, context: unknown, deps: RunSetupTuiOptions = {}) {
   const prompts = deps.prompts ?? clack;
   const colors = deps.colors ?? pc;
 
@@ -61,12 +67,49 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     throw new Error("lfg setup cancelled");
   }
 
+  if (!configOnly) {
+    const ensurePrereqs = deps.ensurePrereqs ?? ensureCodexLazyCodexPrereqsInTui;
+    const prereqResult = await ensurePrereqs({
+      prompts: {
+        note: prompts.note,
+        confirm: prompts.confirm,
+        select: (options) => prompts.select({ ...options, options: [...options.options] }),
+        isCancel: prompts.isCancel,
+        cancel: prompts.cancel,
+        ...optionalClackExtras(prompts),
+      },
+    });
+    if (!prereqResult.ok) {
+      throw new Error(
+        prereqResult.status === "cancelled"
+          ? "lfg setup cancelled"
+          : "Codex CLI is required before lfg setup",
+      );
+    }
+  }
+
   // Adapter is CLI-flag only (`--coding-tool-adapter`); do not ask during install.
   const adapterChoice = args.codingToolAdapter ?? DEFAULT_CODING_TOOL_ADAPTER;
   if (!isCodingToolAdapterId(adapterChoice)) {
     prompts.cancel("lfg setup cancelled.");
     throw new Error("lfg setup cancelled");
   }
+
+  const storedBackendRouting = configOnly
+    ? await readBackendRoutingConfig(resolveGrokSetupHome(process.env))
+    : defaultBackendRoutingConfig();
+  const requestedGlobal = args.backendEngineExplicit === true
+    ? args.backendEngine ?? DEFAULT_CLI_BACKEND
+    : storedBackendRouting.global;
+  const backendRouting = await configureBackendRouting({
+    select: (options) => prompts.select(options),
+    confirm: (options) => prompts.confirm(options),
+    isCancel: prompts.isCancel,
+    cancel: prompts.cancel,
+  }, {
+    ...storedBackendRouting,
+    global: requestedGlobal,
+  });
 
   // Vanilla Grok is the default. Proxy / multi-provider discovery is opt-in only via
   // explicit `--base-url` (or a resolved discovery with a non-empty base URL). No install-time proxy quiz.
@@ -126,7 +169,7 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     const modelMode = await prompts.select({
       message: "Global model preset",
       options: [
-        { value: "auto", label: "Auto best available (recommended)", hint: "GrokBuild orchestration with Grok-first routing" },
+        { value: "auto", label: "Automatic routing (recommended)", hint: "Choose routes from discovered models" },
         { value: "grok", label: "Grok-specialized", hint: "Prefer Grok models for all global routes" },
         { value: "vanilla", label: "Vanilla Grok models", hint: "built-in Grok defaults, no proxy discovery" },
       ],
@@ -144,7 +187,7 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
         { value: "low", label: "Low", hint: "fast/cheap" },
         { value: "medium", label: "Medium", hint: "balanced" },
         { value: "high", label: "High", hint: "deeper planning/review" },
-        { value: "xhigh", label: "Extra high", hint: "maximum reasoning where supported" },
+        { value: "xhigh", label: "Extra high", hint: "use the model's extra-high reasoning setting" },
       ],
       initialValue: "auto",
     });
@@ -236,7 +279,13 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
 
   // TUI's own clean Install Summary (replaces the classic printInstallPlan + Magic Word box).
   prompts.note(
-    formatInstallSummary({ configOnly, adapterChoice, installGlobalCli: installGlobalCli === true, modelConfigLine }),
+    formatInstallSummary({
+      configOnly,
+      adapterChoice,
+      installGlobalCli: installGlobalCli === true,
+      modelConfigLine,
+      backendRouting,
+    }),
     "Install Summary"
   );
 
@@ -255,6 +304,7 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     colors,
     configuredForInstall,
     codingToolAdapter: adapterChoice,
+    backendRouting,
     configOnly,
     installGlobalCli: installGlobalCli === true,
     ...(deps.globalInstaller === undefined ? {} : { globalInstaller: deps.globalInstaller }),
@@ -263,4 +313,36 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
 
 function isConfigOnlyContext(context: unknown): boolean {
   return typeof context === "object" && context !== null && "configOnly" in context && (context as { readonly configOnly?: unknown }).configOnly === true;
+}
+
+/** Safe optional Clack extras (spinner/log) — vitest module mocks throw on missing named exports. */
+function optionalClackExtras(prompts: typeof clack): {
+  readonly spinner?: () => { start: (message?: string) => void; message: (message?: string) => void; stop: (message?: string) => void }
+  readonly log?: { step?: (message: string) => void; info?: (message: string) => void; success?: (message: string) => void; warn?: (message: string) => void }
+} {
+  const spinner = tryGetProp(prompts, "spinner")
+  const log = tryGetProp(prompts, "log")
+  return {
+    ...(typeof spinner === "function"
+      ? {
+          spinner: spinner as () => {
+            start: (message?: string) => void
+            message: (message?: string) => void
+            stop: (message?: string) => void
+          },
+        }
+      : {}),
+    ...(typeof log === "object" && log !== null
+      ? { log: log as { step?: (message: string) => void; info?: (message: string) => void; success?: (message: string) => void; warn?: (message: string) => void } }
+      : {}),
+  }
+}
+
+function tryGetProp(target: unknown, key: string): unknown {
+  try {
+    if (target === null || target === undefined) return undefined
+    return (target as Record<string, unknown>)[key]
+  } catch {
+    return undefined
+  }
 }

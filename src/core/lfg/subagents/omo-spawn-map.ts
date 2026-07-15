@@ -27,7 +27,6 @@ export const OMO_SPAWN_TYPE_TO_LFG_SUBAGENT: Readonly<Record<string, string>> = 
   reviewer: "reviewer",
   coding: "coding",
   reasoning: "reasoning",
-  // Difficulty-tier implementation workers (upstream lazycodex-worker-*; identity on Grok)
   "lazycodex-worker-low": "lazycodex-worker-low",
   "lazycodex-worker-medium": "lazycodex-worker-medium",
   "lazycodex-worker-high": "lazycodex-worker-high",

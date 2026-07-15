@@ -55,8 +55,7 @@ describe("resolveGrokModel", () => {
   })
 
   test("falls back to a Grok (xai) model when no upstream provider matches", () => {
-    // Only xai models available — upstream sisyphus chain has no xai entry,
-    // so our adapter appends a Grok fallback entry.
+    // Only xai models available — OMO entries are skipped; table-tail xai wins.
     const catalog = buildGrokModelCatalog({ modelIds: ["grok-4", "grok-3-mini"] })
     const { resolved } = resolveGrokModel({
       catalog,
@@ -65,13 +64,12 @@ describe("resolveGrokModel", () => {
     })
     expect(resolved).toBeDefined()
     expect(resolved?.provenance).toBe("provider-fallback")
-    // The resolved model should be an xai model.
     expect(resolved?.model).toContain("grok")
   })
 
   test("resolves via upstream chain when an upstream provider is connected", () => {
     const catalog = buildGrokModelCatalog({
-      modelIds: ["grok-4", "openai/gpt-5.5"],
+      modelIds: ["grok-4", "openai/gpt-5.6-sol", "openai/gpt-5.5"],
       connectedProviders: ["xai", "openai"],
     })
     const { resolved } = resolveGrokModel({
@@ -80,8 +78,9 @@ describe("resolveGrokModel", () => {
       requirements: AGENT_MODEL_REQUIREMENTS,
     })
     expect(resolved).toBeDefined()
-    // hephaestus upstream chain prefers gpt-5.5 via openai.
+    // hephaestus OMO chain prefers gpt-5.6-sol via openai before Grok tail.
     expect(resolved?.provenance).toBe("provider-fallback")
+    expect(resolved?.model).toContain("gpt-5.6-sol")
   })
 
   test("returns undefined when no systemDefaultModel and nothing resolves", () => {
@@ -106,7 +105,7 @@ describe("resolveGrokModel", () => {
     expect(resolved?.provenance).toBe("system-default")
   })
 
-  test("request includes the Grok-appended fallback entry", () => {
+  test("request keeps OMO chain first and Grok xai entries last", () => {
     const catalog = buildGrokModelCatalog({ modelIds: ["grok-4"] })
     const { request } = resolveGrokModel({
       catalog,
@@ -115,9 +114,14 @@ describe("resolveGrokModel", () => {
     })
     const chain = request.policy?.fallbackChain
     expect(chain).toBeDefined()
-    // The last entry should be the Grok (xai) fallback.
+    expect(chain?.[0]?.model).toBe("claude-opus-4-7")
+    // Table already has xai tails; adapter must not need to append another.
     const last = chain?.[chain.length - 1]
     expect(last?.providers).toContain("xai")
+    expect(last?.model).toMatch(/^grok/)
+    // First xai entry appears after at least one non-xai OMO entry.
+    const firstXai = chain?.findIndex((e) => e.providers.includes("xai"))
+    expect(firstXai).toBeGreaterThan(0)
   })
 })
 

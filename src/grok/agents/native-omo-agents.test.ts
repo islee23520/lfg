@@ -1,44 +1,31 @@
 import { describe, expect, test } from "vitest"
 import {
   NATIVE_OMO_AGENT_NAMES,
+  nativeAgentDescription,
   nativeOmoFallbackPrompt,
 } from "./native-omo-agents"
+import { LFG_SISYPHUS_LOW_NUDGE_POLICY_TAG } from "./native-agent-permissions"
 
-describe("native OMO agents", () => {
-  test("maps upstream OMO builtins plus Grok convenience role agents", () => {
+describe("diet native agents", () => {
+  test("keeps slim native agents including git-master", () => {
     expect(NATIVE_OMO_AGENT_NAMES).toEqual([
-      "default",
       "sisyphus",
-      "hephaestus",
-      "prometheus",
-      "atlas",
-      "oracle",
-      "multimodal-looker",
-      "sisyphus-junior",
+      "watcher",
       "explorer",
-      "librarian",
-      "metis",
-      "momus",
-      "reasoning",
-      "coding",
-      "plan",
-      "reviewer",
+      "git-master",
     ])
-  })
-
-  test("renders Grok-native prompt markers for dynamic Sisyphus surfaces", () => {
-    expect(nativeOmoFallbackPrompt("default")).toContain("OMO Sisyphus")
-    expect(nativeOmoFallbackPrompt("sisyphus")).toContain("OMO Sisyphus")
-    expect(nativeOmoFallbackPrompt("sisyphus")).toMatch(/NO RE-ASK|over-ask|at most ONE/i)
-    expect(nativeOmoFallbackPrompt("sisyphus")).toMatch(/SELF-ANSWER/i)
-    expect(nativeOmoFallbackPrompt("sisyphus")).toMatch(/STANDING INTENT|RESIDUAL FINISH/i)
-    expect(nativeOmoFallbackPrompt("sisyphus")).toMatch(/if you want|shall I|would you like/i)
-    expect(nativeOmoFallbackPrompt("hephaestus")).toContain("OMO Hephaestus")
-    expect(nativeOmoFallbackPrompt("hephaestus")).toMatch(/STANDING INTENT|if you want/i)
-    expect(nativeOmoFallbackPrompt("prometheus")).toContain("OMO Prometheus")
-    expect(nativeOmoFallbackPrompt("atlas")).toContain("OMO Atlas")
-    expect(nativeOmoFallbackPrompt("oracle")).toContain("OMO Oracle")
-    expect(nativeOmoFallbackPrompt("multimodal-looker")).toContain("OMO Multimodal-Looker")
-    expect(nativeOmoFallbackPrompt("sisyphus-junior")).toContain("OMO Sisyphus-Junior")
+    const sisyphusPrompt = nativeOmoFallbackPrompt("sisyphus")
+    expect(sisyphusPrompt).toContain('<lfg-sisyphus-ceo-protocol force="true">')
+    expect(sisyphusPrompt).toContain("lfg --json handoff plan --role coding --engine gpt --focus")
+    expect(sisyphusPrompt).toContain("handoff.launch.argv")
+    expect(sisyphusPrompt).toContain("RESULT")
+    expect(sisyphusPrompt).toContain(LFG_SISYPHUS_LOW_NUDGE_POLICY_TAG)
+    expect(nativeOmoFallbackPrompt("watcher")).toContain("orchestrator status")
+    expect(nativeOmoFallbackPrompt("watcher")).toContain("HARD REQUIREMENT")
+    expect(nativeOmoFallbackPrompt("watcher")).toContain("MUST NOT implement")
+    expect(nativeOmoFallbackPrompt("explorer")).toContain("read-only")
+    expect(nativeOmoFallbackPrompt("git-master")).toContain("git operations only")
+    expect(nativeAgentDescription("git-master")).toContain("Git-only")
+    expect(nativeAgentDescription("sisyphus")).toContain("CEO")
   })
 })

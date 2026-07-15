@@ -32,6 +32,11 @@ describe("setup plan JSON (ownership)", () => {
           },
         },
       },
+      backendEngine: {
+        selected: "grok",
+        default: "grok",
+        supported: ["grok", "codex"],
+      },
     })
     expect(JSON.stringify(result.json)).not.toContain("@islee23520/lfp")
     const steps = (result.json as { steps?: readonly { text: string }[] }).steps ?? []

@@ -39,6 +39,7 @@ function pluginMcpJson(pluginRoot: string, platform: NodeJS.Platform, mode: McpR
     git_bash: localServer(LOCAL_MCP_SERVERS[1]),
     lsp: localServer(LOCAL_MCP_SERVERS[2]),
     xai_grok: localServer(LOCAL_MCP_SERVERS[3]),
+    eval: localServer(LOCAL_MCP_SERVERS[4]),
   }
   // codegraph is an external MCP binary (Phase 0 core/adapter port). It is
   // emitted only when the entry is enabled (binary resolved via env/provisioned/PATH).
@@ -81,7 +82,7 @@ export async function materializeGrokMcpRuntimes(
   await materializeBuiltInMcpRuntimes(destRoot, sourceRoot)
 
   for (const server of LOCAL_MCP_SERVERS) {
-    if (server.name === "xai_grok") continue
+    if (server.name === "xai_grok" || server.name === "eval") continue
     const src = runtimeSources[server.runtimeDir]
     const destCli = join(destRoot, server.runtimeDir, "dist", "cli.js")
     if (src !== undefined && await pathExists(join(src, "dist", "cli.js"))) {
@@ -121,6 +122,18 @@ async function materializeBundledMcpComponents(
   await mkdir(destRoot, { recursive: true })
   for (const server of LOCAL_MCP_SERVERS) {
     if (server.name === "xai_grok") continue
+    // Built-in eval is lfg-owned (not upstream omo-codex); prefer package components/eval.
+    if (server.name === "eval") {
+      const localEval = join(process.cwd(), "components", "eval")
+      const bundledEval = join(componentsRoot, "eval")
+      const evalSrc = (await pathExists(localEval)) ? localEval : bundledEval
+      if (await pathExists(evalSrc)) {
+        await cp(evalSrc, join(destRoot, "eval"), { recursive: true, force: true })
+      }
+      const runtimeCli = join(runtimeRoot, server.runtimeDir, "dist", "cli.js")
+      await writeFallbackRuntime(runtimeCli, server.name, sourceRoot)
+      continue
+    }
     await cp(join(componentsRoot, server.componentDir), join(destRoot, server.componentDir), { recursive: true, force: true })
     const runtimeCli = join(runtimeRoot, server.runtimeDir, "dist", "cli.js")
     await writeFallbackRuntime(runtimeCli, server.name, sourceRoot)
@@ -143,28 +156,50 @@ export async function repairLspMcpRuntime(
 }
 
 async function materializeBuiltInMcpRuntimes(runtimeRoot: string, sourceRoot: string): Promise<void> {
-  const xaiRuntimeCli = join(runtimeRoot, "xai-grok-mcp", "dist", "cli.js")
-  await mkdir(dirname(xaiRuntimeCli), { recursive: true })
-  const assetCandidates = [
-    join(currentDir, "..", "assets", "mcp", "lfg-xai-grok-mcp.mjs"),
-    join(sourceRoot, "assets", "lfg-xai-grok-mcp.mjs"),
-    join(sourceRoot, "assets", "mcp", "lfg-xai-grok-mcp.mjs"),
+  const builtins: ReadonlyArray<{ runtimeDir: string; fileName: string; missing: string }> = [
+    { runtimeDir: "xai-grok-mcp", fileName: "lfg-xai-grok-mcp.mjs", missing: "lfg xAI MCP runtime asset missing" },
+    { runtimeDir: "eval-mcp", fileName: "lfg-eval-mcp.mjs", missing: "lfg eval MCP runtime asset missing" },
   ]
-  let source = ""
-  for (const candidate of assetCandidates) {
-    if (await pathExists(candidate)) {
-      source = await readFile(candidate, "utf8")
-      break
+  for (const builtin of builtins) {
+    const runtimeCli = join(runtimeRoot, builtin.runtimeDir, "dist", "cli.js")
+    await mkdir(dirname(runtimeCli), { recursive: true })
+    const assetCandidates = [
+      join(currentDir, "..", "assets", "mcp", builtin.fileName),
+      join(sourceRoot, "assets", builtin.fileName),
+      join(sourceRoot, "assets", "mcp", builtin.fileName),
+    ]
+    let source = ""
+    for (const candidate of assetCandidates) {
+      if (await pathExists(candidate)) {
+        source = await readFile(candidate, "utf8")
+        break
+      }
+    }
+    if (source.length === 0) throw new Error(builtin.missing)
+    await writeFile(runtimeCli, source, "utf8")
+    await chmod(runtimeCli, 0o755)
+  }
+  // Eval kernel runners must sit next to the MCP CLI for import.meta.url resolution.
+  const evalDist = join(runtimeRoot, "eval-mcp", "dist")
+  for (const runner of ["eval-js-runner.mjs", "eval-py-runner.py"] as const) {
+    const candidates = [
+      join(currentDir, "..", "assets", "mcp", runner),
+      join(sourceRoot, "assets", runner),
+      join(sourceRoot, "assets", "mcp", runner),
+    ]
+    for (const candidate of candidates) {
+      if (await pathExists(candidate)) {
+        await writeFile(join(evalDist, runner), await readFile(candidate, "utf8"), "utf8")
+        break
+      }
     }
   }
-  if (source.length === 0) throw new Error("lfg xAI MCP runtime asset missing")
-  await writeFile(xaiRuntimeCli, source, "utf8")
-  await chmod(xaiRuntimeCli, 0o755)
 }
 
 async function fallbackRuntimeSource(serverName: string = "mcp", sourceRoot: string = currentDir): Promise<string> {
   if (serverName === "ast_grep") return mcpRuntimeAssetSource(sourceRoot, "lfg-ast-grep-mcp.mjs", "lfg ast-grep MCP runtime asset missing")
   if (serverName === "lsp") return mcpRuntimeAssetSource(sourceRoot, "lfg-lsp-mcp.mjs", "lfg LSP MCP runtime asset missing")
+  if (serverName === "eval") return mcpRuntimeAssetSource(sourceRoot, "lfg-eval-mcp.mjs", "lfg eval MCP runtime asset missing")
   const runtimeName = JSON.stringify(`lfg-${serverName}`)
   return `#!/usr/bin/env node
 import{createInterface}from"node:readline";import{stdin,stdout}from"node:process";
@@ -218,7 +253,8 @@ type RuntimeSources = Partial<Record<(typeof LOCAL_MCP_SERVERS)[number]["runtime
 
 async function sourceRuntimeBinariesExist(root: string): Promise<boolean> {
   for (const server of LOCAL_MCP_SERVERS) {
-    if (server.name === "xai_grok") continue
+    // Built-in lfg assets (not copied from upstream omo-codex packages).
+    if (server.name === "xai_grok" || server.name === "eval") continue
     if (!(await pathExists(join(root, server.runtimeDir, "dist", "cli.js")))) return false
   }
   return true
@@ -227,7 +263,7 @@ async function sourceRuntimeBinariesExist(root: string): Promise<boolean> {
 async function resolveMcpRuntimeSources(sourceRoot: string): Promise<RuntimeSources> {
   const sources: RuntimeSources = {}
   for (const server of LOCAL_MCP_SERVERS) {
-    if (server.name === "xai_grok") continue
+    if (server.name === "xai_grok" || server.name === "eval") continue
     const root = await resolveMcpRuntimeRoot(sourceRoot, server.runtimeDir)
     if (root !== null) {
       sources[server.runtimeDir] = root
@@ -262,7 +298,8 @@ function firstRuntimeRoot(runtimeSources: RuntimeSources): string | null {
 
 async function resolveBundledMcpComponentsRoot(sourceRoot: string): Promise<string | null> {
   const candidates = [join(sourceRoot, "components"), join(sourceRoot, "..", "components"), join(sourceRoot, "..", "..", "components"), join(sourceRoot, "..", "..", "..", "components")]
-  const componentServers = LOCAL_MCP_SERVERS.filter((server) => server.name !== "xai_grok")
+  // Built-in lfg assets (xai_grok, eval) are not required in upstream component trees.
+  const componentServers = LOCAL_MCP_SERVERS.filter((server) => server.name !== "xai_grok" && server.name !== "eval")
   for (const root of candidates) {
     let ok = true
     for (const server of componentServers) {

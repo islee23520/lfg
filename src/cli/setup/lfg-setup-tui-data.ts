@@ -1,6 +1,6 @@
 import { isRecord } from "../../shared/json"
 import { withReasoningEffort, type LazycodexAgentConfig, type ModelDiscovery, type ReasoningEffortChoice, type ReasoningLevel } from "../models/lfg-models"
-import type { LazycodexAgentModelOverride, LazycodexAgentOverrideMap } from "../../grok/agents/lazycodex-agent-overrides"
+import { slimNativeAgentOverrides, type LazycodexAgentModelOverride, type LazycodexAgentOverrideMap } from "../../grok/agents/lazycodex-agent-overrides"
 import { getAgentRecommendation, type AgentRecommendationOverride } from "../../grok/models/model-recommendations"
 
 export type RecommendationOverrideMap = Readonly<Record<string, AgentRecommendationOverride>>
@@ -196,7 +196,7 @@ export function buildVanillaGrokConfig(
 
   return {
     agentConfig,
-    agentOverrideMap,
+    agentOverrideMap: slimNativeAgentOverrides(agentOverrideMap),
     mapping: { default: defaultModel, fast: explorerModel, reasoning: reasoningModel, coding: codingModel },
   }
 }
@@ -235,29 +235,13 @@ export function formatVanillaSummary(config: VanillaGrokConfig): string {
   ].join("\n")
 }
 
-const VANILLA_RESULTS_ORDER = [
-  "explorer",
-  "reasoning",
-  "coding",
-  "default",
-  "sisyphus",
-  "prometheus",
-  "librarian",
-  "plan",
-  "metis",
-  "momus",
-  "codex-ultrawork-reviewer",
-] as const
-
-/** Per-agent results listing for the vanilla path, matching the proxy path's "Setup results" shape. */
 export function formatVanillaResults(config: VanillaGrokConfig): string {
-  const tierOf = (o: LazycodexAgentModelOverride): string => o.serviceTier ?? "default"
-  const names = [...new Set<string>([...VANILLA_RESULTS_ORDER, ...Object.keys(config.agentOverrideMap)])]
-  return names
-    .filter((name) => config.agentOverrideMap[name] !== undefined)
-    .map((name) => {
-      const override = config.agentOverrideMap[name]
-      return `  ${name}: ${override.model} / ${override.reasoningLevel} (tier: ${tierOf(override)})`
-    })
-    .join("\n")
+  return [
+    `default: ${config.mapping.default}`,
+    `fast: ${config.mapping.fast}`,
+    `reasoning: ${config.mapping.reasoning}`,
+    `coding: ${config.mapping.coding}`,
+    `${Object.keys(config.agentOverrideMap).length} bundled routing profiles will be installed.`,
+    "Advanced details: ~/.grok/omo-agent-overrides.json",
+  ].join("\n")
 }

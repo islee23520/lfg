@@ -1,11 +1,20 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
-import { isBareKey, removeTomlKey, removeTomlSectionsByPrefix, tomlString, upsertSection, upsertTomlKey } from "./lfg-grok-config-toml"
+import { removeTomlKey, removeTomlSectionsByPrefix, tomlString, upsertSection, upsertTomlKey } from "./lfg-grok-config-toml"
 import { upsertModelSections } from "./lfg-grok-model-sections"
 import { aliasGroupKey } from "../models/lfg-model-context-catalog"
 import type { JsonObject } from "../../shared/json"
 import { defaultLazycodexAgentConfig, type LazycodexAgentConfig, type ModelDiscovery } from "../models/lfg-models"
+import { normalizeEngine, type Engine } from "../../core/lfg/external-engine"
+import {
+  BACKEND_ROUTE_AGENT_NAMES,
+  BACKEND_ROUTE_CATEGORY_NAMES,
+  defaultBackendRoutingConfig,
+  isBackendRouteAgentName,
+  normalizeCliBackend,
+  type BackendRoutingConfig,
+} from "../../core/lfg/backend-routing"
 
 export type GrokConfigUpdate = {
   readonly status: "configured"
@@ -18,7 +27,6 @@ export type GrokConfigOptions = {
   readonly apiKey?: string
   readonly agentConfig?: LazycodexAgentConfig
   readonly hostAuthOnly?: boolean
-  /** Full per-agent model+reasoning map (roles + OMO imported + flavour-pack). When present, used for all [omo.agents.*] sections. */
   readonly fullAgentModels?: Readonly<
     Record<
       string,
@@ -32,15 +40,85 @@ export type GrokConfigOptions = {
   >
 }
 
-/** Sections lfg merges in ~/.grok/config.toml. writeGrokModelConfig owns install-time writes; the SessionStart config-loader may only seed models.default from omo.models.default when absent (never overwrite). */
 export const LFG_OWNED_GROK_CONFIG_SECTIONS = [
   "endpoints.models_base_url",
   "models.default",
   "model.*",
-  "omo.models",
   "omo.providers",
-  "omo.agents",
+  "omo.external_engine",
+  "omo.backend_routing",
 ] as const
+
+export async function writeBackendRoutingConfig(home: string, config: BackendRoutingConfig): Promise<string> {
+  const path = join(home, ".grok", "config.toml")
+  const current = await readTextIfExists(path)
+  const withRoot = upsertSection(current, "omo.backend_routing", ["version = 1", `global = ${tomlString(config.global)}`])
+  const withCategories = upsertSection(
+    withRoot,
+    "omo.backend_routing.categories",
+    BACKEND_ROUTE_CATEGORY_NAMES.flatMap((name) => {
+      const backend = config.categories[name]
+      return backend === undefined ? [] : [`${name} = ${tomlString(backend)}`]
+    }),
+  )
+  const next = upsertSection(
+    withCategories,
+    "omo.backend_routing.agents",
+    BACKEND_ROUTE_AGENT_NAMES.map((name) => `${name} = ${tomlString(config.agents[name])}`),
+  )
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, next, "utf8")
+  return path
+}
+
+export async function readBackendRoutingConfig(home: string): Promise<BackendRoutingConfig> {
+  const source = await readTextIfExists(join(home, ".grok", "config.toml"))
+  const defaults = defaultBackendRoutingConfig()
+  const globalValue = readTomlStringKey(source, "omo.backend_routing", "global")
+  const legacyValue = readTomlStringKey(source, "omo.external_engine", "backend")
+  const categories = { ...defaults.categories }
+  const agents = { ...defaults.agents }
+  for (const [name, backend] of readTomlStringSection(source, "omo.backend_routing.agents")) {
+    const normalized = normalizeCliBackend(backend)
+    if (isBackendRouteAgentName(name) && normalized !== null) agents[name] = normalized
+  }
+  const normalizedGlobal = normalizeCliBackend(globalValue) ?? normalizeCliBackend(legacyValue)
+  return {
+    version: 1,
+    global: normalizedGlobal ?? defaults.global,
+    categories,
+    agents,
+  }
+}
+
+export async function writeBackendEnginePreference(home: string, engine: Engine): Promise<string> {
+  const path = join(home, ".grok", "config.toml")
+  const current = await readTextIfExists(path)
+  const next = upsertSection(current, "omo.external_engine", [`backend = ${tomlString(engine)}`])
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, next, "utf8")
+  return path
+}
+
+export async function readBackendEnginePreference(home: string): Promise<Engine | null> {
+  const source = await readTextIfExists(join(home, ".grok", "config.toml"))
+  const section = /(?:^|\n)\[omo\.external_engine]\n([\s\S]*?)(?=\n\[[^\n]+]|$)/.exec(source)?.[1] ?? ""
+  const value = /^\s*backend\s*=\s*["']([^"']+)["']\s*$/m.exec(section)?.[1]
+  return normalizeEngine(value) ?? null
+}
+
+function readTomlStringKey(source: string, section: string, key: string): string | null {
+  return readTomlStringSection(source, section).find(([name]) => name === key)?.[1] ?? null
+}
+
+function readTomlStringSection(source: string, section: string): readonly (readonly [string, string])[] {
+  const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const body = new RegExp(`(?:^|\\n)\\[${escaped}\\]\\n([\\s\\S]*?)(?=\\n\\[[^\\n]+]|$)`).exec(source)?.[1] ?? ""
+  return body.split("\n").flatMap((line) => {
+    const match = /^\s*([A-Za-z0-9_-]+)\s*=\s*["']([^"']+)["']\s*$/.exec(line)
+    return match?.[1] === undefined || match[2] === undefined ? [] : [[match[1], match[2]] as const]
+  })
+}
 
 export async function writeGrokModelConfig(discovery: ModelDiscovery, options: GrokConfigOptions = {}): Promise<GrokConfigUpdate> {
   const home = options.home ?? homedir()
@@ -55,33 +133,14 @@ export async function writeGrokModelConfig(discovery: ModelDiscovery, options: G
     : removeTomlKey(upsertTomlKey(current, "endpoints", "models_base_url", baseUrl), "endpoints", "api_key")
   // hostAuthOnly may leave a bare [endpoints] header with no keys — drop it so Grok does not see junk.
   const endpoints = options.hostAuthOnly === true ? removeEmptyTomlSection(endpointsRaw, "endpoints") : endpointsRaw
-  const agentConfig = options.agentConfig ?? discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
   // When discovery is live, drop only stale [model.*] aliases not in this discovery (keep section
   // order stable for aliases that remain — full strip+reappend reorders and breaks idempotency).
   const modelSource =
     options.hostAuthOnly === true ? endpoints : removeStaleModelSections(endpoints, discovery)
-  const modelConfig = upsertModelSections(
-    upsertSection(modelSource, "models", [`default = ${tomlString(discovery.mapping.default)}`]),
-    discovery,
-    options.hostAuthOnly === true ? null : baseUrl,
-    options.apiKey,
-    current,
-  )
-  let withAgents = upsertOmoAgentSections(modelConfig, agentConfig)
-  if (options.fullAgentModels && Object.keys(options.fullAgentModels).length > 0) {
-    withAgents = upsertAllOmoAgentSections(withAgents, options.fullAgentModels)
-  }
-  const omoModelsLines = [
-    `default = ${tomlString(discovery.mapping.default)}`,
-    `fast = ${tomlString(discovery.mapping.fast)}`,
-    `reasoning = ${tomlString(discovery.mapping.reasoning)}`,
-    `coding = ${tomlString(discovery.mapping.coding)}`,
-  ]
-  if (discovery.modelIds.length > 0) {
-    omoModelsLines.push(`available = [${discovery.modelIds.map((id) => tomlString(id)).join(", ")}]`)
-  }
-  // Drop retired lazycodex.* config namespaces (omo.* + subagents.* are the active surfaces).
-  const next = removeTomlSectionsByPrefix(upsertSection(withAgents, "omo.models", omoModelsLines), "lazycodex")
+  const modelConfig = upsertModelSections(modelSource, discovery, options.hostAuthOnly === true ? null : baseUrl, options.apiKey, current)
+  const withoutOmoModels = removeTomlSectionsByPrefix(modelConfig, "omo.models")
+  const withoutOmoAgents = removeTomlSectionsByPrefix(withoutOmoModels, "omo.agents")
+  const next = removeTomlSectionsByPrefix(withoutOmoAgents, "lazycodex")
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, next, "utf8")
   return { status: "configured", path, modelsBaseUrl: baseUrl }
@@ -144,7 +203,7 @@ export type ModelConfigRefreshResult = {
 
 /**
  * Lightweight refresh of model info + safe model auth into ~/.grok/config.toml.
- * Performs discovery (if provided) and writes lfg-owned sections (endpoints, model.*, omo.models/agents).
+ * Performs discovery (if provided) and writes endpoint and meaningful model-alias sections.
  * Does NOT touch the Grok plugin tree, hooks, or agents TOMLs.
  * Context windows are sourced from the discovery (proxy first, then public LiteLLM catalog enrichment, local wins).
  * api_key is written from the provided apiKey only for single-endpoint discovery.
@@ -191,44 +250,6 @@ async function readTextIfExists(path: string): Promise<string> {
     }
     throw error
   }
-}
-
-function upsertOmoAgentSections(source: string, agentConfig: LazycodexAgentConfig): string {
-  return Object.entries(agentConfig).reduce(
-    (next, [agentName, setting]) =>
-      upsertSection(next, `omo.agents.${agentName}`, [
-        `model = ${tomlString(setting.model)}`,
-        `reasoning_level = ${tomlString(setting.reasoningLevel)}`,
-      ]),
-    source,
-  )
-}
-
-function upsertAllOmoAgentSections(
-  source: string,
-  full: Readonly<Record<string, { readonly model: string; readonly reasoningLevel: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string }>>,
-): string {
-  return Object.entries(full).reduce(
-    (next, [agentName, setting]) =>
-      isBareKey(agentName)
-        ? upsertSection(next, `omo.agents.${agentName}`, agentOverrideTomlLines(setting))
-        : next,
-    source,
-  )
-}
-
-function agentOverrideTomlLines(setting: { readonly model: string; readonly reasoningLevel: string; readonly modelFallback?: string; readonly modelFallbackReasoningLevel?: string }): readonly string[] {
-  const lines: string[] = [
-    `model = ${tomlString(setting.model)}`,
-    `reasoning_level = ${tomlString(setting.reasoningLevel)}`,
-  ]
-  if (setting.modelFallback !== undefined) {
-    lines.push(`model_fallback = ${tomlString(setting.modelFallback)}`)
-  }
-  if (setting.modelFallbackReasoningLevel !== undefined) {
-    lines.push(`model_fallback_reasoning_level = ${tomlString(setting.modelFallbackReasoningLevel)}`)
-  }
-  return lines
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

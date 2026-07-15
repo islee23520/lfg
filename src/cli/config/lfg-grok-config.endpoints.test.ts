@@ -106,11 +106,7 @@ describe("grok config endpoints (#24)", () => {
     expect(section(config, 'model."glm-5.2"')).not.toContain("api_key")
     expect(section(config, 'model."glm-5.2"')).not.toContain("env_key")
     expect(config).not.toContain("sk-global-should-not-leak")
-    // [omo.models] registry lists every discovered model (OpenGrok registry).
-    expect(section(config, "omo.models")).toContain('available = [')
-    expect(section(config, "omo.models")).toContain('"grok-4.3"')
-    expect(section(config, "omo.models")).toContain('"gpt-5.5"')
-    expect(section(config, "omo.models")).toContain('"glm-5.2"')
+    expect(config).not.toContain("[omo.models]")
   })
 
   test("does not write a global api key to fallback-base provider sections", async () => {
@@ -191,9 +187,8 @@ describe("grok config endpoints (#24)", () => {
     // Bare empty [endpoints] must not linger after host-auth-only strip.
     expect(config).not.toContain("[endpoints]")
     expect(config).not.toContain("models_base_url")
-    expect(section(config, 'model."grok-build"')).toContain('model = "grok-build"')
-    expect(section(config, 'model."grok-build"')).not.toContain("base_url")
-    expect(section(config, 'model."grok-build"')).not.toContain("api_key")
+    expect(section(config, 'model."grok-build"')).toBe("")
+    expect(section(config, 'model."grok-3-mini-fast"')).toBe("")
     expect(section(config, 'model."gpt-5.5"')).toBe("")
     expect(config).not.toContain('base_url = "http://127.0.0.1:8317/v1"')
   })

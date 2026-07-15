@@ -50,7 +50,7 @@ function companionHelp(): string {
     "lfg mcp companion — optional bridge to independent @islee23520/lfg-mcp",
     "",
     "  lfg mcp companion status",
-    "  lfg mcp companion install [all|xai|zai-vision|zai-web-search|zai-web-reader|zai-zread]",
+    "  lfg mcp companion install [all|xai]",
     "  lfg mcp companion uninstall",
     "",
     "Direct (without lfg):",
@@ -59,7 +59,7 @@ function companionHelp(): string {
     "",
     "Note: core lfg already installs built-in xai_grok MCP (Grok enhanced web/X search)",
     "via `lfg setup --run` → [mcp_servers.xai_grok] (codex-xai-oauth equivalent for GrokBuild).",
-    "Use companion mainly for optional Z.AI packages or a separate lfg-mcp plugin tree.",
+    "Use companion when you want a separate lfg-mcp plugin tree.",
   ].join("\n")
 }
 

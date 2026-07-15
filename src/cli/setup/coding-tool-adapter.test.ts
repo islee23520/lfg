@@ -39,7 +39,7 @@ describe("coding tool adapter selection", () => {
       id: "grok",
       command: "grok",
       args: [],
-      requiredFiles: ["~/.grok/plugins/lfg", "~/.grok/lfg.json"],
+      requiredFiles: ["~/.grok/plugins/lfg", "~/.grok/config.toml"],
       fallbackAdapter: null,
       failureBehavior: "Use GrokBuild host failure semantics; lfg does not own Grok host auth or retry policy.",
     })

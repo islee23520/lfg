@@ -69,7 +69,7 @@ For feature intake from a new upstream OMO/lazycodex version:
 | `teammode` | GrokBuild spawn_subagent transport + host built-ins and lfg OMO agents; Codex multi_agent_v2/codex_app still available on Codex | Grok-adapted |
 | `lazycodex-executor-verify` | T3: pure `verifySubagentStopEvidence` in Sisyphus SubagentStop; no dedicated host-enforced CLI (host dependency class: Stop/SubagentStop hook) | Deferred |
 | `workflow-selector` | Upstream removed from omo-codex components (#5745); lfg optional native opt-in retained, Deferred pending GrokBuild host receipt | Deferred |
-| `difficulty-tier-workers` | Host-neutral resolver + Grok roles/agents/prompts + config model/effort + orchestrator `spawn_subagent` (`lazycodex-worker-low|medium|high`); not host auto-classification | Grok-adapted |
+| `difficulty-tier-workers` | LOW/MEDIUM/HIGH sizing for external `lfg handoff plan --engine gpt`; legacy worker identities retained but disabled for Grok implementation | Grok-adapted |
 | `plan-mode-interception` | No verified Grok `enter_plan_mode` intercept; `/ulw-plan` is hook-time guidance only (host dependency class: missing host surface; T9 residual WAIVE #102) | Deferred |
 | `bootstrap` | lfg does not bootstrap Codex runtime deps from Grok (host dependency class: policy / no Codex bootstrap from Grok; T9 residual WAIVE #102) | Deferred |
 | `auto-update` | Updates stay user-controlled; hook not generated | Unsupported |
@@ -105,28 +105,23 @@ For feature intake from a new upstream OMO/lazycodex version:
 - `lazycodex-executor-verify` (host dependency class: Stop/SubagentStop hook) — pure function MVP + T3: `verifySubagentStopEvidence` wired into `lfg-sisyphus-hooks.mjs` SubagentStop for coding|hephaestus|builder (`.omo/evidence` WARNING/VERIFIED + fail-closed malformed JSON; e2e proven). Remains **Deferred**: no dedicated component CLI / host-enforced block-or-continue; follow-up **#98**.
 - `teammode` — **Grok-adapted** via `spawn_subagent` transport: host built-ins (`general-purpose`, `explore`, `plan`) + lfg OMO agents (`hephaestus`, `explorer`, `coding`, …). Durable `.omo/teams` + `team-ledger`. Residual: no `codex_app`/MultiAgentV2 mailbox on Grok (leader + artifacts). Codex transports remain for Codex hosts.
 - `workflow-selector` — **upstream removed** from omo-codex components (#5745 on path to v4.16.3). lfg optional `lfg-native-workflow-selector.mjs` retained as historical opt-in; remains **Deferred** (no Grok-adapted claim without authenticated host receipt).
-- `difficulty-tier-workers` — **Grok-adapted:** host-neutral `resolveDifficultyTierRoute` + installed `lazycodex-worker-low|medium|high` roles/models/effort; start-work/ulw-loop guide orchestrator `spawn_subagent` tier selection. Residual honesty: not host-enforced automatic classification, OpenCode transforms, Codex `agent_type`, or MultiAgentV2 mailbox.
+- `difficulty-tier-workers` — **Grok-adapted:** host-neutral `resolveDifficultyTierRoute` sizes the external Codex work package and returns `lfg --json handoff plan --role coding --engine gpt`. Legacy `lazycodex-worker-low|medium|high` identities remain migration metadata only; Grok disables the LazyCodex implementer route.
 - `plan-mode-interception` (host dependency class: missing host surface) — **T9 residual WAIVE** (issue #102): `/ulw-plan` is hook-time guidance only; no native `enter_plan_mode` intercept claimed.
 - `bootstrap` (host dependency class: policy / no Codex bootstrap from Grok) — **T9 residual WAIVE** (issue #102): policy hold; lfg does not bootstrap Codex runtime deps from Grok.
-- Z.AI vision MCP (#89) is **shipped** via `lfg zai mcp install vision` (built-in, not Deferred). Configures `[mcp_servers.zai-vision]` in `~/.grok/config.toml`. Full companion plugin (`@islee23520/lfg-mcp`) provides xAI Grok MCP runtime as decoupled companion.
 
 **Model-family detector gap** (Phase 2 risk, now mitigated): `model-core` family detectors (`isGptModel`, `isGeminiModel`, `isClaudeOpus*Model`, …) do not match `xai/grok-*` IDs; the Grok adapter supplies `availableModels`/`connectedProviders` normalized to `provider/model-id` and maps Grok models into variant families so they don't fall to the `default` variant.
 
 **Prompt-builder gap** (Phase 4 residual): bundled `src/core/omo/prompts-core/prompts/*` markdown covers atlas/prometheus/ultrawork/mode, and `src/core/omo/agent-builder` owns the agent-builder foundation plus a curated builtin registry. Full Sisyphus/Hephaestus/Sisyphus-junior equivalence is still host-bound and must stay Deferred unless those builders are ported and verified against a real Grok runtime surface.
 
-**MCP Companion & Z.AI Packaging Notes (release train):**
-- `@islee23520/lfg-mcp` ships as **decoupled companion** (separate npm publish, not in lfg core payload). Provides xAI Grok MCP runtime under `~/.grok/plugins/lfg-mcp` + Z.AI integration. Preferred install: `npx @islee23520/lfg-mcp setup` or bridged `lfg mcp companion install/status`.
-- Core lfg includes thin `lfg zai` subcommands for auth (`set-api-key`/`logout` to `~/.grok/zai-mcp-auth.json`) and `[mcp_servers.zai-*]` config.toml entries (vision, web-search, web-reader, zread) without companion. Use companion for full plugin tree + xAI stdio ownership; use built-in for minimal config.
+**MCP Companion Packaging Notes (release train):**
+- `@islee23520/lfg-mcp` ships as **decoupled companion** (separate npm publish, not in lfg core payload). It provides an xAI Grok MCP runtime under `~/.grok/plugins/lfg-mcp`. Preferred install: `npx @islee23520/lfg-mcp setup` or bridged `lfg mcp companion install/status`.
 - **Smoke checklist:**
   1. `npm run verify` (build + parity + test + typecheck + self-test)
   2. `node dist/lfg.js --json setup --run` confirms core + no companion bleed
-  3. `node dist/lfg.js zai mcp status` (expects auth-required without key)
-  4. `lfg zai auth set-api-key --api-key sk-test-zai --mode ZAI` + `lfg zai mcp install all` + `lfg zai mcp status`
-  5. Verify `~/.grok/config.toml` has zai sections + no leaked keys in output
-  6. `npm run assert-omo-parity` (guards MCP manifests, inventory)
-  7. Confirm `lfgIsPlugin: false`, `companionPackage: "lfg-grok-install"` contract
-  8. Post-setup Grok `/mcps` shows xai/zai entries (local stdio vs remote); avoid OAuth shortcut for xai_grok
-- Release discipline: lfg-mcp follows independent train (own pre-publish gates). Z.AI uses official @z_ai/mcp-server via npx; keep decoupled to avoid monolith bloat. No runtime changes to core lfg install for companion.
+  3. `npm run assert-omo-parity` (guards MCP manifests, inventory)
+  4. Confirm `lfgIsPlugin: false`, `companionPackage: "lfg-grok-install"` contract
+  5. Post-setup Grok `/mcps` shows the xAI entry; avoid OAuth shortcuts for xai_grok
+- Release discipline: lfg-mcp follows an independent train with its own pre-publish gates. No runtime changes to core lfg install are required for the companion.
 
 ## Architecture & Data Flow
 
@@ -268,12 +263,13 @@ node dist/lfg.js --json setup --run   # structured Grok install result
 - **Bridge wrapping must be idempotent** — peel outer bridge layers, then apply exactly one.
 - **Status honesty:** parity status vocab is `Implemented` / `Grok-adapted` / `Manifest-only` / `Remote URL manifest-only` / `Unsupported` / `Deferred`. Do not claim Manifest-only MCP stubs as behavioral ports.
 - **No dead aliases / commented-out removals** — remove obsolete code at the source.
+- **Sisyphus low-nudge policy:** assign external Codex once with a complete brief, then use status/poll/watch as passive reads only. Never send a midflight progress request, reminder, status check, speculative correction, repeated instruction, or steer. Contact Codex again only after a terminal RESULT or when the user explicitly changes scope; deliver a scope change as one consolidated delta.
 
 ## Important Files
 
 ### Entry points & bin wiring
 - `bin/lfg.js` — POSIX `sh` shim → `node dist/lfg.js` (tries `$script_dir/../dist/lfg.js`, then nested `@islee23520/lfg/dist/lfg.js`, else errors "run npm run build first"). This is the npm package bin that `npx`/global install exposes; it is the plain lfg tool, NOT the grok wrapper.
-- `~/.grok/bin/lfg` — the **grokbuild wrapper**, generated by `ensureGrokBinLfgWrapper(home)` during `lfg setup --run` (both fresh and preserve branches, idempotent, chmod 0755). It lives co-located with `~/.grok/bin/grok` (the PATH dir Grok itself uses), so `lfg` is on PATH wherever `grok` is. lfg-owned first args (`setup`/`xai`/`zai`/`mcp`/`ulw`/`ulw-loop`/`help` and lfg-only flags) exec `npx -y @islee23520/lfg "$@"`; bare interactive and every other invocation (`-p`, `-m`/`--model`, `--yolo`, `login`, `models`, …) forward raw args to `$HOME/.grok/bin/grok` (PATH `grok` fallback). Owner of the wrapper: `src/grok/install/grok-bin-lfg-wrapper.ts`.
+- `~/.grok/bin/lfg` — the **grokbuild wrapper**, generated by `ensureGrokBinLfgWrapper(home)` during `lfg setup --run` (both fresh and preserve branches, idempotent, chmod 0755). It lives co-located with `~/.grok/bin/grok` (the PATH dir Grok itself uses), so `lfg` is on PATH wherever `grok` is. lfg-owned first args (`setup`/`xai`/`mcp`/`ulw`/`ulw-loop`/`help` and lfg-only flags) exec `npx -y @islee23520/lfg "$@"`; bare interactive and every other invocation (`-p`, `-m`/`--model`, `--yolo`, `login`, `models`, …) forward raw args to `$HOME/.grok/bin/grok` (PATH `grok` fallback). Owner of the wrapper: `src/grok/install/grok-bin-lfg-wrapper.ts`.
 - `src/cli/command/lfg.ts` — process entry: `main()` → `parseArgs()` → `dispatch()` → `emit()`.
 - `package.json` — `@islee23520/lfg@0.1.26`, `"type": "module"`, single bin, `files: [bin, dist, skills, README.md, AGENTS.md, src/AGENTS.md]`.
 

@@ -12,22 +12,28 @@ import { isRecord, type JsonObject } from "../../shared/json"
 import { refreshGrokModelConfig } from "../config/lfg-grok-config"
 import { resolveGrokApiKey } from "../../grok/install/grok-api-key"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
-import { readLfgRuntimeConfigFile } from "../../grok/models/lfg-runtime-config"
+
 import { buildRefreshExecutedJson, refreshPlan, runRefreshWizard, setupPlan } from "../setup/setup-plan"
 import { dispatchXaiAuthCommand } from "../xai/xai-auth-command"
-import { dispatchZaiCommand } from "../zai/zai-command"
 import { dispatchMcpCompanionCommand } from "../mcp/companion-command"
 import { dispatchClaudeCommand } from "../claude/claude-command"
 import { codingToolLaunchPlan, formatLaunchError, launchCodingToolAdapter } from "./coding-tool-launcher"
 import { loadBundledDefaultOmoOverrides } from "../../grok/agents/lazycodex-agent-overrides"
 import { buildVanillaGrokDiscovery } from "../setup/lfg-setup-tui-data"
 import { dispatchUlwLoopArgv } from "../ulw-loop/lfg-ulw-loop.js"
+import { dispatchHandoffCommand } from "./handoff-command"
+import { dispatchStartWorkCommand } from "./start-work-command"
+import { dispatchUlwPlanCommand } from "./ulw-plan-command"
+import { dispatchOrchestratorCommand } from "./orchestrator-command"
+import { dispatchUninstallCommand } from "./uninstall-command"
+import { dispatchAccountsCommand } from "./accounts-command"
 import {
   CODING_TOOL_ADAPTER_IDS,
   DEFAULT_CODING_TOOL_ADAPTER,
   isCodingToolAdapterId,
   type CodingToolAdapterId,
 } from "../setup/coding-tool-adapter"
+import { CLI_BACKENDS, DEFAULT_CLI_BACKEND, normalizeCliBackend, type CliBackend } from "../../core/lfg/backend-routing"
 
 type ParsedArgs = {
   readonly json: boolean
@@ -42,6 +48,9 @@ type ParsedArgs = {
   readonly codingToolAdapter: CodingToolAdapterId
   readonly codingToolAdapterExplicit: boolean
   readonly codingToolAdapterError: string | null
+  readonly backendEngine: CliBackend
+  readonly backendEngineExplicit: boolean
+  readonly backendEngineError: string | null
   readonly reasoningEffort: ReasoningEffortChoice
   readonly reasoningEffortError: string | null
   readonly baseUrl: string | null
@@ -52,7 +61,6 @@ type ParsedArgs = {
   readonly xaiOauthExpiresIn: string | null
   readonly xaiOauthTokenEndpoint: string | null
   readonly xaiOauthTokenType: string | null
-  readonly zaiMode: string | null
   readonly agent: string | null
   readonly tier: ServiceTier | null
   readonly positional: readonly string[]
@@ -90,7 +98,28 @@ async function main(argv: readonly string[]): Promise<number> {
       return dispatchUlwLoopArgv(ulwArgv)
     }
 
-    const result = await dispatch(parsed)
+    const handoffArgv = handoffCommandArgv(argv)
+    const startWorkArgv = startWorkCommandArgv(argv)
+    const ulwPlanArgv = ulwPlanCommandArgv(argv)
+    const result = handoffArgv !== null
+      ? await dispatchHandoffCommand(handoffArgv, {
+          json: parsed.json,
+          noProbe: parsed.noProbe,
+          env: process.env,
+        })
+      : startWorkArgv !== null
+        ? await dispatchStartWorkCommand(startWorkArgv, {
+            json: parsed.json,
+            noProbe: parsed.noProbe,
+            env: process.env,
+          })
+        : ulwPlanArgv !== null
+          ? await dispatchUlwPlanCommand(ulwPlanArgv, {
+              json: parsed.json,
+              noProbe: parsed.noProbe,
+              env: process.env,
+            })
+        : await dispatch(parsed)
 
     // Bare `lfg setup` (the human guided command, no --json no --run) must never dump a raw
     // plan object or full status JSON as primary output. The wizard owns the entire conversation:
@@ -102,7 +131,7 @@ async function main(argv: readonly string[]): Promise<number> {
       parsed.positional[0] === "setup" && parsed.positional.length === 1 &&
       !parsed.refresh
 
-    if (parsed.json) {
+    if (parsed.json || handoffArgv !== null || startWorkArgv !== null || ulwPlanArgv !== null) {
       // --json is the machine/automation surface. Always emit the structured value.
       emit(result, true)
     } else if (parsed.run || isSetupForceShortcut(parsed)) {
@@ -139,6 +168,9 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
   if (args.codingToolAdapterError !== null) {
     return invalidCodingToolAdapterJson(args.codingToolAdapterError)
   }
+  if (args.backendEngineError !== null) {
+    return { ok: false, status: "invalid_backend_engine", error: args.backendEngineError, supportedBackendEngines: [...CLI_BACKENDS] }
+  }
   if (args.reasoningEffortError !== null) {
     return { ok: false, status: "invalid_reasoning_effort", error: args.reasoningEffortError, supportedReasoningEffort: ["auto", "low", "medium", "high", "xhigh"] }
   }
@@ -164,15 +196,6 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
       oauthExpiresIn: args.xaiOauthExpiresIn,
       oauthTokenEndpoint: args.xaiOauthTokenEndpoint,
       oauthTokenType: args.xaiOauthTokenType,
-    })
-  }
-  if (command === "zai") {
-    const rest = effectivePos.slice(3)
-    return dispatchZaiCommand(subcommand, third, {
-      json: args.json,
-      apiKeyFlag: args.xaiApiKey,
-      modeFlag: args.zaiMode,
-      rest,
     })
   }
   if (command === "mcp" && subcommand === "companion") {
@@ -201,6 +224,24 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
       ...(registryVersion === null ? {} : { registryVersion }),
     })
     return { ...doctor, lfgIsPlugin: false }
+  }
+  if (command === "orchestrator") {
+    return dispatchOrchestratorCommand(effectivePos.slice(1), {
+      json: args.json,
+      env: process.env,
+    })
+  }
+  if (command === "uninstall") {
+    return dispatchUninstallCommand({ home: resolveGrokSetupHome(process.env), argv: effectivePos.slice(1) })
+  }
+  if (command === "accounts") {
+    if (subcommand === undefined && !args.json) {
+      const { runAccountsTui, shouldUseAccountsTui } = await import("./accounts-tui.js")
+      if (shouldUseAccountsTui({ input: process.stdin, output: process.stdout })) {
+        return runAccountsTui({ home: resolveGrokSetupHome(process.env) })
+      }
+    }
+    return dispatchAccountsCommand(effectivePos.slice(1), { home: resolveGrokSetupHome(process.env) })
   }
   if (command === "set-tier") {
     const home = resolveGrokSetupHome(process.env)
@@ -295,9 +336,10 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
       force: args.force || isForceOnly,
       installOnly: args.installOnly,
       codingToolAdapter: setupCodingToolAdapter,
+      ...(args.backendEngineExplicit ? { backendEngine: args.backendEngine } : {}),
     })
   }
-  const plan = setupPlan(presetResolved, args.preset, setupCodingToolAdapter)
+  const plan = setupPlan(presetResolved, args.preset, setupCodingToolAdapter, args.backendEngine)
   if (args.json) {
     return plan
   }
@@ -313,7 +355,10 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     // legacy readline wizard so that stdout contains only the classic oMo... steps
     // with no Clack framing or @clack/prompts calls. This is required for C002 parity.
     if (args.noTui) {
-      return runInstallWizard(plan, presetResolved, { codingToolAdapter: setupCodingToolAdapter })
+      return runInstallWizard(plan, presetResolved, {
+        codingToolAdapter: setupCodingToolAdapter,
+        ...(args.backendEngineExplicit ? { backendEngine: args.backendEngine } : {}),
+      })
     }
     const { shouldUseSetupTui, runSetupTui } = await import("../setup/lfg-setup-tui.js")
     if (shouldUseSetupTui(args, { check: false, input: process.stdin, output: process.stdout })) {
@@ -331,7 +376,7 @@ async function dispatch(args: ParsedArgs): Promise<JsonObject | string> {
     }
   }
 
-  return runInstallWizard(plan, presetResolved, { codingToolAdapter: setupCodingToolAdapter })
+  return runInstallWizard(plan, presetResolved, { codingToolAdapter: setupCodingToolAdapter, backendEngine: args.backendEngineExplicit ? args.backendEngine : undefined })
 }
 
 function isInteractiveInstall(args: ParsedArgs): boolean {
@@ -344,16 +389,39 @@ function isSetupForceShortcut(args: ParsedArgs): boolean {
   return !args.json && !args.run && args.positional[0] === "setup" && (args.positional[1] === "--force" || args.positional[1] === "force")
 }
 
-async function resolveSetupCodingToolAdapter(args: ParsedArgs, home: string): Promise<CodingToolAdapterId> {
+async function resolveSetupCodingToolAdapter(args: ParsedArgs, _home: string): Promise<CodingToolAdapterId> {
   if (args.codingToolAdapterExplicit) {
     return args.codingToolAdapter
   }
-  const config = await readLfgRuntimeConfigFile(home)
-  return config?.coding_tool_adapter ?? DEFAULT_CODING_TOOL_ADAPTER
+  // Grok-only; retired lfg.json is not consulted for adapter selection.
+  return DEFAULT_CODING_TOOL_ADAPTER
 }
 
 function isBareLaunch(args: ParsedArgs): boolean {
   return args.positional.length === 0 && !args.run && !args.force && !args.refresh && !args.installOnly
+}
+
+function handoffCommandArgv(argv: readonly string[]): readonly string[] | null {
+  const globalFlags = new Set(["--json", "--no-probe"])
+  const withoutGlobals = argv.filter((arg) => !globalFlags.has(arg))
+  return withoutGlobals[0] === "handoff" ? withoutGlobals.slice(1) : null
+}
+
+function startWorkCommandArgv(argv: readonly string[]): readonly string[] | null {
+  const globalFlags = new Set(["--json", "--no-probe"])
+  const withoutGlobals = argv.filter((arg) => !globalFlags.has(arg))
+  if (withoutGlobals[0] === "plan" && withoutGlobals[1] === "start-work") return withoutGlobals.slice(1)
+  if (withoutGlobals[0] === "start-work" && withoutGlobals[1] === "launch") return withoutGlobals.slice(1)
+  return null
+}
+
+function ulwPlanCommandArgv(argv: readonly string[]): readonly string[] | null {
+  const globalFlags = new Set(["--json", "--no-probe"])
+  const withoutGlobals = argv.filter((arg) => !globalFlags.has(arg))
+  if (withoutGlobals[0] === "plan" && (withoutGlobals[1] === "ulw-plan" || withoutGlobals[1] === "codex")) {
+    return withoutGlobals.slice(1)
+  }
+  return null
 }
 
 function invalidCodingToolAdapterJson(error: string): JsonObject {
@@ -375,7 +443,6 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let xaiOauthExpiresIn: string | null = null
   let xaiOauthTokenEndpoint: string | null = null
   let xaiOauthTokenType: string | null = null
-  let zaiMode: string | null = null
   let agent: string | null = null
   let tier: ServiceTier | null = null
   let preset: SetupPreset = DEFAULT_SETUP_PRESET
@@ -383,6 +450,9 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let codingToolAdapter: CodingToolAdapterId = DEFAULT_CODING_TOOL_ADAPTER
   let codingToolAdapterExplicit = false
   let codingToolAdapterError: string | null = null
+  let backendEngine: CliBackend = DEFAULT_CLI_BACKEND
+  let backendEngineExplicit = false
+  let backendEngineError: string | null = null
   let reasoningEffort: ReasoningEffortChoice = DEFAULT_REASONING_EFFORT
   let reasoningEffortError: string | null = null
   for (let index = 0; index < argv.length; index += 1) {
@@ -420,6 +490,21 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         continue
       }
       codingToolAdapterError = `Unsupported coding tool adapter: ${typeof value === "string" ? value : ""}`
+      if (typeof value === "string") {
+        index += 1
+      }
+      continue
+    }
+    if (arg === "--backend-engine") {
+      const value = argv[index + 1]
+      const engine = normalizeCliBackend(value)
+      if (engine !== null) {
+        backendEngine = engine
+        backendEngineExplicit = true
+        index += 1
+        continue
+      }
+      backendEngineError = `Unsupported backend engine: ${typeof value === "string" ? value : ""}`
       if (typeof value === "string") {
         index += 1
       }
@@ -502,14 +587,6 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         continue
       }
     }
-    if (arg === "--mode") {
-      const value = argv[index + 1]
-      if (typeof value === "string") {
-        zaiMode = value
-        index += 1
-        continue
-      }
-    }
     if (arg === "--agent") {
       const value = argv[index + 1]
       if (typeof value === "string") {
@@ -547,6 +624,9 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     codingToolAdapter,
     codingToolAdapterExplicit,
     codingToolAdapterError,
+    backendEngine,
+    backendEngineExplicit,
+    backendEngineError,
     reasoningEffort,
     reasoningEffortError,
     baseUrl,
@@ -557,7 +637,6 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     xaiOauthExpiresIn,
     xaiOauthTokenEndpoint,
     xaiOauthTokenType,
-    zaiMode,
     agent,
     tier,
     positional,
@@ -592,7 +671,10 @@ function help(): string {
     "  lfg",
     "  lfg setup",
     "  lfg setup config",
-    "  lfg doctor                                 # verify install + purge invalid model settings",
+    "  lfg --json uninstall [--dry-run] [--yes] [--keep-config] [--keep-overrides] [--cwd PATH] [--purge-project-orchestrator]",
+    "  lfg doctor                                 # verify install + Codex requirement + optional topology tools",
+    "  lfg accounts                                # Clack account manager",
+    "  lfg --json accounts list|add|remove|use|rotate|status|enable|disable [--name NAME] [--from-auth PATH]",
     "  lfg set-tier --agent <name> --tier default|fast  # flip model-id tier (Grok has no service_tier host field)",
     "  lfg xai auth status",
     "  lfg xai auth detect [--base-url URL] [--no-probe]",
@@ -601,15 +683,14 @@ function help(): string {
     "    (omit --api-key to auto-select via detection algorithm)",
     "  lfg xai auth set-oauth --access-token TOKEN --refresh-token TOKEN --expires-at ISO_TIME",
     "  lfg xai auth logout",
-    "  lfg zai auth status",
-    "  lfg zai auth set-api-key [--api-key KEY] [--mode ZAI|ZHIPU]",
-    "  lfg zai mcp status",
-    "  lfg zai mcp install all|vision|web-search|web-reader|zread",
-    "  lfg zai mcp uninstall all|vision|web-search|web-reader|zread",
     "  lfg mcp companion status|install|uninstall   # independent @islee23520/lfg-mcp plugin",
     "  lfg claude inventory|skills|plugins          # read Claude Code plugins + skills",
     "  lfg claude skill <name> [--body]             # Claude skill metadata / SKILL.md",
     "  lfg claude plugin <name>                     # Claude plugin metadata",
+    "  lfg --json handoff plan [flags]               # plan Codex handoff (registers orchestrator thread)",
+    "  lfg --json plan start-work [--plan PATH] [--focus TEXT]  # dry-run Codex $start-work launch",
+    "  lfg --json plan ulw-plan --focus TEXT [--cwd PATH]  # dry-run Codex $ulw-plan launch",
+    "  lfg --json orchestrator status|ask|thread|poll|answer  # multi-Codex CEO inbox under .omo/orchestrator",
     "  lfg ulw-loop <subcommand>                    # durable .omo/ulw-loop CLI",
     "  lfg ulw <subcommand>                         # alias for ulw-loop",
     "",
@@ -622,6 +703,7 @@ function help(): string {
     "  lfg --json                  # prints the Grok launch plan without spawning",
     "",
     "Automation:",
+    "  lfg setup                                  # TUI: requires Codex CLI; aborts before writes when absent",
     "  lfg --json setup",
     "  lfg --json setup --run",
     "  lfg setup --run",
@@ -632,6 +714,7 @@ function help(): string {
     "  lfg --json setup --preset auto",
     "  lfg --json setup --preset grok",
     "  lfg --json setup --reasoning-effort auto|low|medium|high|xhigh",
+    "  lfg --json setup --run --backend-engine grok|codex",
     "  lfg --json setup --run --force",
     "  lfg --json setup --run --install-only",
     "  lfg setup --run --install-only",
@@ -657,6 +740,7 @@ function help(): string {
     "",
     "Setup run implementation:",
     `  ${INTERNAL_GROK_INSTALL_COMMAND}`,
+    "  Codex CLI is required. LazyCodex is a bundled handoff facade and is never installed or run by setup.",
   ].join("\n")
 }
 

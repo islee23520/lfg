@@ -1,7 +1,7 @@
 import { access, readFile } from "node:fs/promises"
 import { isAbsolute, join, resolve } from "node:path"
 
-export const EXPECTED_MCP_SERVERS = ["ast_grep", "grep_app", "context7", "git_bash", "lsp", "xai_grok"] as const
+export const EXPECTED_MCP_SERVERS = ["ast_grep", "grep_app", "context7", "git_bash", "lsp", "xai_grok", "eval"] as const
 export const REMOTE_MCP_SERVERS = {
   grep_app: "https://mcp.grep.app",
   context7: "https://mcp.context7.com/mcp",
@@ -11,6 +11,7 @@ export const LOCAL_MCP_SERVERS = [
   { name: "git_bash", runtimeDir: "git-bash-mcp", componentDir: "git-bash" },
   { name: "lsp", runtimeDir: "lsp-daemon", componentDir: "lsp" },
   { name: "xai_grok", runtimeDir: "xai-grok-mcp", componentDir: "xai-grok" },
+  { name: "eval", runtimeDir: "eval-mcp", componentDir: "eval" },
 ] as const
 
 export type LocalMcpServer = (typeof LOCAL_MCP_SERVERS)[number]

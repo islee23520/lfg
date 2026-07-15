@@ -114,6 +114,36 @@ describe("model-core", () => {
     expect(AGENT_MODEL_REQUIREMENTS.hephaestus?.fallbackChain.length).toBeGreaterThan(0);
   });
 
+  test("agent/category chains keep OMO providers first and Grok xai last", async () => {
+    const { CATEGORY_MODEL_REQUIREMENTS } = await import("./category-model-requirements");
+
+    for (const [name, req] of Object.entries(AGENT_MODEL_REQUIREMENTS)) {
+      const chain = req.fallbackChain;
+      expect(chain.length, name).toBeGreaterThan(1);
+      // First entry is never pure-xai (OMO primary comes first).
+      expect(chain[0]?.providers.includes("xai") && chain[0]?.providers.length === 1, name).toBe(false);
+      // Last entry is Grok safety net.
+      const last = chain[chain.length - 1]!;
+      expect(last.providers, name).toContain("xai");
+      expect(last.model, name).toMatch(/^grok/);
+    }
+
+    for (const [name, req] of Object.entries(CATEGORY_MODEL_REQUIREMENTS)) {
+      const chain = req.fallbackChain;
+      expect(chain.length, name).toBeGreaterThan(1);
+      expect(chain[0]?.providers.includes("xai") && chain[0]?.providers.length === 1, name).toBe(false);
+      const last = chain[chain.length - 1]!;
+      expect(last.providers, name).toContain("xai");
+      expect(last.model, name).toMatch(/^grok/);
+    }
+
+    // Hephaestus remains GPT-first but activates on pure Grok via xai in requiresProvider.
+    expect(AGENT_MODEL_REQUIREMENTS.hephaestus?.requiresProvider).toContain("openai");
+    expect(AGENT_MODEL_REQUIREMENTS.hephaestus?.requiresProvider).toContain("xai");
+    expect(AGENT_MODEL_REQUIREMENTS.sisyphus?.fallbackChain[0]?.model).toBe("claude-opus-4-7");
+    expect(CATEGORY_MODEL_REQUIREMENTS["visual-engineering"]?.fallbackChain[0]?.model).toBe("gemini-3.1-pro");
+  });
+
   test("transformModelForProvider is identity for Grok models", () => {
     expect(transformModelForProvider("xai", "grok-4.5")).toBe("grok-4.5");
     expect(transformModelForProvider("xai", "grok-3-mini-fast")).toBe("grok-3-mini-fast");

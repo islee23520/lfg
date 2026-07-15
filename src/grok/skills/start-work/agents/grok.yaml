@@ -1,0 +1,9 @@
+interface:
+  display_name: "(lfg) start-work"
+  short_description: "Route approved plan execution to Codex start-work"
+  search_terms:
+    - "start-work"
+    - "start work"
+    - "execute plan"
+    - "resume plan"
+  default_prompt: "Use /start-work only to select and monitor the plan in Grok. Never execute product work in-host; run lfg --json plan start-work so external Codex invokes $start-work. The command registers its RESULT path in the durable orchestrator inbox; hook context reminds Grok to poll it but does not hard-block tools."

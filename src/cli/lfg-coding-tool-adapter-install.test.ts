@@ -48,12 +48,37 @@ describe("lfg coding tool adapter install", () => {
       },
     })
 
-    const configRaw = await readFile(join(home, ".grok", "lfg-config.jsonc"), "utf8")
-    expect(configRaw).toContain('"coding_tool_adapter": "grok"')
+    // Settings live only in config.toml; retired lfg.json / lfg-config.jsonc are not written.
+    const configToml = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    expect(configToml).toContain("[omo.models]")
+    expect(result.json).toMatchObject({
+      lfgConfigPath: join(home, ".grok", "config.toml"),
+    })
+    await expect(readFile(join(home, ".grok", "lfg.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(home, ".grok", "lfg-config.jsonc"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(home, ".grok", "lfg-config.schema.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    })
+  }, 15_000)
 
-    const runtimeRaw = await readFile(join(home, ".grok", "lfg.json"), "utf8")
-    const runtimeConfig = JSON.parse(runtimeRaw) as { readonly coding_tool_adapter?: string }
-    expect(runtimeConfig.coding_tool_adapter).toBe("grok")
+  test("setup --run deletes pre-existing retired lfg.json / jsonc / schema", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-grok-adapter-retire-"))
+    await mkdir(join(home, ".grok"), { recursive: true })
+    await writeFile(join(home, ".grok", "lfg.json"), '{"version":1}\n', "utf8")
+    await writeFile(join(home, ".grok", "lfg-config.jsonc"), '{"version":1}\n', "utf8")
+    await writeFile(join(home, ".grok", "lfg-config.schema.json"), "{}\n", "utf8")
+
+    const result = await runLfg(["--json", "setup", "--run"], {
+      HOME: home,
+      LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
+      PATH: "/usr/bin:/bin",
+    })
+    expect(result.exitCode).toBe(0)
+    await expect(readFile(join(home, ".grok", "lfg.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(home, ".grok", "lfg-config.jsonc"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(home, ".grok", "lfg-config.schema.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    })
   }, 15_000)
 
   test("setup --run keeps Grok adapter on re-run", async () => {
@@ -73,10 +98,8 @@ describe("lfg coding tool adapter install", () => {
     expect(second.exitCode).toBe(0)
     expect(second.json).toMatchObject({
       codingToolAdapter: { selected: "grok" },
+      lfgConfigPath: join(home, ".grok", "config.toml"),
     })
-    const runtimeRaw = await readFile(join(home, ".grok", "lfg.json"), "utf8")
-    const runtimeConfig = JSON.parse(runtimeRaw) as { readonly coding_tool_adapter?: string }
-    expect(runtimeConfig.coding_tool_adapter).toBe("grok")
   }, 15_000)
 
   test("grok adapter setup removes stale proxy routing for vanilla host auth", async () => {
@@ -109,8 +132,7 @@ describe("lfg coding tool adapter install", () => {
     expect(config).toContain('default = "')
     expect(config).toContain("grok")
 
-    const runtimeRaw = await readFile(join(home, ".grok", "lfg.json"), "utf8")
-    expect(runtimeRaw).toContain('"coding_tool_adapter": "grok"')
-    expect(runtimeRaw).not.toContain("cliproxy/")
+    // Retired lfg.json must not be required or recreated for adapter selection.
+    await expect(readFile(join(home, ".grok", "lfg.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
   }, 15_000)
 })

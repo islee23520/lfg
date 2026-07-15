@@ -4,17 +4,25 @@ import { createNativeGrokHooksForLegacyFallback, isGrokEventHooksJson, isLegacyM
 import { normalizeHookCommandPaths, wrapLazyCodexHookCommand } from "./hook-command-normalization"
 import { materializeActiveGrokHooksJson } from "./normalize-plugin-hooks-active"
 import { resolveGrokHookBridgeAssetPath } from "./resolve-hook-bridge-asset"
-import { addBashTimeoutHook, NATIVE_BASH_TIMEOUT_FILE } from "./bash-timeout-hook"
-import { addCommentCheckerHook, NATIVE_COMMENT_CHECKER_FILE } from "./comment-checker-hook"
+import { addNativeCodexAssignHooks, NATIVE_CODEX_ASSIGN_FILE } from "./native-codex-assign-hook-registration"
+import { addNativeGjcIntentHooks, NATIVE_GJC_INTENT_FILE } from "./native-gjc-intent-hook-registration"
+import {
+  addNativeOrchestratorInboxHooks,
+  NATIVE_ORCHESTRATOR_INBOX_FILE,
+} from "./native-orchestrator-inbox-hook-registration"
+import {
+  addNativeSisyphusNoEditHooks,
+  NATIVE_SISYPHUS_NO_EDIT_FILE,
+} from "./native-sisyphus-no-edit-hook-registration"
 import { addNativeRulesHooks, NATIVE_RULES_FILE } from "./native-rules-hook-registration"
-import { addNativeWorkflowSelectorHook, NATIVE_WORKFLOW_SELECTOR_FILE } from "./native-workflow-selector-hook-registration"
+import { addNativeAccountRotateHooks, NATIVE_ACCOUNT_ROTATE_FILE } from "./native-account-rotate-hook-registration"
 
 const BRIDGE_RELATIVE = join("hooks", "lfg-grok-hook-bridge.mjs")
 const CONFIG_LOADER_FILE = "lfg-config-loader.mjs" as const
 const PROJECT_OMO_LEDGER_FILE = "lfg-project-omo-ledger.mjs" as const
-const SISYPHUS_HOOKS_FILE = "lfg-sisyphus-hooks.mjs" as const
 const NATIVE_ULTRAWORK_FILE = "lfg-native-ultrawork.mjs" as const
 const DEV_LOGGER_FILE = "lfg-dev-logger.mjs" as const
+const RETIRED_LAZYCODEX_AUTO_MONITOR_FILE = "lfg-native-lazycodex-auto-monitor.mjs" as const
 const CONFIG_LOADER_RELATIVE = join("hooks", CONFIG_LOADER_FILE)
 const PLUGIN_HOOKS_FILE = "hooks.json" as const
 const PLUGIN_HOOKS_SOURCE_FILE = "hooks.source.json" as const
@@ -28,13 +36,32 @@ export async function syncGrokHookBridgeIntoPlugin(pluginRoot: string): Promise<
   await copyFile(assetPath, destPath)
   await copyFile(await resolveAssetNearBridge(assetPath, "config", CONFIG_LOADER_FILE), join(pluginRoot, CONFIG_LOADER_RELATIVE))
   await copyFile(await resolveAssetNearBridge(assetPath, "ledger", PROJECT_OMO_LEDGER_FILE), join(pluginRoot, "hooks", PROJECT_OMO_LEDGER_FILE))
-  await copyFile(await resolveAssetNearBridge(assetPath, "hooks", SISYPHUS_HOOKS_FILE), join(pluginRoot, "hooks", SISYPHUS_HOOKS_FILE))
   await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_RULES_FILE), join(pluginRoot, "hooks", NATIVE_RULES_FILE))
   await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_ULTRAWORK_FILE), join(pluginRoot, "hooks", NATIVE_ULTRAWORK_FILE))
-  await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_WORKFLOW_SELECTOR_FILE), join(pluginRoot, "hooks", NATIVE_WORKFLOW_SELECTOR_FILE))
-  await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_COMMENT_CHECKER_FILE), join(pluginRoot, "hooks", NATIVE_COMMENT_CHECKER_FILE))
-  await copyFile(await resolveAssetNearBridge(assetPath, "hooks", NATIVE_BASH_TIMEOUT_FILE), join(pluginRoot, "hooks", NATIVE_BASH_TIMEOUT_FILE))
+  await copyFile(
+    await resolveAssetNearBridge(assetPath, "hooks", NATIVE_CODEX_ASSIGN_FILE),
+    join(pluginRoot, "hooks", NATIVE_CODEX_ASSIGN_FILE),
+  )
+  await copyFile(
+    await resolveAssetNearBridge(assetPath, "hooks", NATIVE_ACCOUNT_ROTATE_FILE),
+    join(pluginRoot, "hooks", NATIVE_ACCOUNT_ROTATE_FILE),
+  )
+  await copyFile(
+    await resolveAssetNearBridge(assetPath, "hooks", NATIVE_GJC_INTENT_FILE),
+    join(pluginRoot, "hooks", NATIVE_GJC_INTENT_FILE),
+  )
+  await copyFile(
+    await resolveAssetNearBridge(assetPath, "hooks", NATIVE_ORCHESTRATOR_INBOX_FILE),
+    join(pluginRoot, "hooks", NATIVE_ORCHESTRATOR_INBOX_FILE),
+  )
+  await copyFile(
+    await resolveAssetNearBridge(assetPath, "hooks", NATIVE_SISYPHUS_NO_EDIT_FILE),
+    join(pluginRoot, "hooks", NATIVE_SISYPHUS_NO_EDIT_FILE),
+  )
   await copyFile(await resolveAssetNearBridge(assetPath, "log", DEV_LOGGER_FILE), join(pluginRoot, "hooks", DEV_LOGGER_FILE))
+  await unlink(join(pluginRoot, "hooks", RETIRED_LAZYCODEX_AUTO_MONITOR_FILE)).catch((error: unknown) => {
+    if (!isNodeError(error) || error.code !== "ENOENT") throw error
+  })
   // .mcp.json is written by materializeGrokMcpRuntimes() during installGrokPluginFromSource — do not overwrite here with dev-only absolute paths.
   return destPath
 }
@@ -80,13 +107,20 @@ export async function normalizePluginHooksJson(pluginRoot: string): Promise<{
       nextBlock[eventName] = groups
       continue
     }
-    nextBlock[eventName] = groups.map((group) =>
+    nextBlock[eventName] = groups.filter(isDietHookGroup).map((group) =>
       normalizeHookGroup(group, () => {
         changed = true
       }),
     )
   }
-  const nextPayload = { hooks: addSisyphusHooks(addBashTimeoutHook(addCommentCheckerHook(addNativeRulesHooks(addNativeWorkflowSelectorHook(addLfgConfigLoaderHooks(nextBlock)))))) }
+  // CEO lock: PreToolUse no-edit + always handoff assign + orchestrator inbox.
+  const nextPayload = {
+    hooks: addNativeAccountRotateHooks(addNativeSisyphusNoEditHooks(
+      addNativeOrchestratorInboxHooks(
+        addNativeCodexAssignHooks(addNativeGjcIntentHooks(addNativeRulesHooks(addLfgConfigLoaderHooks(nextBlock)))),
+      ),
+    )),
+  }
   const trust = validateGrokHooksJson(nextPayload)
   if (!trust.ok) {
     throw new Error(trust.error ?? "invalid hooks after normalize")
@@ -138,44 +172,9 @@ function addLfgConfigLoaderHooks(hooksBlock: JsonRecord): JsonRecord {
 }
 
 
-const SISYPHUS_HOOK_EVENTS = [
-  "SessionStart",
-  "UserPromptSubmit",
-  "PreToolUse",
-  "PostToolUse",
-  "SubagentStart",
-  "SubagentStop",
-  "Stop",
-  "PreCompact",
-  "Notification",
-] as const
-
-function addSisyphusHooks(hooksBlock: JsonRecord): JsonRecord {
-  const next = { ...hooksBlock }
-  for (const eventName of SISYPHUS_HOOK_EVENTS) {
-    next[eventName] = appendSisyphusHook(next[eventName], eventName)
-  }
-  return next
-}
-
-function appendSisyphusHook(groups: unknown, eventName: string): readonly unknown[] {
-  const current = Array.isArray(groups) ? groups : []
-  const command = `node "\${GROK_PLUGIN_ROOT}/hooks/${SISYPHUS_HOOKS_FILE}"`
-  const withoutOld = current.filter((group) => !groupHasCommand(group, command))
-  return [
-    ...withoutOld,
-    {
-      hooks: [
-        {
-          type: "command",
-          command,
-          timeout: 5,
-          description: `lfg sisyphus orchestration (${eventName})`,
-          statusMessage: `Sisyphus: ${eventName} orchestration context`,
-        },
-      ],
-    },
-  ]
+function isDietHookGroup(group: unknown): boolean {
+  const text = JSON.stringify(group)
+  return !["workflow-selector", "comment-checker", "bash-timeout", "sisyphus-hooks", RETIRED_LAZYCODEX_AUTO_MONITOR_FILE].some((name) => text.includes(name))
 }
 
 function groupHasCommand(group: unknown, command: string): boolean {

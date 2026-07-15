@@ -32,7 +32,6 @@ export async function ensureLfgAgentsPreferred(home: string = homedir()): Promis
   return { path, changed }
 }
 
-/** T2: Ensures LFG-owned [subagents.models] routing (plan/metis/etc -> reasoning, explore->explorer, coding/grok-build/builder->coding; preserves non-LFG keys). Uses existing TOML upsert. */
 export async function ensureLfgSubagentModels(
   home: string = homedir(),
   mapping: SubagentModelMapping = {},
@@ -127,7 +126,7 @@ const LFG_OWNED_OR_STALE_STICKY_AGENTS = new Set([
 ])
 
 function upsertAgentPreference(source: string): string {
-  const disabled = ["cursor", "browser-use"] as const
+  const disabled = ["default", "cursor", "browser-use"] as const
   const block = `default = ${tomlString("sisyphus")}\ndisabled = [\n${disabled.map((id) => `    ${tomlString(id)},`).join("\n")}\n]`
   const withAgents = upsertTomlSection(source, "agents", block)
   return upsertStickyAgentName(withAgents, "sisyphus")
@@ -152,45 +151,24 @@ export function readStickyAgentName(source: string): string | null {
   return match?.[1] ?? null
 }
 
-/** LFG-owned [subagents.models] routing. Matches model-recommendations.ts + setup choices:
- * - explorer / librarian / general-purpose / explore / multimodal-looker → fast/default model
- * - sisyphus / prometheus / atlas / plan / metis / momus / reasoning → reasoning model
- * - coding / grok-build / builder / reviewer → coding / non-reasoning model
- *
- * Agents are adapted from the OMO opencode tree (sisyphus, prometheus, atlas, oracle,
- * hephaestus/default, multimodal-looker, sisyphus-junior, explore, librarian, metis, momus)
- * plus Grok-native convenience agents (reasoning, coding, plan, reviewer).
- */
 export function upsertSubagentModels(
   source: string,
   mapping: SubagentModelMapping = {},
 ): string {
-  const block = mergeSubagentModelBody(source, lfgOwnedSubagentModels(mapping))
-  const withModels = upsertTomlSection(source, "subagents.models", block)
-  return upsertTomlSection(withModels, "subagents.reasoning_effort", subagentReasoningBody(mapping))
+  const modelKeys = new Set(Object.keys(lfgOwnedSubagentModels(mapping)))
+  const reasoningKeys = new Set(Object.keys(lfgOwnedSubagentReasoningEffort(mapping)))
+  return removeOwnedAssignments(removeOwnedAssignments(source, "subagents.models", modelKeys), "subagents.reasoning_effort", reasoningKeys)
 }
 
-function subagentReasoningBody(mapping: SubagentModelMapping): string {
-  return Object.entries(lfgOwnedSubagentReasoningEffort(mapping)).map(([key, effort]) => `${key} = ${tomlString(effort)}`).join("\n")
-}
-
-function mergeSubagentModelBody(source: string, lfgOwned: Readonly<Record<string, string>>): string {
-  const ownedKeys = new Set(Object.keys(lfgOwned))
-  const preserved = subagentModelBody(source)
-    .split("\n")
-    .filter((line) => {
-      const trimmed = line.trim()
-      if (trimmed.length === 0) return false
-      const key = parseTomlAssignmentKey(trimmed)
+function removeOwnedAssignments(source: string, section: string, ownedKeys: ReadonlySet<string>): string {
+  const pattern = new RegExp(`(^|\\n)(\\[${escapeRegExp(section)}\\]\\n)([\\s\\S]*?)(?=\\n\\[[^\\n]+\\]|$)`)
+  return source.replace(pattern, (_match, prefix: string, header: string, body: string) => {
+    const preserved = body.split("\n").filter((line) => {
+      const key = parseTomlAssignmentKey(line.trim())
       return key === null || !ownedKeys.has(key)
-    })
-  const ownedLines = Object.entries(lfgOwned).map(([key, model]) => `${key} = ${tomlString(model)}`)
-  return [...preserved, ...ownedLines].join("\n")
-}
-
-function subagentModelBody(source: string): string {
-  const match = /(^|\n)(\[subagents\.models\]\n)([\s\S]*?)(?=\n\[[^\n]+\]|$)/.exec(source)
-  return match?.[3] ?? ""
+    }).filter((line) => line.trim().length > 0)
+    return preserved.length === 0 ? prefix : `${prefix}${header}${preserved.join("\n")}\n`
+  }).replace(/\n{3,}/g, "\n\n")
 }
 
 function parseTomlAssignmentKey(line: string): string | null {

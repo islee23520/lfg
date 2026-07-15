@@ -32,7 +32,7 @@ const RETIRED_OMO_SKILL_NAMES = ["lcx-contribute-bug-fix", "lcx-doctor", "lcx-re
  * Always materialised into ~/.grok/plugins/lfg/skills on setup so they are
  * Grok-discoverable without a separate install step.
  */
-export const LFG_NATIVE_SKILLS = ["claude-code-inventory"] as const
+export const LFG_NATIVE_SKILLS = ["claude-code-inventory", "eval"] as const
 
 export async function ensureUlwWorkflowSkills(pluginRoot: string): Promise<{ readonly ensured: boolean; readonly paths: string[] }> {
   const ensuredPaths: string[] = []

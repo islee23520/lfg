@@ -18,6 +18,7 @@ Every doc has a 1:1 `*-doc.test.ts` under `src/cli/docs/` (exception: `npm-publi
 | `grok-host-auth.md` | `src/cli/docs/grok-host-auth-doc.test.ts` |
 | `lfp-capability-port.md` | `src/cli/docs/lfp-capability-port-doc.test.ts` |
 | `npm-publish.md` | `src/cli/publish/workflow/npm-publish-doc.test.ts` |
+| `grok-external-engine-orchestration.md` | `src/cli/docs/grok-external-engine-orchestration-doc.test.ts` |
 
 ## CONVENTIONS
 

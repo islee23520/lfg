@@ -36,7 +36,7 @@ describe("materializeGrokMcpRuntimes", () => {
     const mcp = JSON.parse(
       await readFile(join(pluginRoot, ".mcp.json"), "utf8"),
     ) as { mcpServers: Record<string, { args?: readonly string[]; cwd?: string; url?: string }>; disabled_mcp_servers?: readonly string[] }
-    expect(Object.keys(mcp.mcpServers).sort()).toEqual(["ast_grep", "context7", "git_bash", "grep_app", "lsp", "xai_grok"])
+    expect(Object.keys(mcp.mcpServers).sort()).toEqual(["ast_grep", "context7", "eval", "git_bash", "grep_app", "lsp", "xai_grok"])
     expect(mcp.mcpServers.ast_grep?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "ast-grep-mcp", "dist", "cli.js"))
     expect(mcp.mcpServers.ast_grep?.cwd).toBe(pluginRoot)
     expect(mcp.mcpServers.git_bash?.args?.[0]).toBe(join(pluginRoot, "mcp-runtimes", "git-bash-mcp", "dist", "cli.js"))

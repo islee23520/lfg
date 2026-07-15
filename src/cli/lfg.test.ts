@@ -1,12 +1,149 @@
-import { access, chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { execFile } from "node:child_process"
 import { tmpdir } from "node:os"
 import { delimiter, join } from "node:path"
-import { describe, expect, test } from "vitest"
+import { afterEach, describe, expect, test } from "vitest"
 import { withModelServer } from "./test/test-model-server"
 import { runLfg, runLfgText } from "./test/test-process"
 
+const handoffTempRoots = new Set<string>()
+
+afterEach(async () => {
+  await Promise.all([...handoffTempRoots].map((root) => rm(root, { recursive: true, force: true })))
+  handoffTempRoots.clear()
+})
+
+async function makeHandoffTempRoot(prefix: string): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), prefix))
+  handoffTempRoots.add(root)
+  return root
+}
+
 describe("lfg CLI", () => {
+  test("plans ulw-plan through the Codex skill lane", async () => {
+    // Given
+    const cwd = await makeHandoffTempRoot("lfg-ulw-plan-cwd.")
+
+    // When
+    const result = await runLfg([
+      "--json", "plan", "ulw-plan", "--focus", "Design a release workflow", "--cwd", cwd, "--no-probe",
+    ])
+
+    // Then
+    expect(result.exitCode).toBe(0)
+    expect(result.json).toMatchObject({
+      ok: true,
+      status: "planned",
+      command: "plan",
+      subcommand: "ulw-plan",
+      dryRun: true,
+      executed: false,
+      skill: "$ulw-plan",
+      skillPath: "skills/ulw-plan/SKILL.md",
+      resultPath: ".omo/external-engine/plan-ulw-plan-codex-skill-result.md",
+      handoff: {
+        role: "plan_assist",
+        engine: "gpt",
+        resultPath: ".omo/external-engine/plan-ulw-plan-codex-skill-result.md",
+        launch: { binary: "codex", cwd },
+      },
+      transport: { primary: "app-server", fallback: "codex-exec" },
+      lfgIsPlugin: false,
+    })
+  })
+
+  test("handoff plan checks readiness and attempts the app-server transport", async () => {
+    const bin = await makeHandoffTempRoot("lfg-handoff-ready-bin.")
+    const marker = join(bin, "invoked")
+    await writeFakeAdapter(join(bin, "codex"), marker)
+
+    const result = await runLfg(["--json", "handoff", "plan", "--role", "coding", "--engine", "gpt", "--focus", "probe"], {
+      PATH: bin,
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.json).toMatchObject({
+      ok: true,
+      status: "planned",
+      command: "handoff",
+      subcommand: "plan",
+      dryRun: true,
+      executed: false,
+      handoff: { role: "coding", engine: "gpt", focus: "probe" },
+      readiness: { checked: true, ok: true, status: "ready", binary: "codex" },
+      lfgIsPlugin: false,
+    })
+    await expect(access(marker)).resolves.toBeUndefined()
+    expect(await readFile(marker, "utf8")).toContain("app-server")
+  }, 15_000)
+
+  test("handoff plan retains the plan and exits one when the worker is missing", async () => {
+    const bin = await makeHandoffTempRoot("lfg-handoff-missing-bin.")
+    const marker = join(bin, "invoked")
+    const result = await runLfg(["--json", "handoff", "plan", "--role", "oracle"], { PATH: bin })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.json).toMatchObject({
+      ok: false,
+      status: "not_ready",
+      executed: false,
+      handoff: { role: "oracle", engine: "gpt" },
+      readiness: { checked: true, ok: false, status: "missing", binary: "codex" },
+    })
+    await expect(access(marker)).rejects.toThrow()
+  })
+
+  test("handoff --no-probe is deterministic and never invokes the worker", async () => {
+    const bin = await makeHandoffTempRoot("lfg-handoff-skipped-bin.")
+    const marker = join(bin, "invoked")
+    await writeFakeAdapter(join(bin, "claude"), marker)
+
+    const result = await runLfg(["handoff", "plan", "--role", "coding", "--no-probe", "--json"], { PATH: bin })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.json).toMatchObject({
+      ok: true,
+      status: "planned",
+      executed: false,
+      readiness: { checked: false, ok: true, status: "skipped" },
+    })
+    await expect(access(marker)).rejects.toThrow()
+  })
+
+  test.each([
+    ["keeps orchestrator roles on Grok", ["--json", "handoff", "plan", "--role", "sisyphus"]],
+    ["rejects unknown worker roles", ["--json", "handoff", "plan", "--role", "cartographer"]],
+    ["rejects read-only yolo", ["--json", "handoff", "plan", "--role", "coding", "--read-only", "--yolo"]],
+    ["preserves root-looking flags for handoff validation", ["--json", "handoff", "plan", "--mode", "fast"]],
+    ["rejects execution flags", ["--json", "handoff", "plan", "--run"]],
+    ["rejects unknown subcommands", ["--json", "handoff", "run"]],
+  ])("handoff %s", async (_name, argv) => {
+    const bin = await makeHandoffTempRoot("lfg-handoff-invalid-bin.")
+    const marker = join(bin, "invoked")
+    await writeFakeAdapter(join(bin, "claude"), marker)
+    const result = await runLfg(argv, { PATH: bin })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.json).toMatchObject({ ok: false, status: "invalid_handoff", command: "handoff", executed: false })
+    await expect(access(marker)).rejects.toThrow()
+  })
+
+  test("non-JSON handoff returns a structured error", async () => {
+    const result = await runLfgText(["handoff", "plan", "--role", "coding"], "")
+
+    expect(result.exitCode).toBe(1)
+    expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, status: "invalid_handoff", executed: false })
+  })
+
+  test("handoff rejects root credential flags without echoing their value", async () => {
+    const secret = "sk-synthetic-equals-secret"
+    const result = await runLfgText(["--json", "handoff", "plan", `--api-key=${secret}`], "")
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stdout).toContain("Unknown handoff flag: --api-key")
+    expect(result.stdout).not.toContain(secret)
+  })
+
   test("setup returns a non-mutating install plan by default", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-plan-home-"))
     const result = await runLfg(["--json", "setup"], { HOME: home, LFG_DISABLE_DEFAULT_MODELS_PROXY: "1" })
@@ -44,7 +181,7 @@ describe("lfg CLI", () => {
     const bin = await mkdtemp(join(tmpdir(), "lfg-launch-bin."))
     const marker = join(home, "launch.txt")
     await mkdir(join(home, ".grok"), { recursive: true })
-    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "grok" }))
+    await writeFile(join(home, ".grok", "config.toml"), '[models]\ndefault = "grok-4.5"\n')
     await writeFakeAdapter(join(bin, "grok"), marker)
 
     const result = await runLfgText([], "", {
@@ -59,7 +196,7 @@ describe("lfg CLI", () => {
     await expect(access(marker)).rejects.toThrow()
   })
 
-  test("bare lfg fails before launching when runtime adapter config is missing", async () => {
+  test("bare lfg fails before launching when config.toml is missing", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-launch-missing-config-home."))
     const bin = await mkdtemp(join(tmpdir(), "lfg-launch-missing-config-bin."))
     const marker = join(home, "launch.txt")
@@ -74,7 +211,7 @@ describe("lfg CLI", () => {
 
     expect(result.exitCode).toBe(78)
     expect(result.stderr).toContain("Cannot launch grok: required setup file is missing")
-    expect(result.stderr).toContain(join(home, ".grok", "lfg.json"))
+    expect(result.stderr).toContain(join(home, ".grok", "config.toml"))
     await expect(access(marker)).rejects.toThrow()
   })
 
@@ -83,7 +220,7 @@ describe("lfg CLI", () => {
     const bin = await mkdtemp(join(tmpdir(), "lfg-launch-ready-bin."))
     const marker = join(home, "launch.txt")
     await mkdir(join(home, ".grok", "plugins", "lfg"), { recursive: true })
-    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "grok" }))
+    await writeFile(join(home, ".grok", "config.toml"), '[models]\ndefault = "grok-4.5"\n')
     await writeFakeAdapter(join(bin, "grok"), marker)
 
     const result = await runLfgText([], "", {
@@ -96,12 +233,12 @@ describe("lfg CLI", () => {
     await expect(readFile(marker, "utf8")).resolves.toBe("grok\n")
   })
 
-  test("bare lfg ignores legacy pi-agent config and always launches grok", async () => {
+  test("bare lfg always launches grok (coding_tool_adapter is Grok-only)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-launch-override-home."))
     const bin = await mkdtemp(join(tmpdir(), "lfg-launch-override-bin."))
     const marker = join(home, "launch.txt")
     await mkdir(join(home, ".grok", "plugins", "lfg"), { recursive: true })
-    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "pi-agent" }))
+    await writeFile(join(home, ".grok", "config.toml"), '[models]\ndefault = "grok-4.5"\n')
     await writeFakeAdapter(join(bin, "grok"), marker)
 
     const result = await runLfgText([], "", {
@@ -117,7 +254,7 @@ describe("lfg CLI", () => {
   test("bare lfg --json reports Grok launch plan without spawning", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-launch-json-home."))
     await mkdir(join(home, ".grok"), { recursive: true })
-    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "pi-agent" }))
+    await writeFile(join(home, ".grok", "config.toml"), '[models]\ndefault = "grok-4.5"\n')
 
     const result = await runLfg(["--json"], { HOME: home })
 
@@ -142,7 +279,7 @@ describe("lfg CLI", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-launch-missing-home."))
     const bin = await mkdtemp(join(tmpdir(), "lfg-launch-missing-bin."))
     await mkdir(join(home, ".grok", "plugins", "lfg"), { recursive: true })
-    await writeFile(join(home, ".grok", "lfg.json"), JSON.stringify({ version: 1, coding_tool_adapter: "grok" }))
+    await writeFile(join(home, ".grok", "config.toml"), '[models]\ndefault = "grok-4.5"\n')
 
     const result = await runLfgText([], "", {
       HOME: home,
@@ -334,6 +471,11 @@ describe("lfg CLI", () => {
     expect(result.stdout).toContain("default: grok-4.5")
     expect(result.stdout).toContain("fast: grok-composer-2.5-fast")
     expect(result.stdout).toContain("reasoning: grok-4.5")
+    expect(result.stdout).toContain("4 bundled routing profiles will be installed")
+    expect(result.stdout).toContain("~/.grok/omo-agent-overrides.json")
+    expect(result.stdout).not.toContain("lazycodex-worker-low")
+    expect(result.stdout).not.toContain("artistry-gen")
+    expect(result.stdout).not.toContain("unspecified-high")
     expect(result.stdout).not.toContain("grok-3-mini-fast")
     expect(result.stdout).not.toContain("Use OpenAI-compatible CLI proxy")
     expect(result.stdout).not.toContain("Use LLM recommendations from your available models?")
@@ -352,7 +494,7 @@ describe("lfg CLI", () => {
         ok: false,
         status: "error",
         code: "unsupported_command",
-        supportedCommands: ["setup", "doctor", "set-tier", "xai", "zai", "mcp", "claude", "ulw", "ulw-loop"],
+        supportedCommands: ["setup", "uninstall", "doctor", "accounts", "set-tier", "xai", "mcp", "claude", "handoff", "plan", "start-work", "orchestrator", "ulw", "ulw-loop"],
       })
     }
   })
@@ -365,6 +507,7 @@ describe("lfg CLI", () => {
     expect(result.stdout).toContain("lfg setup")
     expect(result.stdout).toContain("lfg setup --run")
     expect(result.stdout).toContain("lfg doctor")
+    expect(result.stdout).toContain("lfg --json handoff plan")
     expect(result.stdout).toContain("lfg --json                  # prints the Grok launch plan without spawning")
     expect(result.stdout).toContain("npx @islee23520/lfg setup")
     expect(result.stdout).toContain("Setup run implementation:")

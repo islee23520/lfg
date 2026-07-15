@@ -323,8 +323,16 @@ type ProjectOmoFixtureWork = {
 async function writeGlobalConfig(home: string): Promise<void> {
   await mkdir(join(home, ".grok"), { recursive: true })
   await writeFile(
-    join(home, ".grok", "lfg-config.jsonc"),
-    '{\n  "agents": { "reviewer": { "model": "grok-build", "enabled": true } }\n}\n',
+    join(home, ".grok", "config.toml"),
+    [
+      "[omo.models]",
+      'default = "grok-4.5"',
+      "",
+      "[omo.agents.reviewer]",
+      'model = "grok-build"',
+      'reasoning_level = "medium"',
+      "",
+    ].join("\n"),
     "utf8",
   )
 }

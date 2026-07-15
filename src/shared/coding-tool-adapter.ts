@@ -34,7 +34,7 @@ const GROK_ADAPTER_CONTRACT = {
   command: "grok",
   args: [],
   env: ["HOME"],
-  requiredFiles: ["~/.grok/plugins/lfg", "~/.grok/lfg.json"],
+  requiredFiles: ["~/.grok/plugins/lfg", "~/.grok/config.toml"],
   fallbackAdapter: null,
   failureBehavior: "Use GrokBuild host failure semantics; lfg does not own Grok host auth or retry policy.",
   fallbackBehavior: "No alternate coding-tool adapter; lfg is Grok-only.",

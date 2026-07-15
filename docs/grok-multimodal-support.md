@@ -15,7 +15,7 @@ Support multimodal as layered policy, not a single model swap.
 4. **Vision specialist roles** — Gemini-first (`visual-engineering`, `multimodal-looker`)
 5. **Protocol skills** — `visual-qa` remains judgment protocol (diff scripts + oracles)
 6. **Generation** — xAI image/video MCP is **not** understanding
-7. **Later** — Z.AI vision companion optional
+7. **Confirmation** — optional `agy --print` second opinion emits `<lfg-agy-vision-confirm>` and always fails open
 
 ## OpenCodex lessons adopted
 | OpenCodex rule | lfg adoption |
@@ -31,7 +31,7 @@ Support multimodal as layered policy, not a single model swap.
 - **B.** lfg/Grok helper tool that describes images before worker continues
 - **C.** Host-native only + mandatory vision specialist spawn for visual work
 
-Until chosen, G4 cannot PASS.
+The external confirmation path uses option C for the primary result and an optional Antigravity second opinion. Missing, timed-out, failed, or uncertain agy confirmation never aborts the Codex result.
 
 ## Non-goals
 - Hard require ChatGPT login for all lfg users

@@ -4,7 +4,7 @@
  * Lightweight append-only dev logger for lfg hooks and install paths.
  * Activated ONLY when:
  *   - LFG_DEV_LOG=1 (env var), OR
- *   - ~/.grok/lfg-config.jsonc has `"dev_log": true`
+ *   - ~/.grok/config.toml has `dev_log = true` under [omo] or [lfg]
  *
  * Writes JSONL entries to ~/.grok/logs/lfg-dev.log.
  * No-op when disabled (zero overhead, safe for production).
@@ -18,13 +18,13 @@ import { join } from "node:path";
 
 const LOG_DIR = join(homedir(), ".grok", "logs");
 const LOG_FILE = join(LOG_DIR, "lfg-dev.log");
-const CONFIG_FILE = join(homedir(), ".grok", "lfg-config.jsonc");
+const CONFIG_FILE = join(homedir(), ".grok", "config.toml");
 
 let _enabled = null;
 
 /**
  * Returns true if dev logging is active.
- * Checks env var first, then config file. Result is cached.
+ * Checks env var first, then config.toml. Result is cached.
  */
 export async function isDevLogEnabled() {
   if (_enabled !== null) return _enabled;
@@ -39,10 +39,8 @@ export async function isDevLogEnabled() {
       _enabled = false;
       return false;
     }
-    // Strip JSONC comments before parsing
-    const stripped = stripJsonComments(raw);
-    const parsed = JSON.parse(stripped);
-    _enabled = parsed?.dev_log === true;
+    // Accept [omo] or [lfg] section key: dev_log = true
+    _enabled = /^\s*dev_log\s*=\s*true\s*(?:#.*)?$/m.test(raw);
   } catch {
     _enabled = false;
   }
@@ -81,10 +79,4 @@ async function readFileSafe(path) {
   } catch {
     return null;
   }
-}
-
-function stripJsonComments(text) {
-  // Remove single-line // comments and block /* */ comments
-  // (JSONC support — simple, not perfect, but covers common cases)
-  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 }

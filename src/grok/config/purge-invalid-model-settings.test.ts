@@ -71,6 +71,37 @@ reasoning_level = "xhigh"
     expect(overrides.overrides.plan.model_fallback).toBeUndefined()
   })
 
+  test("Given no models_cache but foreign models.default, When purge runs, Then default is remapped to Grok safety net (no 401)", async () => {
+    // Given: host-auth session with no discovery cache; user set an unauthenticated foreign default.
+    const home = await mkdtemp(join(tmpdir(), "lfg-purge-no-cache-foreign-default-"))
+    await mkdir(join(home, ".grok", "plugins", "lfg"), { recursive: true })
+    await writeFile(
+      join(home, ".grok", "config.toml"),
+      `
+[models]
+default = "cx/gpt-5.6-sol"
+default_reasoning_effort = "high"
+
+[plugins]
+enabled = ["lfg"]
+
+[model."grok-4.5"]
+model = "grok-4.5"
+`,
+      "utf8",
+    )
+
+    // When: purge runs without models_cache / discovery.
+    const result = await purgeInvalidGrokModelSettings({ home })
+
+    // Then: foreign default is remapped so host auth no longer 401s after recovery.
+    expect(result.changed).toBe(true)
+    expect(result.remappedRoutes.some((r) => r.location === "models.default" && r.from === "cx/gpt-5.6-sol")).toBe(true)
+    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    expect(config).toContain('default = "grok-4.5"')
+    expect(config).not.toContain("cx/gpt-5.6-sol")
+  })
+
   test("Given only catalog models in cache, When purge runs, Then unavailable Grok fallbacks are stripped from overrides and toml", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-purge-valid-only-"))
     await mkdir(join(home, ".grok", "plugins", "lfg"), { recursive: true })

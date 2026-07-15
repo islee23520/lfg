@@ -58,6 +58,22 @@ export async function syncOmoSkillsToGrok(options = {}) {
   return { sourceRoot, targets, synced: true }
 }
 
+export async function adaptExistingManagedSkills(skillNames, targets = defaultTargets) {
+  const selected = new Set(skillNames)
+  for (const skillName of selected) {
+    if (!managedSkills.includes(skillName)) throw new Error(`Unknown managed skill: ${skillName}`)
+  }
+  for (const target of targets) {
+    for (const skillName of selected) {
+      const skillRoot = join(target, skillName)
+      if (!(await hasManagedSource(target, skillName, skillName))) {
+        throw new Error(`Generated OMO skill ${skillName} missing at ${target}`)
+      }
+      await adaptSkillPayload(skillName, skillRoot)
+    }
+  }
+}
+
 async function syncTarget(sourceRoot, targetRoot) {
   await mkdir(targetRoot, { recursive: true })
   for (const skillName of retiredSkillNames) {
@@ -113,6 +129,7 @@ async function adaptSkillPayload(skillName, skillRoot) {
     await rewriteSkillMarkdown(skillRoot, adaptUlwLoopSkill)
     await rewriteOptionalFile(join(skillRoot, "references", "full-workflow.md"), adaptUlwLoopReference)
   } else if (skillName === "ulw-plan") {
+    await rewriteSkillMarkdown(skillRoot, adaptUlwPlanSkill)
     await rewriteOptionalFile(join(skillRoot, "references", "full-workflow.md"), adaptUlwPlanReference)
   } else if (skillName === "start-work") {
     await rewriteSkillMarkdown(skillRoot, adaptStartWorkSkill)
@@ -132,6 +149,10 @@ async function adaptSkillPayload(skillName, skillRoot) {
     await rewriteSkillMarkdown(skillRoot, ensureGrokBuildSpawnSubagentMapping)
   }
   await rewriteSkillTreeTextFiles(skillRoot, convertCodexSkillCommandsToGrokSlash)
+  if (skillName === "start-work") {
+    await rewriteSkillMarkdown(skillRoot, (content) => content.replaceAll("Codex `/start-work`", "Codex `$start-work`"))
+    await rewriteOptionalFile(join(skillRoot, "agents", "grok.yaml"), (content) => content.replaceAll("external Codex invokes /start-work", "external Codex invokes $start-work"))
+  }
 }
 
 // Allowlist only: avoid rewriting ast-grep metavars ($MSG) and shell vars.
@@ -161,12 +182,49 @@ async function adaptAgentMetadata(skillName, skillRoot) {
   const openaiPath = join(agentsRoot, "openai.yaml")
   const grokPath = join(agentsRoot, "grok.yaml")
   const content = await readTextSafe(openaiPath)
+  if (skillName === "ulw-plan") {
+    await mkdir(agentsRoot, { recursive: true })
+    await writeFile(grokPath, ulwPlanGrokAgentYaml(), "utf8")
+    await rm(openaiPath, { force: true })
+    return
+  }
+  if (content === null && skillName === "start-work") {
+    await mkdir(agentsRoot, { recursive: true })
+    await writeFile(grokPath, startWorkGrokAgentYaml(), "utf8")
+    return
+  }
   if (content === null) return
   await writeFile(grokPath, adaptAgentYaml(skillName, content), "utf8")
   await rm(openaiPath, { force: true })
 }
 
+function startWorkGrokAgentYaml() {
+  return `interface:
+  display_name: "(lfg) start-work"
+  short_description: "Route approved plan execution to Codex start-work"
+  search_terms:
+    - "start-work"
+    - "start work"
+    - "execute plan"
+    - "resume plan"
+  default_prompt: "Use /start-work only to select and monitor the plan in Grok. Never execute product work in-host; run lfg --json plan start-work so external Codex invokes $start-work."
+`
+}
+
+function ulwPlanGrokAgentYaml() {
+  return `interface:
+  display_name: "(lfg) ulw-plan"
+  short_description: "Launch Codex ulw-plan and monitor its plan artifact"
+  search_terms:
+    - "ulw-plan"
+    - "plan"
+    - "planning"
+  default_prompt: "Do not plan in Grok. Run lfg --json plan ulw-plan --focus <objective>, launch the returned Codex transport, then monitor and present the plan artifact for approval. Use gjc deep-interview only when the intent gateway reports high ambiguity or interview needed."
+`
+}
+
 function adaptAgentYaml(skillName, content) {
+  if (skillName === "ulw-plan") return ulwPlanGrokAgentYaml()
   if (skillName === "lfg-doctor") {
     return convertCodexSkillCommandsToGrokSlash(`interface:
   display_name: "lfg-doctor (lfg)"
@@ -264,40 +322,76 @@ async function rewriteOptionalFile(path, transform) {
   await writeFile(path, transform(content), "utf8")
 }
 
-const DIFFICULTY_TIER_GROK_MAPPING = `### Delegation by difficulty (GrokBuild tier workers)
+const DIFFICULTY_TIER_GROK_MAPPING = `### Product implementation handoff (GrokBuild)
 
-When lfg has installed difficulty-tier workers, size each implementation lane by difficulty and pass the matching \`subagent_type\` on \`spawn_subagent\` (not Codex \`agent_type\`): LOW (one-file fix, boilerplate, config/copy) -> \`lazycodex-worker-low\`; MEDIUM (standard feature, few files, known patterns) -> \`lazycodex-worker-medium\`; HIGH (new module, cross-module refactor, concurrency/security/migration) -> \`lazycodex-worker-high\`. Example: \`spawn_subagent({ subagent_type: "lazycodex-worker-medium", background: true, description: "...", prompt: "TASK: ..." })\`. Explorer/librarian research lanes keep their own roles. Difficulty (model power) is orthogonal to LIGHT/HEAVY rigor. This is **orchestrator-selected** routing — Grok does not auto-classify tier or enforce host-side difficulty dispatch.
+Grok is the Sisyphus watcher, not the product implementer. For LOW, MEDIUM, or HIGH implementation bodies, create the external Codex work package with \`lfg --json handoff plan --role coding --engine gpt --focus "..."\`. The handoff creates or attaches the project Codex app-server thread; \`codex exec\` is fallback only when the daemon is unavailable. Use \`spawn_subagent\` only for Grok host work by \`watcher\`, \`explorer\`, or \`git-master\`; never spawn \`lazycodex-worker-*\`, \`hephaestus\`, or \`coding\` for the product body.
 
 `
 
-function ensureGrokBuildSpawnSubagentMapping(content) {
+const DUPLICATED_LAUNCH_BINARY_WORDING = "Execute `handoff.launch.binary` with `handoff.launch.argv`"
+const EXCLUSIVE_WORKER_LANE_RULE =
+  "Product implementation has exactly one worker lane: external Codex app-server handoff through `lfg --json handoff plan --engine gpt`. Grok may use watcher/explorer/git-master for host monitoring and read-only discovery, but must not spawn an in-host implementer for the product body."
+
+const EXTERNAL_ENGINE_LANE_SECTION = `### External Codex implementation lane (GPT only)
+
+**Grok = Sisyphus watcher**; **Codex app-server = sole product implementer**. Skill \`ulw-external-engine\` + \`docs/grok-external-engine-orchestration.md\`.
+
+${EXCLUSIVE_WORKER_LANE_RULE}
+
+1. Run \`lfg --json handoff plan --role <role> --engine gpt --focus <focus>\` and read \`handoff.payloadMarkdown\` plus the app-server transport receipt (\`fullyTransferable\`, \`grokIsOrchestrator\`).
+2. Prefer the created/attached Codex app-server thread. Only when the daemon is unavailable, execute the reported \`codex-exec-fallback\` launch using \`handoff.launch.argv[0]\` with \`handoff.launch.argv.slice(1)\`; \`handoff.launch.binary\` is identity/readiness metadata. If \`handoff.launch.stdinSource.kind\` is \`file\`, pipe that file to stdin. Use **\`timeout: 0\`** and kill the process group on cancellation.
+3. **Do not** hand off sisyphus/prometheus; **do not** spawn Grok hephaestus/coding/lazycodex-worker for the product body.
+4. Read RESULT into Boulder/ledger.
+
+In-host \`spawn_subagent\` remains only for Grok host monitoring/read-only roles.
+
+`
+
+const EXTERNAL_ENGINE_ULW_LOOP_ROW = `| Product implementation (LOW / MEDIUM / HIGH) | **GPT-only external handoff:** use \`ulw-external-engine\` and run \`lfg --json handoff plan --role coding --engine gpt --focus <focus>\`. Create or attach the project Codex app-server thread. Only for \`codex-exec-fallback\`, execute \`handoff.launch.argv[0]\` with \`handoff.launch.argv.slice(1)\`; \`handoff.launch.binary\` is identity/readiness metadata and \`handoff.launch.stdinSource\` supplies optional stdin. Never \`spawn_subagent\` hephaestus/coding/lazycodex-worker for the product body. See \`docs/grok-external-engine-orchestration.md\`. |`
+const DIFFICULTY_TIER_ULW_LOOP_ROW = EXTERNAL_ENGINE_ULW_LOOP_ROW
+const DIFFICULTY_TIER_ULW_LOOP_NOTE =
+  "Difficulty still sizes the Codex work package, but it never selects an in-host Grok implementation worker."
+
+export function ensureGrokBuildSpawnSubagentMapping(content) {
   // teammode has a fuller dual-catalog section applied by adaptTeammodeSkill
   if (/GrokBuild teammode \(primary on lfg\)/.test(content)) return content
 
   let next = content
+    .replace(
+      /On Grok Build with lfg installed, translate OpenCode\/Codex subagent examples to GrokBuild `spawn_subagent` calls\.[^\n]+/,
+      "On Grok Build with lfg installed, use `spawn_subagent` only for Grok host monitoring and read-only discovery. Product implementation goes through the external Codex app-server handoff. This contract is GrokBuild-only (`coding_tool_adapter` = `grok`).",
+    )
+    .replace(
+      /### Delegation by difficulty \(GrokBuild tier workers\)[\s\S]*?(?=\n## |\n### External-engine)/,
+      DIFFICULTY_TIER_GROK_MAPPING.trimEnd(),
+    )
+    .replace(
+      /### External-engine lane \(OMO-like: claude · gpt · agy\)[\s\S]*?(?=\n## )/,
+      EXTERNAL_ENGINE_LANE_SECTION.trimEnd(),
+    )
+    .replace(
+      /^\| Implementation or QA worker \|[^\n]+$/m,
+      '| Product implementation | `lfg --json handoff plan --role coding --engine gpt --focus "..."` → Codex app-server; `codex exec` fallback only when daemon unavailable. |',
+    )
+    .replace(/^\| Difficulty-tier implementation \|[^\n]+\n?/m, "")
   if (!/GrokBuild (Harness )?Tool (Compatibility|Mapping)/.test(next)) {
+    const planningRow = next.includes("## Grok external Codex plan boundary")
+      ? '| Planning body | `lfg --json plan ulw-plan --focus "..."` → Codex skill `ulw-plan`; Grok monitors the `.omo/` artifact only. |'
+      : '| Planning worker | `spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })` |'
     const section = `## GrokBuild Tool Mapping
 
-On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild \`spawn_subagent\` calls. Prefer lfg OMO personas when installed; GrokBuild host built-ins (\`general-purpose\`, \`explore\`, \`plan\`) are also valid. This contract is GrokBuild-only (\`coding_tool_adapter\` = \`grok\`).
+On Grok Build with lfg installed, use \`spawn_subagent\` only for Grok host monitoring and read-only discovery. Product implementation goes through the external Codex app-server handoff. This contract is GrokBuild-only (\`coding_tool_adapter\` = \`grok\`).
 
 | Intent | GrokBuild tool to use |
 | --- | --- |
 | Search/read-only worker | \`spawn_subagent({ subagent_type: "explore" or "explorer", background: true, description: "...", prompt: "TASK: ..." })\` |
-| Planning worker | \`spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })\` |
-| Implementation or QA worker | \`spawn_subagent({ subagent_type: "hephaestus" or "coding" or "general-purpose", background: true, description: "...", prompt: "TASK: ..." })\` |
-| Difficulty-tier implementation | \`spawn_subagent({ subagent_type: "lazycodex-worker-low" \\| "lazycodex-worker-medium" \\| "lazycodex-worker-high", background: true, description: "...", prompt: "TASK: ..." })\` |
+${planningRow}
+| Product implementation | \`lfg --json handoff plan --role coding --engine gpt --focus "..."\` → Codex app-server; \`codex exec\` fallback only when daemon unavailable. |
 
 `
     next = next.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n${section}`)
-  } else if (!/lazycodex-worker-low/.test(next.split("## Codex")[0] ?? next)) {
-    // Existing Grok mapping: ensure tier workers appear in the Grok section (not only Codex agent_type).
-    next = next.replace(
-      /\| Implementation or QA worker \|[^\n]+\n/,
-      (row) =>
-        `${row}| Difficulty-tier implementation | \`spawn_subagent({ subagent_type: "lazycodex-worker-low" | "lazycodex-worker-medium" | "lazycodex-worker-high", background: true, description: "...", prompt: "TASK: ..." })\` |\n`,
-    )
   }
-  if (!/### Delegation by difficulty \(GrokBuild tier workers\)/.test(next)) {
+  if (!/### Product implementation handoff \(GrokBuild\)/.test(next)) {
     const insertAfter =
       next.match(/## GrokBuild Tool Mapping[\s\S]*?(?=\n## )/)?.[0] ??
       null
@@ -305,6 +399,45 @@ On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to 
       next = next.replace(insertAfter, `${insertAfter}\n${DIFFICULTY_TIER_GROK_MAPPING}`)
     } else {
       next = next.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n${DIFFICULTY_TIER_GROK_MAPPING}`)
+    }
+  }
+  // Match either the original or full-handoff section title so we never double-insert.
+  if (!/### External(?:-engine lane| Codex implementation lane)/.test(next)) {
+    const insertAfterDifficulty =
+      next.match(
+        /### Product implementation handoff \(GrokBuild\)[\s\S]*?(?=\n## |\n### External Codex)/,
+      )?.[0] ?? null
+    if (insertAfterDifficulty) {
+      next = next.replace(insertAfterDifficulty, `${insertAfterDifficulty}\n${EXTERNAL_ENGINE_LANE_SECTION}`)
+    } else if (/## GrokBuild Tool Mapping/.test(next)) {
+      const insertAfter =
+        next.match(/## GrokBuild Tool Mapping[\s\S]*?(?=\n## )/)?.[0] ?? null
+      if (insertAfter) {
+        next = next.replace(insertAfter, `${insertAfter}\n${EXTERNAL_ENGINE_LANE_SECTION}`)
+      }
+    }
+  } else if (
+    /### External-engine lane \(/.test(next) &&
+    (!next.includes("handoff.launch.stdinSource") ||
+      !next.includes("handoff.launch.argv.slice(1)") ||
+      !next.includes(EXCLUSIVE_WORKER_LANE_RULE) ||
+      next.includes(DUPLICATED_LAUNCH_BINARY_WORDING) ||
+      /External-engine lane \(OMO-like: claude · gpt · gemini\)/.test(next) ||
+      next.includes("`gemini` (vision)"))
+  ) {
+    // Upgrade older or duplicated-binary external-engine sections to the canonical runner contract.
+    next = next.replace(
+      /### External-engine lane \([\s\S]*?(?=\n## )/,
+      EXTERNAL_ENGINE_LANE_SECTION,
+    )
+  }
+  const externalSection = EXTERNAL_ENGINE_LANE_SECTION.trimEnd()
+  const firstExternal = next.indexOf(externalSection)
+  if (firstExternal >= 0) {
+    let duplicate = next.indexOf(externalSection, firstExternal + externalSection.length)
+    while (duplicate >= 0) {
+      next = `${next.slice(0, duplicate)}${next.slice(duplicate + externalSection.length)}`
+      duplicate = next.indexOf(externalSection, firstExternal + externalSection.length)
     }
   }
   return next
@@ -609,15 +742,29 @@ function adaptLfgContributeBugFixScript(content) {
     .replaceAll("lazycodex-generated", "lfg-generated")
 }
 
-function adaptUlwLoopSkill(content) {
-  return content.replace(
-    "Read through **Bootstrap** (including its tier triage), **Execution Loop**, and the **Manual-QA channels** table before running any ULW command or recording evidence.",
-    "Read through **Bootstrap** (including its tier triage), **GrokBuild `/goal` state**, **Execution Loop**, and the **Manual-QA channels** table before running any ULW command or recording evidence.",
-  )
+export function adaptUlwLoopSkill(content) {
+  return content
+    .replace(
+      "Read through **Bootstrap** (including its tier triage), **Execution Loop**, and the **Manual-QA channels** table before running any ULW command or recording evidence.",
+      "Read through **Bootstrap** (including its tier triage), **GrokBuild `/goal` state**, **Execution Loop**, and the **Manual-QA channels** table before running any ULW command or recording evidence.",
+    )
+    .replace(
+      "- Delegate code edits, test writes, fixes, and QA execution to right-sized Codex subagents when the workflow requires it.",
+      "- Send every product edit, test, fix, and product QA body through `lfg --json handoff plan --engine gpt`; Grok keeps only watcher/explorer/git-master host work.",
+    )
+    .replace(
+      '| Implementation or QA worker | `multi_agent_v1.spawn_agent({"message":"TASK: act as an implementation or QA worker. ...","fork_context":false})` |',
+      '| Product implementation or QA | `lfg --json handoff plan --role coding --engine gpt --focus "..."` → Codex app-server; `codex exec` fallback only when daemon unavailable. |',
+    )
 }
 
 function adaptStartWorkSkill(content) {
-  return content
+  const boundary = "## Grok execution boundary\n\nPlanning is a separate Codex lane: before approval, run `lfg --json plan ulw-plan --focus <objective>` so Codex loads skill `ulw-plan`, writes the decision-complete `.omo/` plan, and returns `.omo/external-engine/plan-ulw-plan-codex-skill-result.md` for Grok to present.\n\nAfter approval, never execute implementation inside Grok. Build the implementation plan with `lfg --json plan start-work --plan <path> --focus <objective>` or use `lfg --json handoff plan --role coding --engine gpt --focus <objective>`. Prefer the Codex app-server transport. Use codex-exec fallback only when the daemon is unavailable; only then execute `handoff.launch.argv`. External Codex must invoke Codex `$start-work` and write `.omo/external-engine/start-work-codex-skill-result.md`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract."
+  const adapted = content
+    .replace(
+      "# start-work",
+      `# start-work\n\n${boundary}`,
+    )
     .replace(
       'description: "Execute a Prometheus work plan in Codex with Boulder state, evidence ledger updates, worktree discipline, parallel subagents, and Stop-hook continuation. Use after planning when the user says start work, execute plan, continue plan, resume plan, or asks to run a .omo/plans plan."',
       'description: "Execute a Prometheus work plan in GrokBuild with `/goal` state, Boulder state, evidence ledger updates, worktree discipline, parallel subagents, and explicit continuation. Use after planning when the user says start work, execute plan, continue plan, resume plan, or asks to run a .omo/plans plan."',
@@ -643,10 +790,42 @@ function adaptStartWorkSkill(content) {
       "- No unprefixed session ids in Boulder state. Codex sessions are always `codex:<session_id>`.",
       "- No unprefixed session ids in Boulder state. GrokBuild sessions are `grok:<session_id>`; preserve older `codex:<session_id>` values only as historical/resume evidence.\n- Use `/goal` for the host aggregate goal. Do not rely on Codex-only goal APIs or Stop/SubagentStop continuation hooks in GrokBuild.",
     )
+    .replace(
+      "**YOU DO NOT WRITE CODE. YOU DO NOT EDIT PRODUCT FILES. YOU DO NOT RUN QA YOURSELF. EVERY unit of implementation, test, QA, and review work MUST be delegated to a spawned subagent. NO EXCEPTIONS.**",
+      "**YOU DO NOT WRITE CODE. YOU DO NOT EDIT PRODUCT FILES. YOU DO NOT RUN QA YOURSELF. EVERY unit of implementation, test, QA, and review work MUST be delegated to a worker. NO EXCEPTIONS.**",
+    )
+    .replace(
+      "- **NO DIRECT IMPLEMENTATION BY THE ORCHESTRATOR.** Root NEVER edits product files, writes tests, or runs QA itself — a spawned worker does.",
+      "- **NO DIRECT IMPLEMENTATION BY THE ORCHESTRATOR.** Root NEVER edits product files, writes tests, or runs QA itself — a delegated worker does.",
+    )
+    .replace(
+      "6. **DELEGATE EVERYTHING. YOU NEVER IMPLEMENT.** Dispatch ALL independent sub-tasks across those checkboxes in one parallel `multi_agent_v1.spawn_agent` burst; serialize only named dependencies. Verification and checkbox marking stay per-checkbox.",
+      "6. **DELEGATE EVERYTHING. YOU NEVER IMPLEMENT.** Dispatch ALL independent sub-tasks across those checkboxes in parallel through each task's already selected worker lane; serialize only named dependencies. Verification and checkbox marking stay per-checkbox.",
+    )
+    .replace("STOP. SPAWN A WORKER INSTEAD.", "STOP. DISPATCH THE SELECTED WORKER LANE INSTEAD.")
+  return adapted.includes(boundary) ? adapted : `${adapted.trimEnd()}\n\n${boundary}\n`
 }
 
-function adaptUlwLoopReference(content) {
+export function adaptUlwLoopReference(content) {
   let next = content
+    .replace(
+      "For each job body choose exactly one worker lane: external CLI handoff or in-host spawn_subagent. Grok may run independent verification, but must not assign the same implementation body to both lanes.",
+      EXCLUSIVE_WORKER_LANE_RULE,
+    )
+    .replace(
+      "You read, search, plan, integrate, and QA. You DELEGATE every code edit, test write, bug fix, and QA execution to a right-sized delegated worker through exactly one selected worker lane, then verify what comes back.",
+      "You read, search, plan, integrate, and QA. Send every product edit, test, bug fix, and product QA body through the external GPT handoff, then verify the returned RESULT and evidence.",
+    )
+    .replace(/^\| Implementation — pick difficulty:[^\n]+\n?/m, "")
+    .replace(/^\| External engine \(OMO-like claude \/ gpt \/ (?:gemini|agy)\) \|[^\n]+$/m, EXTERNAL_ENGINE_ULW_LOOP_ROW)
+    .replace(
+      "dispatch a dedicated QA execution worker (`lazycodex-worker-medium` by default; `lazycodex-worker-high` when the QA flow itself is hard)",
+      "send the QA execution body through `lfg --json handoff plan --role review --engine gpt`; use the Codex app-server thread, with `codex exec` fallback only when the daemon is unavailable",
+    )
+    .replace(
+      "Difficulty is orthogonal to LIGHT/HEAVY rigor. Tier roles bind via `agent_type` (v1); the deployed v2 spawn schema omits it — state the tier inside `message` there.",
+      DIFFICULTY_TIER_ULW_LOOP_NOTE,
+    )
     .replaceAll("CODEX_HOME=\"${CODEX_HOME:-$HOME/.codex}\"", "GROK_HOME=\"${GROK_HOME:-$HOME/.grok}\"")
     .replaceAll("cached Codex component CLI", "OMO-owned local CLI")
     .replaceAll("stable local installer bin or cached Codex component CLI — same CLI, so PATH absence is not a blocker", "lfg packages a durable ulw-loop CLI as `lfg ulw-loop` / `lfg ulw` (upstream `omo` remains compatible if present)")
@@ -680,16 +859,54 @@ function adaptUlwLoopReference(content) {
     .replace("Per-story Codex goal mode", "Per-story host goal mode")
     .replace("clear the Codex goal manually", "clear the host goal manually")
     .replace(
+      "You read, search, plan, integrate, and QA. You DELEGATE every code edit, test write, bug fix, and QA execution to a right-sized `multi_agent_v1.spawn_agent` worker, then verify what comes back.",
+      "You read, search, plan, integrate, and QA. You DELEGATE every code edit, test write, bug fix, and QA execution to a right-sized delegated worker through exactly one selected worker lane, then verify what comes back.",
+    )
+    .replace(
+      "14. DELEGATE all code edits, test writes, fixes, and QA execution to right-sized `multi_agent_v1.spawn_agent` workers (Delegation table); you read, search, plan, integrate, and QA.",
+      "14. DELEGATE all code edits, test writes, fixes, and QA execution to right-sized delegated workers through exactly one selected worker lane (Delegation table); you read, search, plan, integrate, and QA.",
+    )
+    .replace(
+      "3. DELEGATE-IN-PARALLEL: dispatch every independent task in the wave at once via right-sized `multi_agent_v1.spawn_agent` workers (Delegation table).",
+      "3. DELEGATE-IN-PARALLEL: dispatch every independent task in the wave at once through exactly one selected worker lane (Delegation table).",
+    )
+    .replace(
+      "3. DELEGATE-IN-PARALLEL: dispatch every independent task in the wave at once via right-sized `spawn_agent` workers (Delegation table).",
+      "3. DELEGATE-IN-PARALLEL: dispatch every independent task in the wave at once through exactly one selected worker lane (Delegation table).",
+    )
+    .replace(
+      "dispatch a dedicated QA worker (`worker`, `gpt-5.6-sol`, `xhigh`)",
+      "send the QA execution body through `lfg --json handoff plan --role review --engine gpt`; use the Codex app-server thread, with `codex exec` fallback only when the daemon is unavailable",
+    )
+    .replace(
       "The shell command emits a model-facing handoff; only the Codex agent calls `get_goal`, `create_goal`, or `update_goal` tools.",
       "The shell command emits a model-facing handoff; in GrokBuild, use `/goal` plus the host-visible todo/plan tool instead of Codex-only `get_goal`, `create_goal`, `update_goal`, or `update_plan` APIs.",
     )
     .replace("Codex `get_goal` reports a different active goal", "Host `/goal` reports a different active goal")
-  // Grok difficulty-tier mapping: prefer spawn_subagent subagent_type; keep Codex agent_type as secondary note.
-  if (next.includes("lazycodex-worker-") && !next.includes("GrokBuild difficulty-tier")) {
+  if (!next.includes(EXCLUSIVE_WORKER_LANE_RULE)) {
     next = next.replace(
-      /\| Implementation — pick difficulty:.*\|$/m,
-      "| Implementation — pick difficulty: LOW (one-file fix, boilerplate) / MEDIUM (standard feature, known patterns) / HIGH (new module, cross-module, concurrency/security/migration) | **GrokBuild difficulty-tier:** `spawn_subagent({ subagent_type: \"lazycodex-worker-low|medium|high\", ...})` (orchestrator-selected). Codex-only: `agent_type: \"lazycodex-worker-<low|medium|high>\"` when exposed; else state tier in `message`. |",
+      "## Delegation model (ATLAS-STYLE — YOU CONDUCT, WORKERS PLAY)",
+      `## Delegation model (ATLAS-STYLE — YOU CONDUCT, WORKERS PLAY)\n\n${EXCLUSIVE_WORKER_LANE_RULE}`,
     )
+  }
+  // Stable upstream anchor: the read-only-search row exists before lfg adds any tier or external-engine rows.
+  if (!next.includes("GPT-only external handoff")) {
+    next = next.replace(
+      /^(\| Read-only codebase search \|[^\n]+\n)/m,
+      `$1${DIFFICULTY_TIER_ULW_LOOP_ROW}\n`,
+    )
+  }
+  if (!next.includes(DIFFICULTY_TIER_ULW_LOOP_NOTE)) {
+    next = next.replace(
+      /(For reviewer work,[^\n]+Never spawn a context-only child for review\.\n)/,
+      `$1\n${DIFFICULTY_TIER_ULW_LOOP_NOTE}\n`,
+    )
+  }
+  if (
+    next.includes("ulw-external-engine") &&
+    (!next.includes("handoff.launch.argv.slice(1)") || next.includes(DUPLICATED_LAUNCH_BINARY_WORDING))
+  ) {
+    next = next.replace(/^\| Product implementation \(LOW \/ MEDIUM \/ HIGH\) \|.*$/m, EXTERNAL_ENGINE_ULW_LOOP_ROW)
   }
   return next
 }
@@ -700,6 +917,27 @@ function adaptUlwPlanReference(content) {
     .replaceAll("Codex CLI review", "GrokBuild adapter review")
     .replaceAll("`CODEX_HOME`", "`GROK_HOME`")
     .replaceAll("Codex-native", "GrokBuild-native")
+}
+
+function adaptUlwPlanSkill(content) {
+  const boundary = `## Grok external Codex plan boundary
+
+On GrokBuild, this skill is a routing contract, not an in-host Prometheus runtime. Grok MUST run \`lfg --json plan ulw-plan --focus "<objective>"\`, launch the returned Codex app-server transport (or the honest \`codex-exec\` fallback), and require that Codex load and follow skill \`ulw-plan\` from \`skills/ulw-plan/SKILL.md\`. Codex writes the decision-complete plan under \`.omo/\` and the monitoring receipt at \`.omo/external-engine/plan-ulw-plan-codex-skill-result.md\`; Grok only monitors, presents the plan, and waits for user approval.
+
+The existing gjc intent gateway may run a deep interview only when it reports high ambiguity or interview needed. gjc never owns the plan body. After approval, product implementation uses \`lfg --json handoff plan --role coding --engine gpt\` through the Codex app-server lane; do not reuse the plan skill as the implementation worker.
+`
+  const withBoundary = content.includes("# ulw-plan")
+    ? content.replace("# ulw-plan", `${boundary}\n# ulw-plan`)
+    : content.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n${boundary}\n`)
+  return withBoundary
+    .replace(
+      /^\| Planning worker \|.*$/m,
+      '| Planning body | `lfg --json plan ulw-plan --focus "..."` → Codex skill `ulw-plan`; Grok monitors the `.omo/` artifact only. |',
+    )
+    .replace(
+      /^\| Implementation or QA worker \|.*$/m,
+      '| Product implementation after plan approval | `lfg --json handoff plan --role coding --engine gpt --focus "..."` → Codex app-server. |',
+    )
 }
 
 function adaptUltraresearchSkill(content) {

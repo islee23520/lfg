@@ -46,7 +46,7 @@ export async function expectUpstreamOmoWorkflowSkills(pluginRoot: string): Promi
 export async function expectGrokBuildSkillActivationSurface(pluginRoot: string): Promise<void> {
   const skillsRoot = join(pluginRoot, "skills")
   const planGrok = await readFile(join(skillsRoot, "ulw-plan", "agents", "grok.yaml"), "utf8")
-  expect(planGrok).toMatch(/\/ulw-plan/)
+  expect(planGrok).toMatch(/lfg --json plan ulw-plan/)
   expect(planGrok).not.toMatch(/(?<![A-Za-z0-9_/])\$ulw-plan\b/)
   await expect(readFile(join(skillsRoot, "ulw-plan", "agents", "openai.yaml"), "utf8")).rejects.toThrow()
   await expect(readFile(join(skillsRoot, "git-master", "agents", "openai.yaml"), "utf8")).rejects.toThrow()

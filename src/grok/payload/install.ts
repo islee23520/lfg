@@ -55,7 +55,7 @@ const DEFAULT_VERSION = "0.0.0-dev"
  * shims from the bundled `grok-install/components/` tree replace them so hook
  * subcommands exit gracefully instead of crashing on import resolution.
  */
-const LFG_MCP_COMPONENT_SHIM_DIRS = ["ast-grep", "git-bash", "lsp"] as const
+const LFG_MCP_COMPONENT_SHIM_DIRS = ["ast-grep", "git-bash", "lsp", "eval"] as const
 const LFG_HOOK_RUNTIME_COMPONENT_DIRS = ["rules", "ultrawork"] as const
 
 export function nativeGrokPluginRoot(home: string, pluginDirName: string = DEFAULT_PLUGIN_DIR): string {

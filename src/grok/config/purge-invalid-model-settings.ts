@@ -82,18 +82,25 @@ export async function purgeInvalidGrokModelSettings(
   }
 
   if (!hasHostCatalog) {
-    const { next, removed } = stripMissingPlugins(toml, installedPlugins)
-    const configChanged = next !== toml
-    if (configChanged) await writeFile(path, next, "utf8")
+    // Still remap obviously unauthenticated foreign routes (e.g. models.default =
+    // "cx/gpt-5.6-sol") so host sessions do not 401 after auth recovery. Use the
+    // Grok safety-net catalog as the remap target when no live discovery exists.
+    const safetyNet = new Set(["grok-4.5", "grok-composer-2.5-fast", "grok-build"])
+    const purged = purgeInvalidModelSettingsToml(toml, safetyNet, installedPlugins)
+    const { next: pluginsNext, removed } = stripMissingPlugins(purged.next, installedPlugins)
+    const configChanged = pluginsNext !== toml
+    if (configChanged) await writeFile(path, pluginsNext, "utf8")
+    const overridesChanged = await purgeInvalidAgentOverrides(home, safetyNet)
     return {
       path,
-      changed: configChanged,
-      availableModelIds: [],
-      remappedRoutes: [],
-      removedModelSections: [],
+      changed: configChanged || overridesChanged,
+      availableModelIds: [...safetyNet],
+      remappedRoutes: purged.remappedRoutes,
+      removedModelSections: purged.removedModelSections,
       removedPluginIds: removed,
-      overridesChanged: false,
-      skipped: true,
+      overridesChanged,
+      // Not fully skipped: foreign 401-prone defaults are still repaired.
+      skipped: purged.remappedRoutes.length === 0 && removed.length === 0 && !overridesChanged,
     }
   }
 

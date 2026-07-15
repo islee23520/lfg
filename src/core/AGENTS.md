@@ -34,6 +34,7 @@ core/
 | Skills loader core | `omo/skills-loader-core/` | Host-neutral slice only; OpenCode discovery Deferred. |
 | Host capability types | `adapter/host-capabilities.ts` | Filled by `src/grok/adapter/`. |
 | Spawn type map | `lfg/subagents/omo-spawn-map.ts` | OMO spawn → lfg subagent names. |
+| External-engine full handoff | `lfg/external-engine/` | OMO-like handoff: Grok orchestrator; claude, gpt (codex), agy (Antigravity) CLIs only. |
 
 ## CONVENTIONS
 

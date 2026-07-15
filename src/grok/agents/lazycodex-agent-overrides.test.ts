@@ -8,7 +8,11 @@ import {
   loadBundledDefaultOmoOverrides,
   mergeLazycodexAgentOverrides,
   readLazycodexAgentOverridesFile,
+  readOmoAgentOverridesFile,
+  resolveLazycodexAgentOverrides,
+  writeOmoAgentOverridesFile,
   writeLazycodexAgentOverridesFile,
+  slimNativeAgentOverrides,
 } from "./lazycodex-agent-overrides"
 
 const discovery: ModelDiscovery = {
@@ -67,74 +71,37 @@ describe("lazycodex-agent-overrides", () => {
     expect(role.coding.reasoningLevel).toBe("medium")
   })
 
-  test("bundled defaults include default, prometheus, sisyphus, and atlas agents", async () => {
+  test("slims bundled defaults to native agents including git-master", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()
-    expect(bundled.default?.model).toBe("grok-4.5")
-    expect(bundled.default?.reasoningLevel).toBe("low")
-    expect(bundled.prometheus?.model).toBe("grok-4.5")
-    expect(bundled.prometheus?.reasoningLevel).toBe("xhigh")
-    expect(bundled.sisyphus?.model).toBe("grok-4.5")
-    expect(bundled.sisyphus?.reasoningLevel).toBe("low")
-    expect(bundled.atlas?.model).toBe("grok-4.5")
-    expect(bundled.atlas?.reasoningLevel).toBe("high")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("default")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("prometheus")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("sisyphus")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("atlas")
+    const slim = slimNativeAgentOverrides(bundled)
+    expect(Object.keys(slim).sort()).toEqual(["explorer", "git-master", "sisyphus", "watcher"])
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toEqual([
+      "sisyphus",
+      "watcher",
+      "explorer",
+      "git-master",
+    ])
+    expect(slim["git-master"]?.model).toBe("grok-3-mini-fast")
+    expect(slim["git-master"]?.reasoningLevel).toBe("low")
   })
 
-  test("bundled defaults include oracle and sisyphus-junior OMO parity agents", async () => {
-    const bundled = await loadBundledDefaultOmoOverrides()
-    expect(bundled.oracle?.model).toBe("gpt-5.5")
-    expect(bundled.oracle?.reasoningLevel).toBe("high")
-    expect(bundled.oracle?.modelFallback).toBe("grok-4.5")
-    expect(bundled["sisyphus-junior"]?.model).toBe("grok-4.5")
-    expect(bundled["sisyphus-junior"]?.reasoningLevel).toBe("medium")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("oracle")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("sisyphus-junior")
+  test("resolves and persists only native agent override keys", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-native-overrides-"))
+    const role = defaultLazycodexAgentConfig(discovery)
+
+    await writeOmoAgentOverridesFile(home, {
+      hephaestus: { model: "retired", reasoningLevel: "high" },
+      default: { model: "native-default", reasoningLevel: "medium" },
+      explorer: { model: "native-explorer", reasoningLevel: "low" },
+      "lazycodex-worker-low": { model: "retired-worker", reasoningLevel: "low" },
+    })
+    const persisted = await readOmoAgentOverridesFile(home)
+    const resolved = await resolveLazycodexAgentOverrides(home, role)
+
+    expect(Object.keys(persisted).sort()).toEqual(["explorer", "git-master", "sisyphus", "watcher"])
+    expect(Object.keys(resolved).sort()).toEqual(["explorer", "git-master", "sisyphus", "watcher"])
   })
 
-  test("bundled defaults include OMO and Grok category agents", async () => {
-    const bundled = await loadBundledDefaultOmoOverrides()
-    expect(bundled.ultrabrain?.model).toBe("grok-4.5")
-    expect(bundled.ultrabrain?.reasoningLevel).toBe("xhigh")
-    expect(bundled.deep?.model).toBe("grok-4.5")
-    expect(bundled.deep?.reasoningLevel).toBe("high")
-    expect(bundled.quick?.model).toBe("grok-3-mini-fast")
-    expect(bundled.quick?.reasoningLevel).toBe("low")
-    expect(bundled["unspecified-low"]?.model).toBe("grok-3-mini-fast")
-    expect(bundled["unspecified-low"]?.reasoningLevel).toBe("low")
-    expect(bundled["unspecified-high"]?.model).toBe("grok-4.5")
-    expect(bundled["unspecified-high"]?.reasoningLevel).toBe("high")
-    expect(bundled.writing?.model).toBe("grok-3-mini-fast")
-    expect(bundled.writing?.reasoningLevel).toBe("low")
-    expect(bundled["visual-engineering"]?.model).toBe("gemini-3.1-pro-low")
-    expect(bundled["visual-engineering"]?.reasoningLevel).toBe("high")
-    expect(bundled.artistry?.model).toBe("grok-4.5")
-    expect(bundled.artistry?.reasoningLevel).toBe("high")
-    expect(bundled["artistry-gen"]?.model).toBe("grok-4.5")
-    expect(bundled["artistry-gen"]?.reasoningLevel).toBe("medium")
-    expect(bundled["artistry-qa"]?.model).toBe("grok-4.5")
-    expect(bundled["artistry-qa"]?.reasoningLevel).toBe("high")
-    expect(bundled["multimodal-looker"]?.model).toBe("gemini-3.1-pro-low")
-    expect(bundled["multimodal-looker"]?.reasoningLevel).toBe("medium")
-    expect(bundled["multimodal-looker"]?.modelFallback).toBe("grok-4.5")
-    expect(bundled.ulw?.model).toBe("grok-4.5")
-    expect(bundled.ulw?.reasoningLevel).toBe("high")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("ultrabrain")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("deep")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("quick")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("unspecified-low")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("unspecified-high")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("writing")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("visual-engineering")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("artistry")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("artistry-gen")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("artistry-qa")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("multimodal-looker")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).not.toContain("visual-looker")
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toContain("ulw")
-  })
 
   test("bundled fast utility agents use grok-3-mini-fast ids", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()

@@ -12,9 +12,9 @@ const FIELD_MAX_CHARS = 160;
 const input = parseJson(await readStdin());
 const event = normalizeHookEventName(input);
 const home = resolveGrokHome(process.env);
-const configPath = join(home, ".grok", "lfg-config.jsonc");
+// Sole settings surface: ~/.grok/config.toml (lfg.json / lfg-config.jsonc are retired).
 const grokConfigPath = join(home, ".grok", "config.toml");
-const config = await readConfig(configPath);
+const config = await readTomlAgentConfig(grokConfigPath);
 const modelRestore = (event === "SessionStart" || event === "PostCompact") ? await restoreSessionDefaultModel(grokConfigPath) : null;
 const projectRoot = projectRootFromInput(input);
 const sessionId = sessionIdFromInput(input);
@@ -28,7 +28,7 @@ if (ledger.status === "malformed") {
   }
   process.exit(1); // SessionStart / UserPromptSubmit keep hard fail
 }
-const context = renderContext(configPath, config, ledger, modelRestore);
+const context = renderContext(grokConfigPath, config, ledger, modelRestore);
 
 await devLog({
   event,
@@ -36,7 +36,7 @@ await devLog({
   cwd: projectRoot,
   detail: {
     hasConfig: config !== null,
-    configPath: config !== null ? configPath : null,
+    configPath: config !== null ? grokConfigPath : null,
     agentCount: config?.agents ? Object.keys(config.agents).length : 0,
     agents: config?.agents ? Object.fromEntries(
       Object.entries(config.agents).map(([name, a]) => [name, { model: a?.model, reasoning: a?.reasoning_level, enabled: a?.enabled }])
@@ -61,11 +61,49 @@ if (context !== null) {
   }) + "\n");
 }
 
-async function readConfig(path) {
+/** Parse [omo.agents.*] + [omo.models] from config.toml into the legacy config shape. */
+async function readTomlAgentConfig(path) {
   try {
     const raw = await readFile(path, "utf8");
-    const parsed = JSON.parse(stripJsonComments(raw));
-    return typeof parsed === "object" && parsed !== null ? parsed : null;
+    const agents = {};
+    const agentHeader = /^\[omo\.agents\.([^\]]+)\]\s*(?:#.*)?$/;
+    const lines = raw.split(/\r?\n/);
+    let current = null;
+    for (const line of lines) {
+      const header = line.match(agentHeader);
+      if (header) {
+        current = header[1];
+        agents[current] = agents[current] ?? {};
+        continue;
+      }
+      if (current !== null && /^\s*\[[^\]]+\]\s*(?:#.*)?$/.test(line)) {
+        current = null;
+      }
+      if (current === null) continue;
+      const model = line.match(/^\s*model\s*=\s*(["'])(.*?)\1\s*(?:#.*)?$/);
+      if (model) agents[current].model = model[2];
+      const reasoning =
+        line.match(/^\s*reasoning_level\s*=\s*(["'])(.*?)\1\s*(?:#.*)?$/) ||
+        line.match(/^\s*reasoning_effort\s*=\s*(["'])(.*?)\1\s*(?:#.*)?$/);
+      if (reasoning) agents[current].reasoning_level = reasoning[2];
+    }
+    for (const name of Object.keys(agents)) {
+      agents[name].enabled = true;
+    }
+    const models = {};
+    const modelKeys = ["default", "fast", "reasoning", "coding"];
+    for (const key of modelKeys) {
+      const value = readTomlStringKey(raw, "omo.models", key);
+      if (value !== null) models[key] = value;
+    }
+    const hasAgents = Object.keys(agents).length > 0;
+    const hasModels = Object.keys(models).length > 0;
+    if (!hasAgents && !hasModels) return null;
+    return {
+      version: 1,
+      ...(hasAgents ? { agents } : {}),
+      ...(hasModels ? { models } : {}),
+    };
   } catch {
     return null;
   }
@@ -386,39 +424,4 @@ async function readStdin() {
   let data = "";
   for await (const chunk of process.stdin) data += chunk;
   return data;
-}
-
-function stripJsonComments(text) {
-  let output = "";
-  let inString = false;
-  let escaped = false;
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    const next = text[index + 1];
-    if (inString) {
-      output += char;
-      if (escaped) escaped = false;
-      else if (char === "\\") escaped = true;
-      else if (char === '"') inString = false;
-      continue;
-    }
-    if (char === '"') {
-      inString = true;
-      output += char;
-      continue;
-    }
-    if (char === "/" && next === "/") {
-      while (index < text.length && text[index] !== "\n") index += 1;
-      output += "\n";
-      continue;
-    }
-    if (char === "/" && next === "*") {
-      index += 2;
-      while (index < text.length && !(text[index] === "*" && text[index + 1] === "/")) index += 1;
-      index += 1;
-      continue;
-    }
-    output += char;
-  }
-  return output;
 }

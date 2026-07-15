@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "eval": {
+      "command": "node",
+      "args": ["./components/eval/dist/cli.js", "mcp"]
+    }
+  }
+}

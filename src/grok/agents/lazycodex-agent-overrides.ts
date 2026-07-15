@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { LazycodexAgentConfig, LazycodexAgentSetting, ReasoningLevel } from "../../cli/models/lfg-models"
-import { applyLfgConfigToAgentOverrides, applyLfgRuntimeConfigToAgentOverrides, readLfgConfigFile, readLfgRuntimeConfigFile } from "../config/lfg-config"
 import { resolveFlavourPackAssetsRoot } from "../payload/resolve-flavour-pack-asset"
 
 export type ServiceTier = "default" | "fast"
@@ -23,36 +22,36 @@ export const OMO_AGENT_OVERRIDES_FILENAME = "omo-agent-overrides.json"
 
 /** OMO / ultrawork agents users can tune per agent (LFP-style). */
 export const CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
-  "default",
   "sisyphus",
-  "prometheus",
-  "atlas",
-  "oracle",
-  "multimodal-looker",
-  "sisyphus-junior",
+  "watcher",
   "explorer",
-  "reasoning",
-  "coding",
-  "librarian",
-  "plan",
-  "metis",
-  "momus",
-  "codex-ultrawork-reviewer",
-  "ultrabrain",
-  "deep",
-  "quick",
-  "unspecified-low",
-  "unspecified-high",
-  "writing",
-  "visual-engineering",
-  "artistry",
-  "artistry-gen",
-  "artistry-qa",
-  "ulw",
-  "lazycodex-worker-low",
-  "lazycodex-worker-medium",
-  "lazycodex-worker-high",
+  "git-master",
 ] as const
+
+/** Low-token default for the git-only specialist. */
+export const GIT_MASTER_DEFAULT_OVERRIDE: LazycodexAgentModelOverride = {
+  model: "grok-3-mini-fast",
+  reasoningLevel: "low",
+  serviceTier: "fast",
+  modelFallback: "grok-3-mini",
+  modelFallbackReasoningLevel: "low",
+  roleRationale: "Git-only specialist — prefer low-token mini models.",
+}
+
+export function slimNativeAgentOverrides(overrides: LazycodexAgentOverrideMap): LazycodexAgentOverrideMap {
+  const sisyphus = overrides.sisyphus ?? overrides.default
+  const watcher = overrides.watcher ?? sisyphus
+  const explorer = overrides.explorer
+  const gitMaster = overrides["git-master"] ?? GIT_MASTER_DEFAULT_OVERRIDE
+  return Object.fromEntries(
+    Object.entries({
+      sisyphus,
+      watcher,
+      explorer,
+      "git-master": gitMaster,
+    }).filter((entry): entry is [string, LazycodexAgentModelOverride] => entry[1] !== undefined),
+  )
+}
 
 type StoredOverrideFields = {
   readonly model?: string
@@ -107,7 +106,7 @@ export async function writeLazycodexAgentOverridesFile(home: string, overrides: 
 export async function writeOmoAgentOverridesFile(home: string, overrides: LazycodexAgentOverrideMap): Promise<string> {
   const path = omoAgentOverridesPath(home)
   await mkdir(join(home, ".grok"), { recursive: true })
-  const body = serializeAgentOverrides(overrides)
+  const body = serializeAgentOverrides(slimNativeAgentOverrides(overrides))
   await writeFile(path, `${JSON.stringify(body, null, 2)}\n`, "utf8")
   return path
 }
@@ -167,17 +166,15 @@ export async function resolveLazycodexAgentOverrides(
   home: string,
   roleConfig: LazycodexAgentConfig,
 ): Promise<LazycodexAgentOverrideMap> {
-  const [bundled, omoFile, legacyFile, lfgRuntimeConfig, lfgConfig] = await Promise.all([
+  // Settings live in ~/.grok/config.toml (writeGrokModelConfig + subagent routing).
+  // Do not merge retired lfg.json / lfg-config.jsonc routes — those files are meaningless.
+  const [bundled, omoFile, legacyFile] = await Promise.all([
     loadBundledDefaultOmoOverrides(),
     readOmoAgentOverridesFile(home),
     readLazycodexAgentOverridesFile(home),
-    readLfgRuntimeConfigFile(home),
-    readLfgConfigFile(home),
   ])
   const fromFile = Object.keys(omoFile).length > 0 ? omoFile : legacyFile
-  const legacyMerged = mergeLazycodexAgentOverrides(roleConfig, bundled, fromFile)
-  const runtimeMerged = applyLfgRuntimeConfigToAgentOverrides(legacyMerged, lfgRuntimeConfig)
-  return applyLfgConfigToAgentOverrides(runtimeMerged, roleConfig, lfgConfig)
+  return slimNativeAgentOverrides(mergeLazycodexAgentOverrides(roleConfig, bundled, fromFile))
 }
 
 export function overrideForAgent(map: LazycodexAgentOverrideMap, agentName: string): LazycodexAgentModelOverride | undefined {

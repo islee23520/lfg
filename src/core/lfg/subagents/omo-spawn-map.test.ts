@@ -31,16 +31,16 @@ describe("omo-spawn-map", () => {
     expect(lfgSubagentForOmoSpawnType("sisyphus-junior")).toBe("sisyphus-junior")
   })
 
-  test("resolves upstream difficulty-tier workers to Grok worker subagent names", () => {
-    // Given: upstream OMO/lazycodex difficulty-tier spawn labels that must be first-class map keys.
+  test("retains upstream difficulty-tier names only as legacy identities", () => {
+    // Given: legacy OMO/lazycodex labels that old state may still contain.
     const upstreamWorkers = [
       "lazycodex-worker-low",
       "lazycodex-worker-medium",
       "lazycodex-worker-high",
     ] as const
 
-    // When: the spawn map table and resolver are consulted for each worker label.
-    // Then: workers are explicit map entries (not unknown pass-through) and identity-map to Grok names.
+    // When: the compatibility map is consulted for each old label.
+    // Then: the labels stay stable for migration without defining the active implementation route.
     for (const spawnType of upstreamWorkers) {
       expect(Object.hasOwn(OMO_SPAWN_TYPE_TO_LFG_SUBAGENT, spawnType), spawnType).toBe(true)
       expect(OMO_SPAWN_TYPE_TO_LFG_SUBAGENT[spawnType]).toBe(spawnType)

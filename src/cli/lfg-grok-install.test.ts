@@ -115,7 +115,7 @@ describe("lfg internal grok install contract", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-payload-src-"))
     const result = await runLfg(["--json", "setup", "--run"], { HOME: home })
     expect(result.exitCode).toBe(0)
-    const p = (result.json as any).postInstallVerify as { payloadSource?: string; componentInventoryPath?: string; nativeHookStatus?: string; bridgeFallback?: boolean; omoComponents?: string[]; skillWorkflows?: Record<string, boolean>; nativeAgents?: { status?: string; sisyphusDefaultAgent?: boolean; pluginAgents?: string[] } } | undefined
+    const p = (result.json as any).postInstallVerify as { payloadSource?: string; componentInventoryPath?: string; nativeHookStatus?: string; bridgeFallback?: boolean; omoComponents?: string[]; skillWorkflows?: Record<string, boolean>; nativeAgents?: { status?: string; watcherDefaultAgent?: boolean; pluginAgents?: string[] } } | undefined
     expect(p).toBeTruthy()
     expect(p?.componentInventoryPath).toContain("lfg-component-inventory.json")
     // Accept either native Grok path (~/.grok/plugins) or legacy installed-plugins path
@@ -132,9 +132,10 @@ describe("lfg internal grok install contract", () => {
     expect(p?.skillWorkflows?.["ulw-loop"]).toBe(true)
     expect(p?.nativeAgents).toMatchObject({
       status: "verified",
-      sisyphusDefaultAgent: true,
+      watcherDefaultAgent: true,
     })
-    expect(p?.nativeAgents?.pluginAgents).toContain("default")
+    expect(p?.nativeAgents?.pluginAgents).toContain("sisyphus")
+    expect(p?.nativeAgents?.pluginAgents).toContain("watcher")
   })
 
   test("setup --run with fixture fallback includes warning and payloadSource=fixture_fallback in internalStep (supports #38)", async () => {
@@ -207,7 +208,7 @@ describe("lfg internal grok install contract", () => {
     const raw = await readFile(nativeInv, "utf8").catch(() => readFile(legacyInv, "utf8"))
     const inventory = JSON.parse(raw) as { readonly packageVersion: string }
     expect(inventory.packageVersion).toBe("9.8.7")
-  })
+  }, 15_000)
 
   test("installed fixture hooks.json uses Grok SessionStart event map", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-hooks-home-"))

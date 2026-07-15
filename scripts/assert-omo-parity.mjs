@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { access, readdir, readFile } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { checkOmoParityUpkeep } from "./omo-parity-upkeep.mjs"
 
-const repoRoot = fileURLToPath(new URL("..", import.meta.url))
+const repoRootOverride = process.env.LFG_OMO_PARITY_REPO_ROOT
+const repoRoot = repoRootOverride ? resolve(repoRootOverride) : fileURLToPath(new URL("..", import.meta.url))
 const expectedVersion = "4.16.3"
 const expectedSkillSourceUpstream = "@sisyphuslabs/omo-codex-plugin"
 const expectedGeneratedBy = "scripts/sync-omo-skills-to-grok.mjs"
@@ -47,6 +48,7 @@ const requiredSupplementalSkills = [
 /** lfg-owned skills (not OMO managed list) that must ship in all three skill roots. */
 const requiredLfgNativeSkills = [
   "claude-code-inventory",
+  "ulw-external-engine",
 ]
 const excludedSupplementalSkills = ["xai-grok", "xai-login-instructions", "xai-status"]
 const generatedSkillRoots = [
@@ -64,6 +66,19 @@ const staleAgentMetadataNeedles = [
   "openai codex bug",
   "codex upstream issue",
   "codex bug fix pr",
+]
+const duplicatedLaunchBinaryWording = "Execute `handoff.launch.binary` with `handoff.launch.argv`"
+const exclusiveWorkerLaneRule =
+  "Product implementation has exactly one worker lane: external Codex app-server handoff through `lfg --json handoff plan --engine gpt`. Grok may use watcher/explorer/git-master for host monitoring and read-only discovery, but must not spawn an in-host implementer for the product body."
+const conflictingUnconditionalSpawnedSubagentMandates = [
+  /every implementation, test, and QA unit must be a spawned subagent/i,
+  /EVERY unit of implementation, test, QA, and review work MUST be delegated to a spawned subagent/,
+  /You DELEGATE every code edit, test write, bug fix, and QA execution to a right-sized `multi_agent_v1\.spawn_agent` worker/,
+  /DELEGATE all code edits, test writes, fixes, and QA execution to right-sized `multi_agent_v1\.spawn_agent` workers/,
+  /Root NEVER edits product files, writes tests, or runs QA itself — a spawned worker does\./,
+  /DELEGATE-IN-PARALLEL:[^\n]*dispatch every independent task[^\n]*(?:spawn_agent|spawn_subagent|spawned (?:subagent|worker))/i,
+  /dispatch (?:all|every) independent (?:(?:sub-)?tasks?|job[- ]bod(?:y|ies))[^\n]*(?:spawn_agent|spawn_subagent|spawned (?:subagent|worker))/i,
+  /\b(?:stop[.!]?\s*|(?:must|always)\s+)spawn (?:a |the )?(?:worker|subagent)s?(?:\s+instead)?[.!]/i,
 ]
 
 const failures = []
@@ -101,7 +116,7 @@ await assertTextContains("AGENTS.md", [
   "`teammode` | GrokBuild spawn_subagent transport + host built-ins and lfg OMO agents; Codex multi_agent_v2/codex_app still available on Codex | Grok-adapted",
   "`lazycodex-executor-verify` | T3: pure `verifySubagentStopEvidence` in Sisyphus SubagentStop; no dedicated host-enforced CLI (host dependency class: Stop/SubagentStop hook) | Deferred",
   "`workflow-selector` | Upstream removed from omo-codex components (#5745); lfg optional native opt-in retained, Deferred pending GrokBuild host receipt | Deferred",
-  "`difficulty-tier-workers` | Host-neutral resolver + Grok roles/agents/prompts + config model/effort + orchestrator `spawn_subagent` (`lazycodex-worker-low|medium|high`); not host auto-classification | Grok-adapted",
+  "`difficulty-tier-workers` | LOW/MEDIUM/HIGH sizing for external `lfg handoff plan --engine gpt`; legacy worker identities retained but disabled for Grok implementation | Grok-adapted",
   "`test-support` | Upstream package test infrastructure, not a Grok plugin runtime component | Unsupported",
   "host dependency class",
   "grok-orchestration-plane.md",
@@ -146,8 +161,31 @@ async function assertSkillRoot(root) {
   }
   for (const skillName of requiredLfgNativeSkills) {
     await assertExists(join(root, skillName, "SKILL.md"))
-    await assertTextContains(join(root, skillName, "SKILL.md"), ["lfg claude", "Claude Code"])
     await assertExists(join(root, skillName, "agents", "grok.yaml"))
+    if (skillName === "claude-code-inventory") {
+      await assertTextContains(join(root, skillName, "SKILL.md"), ["lfg claude", "Claude Code"])
+    } else if (skillName === "ulw-external-engine") {
+      await assertTextContains(join(root, skillName, "SKILL.md"), [
+        "lfg --json handoff plan",
+        "OMO-like",
+        "Sisyphus",
+        "timeout: 0",
+        "claude",
+        "gpt",
+        "agy",
+        "codex",
+        "oracle",
+        "vision",
+        "hephaestus",
+        "fullyTransferable",
+        "grokIsOrchestrator",
+        "launch.stdinSource",
+        "no parallel Grok hephaestus for the same body",
+        "lfg-gjc-intent-gateway",
+        "gjc is an optional fail-open intent gateway",
+      ])
+      await assertTextExcludes(join(root, skillName, "SKILL.md"), ["$(cat", "gjc launch", "engine: gjc", "senpi -p"])
+    }
   }
   for (const skillName of excludedSupplementalSkills) {
     await assertMissing(join(root, skillName, "SKILL.md"))
@@ -183,17 +221,56 @@ async function assertSkillRoot(root) {
     "Execute a Prometheus work plan in GrokBuild with `/goal` state",
     "Inspect GrokBuild `/goal` state",
     "GrokBuild sessions are `grok:<session_id>`",
-    "lazycodex-worker-low",
-    "lazycodex-worker-medium",
-    "lazycodex-worker-high",
-    "Delegation by difficulty (GrokBuild tier workers)",
-    "subagent_type",
+    "Product implementation handoff (GrokBuild)",
+    "External Codex implementation lane (GPT only)",
+    "ulw-external-engine",
+    "lfg --json handoff plan",
+    "handoff.launch.argv[0]",
+    "handoff.launch.argv.slice(1)",
+    "handoff.launch.binary` is identity/readiness metadata",
+    "launch.stdinSource",
+    "timeout: 0",
+    "fullyTransferable",
+    "grokIsOrchestrator",
+    "gpt",
+    "codex-exec-fallback",
+    "do not** spawn Grok hephaestus/coding/lazycodex-worker for the product body",
+    "lfg-gjc-intent-gateway",
+    "gjc remains intent-only and fail-open",
+    exclusiveWorkerLaneRule,
+    "lfg --json plan start-work",
+    "Codex `$start-work`",
+    ".omo/external-engine/start-work-codex-skill-result.md",
+    "Prefer the Codex app-server",
+    "Use codex-exec fallback only when the daemon is unavailable",
+    "only then execute `handoff.launch.argv`",
   ])
+  await assertExists(join(root, "start-work", "agents", "grok.yaml"))
+  await assertMissing(join(root, "start-work", "agents", "openai.yaml"))
+  await assertTextContains(join(root, "start-work", "agents", "grok.yaml"), [
+    "Never execute product work in-host",
+    "lfg --json plan start-work",
+    "$start-work",
+  ])
+  await assertTextExcludes(join(root, "start-work", "SKILL.md"), ["$(cat", "gjc launch", "engine: gjc", "senpi -p"])
+  await assertNoDuplicatedLaunchBinaryWording(join(root, "start-work", "SKILL.md"))
+  await assertNoConflictingUnconditionalSpawnedSubagentMandate(join(root, "start-work", "SKILL.md"))
   await assertTextContains(join(root, "ulw-loop", "references", "full-workflow.md"), [
-    "GrokBuild difficulty-tier",
-    "lazycodex-worker-low|medium|high",
-    "orchestrator-selected",
+    "GPT-only external handoff",
+    "codex-exec-fallback",
+    "ulw-external-engine",
+    "lfg --json handoff plan",
+    "handoff.launch.argv[0]",
+    "handoff.launch.argv.slice(1)",
+    "handoff.launch.binary` is identity/readiness metadata",
+    "Codex app-server",
+    "Never `spawn_subagent` hephaestus/coding/lazycodex-worker for the product body",
+    exclusiveWorkerLaneRule,
   ])
+  // Ban payload command substitution; ulw-loop's unrelated PATH bootstrap still uses POSIX $(command -v ...).
+  await assertTextExcludes(join(root, "ulw-loop", "references", "full-workflow.md"), ["$(cat", "gjc launch", "engine: gjc", "senpi -p"])
+  await assertNoDuplicatedLaunchBinaryWording(join(root, "ulw-loop", "references", "full-workflow.md"))
+  await assertNoConflictingUnconditionalSpawnedSubagentMandate(join(root, "ulw-loop", "references", "full-workflow.md"))
   // Managed component skills must be GrokBuild-framed (not Codex-primary leftovers).
   await assertTextContains(join(root, "lsp", "SKILL.md"), ["GrokBuild LSP", "GrokBuild"])
   await assertTextExcludes(join(root, "lsp", "SKILL.md"), ["# Codex LSP"])
@@ -204,7 +281,7 @@ async function assertSkillRoot(root) {
 }
 
 async function assertParityUpkeep() {
-  const report = await checkOmoParityUpkeep()
+  const report = await checkOmoParityUpkeep({ repoRoot })
   if (!report.ok) {
     for (const item of report.findings) {
       failures.push(`omo-parity-upkeep:${item.kind}:${item.id}: ${item.message}`)
@@ -263,6 +340,22 @@ async function assertTextExcludes(path, needles) {
   }
 }
 
+async function assertNoDuplicatedLaunchBinaryWording(path) {
+  const content = await readText(path)
+  if (content === null) return
+  if (content.includes(duplicatedLaunchBinaryWording)) {
+    failures.push(`${path}: contains duplicated launch-binary wording ${JSON.stringify(duplicatedLaunchBinaryWording)}`)
+  }
+}
+
+async function assertNoConflictingUnconditionalSpawnedSubagentMandate(path) {
+  const content = await readText(path)
+  if (content === null) return
+  if (conflictingUnconditionalSpawnedSubagentMandates.some((pattern) => pattern.test(content))) {
+    failures.push(`${path}: contains conflicting unconditional spawned-subagent mandate`)
+  }
+}
+
 /** GrokBuild activates skills as /name; residual $name in agents/grok.yaml is Codex-shaped. */
 async function assertNoResidualCodexSkillInvokes(path) {
   const content = await readText(path)
@@ -270,6 +363,9 @@ async function assertNoResidualCodexSkillInvokes(path) {
   const ban = new Set([...requiredManagedSkills, ...requiredSupplementalSkills, ...requiredLfgNativeSkills, "ulw", "cua-driver", "xai"])
   for (const match of content.matchAll(/(?<![A-Za-z0-9_/])\$([a-z][a-z0-9_-]*)/g)) {
     const name = match[1]
+    if (path.endsWith("start-work/agents/grok.yaml") && name === "start-work" && content.includes("external Codex invokes $start-work")) {
+      continue
+    }
     if (ban.has(name)) {
       failures.push(`${path}: residual Codex skill invoke $${name} (use /${name} for GrokBuild)`)
     }

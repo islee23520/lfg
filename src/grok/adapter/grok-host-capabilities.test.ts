@@ -41,7 +41,7 @@ describe("buildGrokHostAdapterCapabilities", () => {
       ],
     })
     expect(capabilities.mcp.runtimeRoot).toBe(join(home, ".grok", "plugins", "lfg", "mcp-runtimes"))
-    expect(capabilities.mcp.servers.map((server) => server.name)).toEqual(["ast_grep", "git_bash", "lsp", "xai_grok"])
+    expect(capabilities.mcp.servers.map((server) => server.name)).toEqual(["ast_grep", "git_bash", "lsp", "xai_grok", "eval"])
     expect(capabilities.skills.roots).toEqual([
       { name: "plugin", directory: join(home, ".grok", "plugins", "lfg", "skills") },
       { name: "user", directory: join(home, ".grok", "skills") },

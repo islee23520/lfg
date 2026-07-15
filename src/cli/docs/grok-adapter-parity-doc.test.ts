@@ -223,8 +223,8 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).toContain("hook-time `additionalContext` guidance only")
     expect(text).toContain("workflow-selector` (lfg optional historical; upstream removed #5745), `lazycodex-executor-verify`, `start-work-continuation`")
     expect(text).toContain("`difficulty-tier-workers` Grok-adapted")
-    expect(text).toContain("orchestrator-selected")
-    expect(text).toContain("not** host-enforced automatic classification")
+    expect(text).toContain("external GPT handoff sizing")
+    expect(text).toContain("not active Grok implementers")
     expect(text).toContain("Deferred for automatic lifecycle hook reinjection")
     expect(text).toContain("MCP runtime Grok-adapted; automatic PostToolUse/PostCompact reinjection not claimed")
     // refreshed for task 3/6 of orchestration epic

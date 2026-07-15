@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
 import { withModelServer } from "../test/test-model-server"
-import { runLfg, runLfgText } from "../test/test-process"
+import { runLfg } from "../test/test-process"
 
 describe("lfg Grok config persistence", () => {
   test("setup run persists discovered OpenAI-compatible models after installer success", async () => {
@@ -30,17 +30,15 @@ describe("lfg Grok config persistence", () => {
       expect(config).toContain("[endpoints]")
       expect(config).toContain(`models_base_url = "${baseUrl}/v1"`)
       expect(config).not.toContain(`[endpoints]\nmodels_base_url = "${baseUrl}/v1"\napi_key = "${apiKey}"`)
-      expect(config).toContain("[models]")
-      expect(config).toContain('default = "gpt-4.1-mini"')
+      expect(config).not.toContain("[models]")
       expect(config).toContain('[model."grok-build"]')
       expect(config).toContain('[model."gpt-4.1-mini"]')
       expect(config).toContain('model = "gpt-4.1-mini"')
       expect(config).toContain(`base_url = "${baseUrl}/v1"`)
       expect(config).toContain(`api_key = "${apiKey}"`)
       expect(config).toContain('[model."o3-mini"]')
-      expect(config).toContain("[omo.models]")
-      expect(config).toContain('default = "gpt-4.1-mini"')
-      expect(config).toContain('reasoning = "gpt-4.1-mini"')
+      expect(config).not.toContain("[omo.models]")
+      expect(config).not.toContain("[omo.agents.")
       expect(json).not.toContain(apiKey)
       const explorerRole = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
       expect(explorerRole).toContain('model = "gpt-4.1-mini"')
@@ -66,9 +64,8 @@ describe("lfg Grok config persistence", () => {
       expect(config).toContain('api_key = "sk-new-env-key"')
       expect(config).toContain("[ui]\ntheme = \"auto\"")
       expect(config).toContain(`models_base_url = "${baseUrl}/v1"`)
-      expect(config).toContain("[omo.models]")
-      expect(config).toContain("[omo.agents.explorer]")
-      expect(config).toContain('reasoning_level = "medium"')
+      expect(config).not.toContain("[omo.models]")
+      expect(config).not.toContain("[omo.agents.")
     })
   })
 
@@ -93,18 +90,15 @@ describe("lfg Grok config persistence", () => {
       expect(section(config, 'model."Claude Sonnet 4.6"')).toContain('model = "claude-sonnet-4-6"')
       expect(section(config, 'model."claude-sonnet-4-6"')).toContain('model = "claude-sonnet-4-6"')
       expect(section(config, 'model."codex-auto-review"')).toContain('model = "codex-auto-review"')
-      expect(section(config, "omo.agents.explorer")).toContain('model = "gpt-5.2"')
-      expect(section(config, "omo.agents.coding")).toContain('model = "gpt-5.2"')
+      expect(config).not.toContain("[omo.agents.")
     })
   })
 
-  test("setup run persists global preset and reasoning effort choices without per-agent model prompts", async () => {
+  test("setup run keeps backend routing without writing obsolete agent model maps", async () => {
     const apiKey = "sk-agent-key"
     await withModelServer(["gpt-5.5", "gemini-3-flash", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "codex-auto-review"], { requiredApiKey: apiKey }, async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
-      const input = "n\ngrok\nhigh\ny\n"
-
-      const result = await runLfgText(["setup", "--no-tui", "--base-url", baseUrl], input, {
+      const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run", "--backend-engine", "codex"], {
         HOME: home,
         OPENAI_API_KEY: apiKey,
         LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
@@ -112,16 +106,9 @@ describe("lfg Grok config persistence", () => {
 
       const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
       expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain("Choose one global model preset")
-      expect(result.stdout).not.toContain("Configure LazyCodex role agents")
-      expect(section(config, "omo.agents.explorer")).toContain('model = "grok-4.20-0309-non-reasoning"')
-      expect(section(config, "omo.agents.explorer")).toContain('reasoning_level = "high"')
-      expect(section(config, "omo.agents.reasoning")).toContain('model = "grok-4.20-0309-reasoning"')
-      expect(section(config, "omo.agents.reasoning")).toContain('reasoning_level = "high"')
-      expect(section(config, "omo.agents.coding")).toContain('model = "grok-4.20-0309-non-reasoning"')
-      expect(section(config, "omo.agents.coding")).toContain('reasoning_level = "high"')
-      expect(section(config, "omo.agents.metis")).toContain('model = "grok-4.20-0309-reasoning"')
-      expect(section(config, "omo.agents.momus")).toContain('model = "grok-4.20-0309-reasoning"')
+      expect(section(config, "omo.backend_routing")).toContain('global = "codex"')
+      expect(config).not.toContain("[omo.models]")
+      expect(config).not.toContain("[omo.agents.")
     })
   })
 

@@ -32,4 +32,9 @@ describe("scripts/build.mjs (#22)", () => {
     expect(loader).toContain("LFG project .omo ledger loaded from")
     expect(loader).toContain("Ledger line count")
   })
+
+  test("does not stage the retired LazyCodex auto-monitor hook", () => {
+    const hookPath = join(ROOT, "dist/grok-install/assets/lfg-native-lazycodex-auto-monitor.mjs")
+    expect(existsSync(hookPath)).toBe(false)
+  })
 })

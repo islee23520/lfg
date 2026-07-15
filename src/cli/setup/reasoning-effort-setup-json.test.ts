@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { describe, expect, test } from "vitest"
 import type { ModelDiscovery } from "../models/lfg-models"
 import { runLazycodexInstaller } from "./lfg-installer"
+import { isRecord } from "../../shared/json"
 
 describe("setup JSON reasoning effort contract", () => {
   test("surfaces discovered reasoning effort without leaking legacy LFP keys", async () => {
@@ -22,6 +23,12 @@ describe("setup JSON reasoning effort contract", () => {
         "gpt-5.5": { reasoningEffort: "xhigh" },
         "grok-3-mini-fast": { reasoningEffort: "low" },
       },
+      agentOverrideMap: {
+        default: { model: "gpt-5.5", reasoningLevel: "high" },
+        hephaestus: { model: "gpt-5.5", reasoningLevel: "high" },
+        explorer: { model: "grok-3-mini-fast", reasoningLevel: "low" },
+        "lazycodex-worker-low": { model: "grok-3-mini-fast", reasoningLevel: "low" },
+      },
     }
     const previousHome = process.env.HOME
     const previousKey = process.env.OPENAI_API_KEY
@@ -34,12 +41,18 @@ describe("setup JSON reasoning effort contract", () => {
       expect(result).toMatchObject({
         lfgIsPlugin: false,
         companionPackage: "lfg-grok-install",
-        agentReasoning: {
-          explorer: "low",
-          reasoning: "high",
-          coding: "medium",
-        },
       })
+      const nativeKeys = ["explorer", "git-master", "sisyphus", "watcher"]
+      const emittedDiscovery = result.modelDiscovery
+      const agentReasoning = result.agentReasoning
+      if (!isRecord(emittedDiscovery) || !isRecord(emittedDiscovery.agentOverrideMap) || !isRecord(agentReasoning)) {
+        throw new TypeError("setup JSON omitted native agent routing maps")
+      }
+      expect(Object.keys(emittedDiscovery.agentOverrideMap).sort()).toEqual(nativeKeys)
+      expect(Object.keys(agentReasoning).sort()).toEqual(nativeKeys)
+      expect(emittedDiscovery.agentOverrideMap).not.toHaveProperty("default")
+      expect(json).not.toContain("hephaestus")
+      expect(json).not.toContain("lazycodex-worker-low")
       expect(json).not.toContain("@islee23520/lfp")
       expect(json).not.toContain("sk-test")
     } finally {

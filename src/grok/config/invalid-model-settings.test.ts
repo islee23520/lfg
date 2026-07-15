@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest"
-import { modelIsAvailable, pickRoleFallbacks, roleFallbackForAgent } from "./invalid-model-settings"
+import {
+  isForeignProviderModel,
+  modelIsAvailable,
+  pickRoleFallbacks,
+  roleFallbackForAgent,
+  shouldRemapUnavailableModel,
+} from "./invalid-model-settings"
 import { purgeInvalidModelSettingsToml } from "./purge-invalid-model-settings-toml"
 
 describe("purgeInvalidModelSettingsToml", () => {
@@ -150,6 +156,30 @@ describe("model availability helpers", () => {
     expect(modelIsAvailable("grok-4.5", new Set())).toBe(true)
     expect(modelIsAvailable("grok-composer-2.5-fast", new Set())).toBe(true)
     expect(modelIsAvailable("gpt-5.5", new Set())).toBe(false)
+  })
+
+  test("treats non-xai provider prefixes as foreign (401-prone without CLI proxy)", () => {
+    expect(isForeignProviderModel("cx/gpt-5.6-sol")).toBe(true)
+    expect(isForeignProviderModel("openai/gpt-5.5")).toBe(true)
+    expect(isForeignProviderModel("anthropic/claude-opus-4-7")).toBe(true)
+    expect(isForeignProviderModel("xai/grok-4.5")).toBe(false)
+    expect(isForeignProviderModel("grok-4.5")).toBe(false)
+    expect(shouldRemapUnavailableModel("cx/gpt-5.6-sol", new Set(["grok-4.5"]))).toBe(true)
+  })
+
+  test("remaps models.default when set to unauthenticated foreign provider id", () => {
+    const source = `
+[models]
+default = "cx/gpt-5.6-sol"
+default_reasoning_effort = "high"
+
+[model."grok-4.5"]
+model = "grok-4.5"
+`
+    const result = purgeInvalidModelSettingsToml(source, new Set(["grok-4.5", "grok-composer-2.5-fast"]), new Set(["lfg"]))
+    expect(result.next).toContain('default = "grok-4.5"')
+    expect(result.next).not.toContain("cx/gpt-5.6-sol")
+    expect(result.remappedRoutes.some((r) => r.location === "models.default" && r.from === "cx/gpt-5.6-sol")).toBe(true)
   })
 
   test("role fallbacks prefer composer for fast/coding", () => {

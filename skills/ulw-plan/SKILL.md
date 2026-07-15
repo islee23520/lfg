@@ -7,14 +7,45 @@ metadata:
 
 ## GrokBuild Tool Mapping
 
-On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild `spawn_subagent` calls. Prefer host built-ins when they fit: read-only search → `subagent_type: "explore"`; catch-all → `"general-purpose"`. Use lfg OMO personas (`explorer`, `librarian`, `coding`, …) only when OMO prompts/models matter. This contract is GrokBuild-only (`coding_tool_adapter` = `grok`).
+On Grok Build with lfg installed, use `spawn_subagent` only for Grok host monitoring and read-only discovery. Product implementation goes through the external Codex app-server handoff. This contract is GrokBuild-only (`coding_tool_adapter` = `grok`).
 
 | Intent | GrokBuild tool to use |
 | --- | --- |
 | Search/read-only worker | `spawn_subagent({ subagent_type: "explore", background: true, description: "...", prompt: "TASK: ..." })` (host built-in; use `"explorer"` only for OMO persona) |
-| Planning worker | `spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })` |
-| Implementation or QA worker | `spawn_subagent({ subagent_type: "hephaestus" or "coding", background: true, description: "...", prompt: "TASK: ..." })` |
+| Planning body | `lfg --json plan ulw-plan --focus "..."` → Codex skill `ulw-plan`; Grok monitors the `.omo/` artifact only. |
+| Product implementation after plan approval | `lfg --json handoff plan --role coding --engine gpt --focus "..."` → Codex app-server. |
 
+
+### Product implementation handoff (GrokBuild)
+
+Grok is the Sisyphus watcher, not the product implementer. For LOW, MEDIUM, or HIGH implementation bodies, create the external Codex work package with `lfg --json handoff plan --role coding --engine gpt --focus "..."`. The handoff creates or attaches the project Codex app-server thread; `codex exec` is fallback only when the daemon is unavailable. Use `spawn_subagent` only for Grok host work by `watcher`, `explorer`, or `git-master`; never spawn `lazycodex-worker-*`, `hephaestus`, or `coding` for the product body.
+
+
+### External Codex implementation lane (GPT only)
+
+**Grok = Sisyphus watcher**; **Codex app-server = sole product implementer**. Skill `ulw-external-engine` + `docs/grok-external-engine-orchestration.md`.
+
+Product implementation has exactly one worker lane: external Codex app-server handoff through `lfg --json handoff plan --engine gpt`. Grok may use watcher/explorer/git-master for host monitoring and read-only discovery, but must not spawn an in-host implementer for the product body.
+
+1. Run `lfg --json handoff plan --role <role> --engine gpt --focus <focus>` and read `handoff.payloadMarkdown` plus the app-server transport receipt (`fullyTransferable`, `grokIsOrchestrator`).
+2. Prefer the created/attached Codex app-server thread. Only when the daemon is unavailable, execute the reported `codex-exec-fallback` launch using `handoff.launch.argv[0]` with `handoff.launch.argv.slice(1)`; `handoff.launch.binary` is identity/readiness metadata. If `handoff.launch.stdinSource.kind` is `file`, pipe that file to stdin. Use **`timeout: 0`** and kill the process group on cancellation.
+3. **Do not** hand off sisyphus/prometheus; **do not** spawn Grok hephaestus/coding/lazycodex-worker for the product body.
+4. Read RESULT into Boulder/ledger.
+
+In-host `spawn_subagent` remains only for Grok host monitoring/read-only roles.
+
+
+## Grok external Codex plan boundary
+
+On GrokBuild, this skill is a routing contract, not an in-host Prometheus runtime. Grok MUST run `lfg --json plan ulw-plan --focus "<objective>"`, launch the returned Codex app-server transport (or the honest `codex-exec` fallback), and require that Codex load and follow skill `ulw-plan` from `skills/ulw-plan/SKILL.md`. Codex writes the decision-complete plan under `.omo/` and the monitoring receipt at `.omo/external-engine/plan-ulw-plan-codex-skill-result.md`; Grok only monitors, presents the plan, and waits for user approval.
+
+The existing gjc intent gateway may run a deep interview only when it reports high ambiguity or interview needed. gjc never owns the plan body. After approval, product implementation uses `lfg --json handoff plan --role coding --engine gpt` through the Codex app-server lane; do not reuse the plan skill as the implementation worker.
+
+## Grok external Codex plan boundary
+
+On GrokBuild, this skill is a routing contract, not an in-host Prometheus runtime. Grok MUST run `lfg --json plan ulw-plan --focus "<objective>"`, launch the returned Codex app-server transport (or the honest `codex-exec` fallback), and require that Codex load and follow skill `ulw-plan` from `skills/ulw-plan/SKILL.md`. Codex writes the decision-complete plan under `.omo/` and the monitoring receipt at `.omo/external-engine/plan-ulw-plan-codex-skill-result.md`; Grok only monitors, presents the plan, and waits for user approval.
+
+The existing gjc intent gateway may run a deep interview only when it reports high ambiguity or interview needed. gjc never owns the plan body. After approval, product implementation uses `lfg --json handoff plan --role coding --engine gpt` through the Codex app-server lane; do not reuse the plan skill as the implementation worker.
 
 # ulw-plan
 

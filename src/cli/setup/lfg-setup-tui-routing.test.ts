@@ -43,6 +43,21 @@ const installerMock = vi.hoisted(() => ({
 
 vi.mock("./lfg-installer.js", () => installerMock)
 
+
+vi.mock("./lfg-setup-tui-prereqs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lfg-setup-tui-prereqs")>()
+  return {
+    ...actual,
+    ensureCodexLazyCodexPrereqsInTui: async () => ({
+      ok: true,
+      status: "ready",
+      report: { platform: "darwin", ok: true, missing: [], codex: { id: "codex", required: true, ok: true, status: "ready", binary: "codex", commandPath: "/bin/codex", detail: "ok", recipes: [] }, lazycodex: { id: "lazycodex", required: true, ok: true, status: "ready", binary: "lazycodex-ai", commandPath: null, detail: "ok", recipes: [] } },
+      installs: [],
+      steps: [],
+    }),
+  }
+})
+
 import * as tui from "./lfg-setup-tui"
 
 describe("lfg-setup-tui model routing", () => {
@@ -124,7 +139,10 @@ describe("lfg-setup-tui model routing", () => {
     const resultsNote = calls.find((call) => call[0] === "note" && /Setup results/.test(String(call[1])))
     const resultsBody = resultsNote ? String(resultsNote[2] ?? "") : ""
     expect(resultsBody).toContain("Preset: grok")
-    expect(resultsBody).toMatch(/explorer:\s+grok-3-mini-fast\s+\/\s+low/)
+    expect(resultsBody).toContain("fast: grok-3-mini-fast")
+    expect(resultsBody.split("\n").filter((line) => line.trim().length > 0).length).toBeLessThanOrEqual(7)
+    expect(resultsBody).not.toContain("explorer:")
+    expect(resultsBody).not.toContain("lazycodex-worker-low")
     const outroText = calls.filter((call) => call[0] === "outro").map((call) => String(call[1])).join("\n")
     expect(outroText).toContain("lfg setup --run")
     expect(outroText).not.toContain("lfg doctor")

@@ -33,7 +33,11 @@ width). In this repo run `node script/qa/web-terminal-visual-qa.mjs --command
 Auxiliary surfaces (CLI stdout / DB state diff / parsed config dump) are first-class evidence for CLI- or data-shaped criteria; use a channel scenario when the behavior is user-facing. `--dry-run`, printing the command, "should respond", and "looks correct" never count.
 
 ## Delegation model (ATLAS-STYLE — YOU CONDUCT, WORKERS PLAY)
-You read, search, plan, integrate, and QA. You DELEGATE every code edit, test write, bug fix, and QA execution to a right-sized `multi_agent_v1.spawn_agent` worker, then verify what comes back. Fan out independent tasks in PARALLEL in one response; serialize only on a NAMED dependency (one task consumes another's output or edits the same file).
+
+Product implementation has exactly one worker lane: external Codex app-server handoff through `lfg --json handoff plan --engine gpt`. Grok may use watcher/explorer/git-master for host monitoring and read-only discovery, but must not spawn an in-host implementer for the product body.
+
+Product implementation has exactly one worker lane: external Codex app-server handoff through `lfg --json handoff plan --engine gpt`. Grok may use watcher/explorer/git-master for host monitoring and read-only discovery, but must not spawn an in-host implementer for the product body.
+You read, search, plan, integrate, and QA. Send every product edit, test, bug fix, and product QA body through the external GPT handoff, then verify the returned RESULT and evidence. Fan out independent tasks in PARALLEL in one response; serialize only on a NAMED dependency (one task consumes another's output or edits the same file).
 
 Size each worker to the task. Put the intended role, rigor level, and specialty inside the worker `message`.
 
@@ -44,13 +48,17 @@ Size each worker to the task. Put the intended role, rigor level, and specialty 
 | Deep debugging / race / perf / subtle cross-module reasoning | `TASK: act as a deep debugging worker. ...` |
 | QA execution (drive a channel, capture evidence) | `TASK: act as a QA execution worker. ...` |
 | Read-only codebase search | `TASK: act as an explorer. ...` |
-| Implementation — pick difficulty: LOW (one-file fix, boilerplate) / MEDIUM (standard feature, known patterns) / HIGH (new module, cross-module, concurrency/security/migration) | **GrokBuild difficulty-tier:** `spawn_subagent({ subagent_type: "lazycodex-worker-low|medium|high", ...})` (orchestrator-selected). Codex-only: `agent_type: "lazycodex-worker-<low|medium|high>"` when exposed; else state tier in `message`. |
+| Product implementation (LOW / MEDIUM / HIGH) | **GPT-only external handoff:** `lfg --json handoff plan --role coding --engine gpt --focus <focus>`. Create or attach the project Codex app-server thread; use the reported `codex-exec-fallback` launch only when the daemon is unavailable. Never `spawn_subagent` hephaestus/coding/lazycodex-worker for the product body. See `docs/grok-external-engine-orchestration.md`. |
 | External library / docs research | `TASK: act as a librarian. ...` |
+
+For the fallback launch contract, follow `ulw-external-engine`: execute `handoff.launch.argv[0]` with `handoff.launch.argv.slice(1)`; `handoff.launch.binary` is identity/readiness metadata, not an argv prefix.
 | Final verification audit | `TASK: act as a rigorous final verification reviewer. ...` |
 
 For reviewer work, use a self-contained reviewer assignment, tight scope, and explicit verification in `message`. Never spawn a context-only child for review.
 
-Difficulty is orthogonal to LIGHT/HEAVY rigor. Tier roles bind via `agent_type` (v1); the deployed v2 spawn schema omits it — state the tier inside `message` there.
+Difficulty still sizes the Codex work package, but it never selects an in-host Grok implementation worker.
+
+Difficulty still sizes the Codex work package, but it never selects an in-host Grok implementation worker.
 
 Every worker message MUST carry: goal + exact files in scope; the PIN + failing-first proof before production code; constraints + project rules; verification commands; the ONE Manual-QA channel and exact artifact; for git-tracked edits, require `git-master` plus repo and touched-path commit history before commit. Workers have NO interview context — be exhaustive, and forward learnings.
 
@@ -70,6 +78,42 @@ Codex subagent reliability:
 - Read artifacts before resuming, steering, or checkpointing.
 - After compaction or context loss, re-read brief + goals + ledger FIRST, then `omo ulw-loop status --json`. Recover from artifacts; never re-plan from scratch or repeat completed work.
 - Never invent state outside `.omo/ulw-loop` artifacts or `omo ulw-loop status --json`.
+
+## GrokBuild `/goal` state
+
+Use GrokBuild's `/goal` command as the host goal-state surface. Do not call Codex-only goal tools such as `get_goal`, `create_goal`, `update_goal`, or `update_plan`; they are not available in GrokBuild.
+
+- Before execution, run `/goal` (or inspect the active goal shown by the host) and confirm whether a goal is active.
+- If no active goal exists, create one with `/goal <aggregate objective from the ulw-loop handoff>`.
+- If the active goal is the same aggregate objective, continue the current ulw-loop story.
+- If a different goal is active, STOP: checkpoint the ulw-loop item as blocked and surface the conflict instead of overwriting it.
+- Track step-level progress with the host-visible plan/todo facility available in this session; in GrokBuild this is `todo_write`, not `update_plan`.
+- Only mark the final host goal complete after the final quality gate passes. In GrokBuild, report completion through the active `/goal` flow or the host-provided goal completion mechanism; never complete it mid-aggregate.
+- After completing an aggregate ulw-loop run, clear the host goal with `/goal clear` before starting another unrelated aggregate in the same session.
+
+## GrokBuild `/goal` state
+
+Use GrokBuild's `/goal` command as the host goal-state surface. Do not call Codex-only goal tools such as `get_goal`, `create_goal`, `update_goal`, or `update_plan`; they are not available in GrokBuild.
+
+- Before execution, run `/goal` (or inspect the active goal shown by the host) and confirm whether a goal is active.
+- If no active goal exists, create one with `/goal <aggregate objective from the ulw-loop handoff>`.
+- If the active goal is the same aggregate objective, continue the current ulw-loop story.
+- If a different goal is active, STOP: checkpoint the ulw-loop item as blocked and surface the conflict instead of overwriting it.
+- Track step-level progress with the host-visible plan/todo facility available in this session; in GrokBuild this is `todo_write`, not `update_plan`.
+- Only mark the final host goal complete after the final quality gate passes. In GrokBuild, report completion through the active `/goal` flow or the host-provided goal completion mechanism; never complete it mid-aggregate.
+- After completing an aggregate ulw-loop run, clear the host goal with `/goal clear` before starting another unrelated aggregate in the same session.
+
+## GrokBuild `/goal` state
+
+Use GrokBuild's `/goal` command as the host goal-state surface. Do not call Codex-only goal tools such as `get_goal`, `create_goal`, `update_goal`, or `update_plan`; they are not available in GrokBuild.
+
+- Before execution, run `/goal` (or inspect the active goal shown by the host) and confirm whether a goal is active.
+- If no active goal exists, create one with `/goal <aggregate objective from the ulw-loop handoff>`.
+- If the active goal is the same aggregate objective, continue the current ulw-loop story.
+- If a different goal is active, STOP: checkpoint the ulw-loop item as blocked and surface the conflict instead of overwriting it.
+- Track step-level progress with the host-visible plan/todo facility available in this session; in GrokBuild this is `todo_write`, not `update_plan`.
+- Only mark the final host goal complete after the final quality gate passes. In GrokBuild, report completion through the active `/goal` flow or the host-provided goal completion mechanism; never complete it mid-aggregate.
+- After completing an aggregate ulw-loop run, clear the host goal with `/goal clear` before starting another unrelated aggregate in the same session.
 
 ## GrokBuild `/goal` state
 
@@ -174,9 +218,9 @@ Loop per goal. Cap at 5 cycles per goal. Cap identical same-criterion failures a
 ### Per-Criterion Cycle
 1. PLAN: read `criterion.scenario`, `criterion.expectedEvidence`, prior ledger entries, and safety bounds. Identify which tasks in the current wave are independent.
 2. Register atomic todos via the host-visible plan/todo facility — in GrokBuild, use `todo_write`. Track one ultra-granular step per action, `path: <action> for <criterion> - verify by <check>`. Update status on every transition (start → `in_progress`, finish → `completed`); exactly one `in_progress`, mark completed immediately, never batch, never let the rendered plan lag behind reality.
-3. DELEGATE-IN-PARALLEL: dispatch every independent task in the wave at once via right-sized `multi_agent_v1.spawn_agent` workers (Delegation table). Each worker captures evidence failing-first: when the task touches EXISTING behavior, PIN it FIRST — a characterization test that asserts the current observable behavior and PASSES on the unchanged code, as rigorous as the new-behavior scenario (exact inputs, exact observable, exact assertion). Then RED through the cheapest faithful channel — a unit test where a seam exists, an integration/e2e test where the behavior lives in wiring, or the criterion's scenario captured failing when no test seam exists — failing for the RIGHT reason (no syntax/import error). A test that mirrors its implementation (mock-call assertions, pinned constants, cannot fail under plausible regression) is not evidence; use the scenario as the failing proof instead. Then the SMALLEST GREEN change; before GREEN work that depends on external review, PR, issue, or branch state, refresh current branch/PR/issue state, preserve existing ordering/policy, and separate compatibility detection from policy changes unless the goal explicitly asks to change policy. A GREEN far larger than the criterion implies means the proof was too coarse — instruct a split. Serialize only on a NAMED dependency.
+3. DELEGATE-IN-PARALLEL: dispatch every independent task in the wave at once through exactly one selected worker lane (Delegation table). Each worker captures evidence failing-first: when the task touches EXISTING behavior, PIN it FIRST — a characterization test that asserts the current observable behavior and PASSES on the unchanged code, as rigorous as the new-behavior scenario (exact inputs, exact observable, exact assertion). Then RED through the cheapest faithful channel — a unit test where a seam exists, an integration/e2e test where the behavior lives in wiring, or the criterion's scenario captured failing when no test seam exists — failing for the RIGHT reason (no syntax/import error). A test that mirrors its implementation (mock-call assertions, pinned constants, cannot fail under plausible regression) is not evidence; use the scenario as the failing proof instead. Then the SMALLEST GREEN change; before GREEN work that depends on external review, PR, issue, or branch state, refresh current branch/PR/issue state, preserve existing ordering/policy, and separate compatibility detection from policy changes unless the goal explicitly asks to change policy. A GREEN far larger than the criterion implies means the proof was too coarse — instruct a split. Serialize only on a NAMED dependency.
 4. INTEGRATE + CRITICAL SELF-QA + GIT CHECKPOINT (EVERY WORKER RETURN): do NOT trust the worker's report. Read the diff yourself, re-run its tests, and run LSP diagnostics on the changed files. Treat "done" as a claim to disprove. If the diff drifts, the test is hollow, or evidence is missing, RESPAWN the worker with the specific failure context. Once the work unit is verified, use `git-master` before staging: inspect recent repository commits and touched-path history to infer commit language, Conventional Commit scope, message shape, and unit size. Stage only that unit's files and commit in the observed style; do not carry verified work forward into a later omnibus commit. If no git-tracked files changed or committing is unsafe, record the no-commit reason as evidence. Forward every finding/learning to subsequent workers.
-5. EXECUTE-AS-SCENARIO: ACTUALLY run the Manual-QA scenario the criterion named (channel table above). Run it yourself for the orchestrator check; for heavier flows dispatch a dedicated QA execution worker (`lazycodex-worker-medium` by default; `lazycodex-worker-high` when the QA flow itself is hard) whose ONLY job is to drive the channel and write the artifact to the named evidence path. If the scenario FAILS, respawn the implementing worker with the captured failure — do not hand-patch around it.
+5. EXECUTE-AS-SCENARIO: ACTUALLY run the Manual-QA scenario the criterion named (channel table above). Run it yourself for the orchestrator check; for heavier flows send the QA execution body through `lfg --json handoff plan --role review --engine gpt`; use the Codex app-server thread, with `codex exec` fallback only when the daemon is unavailable whose ONLY job is to drive the channel and write the artifact to the named evidence path. If the scenario FAILS, respawn the implementing worker with the captured failure — do not hand-patch around it.
 6. CAPTURE: collect the observable artifact path: transcript, stdout, screenshot, assertion, status+body, diff, or parsed dump. No artifact written at the evidence path — not done; record BLOCKED and respawn QA.
 7. CLEAN (PAIRED, NEVER SKIP): tear down every runtime artifact step 5 spawned BEFORE recording — server PIDs (`kill`, verify `kill -0` fails), `tmux` sessions (`tmux kill-session -t ulw-qa-<criterion>`; confirm `tmux ls`), browser / Playwright contexts (`.close()`), containers (`docker rm -f`), bound ports (`lsof -i :<port>` empty), temp sockets / files / dirs (`rm -rf` the `mktemp` paths), QA-only env vars, AND `multi_agent_v1.close_agent` on every finished worker. Register each teardown as its own todo the moment the QA spawns the resource (scripts, tmux assets, browsers / agent-browser sessions, PIDs, ports) so none is forgotten. Embed a one-line cleanup receipt in the evidence string, e.g. `cleanup: killed 12345; tmux kill-session ulw-qa-foo; rm -rf /tmp/ulw.aB12cD; multi_agent_v1.close_agent w-3`. Missing receipt → record BLOCKED, not PASS.
 8. RECORD exactly one result:
@@ -248,7 +292,7 @@ Structured prompt directives accepted: `OMO_ULW_LOOP_STEER: { ... }`, `omo.ulw-l
 11. After completing an aggregate ulw-loop run, clear the host goal manually with `/goal clear` before starting another in the same session.
 12. The shell command emits a model-facing handoff; in GrokBuild, use `/goal` plus the host-visible todo/plan tool instead of Codex-only `get_goal`, `create_goal`, `update_goal`, or `update_plan` APIs.
 13. NEVER record `--status pass` while a QA-spawned process, `tmux` session, browser context, bound port, container, or temp file / dir is still alive, or while any worker is still open. The evidence string MUST include the cleanup receipt. Leftover runtime state = BLOCKED, not PASS.
-14. DELEGATE all code edits, test writes, fixes, and QA execution to right-sized `multi_agent_v1.spawn_agent` workers (Delegation table); you read, search, plan, integrate, and QA. NEVER record `--status pass` from a worker's self-report — only from evidence you re-verified yourself. Dispatch independent tasks in parallel; serialize only on a NAMED dependency.
+14. DELEGATE all code edits, test writes, fixes, and QA execution to right-sized delegated workers through exactly one selected worker lane (Delegation table); you read, search, plan, integrate, and QA. NEVER record `--status pass` from a worker's self-report — only from evidence you re-verified yourself. Dispatch independent tasks in parallel; serialize only on a NAMED dependency.
 15. Every verified work unit that touched git-tracked files must leave either an atomic `git-master`-style commit hash or explicit no-commit blocker evidence before the next unit starts.
 
 ## Stop Rules

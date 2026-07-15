@@ -1,23 +1,24 @@
 import { defaultLazycodexAgentConfig, type ModelDiscovery, type SetupPreset } from "../models/lfg-models"
 import type { LazycodexAgentOverrideMap } from "../../grok/agents/lazycodex-agent-overrides"
-import { formatRecommendationTable } from "../../grok/models/model-recommendations"
 import type { AgentTuiResult } from "./lfg-setup-tui-agents"
 import { formatCodingToolAdapterSummary } from "./lfg-setup-tui-adapter"
-import { toRecommendationOverrideMap } from "./lfg-setup-tui-data"
 import type { CodingToolAdapterId } from "../../shared/coding-tool-adapter"
+import type { BackendRoutingConfig } from "../../core/lfg/backend-routing"
+import { BACKEND_ROUTE_AGENT_NAMES } from "../../core/lfg/backend-routing"
 
 export function formatIntroNote(configOnly: boolean): string {
   return configOnly
     ? [
         "Edit LFG model routing from discovered proxy models.",
-        "Auto routing prefers GPT/GLM for orchestration, Composer for coding, and Gemini for visual agents.",
+        "Automatic routing uses the discovered model catalog.",
         "Saving re-runs the idempotent Grok adapter sync so settings land in ~/.grok.",
       ].join("\n")
     : [
-        "Install the omo/lazycodex adapter for Grok Build.",
+        "Install the lfg Grok adapter (watcher) that hands work directly to Codex.",
+        "Requires Codex CLI — setup checks it first and aborts without modifying Grok when it is absent.",
+        "Sisyphus creates a handoff plan and launches the returned Codex argv directly.",
         "Target: ~/.grok/plugins/lfg as a real directory.",
-        "Codex-home bootstrap is not used.",
-        "Apply Grok adapter, hooks, agents, and model overrides from discovered proxy.",
+        "Apply Grok adapter, hooks, agents, and model overrides.",
       ].join("\n")
 }
 
@@ -26,11 +27,13 @@ export function formatInstallSummary(input: {
   readonly adapterChoice: CodingToolAdapterId
   readonly installGlobalCli: boolean
   readonly modelConfigLine: string
+  readonly backendRouting: BackendRoutingConfig
 }): string {
   return [
     input.configOnly ? "Config path: ~/.grok" : "Install path: grok",
     input.configOnly ? "Updater: idempotent lfg Grok config sync" : "Installer: @islee23520/lfg internal grok-install",
     formatCodingToolAdapterSummary(input.adapterChoice),
+    `CLI backend routing: default ${input.backendRouting.global}; ${BACKEND_ROUTE_AGENT_NAMES.map((name) => `${name}=${input.backendRouting.agents[name]}`).join(", ")}`,
     input.configOnly ? "Global CLI: unchanged" : `Global CLI: ${input.installGlobalCli ? "install/update with npm -g" : "skip"}`,
     input.modelConfigLine,
     "Writes: hooks, agents, overrides, lfg config, Grok plugin enablement",
@@ -41,26 +44,25 @@ export function formatInstallSummary(input: {
 }
 
 export function formatPresetResults(preset: SetupPreset, discovery: ModelDiscovery): string {
-  const agents = defaultLazycodexAgentConfig(discovery)
   return [
     `Preset: ${preset}`,
     `  default: ${discovery.mapping.default}`,
     `  fast: ${discovery.mapping.fast}`,
     `  reasoning: ${discovery.mapping.reasoning}`,
     `  coding: ${discovery.mapping.coding}`,
-    "",
-    "Agent routing is derived from the global preset:",
-    `  explorer: ${agents.explorer.model} / ${agents.explorer.reasoningLevel}`,
-    `  reasoning: ${agents.reasoning.model} / ${agents.reasoning.reasoningLevel}`,
-    `  coding: ${agents.coding.model} / ${agents.coding.reasoningLevel}`,
+    "Bundled routing profiles remain enabled. Advanced details: ~/.grok/omo-agent-overrides.json",
   ].join("\n")
 }
 
 export function formatRecommendedResults(discovery: ModelDiscovery, bundled: LazycodexAgentOverrideMap): string {
   return [
-    formatPresetResults("auto", discovery).replace("Preset: auto", "LLM recommendation: auto"),
-    "",
-    formatRecommendationTable(discovery.modelIds, toRecommendationOverrideMap(bundled), { condensed: true }),
+    "LLM recommendation: auto",
+    `  default: ${discovery.mapping.default}`,
+    `  fast: ${discovery.mapping.fast}`,
+    `  reasoning: ${discovery.mapping.reasoning}`,
+    `  coding: ${discovery.mapping.coding}`,
+    `${Object.keys(bundled).length} bundled routing profiles will be installed.`,
+    "Advanced details: ~/.grok/omo-agent-overrides.json",
   ].join("\n")
 }
 

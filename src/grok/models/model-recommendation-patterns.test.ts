@@ -109,4 +109,32 @@ describe("applyRecommendationsToOverrideMap", () => {
     expect(out.prometheus).toMatchObject({ model: "gpt-5.5", reasoningLevel: "xhigh" })
     expect(out.prometheus?.modelFallback).toBeUndefined()
   })
+
+  test("without hasCliProxy, does not OMO-promote Grok defaults to foreign providers", () => {
+    // Given: multi-provider-looking ids but no CLI proxy gate (host-auth session).
+    const bundled: LazycodexAgentOverrideMap = {
+      sisyphus: { model: "grok-4.5", reasoningLevel: "low", serviceTier: "default" },
+      hephaestus: { model: "grok-4.5", reasoningLevel: "high", serviceTier: "default" },
+    }
+
+    // When: recommendations run without hasCliProxy.
+    const out = applyRecommendationsToOverrideMap(bundled, [...C001_MODEL_IDS], { hasCliProxy: false })
+
+    // Then: keep Grok primaries — never force openai/anthropic (would 401 after auth recovery).
+    expect(out.sisyphus?.model).toMatch(/^grok-/)
+    expect(out.hephaestus?.model).toMatch(/^grok-/)
+  })
+
+  test("with hasCliProxy, OMO chain may promote Grok default to available foreign primary", () => {
+    const bundled: LazycodexAgentOverrideMap = {
+      // oracle OMO chain prefers gpt-5.5 when openai is available via proxy
+      oracle: { model: "grok-4.5", reasoningLevel: "high", serviceTier: "default" },
+    }
+    const out = applyRecommendationsToOverrideMap(
+      bundled,
+      ["grok-4.5", "openai/gpt-5.5", "gpt-5.5"],
+      { hasCliProxy: true },
+    )
+    expect(out.oracle?.model === "gpt-5.5" || out.oracle?.model === "openai/gpt-5.5").toBe(true)
+  })
 })

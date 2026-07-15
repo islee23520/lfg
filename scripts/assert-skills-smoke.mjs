@@ -6,7 +6,7 @@
  * src/grok/skills + dist/grok-install/skills when present):
  *  1. SKILL.md exists, YAML frontmatter has name + description, body non-empty
  *  2. frontmatter name matches directory (xai_* ↔ xai-* allowed)
- *  3. agents/grok.yaml is non-empty when present; openai.yaml must not exist
+ *  3. required native agents/grok.yaml is present/non-empty; openai.yaml must not exist
  *  4. entry scripts syntax-check (node --check / python3 -m py_compile / bash -n)
  *  5. cheap behavioral probes for known CLIs (teammode, scaffold-plan, …)
  *  6. three-root SKILL.md presence for skills that are in the sync set
@@ -33,6 +33,9 @@ const reports = []
 
 /** Skills only in package tarball skills/, not mirrored into grok roots. */
 const packageOnlySkills = new Set(["lfg"])
+const nativeSkillFiles = new Map([
+  ["ulw-external-engine", ["SKILL.md", join("agents", "grok.yaml")]],
+])
 
 /** Skills with executable probes beyond syntax. */
 const BEHAVIORAL = {
@@ -72,6 +75,7 @@ async function main() {
       }
       await smokeSkill(skillName, root, { role: "mirror", light: true })
     }
+    await assertNativeSkillFilesMatch(root, relative(repoRoot, root))
   }
 
   if (includeInstalled) {
@@ -182,7 +186,11 @@ async function smokeSkill(skillName, root, opts) {
     ok = false
   }
   const grokYaml = join(skillRoot, "agents", "grok.yaml")
-  if (await exists(grokYaml)) {
+  const requiresGrokYaml = nativeSkillFiles.has(skillName)
+  if (requiresGrokYaml && !(await exists(grokYaml))) {
+    fail(`${rel(grokYaml)}: required native agents/grok.yaml is missing`)
+    ok = false
+  } else if (await exists(grokYaml)) {
     const gy = await readFile(grokYaml, "utf8")
     if (gy.trim().length < 8) {
       fail(`${rel(grokYaml)}: empty agents/grok.yaml`)
@@ -218,6 +226,22 @@ async function smokeSkill(skillName, root, opts) {
   }
 
   return { skill: skillName, ok, checks, scriptsChecked, behavioral }
+}
+
+async function assertNativeSkillFilesMatch(root, rootLabel) {
+  for (const [skillName, relativePaths] of nativeSkillFiles) {
+    for (const relativePath of relativePaths) {
+      const expectedPath = join(packageSkillsRoot, skillName, relativePath)
+      const actualPath = join(root, skillName, relativePath)
+      if (!(await exists(actualPath))) {
+        fail(`${rootLabel}: missing native skill file ${skillName}/${relativePath}`)
+        continue
+      }
+      if ((await readFile(actualPath, "utf8")) !== (await readFile(expectedPath, "utf8"))) {
+        fail(`${rootLabel}: stale native skill file ${skillName}/${relativePath}`)
+      }
+    }
+  }
 }
 
 function namesCompatible(dirName, frontmatterName) {

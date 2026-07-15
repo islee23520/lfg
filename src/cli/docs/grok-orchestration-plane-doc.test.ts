@@ -65,9 +65,5 @@ describe("docs/grok-orchestration-plane.md", () => {
     expect(text).toContain("subagent-stop-evidence-verifier.ts")
     expect(text).toContain("lfg ulw-loop")
     expect(text).toContain("verifySubagentEvidence")
-
-    // Z.AI vision shipped (#89)
-    expect(text).toContain("Z.AI vision MCP is **shipped**")
-    expect(text).toContain("lfg zai mcp install vision")
   })
 })

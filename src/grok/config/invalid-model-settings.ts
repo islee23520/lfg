@@ -3,8 +3,20 @@ export function isGrokFamilyModel(model: string): boolean {
   return id.startsWith("grok-build") || /^grok[-_/]/i.test(id)
 }
 
+/**
+ * Models that require non-Grok auth/proxy to run.
+ * Includes bare foreign ids (`gpt-5.5`) and any non-xai/non-grok provider prefix
+ * (`openai/...`, `cx/gpt-5.6-sol`, `anthropic/...`). Routing these without a CLI
+ * proxy causes host 401s after auth recovery.
+ */
 export function isForeignProviderModel(model: string): boolean {
-  const id = stripProviderPrefix(model)
+  const trimmed = model.trim()
+  if (trimmed.length === 0) return false
+  if (trimmed.includes("/")) {
+    const provider = trimmed.slice(0, trimmed.indexOf("/")).toLowerCase()
+    if (provider !== "xai" && provider !== "grok") return true
+  }
+  const id = stripProviderPrefix(trimmed)
   return /^(gpt|o[0-9]|claude|gemini|glm|deepseek|qwen|mistral|codex|chatgpt)/i.test(id)
 }
 

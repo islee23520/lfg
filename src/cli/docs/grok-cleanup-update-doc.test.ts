@@ -13,6 +13,10 @@ describe("docs/grok-cleanup-update.md (#34)", () => {
     expect(text).toContain("inspect the JSON result")
     expect(text).toContain("N/A")
     expect(text).toContain("runGrokInstall")
+    expect(text).toContain("Breaking upgrade wipe")
+    expect(text).toContain("v0.1.30")
+    expect(text).toContain("lfg --json uninstall --yes")
+    expect(text).toContain("unrelated model and subagent configuration")
     expect(text).not.toContain("lfg cleanup` — implemented")
   })
 

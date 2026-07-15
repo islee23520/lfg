@@ -1,76 +1,29 @@
-/**
- * Host-neutral difficulty-tier routing for upstream lazycodex-worker-low|medium|high.
- * Pure resolver: maps spawn/task metadata → tier + subagent_type with availability-aware fallbacks.
- * Does not claim host-enforced dispatch or Codex mailbox behavior.
- */
-
 export type DifficultyTier = "low" | "medium" | "high"
 
 export type DifficultyTierRoute = {
   readonly tier: DifficultyTier
-  /** Canonical upstream worker name for this tier (always the default worker id). */
-  readonly upstreamAgentType: string
-  /** Selected Grok/OMO subagent_type after override + availability resolution. */
-  readonly subagentType: string
-  /** Short guidance for orchestrators / prompts. */
+  readonly legacyAgentType: string
+  readonly implementationTransport: "external-codex-app-server"
+  readonly handoffCommand: "lfg --json handoff plan --role coding --engine gpt"
   readonly guidance: string
 }
 
-export type DifficultyTierRouteOptions = {
-  /** Per-tier subagent_type overrides; applied only when present in availableSubagentTypes (or when availability is unrestricted). */
-  readonly overrides?: Readonly<Partial<Record<DifficultyTier, string>>>
-  /** When set, only listed types may be selected; missing default workers fall through to tier fallbacks. */
-  readonly availableSubagentTypes?: readonly string[]
-}
-
-const DEFAULT_WORKER_BY_TIER: Readonly<Record<DifficultyTier, string>> = {
+const LEGACY_WORKER_BY_TIER: Readonly<Record<DifficultyTier, string>> = {
   low: "lazycodex-worker-low",
   medium: "lazycodex-worker-medium",
   high: "lazycodex-worker-high",
 }
 
-/** Grok category personas used when the tier's default worker is not available. */
-const TIER_FALLBACK_SUBAGENT: Readonly<Record<DifficultyTier, string>> = {
-  low: "quick",
-  medium: "coding",
-  high: "unspecified-high",
-}
-
-export function resolveDifficultyTierRoute(
-  metadata: unknown,
-  options: DifficultyTierRouteOptions = {},
-): DifficultyTierRoute {
+export function resolveDifficultyTierRoute(metadata: unknown): DifficultyTierRoute {
   const tier = parseDifficultyTier(metadata)
-  const upstreamAgentType = DEFAULT_WORKER_BY_TIER[tier]
-  const available = options.availableSubagentTypes
-  const isAvailable = (name: string): boolean =>
-    available === undefined ? true : available.includes(name)
-
-  const override = options.overrides?.[tier]
-  if (typeof override === "string" && override.length > 0 && isAvailable(override)) {
-    return {
-      tier,
-      upstreamAgentType,
-      subagentType: override,
-      guidance: guidanceFor(tier, override, "override"),
-    }
-  }
-
-  if (isAvailable(upstreamAgentType)) {
-    return {
-      tier,
-      upstreamAgentType,
-      subagentType: upstreamAgentType,
-      guidance: guidanceFor(tier, upstreamAgentType, "default"),
-    }
-  }
-
-  const fallback = TIER_FALLBACK_SUBAGENT[tier]
   return {
     tier,
-    upstreamAgentType,
-    subagentType: fallback,
-    guidance: guidanceFor(tier, fallback, "fallback"),
+    legacyAgentType: LEGACY_WORKER_BY_TIER[tier],
+    implementationTransport: "external-codex-app-server",
+    handoffCommand: "lfg --json handoff plan --role coding --engine gpt",
+    guidance:
+      `Difficulty tier ${tier}: size the external Codex work package accordingly. ` +
+      "Create or attach the project app-server thread; use codex exec only when the daemon is unavailable.",
   }
 }
 
@@ -98,12 +51,7 @@ function parseDifficultyTier(metadata: unknown): DifficultyTier {
       : typeof metadata.agentType === "string"
         ? metadata.agentType
         : undefined
-  if (agentType !== undefined) {
-    const fromWorker = tierFromWorkerName(agentType)
-    if (fromWorker !== undefined) return fromWorker
-  }
-
-  return "medium"
+  return agentType === undefined ? "medium" : tierFromWorkerName(agentType) ?? "medium"
 }
 
 function normalizeTierValue(value: unknown): DifficultyTier | undefined {
@@ -135,30 +83,4 @@ function tierFromWorkerName(agentType: string): DifficultyTier | undefined {
 
 function isPlainObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function guidanceFor(
-  tier: DifficultyTier,
-  subagentType: string,
-  kind: "default" | "override" | "fallback",
-): string {
-  if (kind === "fallback") {
-    return (
-      `Difficulty tier ${tier}: default worker unavailable; ` +
-      `using fallback subagent_type "${subagentType}" ` +
-      `(low→quick, medium→coding, high→unspecified-high). ` +
-      `Host-neutral routing only — not host-enforced dispatch.`
-    )
-  }
-  if (kind === "override") {
-    return (
-      `Difficulty tier ${tier}: using configured override subagent_type "${subagentType}" ` +
-      `(upstream worker ${DEFAULT_WORKER_BY_TIER[tier]}). ` +
-      `Host-neutral routing only — not host-enforced dispatch.`
-    )
-  }
-  return (
-    `Difficulty tier ${tier}: route to implementation worker "${subagentType}". ` +
-    `Host-neutral routing only — not host-enforced dispatch or Codex mailbox.`
-  )
 }

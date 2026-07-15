@@ -4,6 +4,11 @@ import { fileURLToPath } from "node:url";
 export const ULTRAWORK_SKILL_POINTER_TEMPLATE = `<ultrawork-mode>
 ULTRAWORK MODE IS ACTIVE FOR THIS TASK.
 
+WORD/SKILL ASSIGN PURPOSE: help Grok CEO task Codex.
+Grok = CEO + orchestrator: always doubt yourself; query Codex for judgment + work.
+LazyCodex = sole implementer + technical evidence (Codex CLI, engine gpt).
+Do not implement or self-certify — handoff to Codex; synthesize from RESULT.
+
 MANDATORY BOOTSTRAP: do all three steps, in order, before anything else.
 
 1. First user-visible line this turn MUST be exactly:
@@ -27,6 +32,7 @@ not exist, tell the user the omo ultrawork skill is missing and
 continue with steps 1 and 2 plus evidence-bound execution.
 
 Do not start the requested work until all three steps are complete.
+Then assign implementation via \`lfg --json handoff plan --engine gpt\` → codex.
 </ultrawork-mode>
 `;
 

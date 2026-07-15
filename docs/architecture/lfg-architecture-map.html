@@ -878,7 +878,7 @@ craft skills → programming / frontend / debugging ...</pre>
         OMO는 사실상 <b>Claude / GPT / Gemini 행동 전제</b> 위에서 설계·튜닝된 시스템이 많습니다.
         lfg의 목표는 “파일을 그대로 복사”가 아니라,
         <b>Grok 4.5를 오케스트레이터로 두고</b>, deep/oracle은 GPT, vision은 Gemini,
-        나중에는 Z.AI까지 붙이는 <b>Grok 중심 하니스</b>를 만드는 것입니다.
+        나중에는 Gemini까지 붙이는 <b>Grok 중심 하니스</b>를 만드는 것입니다.
       </p>
 
       <div class="callout warn">
@@ -908,11 +908,11 @@ craft skills → programming / frontend / debugging ...</pre>
           </ul>
         </div>
         <div class="card">
-          <h3>Vision · Gemini (later Z.AI)</h3>
+          <h3>Vision · Gemini </h3>
           <ul>
             <li>multimodal-looker / visual-qa / artistry</li>
             <li>이미지·UI 검증 레인</li>
-            <li>Z.AI vision MCP는 companion/later lane</li>
+            <li>Gemini vision MCP는 companion/later lane</li>
           </ul>
         </div>
       </div>
@@ -951,7 +951,7 @@ craft skills → programming / frontend / debugging ...</pre>
           <tr>
             <td>visual / multimodal</td>
             <td>패턴상 Gemini 시각 선호 존재</td>
-            <td>Gemini vision 명시, later Z.AI</td>
+            <td>Gemini vision 명시,</td>
             <td><span class="badge b-part">부분 정렬</span></td>
           </tr>
         </tbody>
@@ -998,7 +998,7 @@ craft skills → programming / frontend / debugging ...</pre>
           <ul>
             <li>Claude식 프롬프트를 Grok orchestrator에 그대로 두고 성공을 기대</li>
             <li>oracle/deep를 Grok 우선으로 두고 GPT 분업 목표와 충돌</li>
-            <li>vision/Z.AI를 패리티 표의 부록처럼만 취급</li>
+            <li>vision/Gemini를 패리티 표의 부록처럼만 취급</li>
             <li>설치 시 모델 추천만 하고, 세션 시작 가드레일/역할 계약을 안 심음</li>
           </ul>
         </div>
@@ -1038,7 +1038,7 @@ craft skills → programming / frontend / debugging ...</pre>
           <tr>
             <td>vision / MCP companions</td>
             <td>이미지 도구 경로, provider auth</td>
-            <td>Gemini primary + later Z.AI companion lane</td>
+            <td>Gemini primary + companion lane</td>
           </tr>
         </tbody>
       </table>
@@ -1141,11 +1141,6 @@ craft skills → programming / frontend / debugging ...</pre>
             <td>Image <b>understanding</b> path for arbitrary screenshots</td>
           </tr>
           <tr>
-            <td>Z.AI companion</td>
-            <td><code>lfg zai</code> / <code>lfg-mcp</code> zai-vision package install surface</td>
-            <td>Default multimodal SSOT wired into orchestrator loop</td>
-          </tr>
-          <tr>
             <td>Grok host</td>
             <td>May pass images natively depending on model/runtime</td>
             <td>lfg-owned capability matrix + degrade policy like OpenCodex</td>
@@ -1195,7 +1190,7 @@ craft skills → programming / frontend / debugging ...</pre>
             <td><b>Vision specialist</b></td>
             <td><b>Gemini</b> (<code>visual-engineering</code> / multimodal-looker)</td>
             <td>GPT vision-capable model</td>
-            <td><b>Z.AI vision MCP</b></td>
+            <td><b>Gemini vision MCP</b></td>
             <td>lfg role routing + skills</td>
           </tr>
           <tr>
@@ -1216,7 +1211,7 @@ craft skills → programming / frontend / debugging ...</pre>
             <td><b>Text-only worker with image context</b></td>
             <td>OpenCodex-like describe sidecar (GPT mini/vision)</td>
             <td>specialist summary passed as text</td>
-            <td>Z.AI describe tool</td>
+            <td>Gemini describe tool</td>
             <td>new harness policy (not yet implemented)</td>
           </tr>
         </tbody>
@@ -1260,9 +1255,8 @@ craft skills → programming / frontend / debugging ...</pre>
         <div class="card">
           <h3>Layer 5 — Companion providers (later)</h3>
           <ul>
-            <li>Z.AI vision via <code>lfg-mcp</code> / <code>lfg zai</code></li>
-            <li>optional, not blocking Gemini primary lane</li>
-            <li>auth isolated from host OIDC</li>
+            <li>optional companion tools do not block the Gemini primary lane</li>
+            <li>companion auth stays isolated from host OIDC</li>
           </ul>
         </div>
         <div class="card">
@@ -1330,7 +1324,7 @@ craft skills → programming / frontend / debugging ...</pre>
         <div class="tl">
           <div class="when">M4</div>
           <div>
-            <b>Z.AI later lane</b>
+            <b>Gemini later lane</b>
             <div class="muted">Companion install path already exists; wire as optional vision backend after Gemini/GPT path proven.</div>
           </div>
         </div>
@@ -1358,7 +1352,7 @@ craft skills → programming / frontend / debugging ...</pre>
       <div class="callout">
         <b>짧은 답: YES — 단, “프로토콜 재구현”이 아니라 “Grok host custom-model surface 위에 올리는 것”.</b>
         lfg + GrokBuild는 multi-provider를 지원해야 한다.
-        왜냐하면 우리 harness 목표가 <b>Grok 4.5 orchestrator + GPT deep/oracle + Gemini vision (+ later Z.AI)</b> 이기 때문이다.
+        왜냐하면 우리 harness 목표가 <b>Grok 4.5 orchestrator + GPT deep/oracle + Gemini vision (+)</b> 이기 때문이다.
         그 목표를 Grok-only monorepo로 축소하면 성립하지 않는다.
       </div>
 
@@ -1450,7 +1444,7 @@ craft skills → programming / frontend / debugging ...</pre>
             <td>multi-provider preset UX / degrade matrix 문서·게이트 부족</td>
           </tr>
           <tr>
-            <td>companion MCP (xAI/Z.AI) 분리</td>
+            <td>companion MCP (xAI) 분리</td>
             <td>inference providers vs tool MCP providers 경계 설명 부족</td>
           </tr>
         </tbody>
@@ -1463,7 +1457,7 @@ lfg
   owns: setup materialization, role→model topology, OMO skill harness, guardrails, honesty gates
 optional proxies (OpenCodex / cliproxy / corporate gateway)
   own: translation, pools, vision sidecar for text-only models
-companions (lfg-mcp / zai)
+companions (lfg-mcp)
   own: tool MCP packages, not core inference identity</pre>
 
       <div class="callout warn">
@@ -1546,7 +1540,7 @@ companions (lfg-mcp / zai)
             <div class="muted">
               OMO agent-builder + model-core + delegate 경로를 읽어
               “역할 → 모델 family → fallback → prompt variant” 표를 만든다.
-              목표 토폴로지(Grok orchestrator / GPT deep-oracle / Gemini vision / later Z.AI)와 현재 lfg 추천표를 diff.
+              목표 토폴로지(Grok orchestrator / GPT deep-oracle / Gemini vision )와 현재 lfg 추천표를 diff.
               OpenCodex <code>src/vision</code> sidecar 패턴을 기준으로 image-in capability / noVision / degrade 정책도 같은 표에 넣는다.
             </div>
             <div class="soft">상태: NOT STARTED as formal study (코드에 Grok-first 추천만 존재)</div>
@@ -1676,7 +1670,7 @@ companions (lfg-mcp / zai)
       <div class="callout">
         <b>한 줄 기억:</b> lfg는 Grok 위에 OmO 작업 루프를 올리는 설치형 어댑터다.
         하지만 목표는 Claude/GPT 행동 복제가 아니라
-        <b>Grok 4.5 orchestrator + GPT deep/oracle + Gemini(/Z.AI) vision</b>
+        <b>Grok 4.5 orchestrator + GPT deep/oracle + Gemini vision</b>
         multi-model harness다.
         따라서 <b>protocol parity ≠ model-behavior parity</b>.
         robust plan/goal/gateway는 섹션 10–12 비교 연구(F1 dossiers + topology + guardrails)를 통과한 뒤에만 확정한다.

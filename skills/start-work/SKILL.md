@@ -3,26 +3,43 @@ name: start-work
 description: "Execute a Prometheus work plan in GrokBuild with `/goal` state, Boulder state, evidence ledger updates, worktree discipline, parallel subagents, and explicit continuation. Use after planning when the user says start work, execute plan, continue plan, resume plan, or asks to run a .omo/plans plan."
 ---
 
+## Grok CEO goal boundary
+
+Grok CEO: never execute goal body in-host; launch the Codex skill. Host `/goal` is display/state only.
+
 ## GrokBuild Tool Mapping
 
-On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild `spawn_subagent` calls. Prefer host built-ins when they fit: read-only search → `subagent_type: "explore"`; catch-all → `"general-purpose"`. Use lfg OMO personas (`explorer`, `librarian`, `coding`, …) only when OMO prompts/models matter. This contract is GrokBuild-only (`coding_tool_adapter` = `grok`).
+On Grok Build with lfg installed, use `spawn_subagent` only for Grok host monitoring and read-only discovery. Product implementation goes through the external Codex app-server handoff. This contract is GrokBuild-only (`coding_tool_adapter` = `grok`).
 
 | Intent | GrokBuild tool to use |
 | --- | --- |
-| Search/read-only worker | `spawn_subagent({ subagent_type: "explore", background: true, description: "...", prompt: "TASK: ..." })` (host built-in; use `"explorer"` only for OMO persona) |
+| Search/read-only worker | `spawn_subagent({ subagent_type: "explore" or "explorer", background: true, description: "...", prompt: "TASK: ..." })` |
 | Planning worker | `spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })` |
-| Implementation or QA worker | `spawn_subagent({ subagent_type: "hephaestus" or "coding", background: true, description: "...", prompt: "TASK: ..." })` |
-| Difficulty-tier implementation | `spawn_subagent({ subagent_type: "lazycodex-worker-low" | "lazycodex-worker-medium" | "lazycodex-worker-high", background: true, description: "...", prompt: "TASK: ..." })` |
+| Product implementation | `lfg --json handoff plan --role coding --engine gpt --focus "..."` → Codex app-server; `codex exec` fallback only when daemon unavailable. |
 
 
-### Delegation by difficulty (GrokBuild tier workers)
+### Product implementation handoff (GrokBuild)
 
-When lfg has installed difficulty-tier workers, size each implementation lane by difficulty and pass the matching `subagent_type` on `spawn_subagent` (not Codex `agent_type`): LOW (one-file fix, boilerplate, config/copy) -> `lazycodex-worker-low`; MEDIUM (standard feature, few files, known patterns) -> `lazycodex-worker-medium`; HIGH (new module, cross-module refactor, concurrency/security/migration) -> `lazycodex-worker-high`. Example: `spawn_subagent({ subagent_type: "lazycodex-worker-medium", background: true, description: "...", prompt: "TASK: ..." })`. Explorer/librarian research lanes keep their own roles. Difficulty (model power) is orthogonal to LIGHT/HEAVY rigor. This is **orchestrator-selected** routing — Grok does not auto-classify tier or enforce host-side difficulty dispatch.
+Grok is the Sisyphus watcher, not the product implementer. For LOW, MEDIUM, or HIGH implementation bodies, create the external Codex work package with `lfg --json handoff plan --role coding --engine gpt --focus "..."`. The handoff creates or attaches the project Codex app-server thread; `codex exec` is fallback only when the daemon is unavailable. Use `spawn_subagent` only for Grok host work by `watcher`, `explorer`, or `git-master`; never spawn `lazycodex-worker-*`, `hephaestus`, or `coding` for the product body.
+Before that handoff, consume the `lfg-gjc-intent-gateway` context: clarify high ambiguity and use `refined_focus` to tighten the Codex brief. gjc remains intent-only and fail-open; it never implements product code.
+### External Codex implementation lane (GPT only)
+
+**Grok = Sisyphus watcher**; **Codex app-server = sole product implementer**. Skill `ulw-external-engine` + `docs/grok-external-engine-orchestration.md`.
+
+Product implementation has exactly one worker lane: external Codex app-server handoff through `lfg --json handoff plan --engine gpt`. Grok may use watcher/explorer/git-master for host monitoring and read-only discovery, but must not spawn an in-host implementer for the product body.
+
+1. Run `lfg --json handoff plan --role <role> --engine gpt --focus <focus>` and read `handoff.payloadMarkdown` plus the app-server transport receipt (`fullyTransferable`, `grokIsOrchestrator`).
+2. Prefer the created/attached Codex app-server thread. Only when the daemon is unavailable, execute the reported `codex-exec-fallback` launch using `handoff.launch.argv[0]` with `handoff.launch.argv.slice(1)`; `handoff.launch.binary` is identity/readiness metadata. If `launch.stdinSource` is present, pipe that source exactly as described. Use **`timeout: 0`** and kill the process group on cancellation.
+3. **Do not** hand off sisyphus/prometheus; **do not** spawn Grok hephaestus/coding/lazycodex-worker for the product body.
+4. Read RESULT into Boulder/ledger.
+
+In-host `spawn_subagent` remains only for Grok host monitoring/read-only roles.
+
 
 
 ## ABSOLUTE RULE: YOU ARE AN ORCHESTRATOR — NEVER THE IMPLEMENTER
 
-**YOU DO NOT WRITE CODE. YOU DO NOT EDIT PRODUCT FILES. YOU DO NOT RUN QA YOURSELF. EVERY unit of implementation, test, QA, and review work MUST be delegated to a spawned subagent. NO EXCEPTIONS.** Your hands touch only plan selection, `.omo/` state (Boulder, ledger, plan checkboxes), decomposition, dispatch, verdicts, and evidence records. About to edit a product file or run an implementation command yourself? **STOP. SPAWN A WORKER INSTEAD.** Orchestrate at **MAXIMUM PARALLELISM**: every independent unit runs concurrently; only named dependencies serialize.
+**YOU DO NOT WRITE CODE. YOU DO NOT EDIT PRODUCT FILES. YOU DO NOT RUN QA YOURSELF. EVERY unit of implementation, test, QA, and review work MUST be delegated to a worker. NO EXCEPTIONS.** Your hands touch only plan selection, `.omo/` state (Boulder, ledger, plan checkboxes), decomposition, dispatch, verdicts, and evidence records. About to edit a product file or run an implementation command yourself? **STOP. DISPATCH THE SELECTED WORKER LANE INSTEAD.** Orchestrate at **MAXIMUM PARALLELISM**: every independent unit runs concurrently; only named dependencies serialize.
 
 ## Codex Harness Tool Compatibility
 
@@ -30,17 +47,14 @@ Translate any OpenCode-only tool name in an inherited example to its Codex equiv
 
 | OpenCode example | Codex tool to use |
 | --- | --- |
-| final-review `task(...)` | `multi_agent_v1.spawn_agent({"message":"TASK: act as a rigorous reviewer. ...","agent_type":"lazycodex-gate-reviewer","fork_context":false})` |
-| worker `task(...)` | `multi_agent_v1.spawn_agent({"message":"TASK: act as <role>. ...","fork_context":false})` — for implementation workers add `agent_type: "lazycodex-worker-<low|medium|high>"` when the spawn schema exposes `agent_type` |
+| final-review `task(...)` | `lfg --json handoff plan --role review --engine gpt --focus "..."`, then launch `handoff.launch.argv` exactly |
+| worker `task(...)` | `multi_agent_v1.spawn_agent({"message":"TASK: act as <role>. ...","fork_context":false})` |
 | `background_output(task_id="...")` | `multi_agent_v1.wait_agent(...)` for mailbox signals |
 | `team_*(...)` | `multi_agent_v1.spawn_agent` + `multi_agent_v1.send_input` + `multi_agent_v1.wait_agent` + `multi_agent_v1.close_agent` |
 
 When translating `load_skills=[...]`, name the skills inside the spawned agent's `message`. If a code block below conflicts with this section, this section wins.
 
-Codex exposes ONE of two subagent tool surfaces per session; check your own tool list and route accordingly. If `multi_agent_v1.*` tools exist, use the table above as written. If instead a flat `spawn_agent` with a required `task_name` exists (`multi_agent_v2`), rewrite every `multi_agent_v1.*` example: `multi_agent_v1.spawn_agent({...,"fork_context":false})` becomes `spawn_agent({"task_name":"<lowercase_digits_underscores>","message":...,"agent_type":...,"fork_turns":"none"})` (`"all"` only when full parent history is truly required); `send_input` becomes `send_message`; do not call `close_agent`/`resume_agent` (finished agents end on their own; `followup_task` re-tasks one, `interrupt_agent` stops one); `wait_agent` takes only `timeout_ms` and returns on any child mailbox activity. On the v2 surface `agent_type` may be absent from the spawn schema — when absent, omit it and describe the role inside `message`. If a code block below conflicts with this section, this section wins.
-
-### Delegation by difficulty (Codex tier workers)
-When tier worker agents are installed (Codex), size each implementation lane by difficulty and pass the matching `agent_type` where the spawn schema exposes it: LOW (one-file fix, boilerplate, config/copy) -> `lazycodex-worker-low`; MEDIUM (standard feature, few files, known patterns) -> `lazycodex-worker-medium`; HIGH (new module, cross-module refactor, concurrency/security/migration) -> `lazycodex-worker-high`. Explorer/librarian research lanes keep their own roles. Difficulty (model power) is orthogonal to the LIGHT/HEAVY rigor tier in step 4 — judge each on its own facts. On spawn surfaces without `agent_type` (deployed v2), state the tier inside `message`.
+Codex exposes ONE of two subagent tool surfaces per session; check your own tool list and route accordingly. If `multi_agent_v1.*` tools exist, use the table above as written. If instead a flat `spawn_agent` with a required `task_name` exists (`multi_agent_v2`), rewrite every `multi_agent_v1.*` example: `multi_agent_v1.spawn_agent({...,"fork_context":false})` becomes `spawn_agent({"task_name":"<lowercase_digits_underscores>","message":...,"agent_type":...,"fork_turns":"none"})` (`"all"` only when full parent history is truly required); `send_input` becomes `send_message`; do not call `close_agent`/`resume_agent` (finished agents end on their own; `followup_task` re-tasks one, `interrupt_agent` stops one); `wait_agent` takes only `timeout_ms` and returns on any child mailbox activity. `agent_type` works the same on both surfaces. If a code block below conflicts with this section, this section wins.
 
 ## Codex Subagent Reliability
 
@@ -49,6 +63,22 @@ Every `multi_agent_v1.spawn_agent` message is a self-contained executable assign
 Plan and reviewer agents may run for a long time: spawn them in the background, keep doing independent root work, and poll with short `multi_agent_v1.wait_agent` cycles — never a single long blocking wait. A timeout only means no new mailbox update arrived; treat a running child as alive. Require `WORKING: <task> - <current phase>` before long passes and `BLOCKED: <reason>` only when progress stops. Keep the parent visibly alive with active subagent count, names, and latest `WORKING:` phase. Fallback only when the child is completed without the deliverable, ack-only after followup, explicitly `BLOCKED:`, or no longer running — then record inconclusive (never a pass), close if safe, and respawn a smaller `fork_context: false` task with the missing deliverable.
 
 # start-work
+
+## Grok execution boundary
+
+Planning is a separate Codex lane: before approval, run `lfg --json plan ulw-plan --focus <objective>` so Codex loads skill `ulw-plan`, writes the decision-complete `.omo/` plan, and returns `.omo/external-engine/plan-ulw-plan-codex-skill-result.md` for Grok to present.
+
+After approval, never execute implementation inside Grok. Build the implementation plan with `lfg --json plan start-work --plan <path> --focus <objective>` or use `lfg --json handoff plan --role coding --engine gpt --focus <objective>`. Prefer the Codex app-server transport. Use codex-exec fallback only when the daemon is unavailable; only then execute `handoff.launch.argv`. External Codex must invoke Codex `$start-work` and write `.omo/external-engine/start-work-codex-skill-result.md`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract.
+
+## Grok execution boundary
+
+Planning is a separate Codex lane: before approval, run `lfg --json plan ulw-plan --focus <objective>` so Codex loads skill `ulw-plan`, writes the decision-complete `.omo/` plan, and returns `.omo/external-engine/plan-ulw-plan-codex-skill-result.md` for Grok to present.
+
+After approval, never execute implementation inside Grok. Build the implementation plan with `lfg --json plan start-work --plan <path> --focus <objective>` or use `lfg --json handoff plan --role coding --engine gpt --focus <objective>`. Prefer the Codex app-server transport. Use the reported codex-exec fallback only when the daemon is unavailable; only then execute `handoff.launch.argv`. External Codex must invoke Codex `$start-work` and write `.omo/external-engine/start-work-codex-skill-result.md`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract.
+
+## Grok execution boundary
+
+Never execute this workflow inside Grok. Build the dry-run launch with `lfg --json plan start-work --plan <path> --focus <objective>`, then launch the returned Codex argv. External Codex must invoke Codex `$start-work` and write `.omo/external-engine/start-work-codex-skill-result.md`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract.
 
 Execute a Prometheus work plan until every top-level checkbox is complete. Use GrokBuild's `/goal` command as the host goal-state surface for the aggregate objective. The upstream Codex `Stop` / `SubagentStop` continuation hook (`components/start-work-continuation`) is not a GrokBuild runtime contract, so do not depend on automatic hook reinjection; preserve state in `.omo/boulder.json` and continue explicitly from that durable state.
 
@@ -112,7 +142,7 @@ For PR/branch work, `--worktree` is mandatory before implementation starts. Veri
 3. Ignore nested checkboxes under acceptance criteria, evidence, and definition-of-done sections.
 4. Classify the checkbox tier and record it in its ledger entry. Default is LIGHT — a narrow change inside existing layers. Take HEAVY only on a fact you can point to: a new module / abstraction / domain model; auth, security, or session; an external integration; a DB schema or migration; concurrency or transaction boundaries; a cross-domain refactor; or the plan or user signals care. When unsure, take HEAVY; upgrade and redo skipped gates the moment a HEAVY fact surfaces; never downgrade.
 5. Decompose that checkbox into atomic sub-tasks. Collect every other unchecked checkbox in the same plan wave whose dependencies are met — their lanes execute concurrently.
-6. **DELEGATE EVERYTHING. YOU NEVER IMPLEMENT.** Dispatch ALL independent sub-tasks across those checkboxes in one parallel `multi_agent_v1.spawn_agent` burst; serialize only named dependencies. Verification and checkbox marking stay per-checkbox.
+6. **DELEGATE EVERYTHING. YOU NEVER IMPLEMENT.** Dispatch ALL independent sub-tasks across those checkboxes in parallel through each task's already selected worker lane; serialize only named dependencies. Verification and checkbox marking stay per-checkbox.
 
 Each sub-task message must include:
 
@@ -168,7 +198,7 @@ A worker done claim is never final: each implementation sub-task returns a `Done
 
 Rules:
 - `confirmed` is the only pass verdict. `false-positive`, `needs-fix`, and `needs-human-review` all block checkbox completion.
-- The verifier must be independent from the executor: use `lazycodex-gate-reviewer`, a scoped `worker` reviewer, or root only when root did not implement or materially rewrite that task.
+- The verifier must be independent from the executor: create a separate external Codex review handoff, or use root only when root did not implement or materially rewrite that task.
 - A worker done claim must be independently verified before it becomes checkbox completion.
 - On any non-confirmed verdict, append the feedback to the ledger, reset the checkbox work to in-progress, and re-dispatch the executor with the exact failure.
 - The verifier must probe the applicable adversarial keys, including `stale_state`, `dirty_worktree`, and `misleading_success_output`, before allowing `FullyDone`.
@@ -196,7 +226,7 @@ When all top-level checkboxes in `## TODOs` and `## Final Verification Wave` are
 - No production change before a failing-first proof exists (unit test at a seam, otherwise the failing Manual-QA scenario), and no change to existing behavior before a baseline characterization test pins the current behavior and passes on the unchanged code.
 - No `--dry-run` as completion evidence.
 - No tests-only completion claim. A Manual-QA artifact is required.
-- **NO DIRECT IMPLEMENTATION BY THE ORCHESTRATOR.** Root NEVER edits product files, writes tests, or runs QA itself — a spawned worker does.
+- **NO DIRECT IMPLEMENTATION BY THE ORCHESTRATOR.** Root NEVER edits product files, writes tests, or runs QA itself — a delegated worker does.
 - No completion claim while an applicable ultraqa adversarial class was never probed. Each applicable class needs a captured observable result; each skipped class needs a one-line not-applicable reason in the ledger.
 - No PR/branch implementation, review, or merge in the main worktree; use the task-owned git worktree.
 - No unprefixed session ids in Boulder state. GrokBuild sessions are `grok:<session_id>`; preserve older `codex:<session_id>` values only as historical/resume evidence.

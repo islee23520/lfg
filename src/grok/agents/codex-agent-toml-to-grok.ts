@@ -1,7 +1,11 @@
 import type { LazycodexAgentConfig } from "../../cli/models/lfg-models"
 import type { LazycodexAgentModelOverride } from "./lazycodex-agent-overrides"
+import { isReadOnlyNativeAgent, nativeAgentCapabilityMode } from "./native-agent-permissions"
+import { nativeAgentDescription } from "./native-omo-agents"
 
 const READ_ONLY_AGENT_NAMES = new Set([
+  "sisyphus",
+  "watcher",
   "explorer",
   "plan",
   "librarian",
@@ -30,7 +34,10 @@ export function renderGrokRoleTomlFromCodex(
   if (parsed.description.length > 0) {
     lines.push(`description = ${tomlQuote(parsed.description)}`)
   }
-  const capability = parsed.defaultCapabilityMode ?? (READ_ONLY_AGENT_NAMES.has(agentBaseName) ? "read-only" : null)
+  const capability =
+    parsed.defaultCapabilityMode ??
+    nativeAgentCapabilityMode(agentBaseName) ??
+    (READ_ONLY_AGENT_NAMES.has(agentBaseName) || isReadOnlyNativeAgent(agentBaseName) ? "read-only" : null)
   if (capability !== null) {
     lines.push(`default_capability_mode = ${tomlQuote(capability)}`)
   }
@@ -58,10 +65,16 @@ export function renderMinimalGrokRoleToml(
   promptPath?: string,
 ): string {
   const lines = [
-    `description = ${tomlQuote(`LazyCodex ${agentName} agent`)}`,
-    `model = ${tomlQuote(override.model)}`,
-    `reasoning_effort = ${tomlQuote(override.reasoningLevel)}`,
+    `description = ${tomlQuote(nativeAgentDescription(agentName))}`,
   ]
+  const capability = nativeAgentCapabilityMode(agentName)
+  if (capability !== null) {
+    lines.push(`default_capability_mode = ${tomlQuote(capability)}`)
+  } else if (READ_ONLY_AGENT_NAMES.has(agentName) || isReadOnlyNativeAgent(agentName)) {
+    lines.push(`default_capability_mode = ${tomlQuote("read-only")}`)
+  }
+  lines.push(`model = ${tomlQuote(override.model)}`)
+  lines.push(`reasoning_effort = ${tomlQuote(override.reasoningLevel)}`)
   appendFallbackLines(lines, override)
   if (promptPath !== undefined) {
     lines.push(`prompt_file = ${tomlQuote(promptPath)}`)

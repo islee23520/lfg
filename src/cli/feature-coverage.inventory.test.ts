@@ -18,7 +18,6 @@ const FEATURES: ReadonlyArray<{ id: string; mustMatch: RegExp }> = [
   { id: "doctor", mustMatch: /doctor/i },
   { id: "set-tier", mustMatch: /set-tier|set-agent-service-tier|service.tier/i },
   { id: "xai-auth", mustMatch: /xai.*auth|xai-auth/i },
-  { id: "zai", mustMatch: /zai/i },
   { id: "mcp-companion", mustMatch: /companion|mcp/i },
   { id: "ulw-loop", mustMatch: /ulw-loop/i },
   { id: "hooks-normalize", mustMatch: /normalize-plugin-hooks|hook/i },

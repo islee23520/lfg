@@ -106,11 +106,35 @@ describe("codingToolAdapterVerifyJson", () => {
     expect(executionPlan.executionStatus).toBe("not_executed")
     await expectNoAuthFile(home)
   })
+
+  test("treats an executable directory named grok as missing", async () => {
+    const home = await mkdtemp(join(tmpdir(), "lfg-adapter-directory-"))
+    await writeRuntimeConfig(home)
+    const bin = await mkdtemp(join(tmpdir(), "lfg-adapter-directory-bin-"))
+    await mkdir(join(bin, "grok"))
+    process.env.PATH = bin
+
+    const json = await codingToolAdapterVerifyJson(home, "grok", true)
+
+    const availability = requireRecord(json.availability)
+    expect(availability).toMatchObject({
+      status: "missing_command",
+      commandAvailable: false,
+      commandPath: null,
+      diagnostic: {
+        code: "adapter_command_missing",
+        hostAuth: { ownedBy: "grok", checked: false },
+      },
+    })
+    const executionPlan = requireRecord(json.executionPlan)
+    expect(executionPlan.executionStatus).toBe("not_executed")
+    await expectNoAuthFile(home)
+  })
 })
 
 async function writeRuntimeConfig(home: string): Promise<void> {
   await mkdir(join(home, ".grok"), { recursive: true })
-  await writeFile(join(home, ".grok", "lfg.json"), "{}\n", "utf8")
+  await writeFile(join(home, ".grok", "config.toml"), '[models]\ndefault = "grok-4.5"\n', "utf8")
 }
 
 async function expectNoAuthFile(home: string): Promise<void> {

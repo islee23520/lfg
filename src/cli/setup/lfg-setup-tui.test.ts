@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import type { ModelDiscovery } from "../models/lfg-models";
 import type { LazycodexInstallerOptions } from "./lfg-installer";
@@ -19,6 +22,7 @@ vi.mock("@clack/prompts", () => {
     },
     select: async (opts: any) => {
       calls.push(["select", opts?.message, opts?.options?.length, opts?.initialValue, opts?.options]);
+      if (/Default CLI backend/i.test(String(opts?.message ?? ""))) return "codex";
       if (/Coding tool adapter/i.test(String(opts?.message ?? ""))) return codingToolAdapterChoice;
       if (/Global model preset/i.test(String(opts?.message ?? ""))) return "auto";
       if (/Global reasoning effort/i.test(String(opts?.message ?? ""))) return "high";
@@ -60,6 +64,44 @@ const installerMock = vi.hoisted(() => ({
 }));
 
 vi.mock("./lfg-installer.js", () => installerMock);
+
+vi.mock("./lfg-setup-tui-prereqs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lfg-setup-tui-prereqs")>()
+  return {
+    ...actual,
+    ensureCodexLazyCodexPrereqsInTui: async () => ({
+      ok: true,
+      status: "ready" as const,
+      report: {
+        platform: "darwin" as const,
+        ok: true,
+        missing: [] as const,
+        codex: {
+          id: "codex" as const,
+          required: true as const,
+          ok: true,
+          status: "ready" as const,
+          binary: "codex",
+          commandPath: "/bin/codex",
+          detail: "ok",
+          recipes: [],
+        },
+        lazycodex: {
+          id: "lazycodex" as const,
+          required: true as const,
+          ok: true,
+          status: "ready" as const,
+          binary: "lazycodex-ai",
+          commandPath: null,
+          detail: "ok",
+          recipes: [],
+        },
+      },
+      installs: [],
+      steps: ["Step 1/4: Checking Codex CLI + LazyCodex"],
+    }),
+  }
+})
 
 import * as tui from "./lfg-setup-tui";
 
@@ -110,6 +152,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     const autocompleteCalls = calls.filter((c: any[]) => c[0] === "autocomplete");
     expect(selectCalls.map((c: any[]) => String(c[1]))).not.toEqual(expect.arrayContaining(["Global model preset", "Global reasoning effort", "Model customization"]));
     expect(autocompleteCalls).toHaveLength(0);
+    expect(selectCalls.filter((c: any[]) => /Default CLI backend/i.test(String(c[1])))).toHaveLength(1);
 
     expect(calls.some((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])))).toBe(true);
     const resultsNote = calls.find((c: any[]) => c[0] === "note" && /Setup results/.test(String(c[1])));
@@ -119,9 +162,13 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(resultsBody).toContain("fast:");
     expect(resultsBody).toContain("reasoning:");
     expect(resultsBody).toContain("coding:");
-    expect(resultsBody).toContain("Agent routing is derived from the global preset");
-    expect(resultsBody).toContain("explorer:");
-    expect(resultsBody).toContain("coding:");
+    expect(resultsBody.split("\n").filter((line) => line.trim().length > 0).length).toBeLessThanOrEqual(7);
+    expect(resultsBody).toContain("30 bundled routing profiles will be installed");
+    expect(resultsBody).toContain("~/.grok/omo-agent-overrides.json");
+    expect(resultsBody).not.toContain("explorer:");
+    expect(resultsBody).not.toContain("lazycodex-worker-low");
+    expect(resultsBody).not.toContain("artistry-gen");
+    expect(resultsBody).not.toContain("unspecified-high");
     expect(/Current: .* \(reasoning:/.test(resultsBody)).toBe(false);
     expect(/Default: keep the current LazyCodex\/OMO value/.test(resultsBody)).toBe(false);
     expect(/^\s*Recommended:/m.test(resultsBody)).toBe(false);
@@ -132,8 +179,13 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(calls.some((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])))).toBe(true);
     const installSummary = calls.find((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])));
     expect(String(installSummary?.[2] ?? "")).toContain("Coding adapter: grok -> grok");
+    expect(String(installSummary?.[2] ?? "")).toContain("CLI backend routing: default codex; sisyphus=grok, watcher=grok, explorer=grok, git-master=grok");
     expect(String(installSummary?.[2] ?? "")).toContain("Global CLI: skip");
-    expect(installerMock.runLazycodexInstaller).toHaveBeenCalledWith(expect.anything(), { codingToolAdapter: "grok" });
+    expect(installerMock.runLazycodexInstaller).toHaveBeenCalledWith(expect.anything(), {
+      codingToolAdapter: "grok",
+      backendRouting: expect.objectContaining({ global: "codex" }),
+      force: true,
+    });
 
     // Final outro from the TUI
     expect(calls.some((c: any[]) => c[0] === "outro")).toBe(true);
@@ -166,7 +218,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     expect(installSummaryBody).toContain("fallback: none");
     const installed = installerMock.runLazycodexInstaller.mock.calls[0]?.[0] ?? null;
     expect(installed?.baseUrl ?? "").toBe("");
-    expect(installerMock.runLazycodexInstaller.mock.calls[0]?.[1]).toEqual({ codingToolAdapter: "grok" });
+    expect(installerMock.runLazycodexInstaller.mock.calls[0]?.[1]).toMatchObject({ codingToolAdapter: "grok", backendRouting: { global: "codex" } });
   });
 
   test("runSetupTui can install the global lfg CLI after adapter setup", async () => {
@@ -185,7 +237,7 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     const globalInstaller = vi.fn(async () => ({
       ok: true,
       command: "npm",
-      args: ["install", "--global", "@islee23520/lfg@latest"],
+      args: ["install", "--global", "/tmp/islee23520-lfg-0.1.30.tgz"],
       stdout: "",
       stderr: "",
     }));
@@ -203,7 +255,42 @@ describe("lfg-setup-tui (Clack TUI for bare setup)", () => {
     const installSummary = calls.find((c: any[]) => c[0] === "note" && /Install Summary/.test(String(c[1])));
     expect(String(installSummary?.[2] ?? "")).toContain("Global CLI: install/update with npm -g");
     const globalNote = calls.find((c: any[]) => c[0] === "note" && /Global CLI/.test(String(c[1])));
-    expect(String(globalNote?.[2] ?? "")).toContain("npm install --global @islee23520/lfg@latest");
+    expect(String(globalNote?.[2] ?? "")).toContain("npm install --global /tmp/islee23520-lfg-0.1.30.tgz");
+  });
+
+  test("setup config normalizes a stored legacy gemini route to gpt when no backend flag is explicit", async () => {
+    const prompts = await import("@clack/prompts") as any;
+    const calls: any[] = prompts.__calls;
+    calls.length = 0;
+    installerMock.runLazycodexInstaller.mockClear();
+    const home = await mkdtemp(join(tmpdir(), "lfg-tui-backend-legacy-"));
+    await mkdir(join(home, ".grok"), { recursive: true });
+    await writeFile(join(home, ".grok", "config.toml"), "[omo.external_engine]\nbackend = \"gemini\"\n", "utf8");
+    const previousAllow = process.env.LFG_ALLOW_TEST_GROK_HOME;
+    const previousHome = process.env.LFG_TEST_GROK_HOME;
+    process.env.LFG_ALLOW_TEST_GROK_HOME = "1";
+    process.env.LFG_TEST_GROK_HOME = home;
+    const testPrompts = { ...prompts, select: async (options: any) => {
+      calls.push(["select", options?.message, options?.options?.length, options?.initialValue, options?.options]);
+      if (/Default CLI backend/i.test(String(options?.message ?? ""))) return options.initialValue;
+      return options?.options?.[0]?.value;
+    } };
+
+    try {
+      await tui.runSetupTui({}, { configOnly: true, resolved: null }, {
+        prompts: testPrompts as any,
+        colors: { inverse: (value: string) => value, green: (value: string) => value },
+      });
+    } finally {
+      if (previousAllow === undefined) delete process.env.LFG_ALLOW_TEST_GROK_HOME;
+      else process.env.LFG_ALLOW_TEST_GROK_HOME = previousAllow;
+      if (previousHome === undefined) delete process.env.LFG_TEST_GROK_HOME;
+      else process.env.LFG_TEST_GROK_HOME = previousHome;
+    }
+
+    expect(installerMock.runLazycodexInstaller.mock.calls[0]?.[1]).toMatchObject({
+      backendRouting: { global: "codex" },
+    });
   });
 
   test("runSetupTui cancels before install when continue confirm is cancelled", async () => {

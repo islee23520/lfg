@@ -10,7 +10,6 @@ import { verifyNativeOmoAgents, type NativeAgentsVerifyResult } from "../agents/
 import { verifyPluginMcpManifest, type McpVerificationResult } from "../mcp/materialize-grok-mcp"
 import { computeSkillWorkflows } from "./skill-workflow-verify"
 import { activeGrokHooksPath } from "../hooks/normalize-plugin-hooks-active"
-import { readLfgRuntimeConfigFile } from "../models/lfg-runtime-config"
 import { codingToolAdapterVerifyJson } from "./coding-tool-adapter-verify"
 
 export type PostInstallVerifyOptions = {
@@ -65,7 +64,7 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
       bridgeFallback: true,
       omoComponents: [],
       skillWorkflows: { "ulw-plan": false, "ulw-loop": false, "start-work": false },
-      nativeAgents: { status: "missing", pluginAgents: [], roles: [], prompts: [], sisyphusDefaultAgent: false, hephaestusPromptPresent: false },
+      nativeAgents: { status: "missing", pluginAgents: [], roles: [], prompts: [], watcherDefaultAgent: false, retiredLazycodexAbsent: false },
       mcpVerification: missingMcpVerification(pluginRoot, "adapter plugin tree not found"),
       codingToolAdapter: await codingToolAdapterVerifyJson(options.home, DEFAULT_CODING_TOOL_ADAPTER, false),
     }
@@ -88,9 +87,6 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
   const omoComponents = inventory.componentIds
   const skillWorkflows = await computeSkillWorkflows(pluginRoot)
   const nativeAgents = await verifyNativeOmoAgents(pluginRoot, options.home)
-  const runtimeConfig = await readLfgRuntimeConfigFile(options.home)
-  const selectedAdapter = runtimeConfig?.coding_tool_adapter ?? DEFAULT_CODING_TOOL_ADAPTER
-
   return {
     ok,
     status: ok ? "verified" : "missing_adapter",
@@ -109,7 +105,7 @@ export async function verifyGrokInstallSurface(options: PostInstallVerifyOptions
     skillWorkflows,
     nativeAgents,
     mcpVerification,
-    codingToolAdapter: await codingToolAdapterVerifyJson(options.home, selectedAdapter, true),
+    codingToolAdapter: await codingToolAdapterVerifyJson(options.home, DEFAULT_CODING_TOOL_ADAPTER, true),
   }
 }
 

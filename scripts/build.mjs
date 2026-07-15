@@ -37,8 +37,11 @@ const GROK_INSTALL_FLAVOUR_PACK_SRC = "src/grok/flavour"
 const GROK_INSTALL_FLAVOUR_PACK_DST = `${GROK_INSTALL_DIR}/flavour`
 const GROK_INSTALL_SKILLS_SRC = "src/grok/skills"
 const GROK_INSTALL_SKILLS_DST = `${GROK_INSTALL_DIR}/skills`
-const GROK_INSTALL_MCP_COMPONENT_DIRS = ["ast-grep", "git-bash", "lsp"]
-const GROK_INSTALL_BUILTIN_MCP_RUNTIME_DIRS = ["xai-grok-mcp"]
+const GROK_INSTALL_MCP_COMPONENT_DIRS = ["ast-grep", "git-bash", "lsp", "eval"]
+const GROK_INSTALL_BUILTIN_MCP_RUNTIME_DIRS = [
+  ["xai-grok-mcp", "lfg-xai-grok-mcp.mjs"],
+  ["eval-mcp", "lfg-eval-mcp.mjs"],
+]
 const GROK_INSTALL_MCP_RUNTIME_DIRS = [
   ["ast-grep-mcp", "ast_grep"],
   ["git-bash-mcp", "git_bash"],
@@ -108,23 +111,25 @@ try {
   const bridgeSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-grok-hook-bridge.mjs`
   const configLoaderSrc = `${GROK_INSTALL_ASSETS_SRC}/config/lfg-config-loader.mjs`
   const projectOmoLedgerSrc = `${GROK_INSTALL_ASSETS_SRC}/ledger/lfg-project-omo-ledger.mjs`
-  const sisyphusHooksSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-sisyphus-hooks.mjs`
   const nativeRulesSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-rules.mjs`
   const nativeUltraworkSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-ultrawork.mjs`
-  const nativeWorkflowSelectorSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-workflow-selector.mjs`
-  const nativeCommentCheckerSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-comment-checker.mjs`
-  const nativeBashTimeoutSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-bash-timeout.mjs`
+  const nativeCodexAssignSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-codex-assign.mjs`
+  const nativeAccountRotateSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-account-rotate.mjs`
+  const nativeGjcIntentSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-gjc-intent.mjs`
+  const nativeOrchestratorInboxSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-orchestrator-inbox.mjs`
+  const nativeSisyphusNoEditSrc = `${GROK_INSTALL_ASSETS_SRC}/hooks/lfg-native-sisyphus-no-edit.mjs`
   const devLoggerSrc = `${GROK_INSTALL_ASSETS_SRC}/log/lfg-dev-logger.mjs`
   const xaiGrokMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-xai-grok-mcp.mjs`
+  const evalMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-eval-mcp.mjs`
   const astGrepMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-ast-grep-mcp.mjs`
   const lspMcpSrc = `${GROK_INSTALL_ASSETS_SRC}/mcp/lfg-lsp-mcp.mjs`
 
   await rm(`${GROK_INSTALL_DIR}/mcp-runtimes`, { recursive: true, force: true })
-  for (const runtimeDir of GROK_INSTALL_BUILTIN_MCP_RUNTIME_DIRS) {
+  for (const [runtimeDir, assetFile] of GROK_INSTALL_BUILTIN_MCP_RUNTIME_DIRS) {
     const runtimeDist = `${GROK_INSTALL_DIR}/mcp-runtimes/${runtimeDir}/dist`
     const runtimeCli = `${runtimeDist}/cli.js`
     await mkdir(runtimeDist, { recursive: true })
-    await cp(xaiGrokMcpSrc, runtimeCli)
+    await cp(`${GROK_INSTALL_ASSETS_SRC}/mcp/${assetFile}`, runtimeCli)
     await chmod(runtimeCli, 0o755)
   }
   for (const [runtimeDir, serverName] of GROK_INSTALL_MCP_RUNTIME_DIRS) {
@@ -141,18 +146,26 @@ try {
     await chmod(runtimeCli, 0o755)
   }
 
+  await rm(GROK_INSTALL_ASSETS_DST, { recursive: true, force: true })
   await mkdir(GROK_INSTALL_ASSETS_DST, { recursive: true })
   await cp(bridgeSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-grok-hook-bridge.mjs`)
   await cp(configLoaderSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-config-loader.mjs`)
   await cp(projectOmoLedgerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-project-omo-ledger.mjs`)
-  await cp(sisyphusHooksSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-sisyphus-hooks.mjs`)
   await cp(nativeRulesSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-rules.mjs`)
   await cp(nativeUltraworkSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-ultrawork.mjs`)
-  await cp(nativeWorkflowSelectorSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-workflow-selector.mjs`)
-  await cp(nativeCommentCheckerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-comment-checker.mjs`)
-  await cp(nativeBashTimeoutSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-bash-timeout.mjs`)
+  await cp(nativeCodexAssignSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-codex-assign.mjs`)
+  await cp(nativeAccountRotateSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-account-rotate.mjs`)
+  await cp(nativeGjcIntentSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-gjc-intent.mjs`)
+  await cp(nativeOrchestratorInboxSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-orchestrator-inbox.mjs`)
+  await cp(nativeSisyphusNoEditSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-native-sisyphus-no-edit.mjs`)
   await cp(devLoggerSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-dev-logger.mjs`)
   await cp(xaiGrokMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-xai-grok-mcp.mjs`)
+  await cp(evalMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-eval-mcp.mjs`)
+  await cp(`${GROK_INSTALL_ASSETS_SRC}/mcp/eval-js-runner.mjs`, `${GROK_INSTALL_ASSETS_DST}/eval-js-runner.mjs`)
+  await cp(`${GROK_INSTALL_ASSETS_SRC}/mcp/eval-py-runner.py`, `${GROK_INSTALL_ASSETS_DST}/eval-py-runner.py`)
+  // Keep runners co-located with the eval MCP CLI so import.meta.url discovery works at install time.
+  await cp(`${GROK_INSTALL_ASSETS_SRC}/mcp/eval-js-runner.mjs`, `${GROK_INSTALL_DIR}/mcp-runtimes/eval-mcp/dist/eval-js-runner.mjs`)
+  await cp(`${GROK_INSTALL_ASSETS_SRC}/mcp/eval-py-runner.py`, `${GROK_INSTALL_DIR}/mcp-runtimes/eval-mcp/dist/eval-py-runner.py`)
   await cp(astGrepMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-ast-grep-mcp.mjs`)
   await cp(lspMcpSrc, `${GROK_INSTALL_ASSETS_DST}/lfg-lsp-mcp.mjs`)
 

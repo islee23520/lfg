@@ -14,6 +14,7 @@ import {
   mergeLazycodexAgentOverrides,
 } from "./lfg-interactive-agent-config"
 import { buildVanillaGrokDiscovery, formatVanillaResults, formatVanillaSummary, type VanillaGrokConfig } from "./lfg-setup-tui-data"
+import { DEFAULT_CLI_BACKEND, type CliBackend } from "../../core/lfg/backend-routing"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
 
@@ -26,6 +27,7 @@ export type InstallWizardOptions = {
   // Internal for TUI path: skip the "Configure default / ULW target models and other LazyCodex agents?" long tail so it does not leak raw prompts.
   readonly skipOtherAgents?: boolean;
   readonly codingToolAdapter?: CodingToolAdapterId;
+  readonly backendEngine?: CliBackend;
 };
 
 export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetupDiscoveryResult, options: InstallWizardOptions = {}): Promise<JsonObject> {
@@ -66,6 +68,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
     printStep(2, "Configuring LazyCodex agents")
     const configuredDiscovery =
       discovery === null ? null : isHostAuthOnlyDiscovery(discovery) ? discovery : await configureLazycodexAgentsFull(reader, discovery, options)
+    const backendEngine = options.backendEngine ?? await readBackendEngine(reader)
 
     // This is the interactive gate for bare `lfg setup` (classic path only).
     printStep(3, "Reviewing install plan")
@@ -85,7 +88,7 @@ export async function runInstallWizard(plan: JsonObject, resolved?: ResolveSetup
 
     output.write(`\nRunning Grok install: ${INTERNAL_GROK_INSTALL_COMMAND}\n`)
     output.write("(Codex-home bootstrap is not used on this path.)\n\n")
-    const result = await runLazycodexInstaller(configuredDiscovery, { codingToolAdapter: options.codingToolAdapter })
+    const result = await runLazycodexInstaller(configuredDiscovery, { codingToolAdapter: options.codingToolAdapter, backendEngine })
     writeOutput(result.stdout)
     writeOutput(result.stderr)
     if (result.configUpdated === true) {
@@ -251,6 +254,12 @@ async function readReasoningEffort(reader: LineReader): Promise<ReasoningEffortC
   if (value === "low" || value === "medium" || value === "high" || value === "xhigh") return value
   output.write(`Unknown reasoning effort "${value}". Using auto.\n`)
   return "auto"
+}
+
+async function readBackendEngine(reader: LineReader): Promise<CliBackend> {
+  output.write("Default subagent CLI [grok/codex] (Enter = grok): ")
+  await reader.next()
+  return DEFAULT_CLI_BACKEND
 }
 
 async function confirm(reader: LineReader, prompt: string): Promise<boolean> {

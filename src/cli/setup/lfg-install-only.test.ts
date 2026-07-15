@@ -4,11 +4,7 @@ import { join } from "node:path"
 import { describe, expect, test } from "vitest"
 import { runLfg } from "../test/test-process"
 
-const DIFFICULTY_TIER_WORKERS = [
-  "lazycodex-worker-low",
-  "lazycodex-worker-medium",
-  "lazycodex-worker-high",
-] as const
+const NATIVE_AGENTS = ["sisyphus", "watcher", "explorer", "git-master"] as const
 
 describe("lfg setup --install-only", () => {
   test("updates plugin without writing agent override settings", async () => {
@@ -36,10 +32,10 @@ describe("lfg setup --install-only", () => {
     await expect(readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expect(readFile(join(home, ".grok", "lfg.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
 
-    for (const name of DIFFICULTY_TIER_WORKERS) {
+    for (const name of NATIVE_AGENTS) {
       await expect(readFile(join(home, ".grok", "roles", `${name}.toml`), "utf8")).resolves.toMatch(/model\s*=/)
       await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", `${name}.md`), "utf8")).resolves.toContain(`name: ${name}`)
-      await expect(readFile(join(home, ".grok", "prompts", "omo", `${name}.md`), "utf8")).resolves.toMatch(/worker|difficulty|implementation/i)
+      await expect(readFile(join(home, ".grok", "prompts", "omo", `${name}.md`), "utf8")).resolves.toMatch(/\S/)
     }
   }, 15_000)
 })

@@ -5,6 +5,7 @@ import {
   type GitHubStarsPromptOptions,
 } from "../publish/github/lfg-github-stars"
 import { installLfgGlobally, type LfgGlobalInstallResult } from "./lfg-global-install"
+import type { BackendRoutingConfig } from "../../core/lfg/backend-routing"
 
 export type TuiGlobalInstaller = () => Promise<LfgGlobalInstallResult>
 
@@ -24,6 +25,7 @@ export type ExecuteTuiInstallOptions = {
   readonly colors: TuiExecuteColors
   readonly configuredForInstall: ModelDiscovery | null
   readonly codingToolAdapter: CodingToolAdapterId
+  readonly backendRouting: BackendRoutingConfig
   readonly configOnly: boolean
   readonly installGlobalCli: boolean
   readonly globalInstaller?: TuiGlobalInstaller
@@ -34,7 +36,11 @@ export type ExecuteTuiInstallOptions = {
 export async function executeTuiInstall(options: ExecuteTuiInstallOptions): Promise<Record<string, unknown>> {
   try {
     const { runLazycodexInstaller } = await import("./lfg-installer.js")
-    const installRes: Record<string, unknown> = await runLazycodexInstaller(options.configuredForInstall, { codingToolAdapter: options.codingToolAdapter })
+    const installRes: Record<string, unknown> = await runLazycodexInstaller(options.configuredForInstall, {
+      codingToolAdapter: options.codingToolAdapter,
+      backendRouting: options.backendRouting,
+      force: true,
+    })
     writeOptionalOutput(installRes.stdout, process.stdout)
     writeOptionalOutput(installRes.stderr, process.stderr)
 

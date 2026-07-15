@@ -10,7 +10,7 @@ describe("lfg interactive setup", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-ux-"))
 
     // When: the user declines the final install confirmation (vanilla path has no proxy quiz).
-    const result = await runLfgText(["setup", "--no-tui"], "n\n", {
+    const result = await runLfgText(["setup", "--no-tui"], "1\nn\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
     })
@@ -20,6 +20,7 @@ describe("lfg interactive setup", () => {
     expect(result.stdout).toContain("oMoMoMoMo... lfg setup")
     expect(result.stdout).toContain("[1/5] Discovering Grok model endpoint")
     expect(result.stdout).toContain("[2/5] Configuring LazyCodex agents")
+    expect(result.stdout).toContain("Default subagent CLI [grok/codex] (Enter = grok)")
     expect(result.stdout).toContain("[3/5] Reviewing install plan")
     expect(result.stdout).toContain("Install Summary")
     expect(result.stdout).toContain("The Magic Word")
@@ -35,7 +36,7 @@ describe("lfg interactive setup", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-star-"))
 
     // When: the user installs, then declines the optional GitHub star action (no proxy quiz).
-    const result = await runLfgText(["setup", "--no-tui"], "y\nn\n", {
+    const result = await runLfgText(["setup", "--no-tui"], "1\ny\nn\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
     })
@@ -52,16 +53,16 @@ describe("lfg interactive setup", () => {
   test("no-tui install always persists Grok coding tool adapter", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-adapter-"))
 
-    const result = await runLfgText(["setup", "--no-tui"], "y\nn\n", {
+    const result = await runLfgText(["setup", "--no-tui"], "2\ny\nn\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
-      PATH: "/usr/bin:/bin",
     })
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain("Installation complete!")
-    const runtimeRaw = await readFile(join(home, ".grok", "lfg.json"), "utf8")
-    const runtimeConfig = JSON.parse(runtimeRaw) as { readonly coding_tool_adapter?: string }
-    expect(runtimeConfig.coding_tool_adapter).toBe("grok")
+    const configToml = await readFile(join(home, ".grok", "config.toml"), "utf8")
+    expect(configToml).toContain("[omo.models]")
+    expect(configToml).toContain('[omo.backend_routing]')
+    expect(configToml).toContain('global = "grok"')
   })
 })

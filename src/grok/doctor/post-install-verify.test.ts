@@ -49,7 +49,7 @@ describe("post-install-verify", () => {
     expect(json.payloadSource).toBe("source_tree")
     expect(json.nativeAgents).toMatchObject({
       status: "missing",
-      sisyphusDefaultAgent: false,
+      watcherDefaultAgent: false,
     })
     expect(json.nativeAgents.pluginAgents).toEqual([])
     // T9 independent fresh evidence (post-T6/T8; no copy from T4). Fixture-minimal does not include ulw SKILL.md (only cua-driver); computeSkillWorkflows returns false. Test updated to expect false (minimal for T9 only; T8 test surface in other files).

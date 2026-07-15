@@ -36,6 +36,21 @@ const installerMock = vi.hoisted(() => ({
 
 vi.mock("./lfg-installer.js", () => installerMock)
 
+
+vi.mock("./lfg-setup-tui-prereqs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lfg-setup-tui-prereqs")>()
+  return {
+    ...actual,
+    ensureCodexLazyCodexPrereqsInTui: async () => ({
+      ok: true,
+      status: "ready",
+      report: { platform: "darwin", ok: true, missing: [], codex: { id: "codex", required: true, ok: true, status: "ready", binary: "codex", commandPath: "/bin/codex", detail: "ok", recipes: [] }, lazycodex: { id: "lazycodex", required: true, ok: true, status: "ready", binary: "lazycodex-ai", commandPath: null, detail: "ok", recipes: [] } },
+      installs: [],
+      steps: [],
+    }),
+  }
+})
+
 import * as tui from "./lfg-setup-tui"
 
 function discovery() {
@@ -77,7 +92,12 @@ describe("lfg-setup-tui vanilla + undo", () => {
     const resultsNote = calls.find((c) => c[0] === "note" && /Setup results/.test(String(c[1])))
     const resultsBody = String(resultsNote?.[2] ?? "")
     expect(resultsBody).toContain("Preset: auto")
-    expect(resultsBody).toContain("Agent routing is derived from the global preset")
+    expect(resultsBody.split("\n").filter((line) => line.trim().length > 0).length).toBeLessThanOrEqual(7)
+    expect(resultsBody).toContain("Bundled routing profiles remain enabled")
+    expect(resultsBody).toContain("~/.grok/omo-agent-overrides.json")
+    expect(resultsBody).not.toContain("lazycodex-worker-low")
+    expect(resultsBody).not.toContain("artistry-gen")
+    expect(resultsBody).not.toContain("unspecified-high")
 
     // Install Summary + install executed with Grok agent overrides.
     expect(calls.some((c) => c[0] === "note" && /Install Summary/.test(String(c[1])))).toBe(true)
@@ -143,6 +163,21 @@ describe("lfg-setup-tui vanilla + undo", () => {
     expect(calls.some((c) => c[0] === "select" && /Global model preset/.test(String(c[1])))).toBe(false)
     expect(calls.some((c) => c[0] === "select" && /Global reasoning effort/.test(String(c[1])))).toBe(false)
     expect(calls.some((c) => c[0] === "confirm" && /Use LLM recommendations/.test(String(c[1])))).toBe(false)
+    const resultsNote = calls.find((c) => c[0] === "note" && /Setup results/.test(String(c[1])))
+    const resultsBody = String(resultsNote?.[2] ?? "")
+    const nonEmptyLines = resultsBody.split("\n").filter((line) => line.trim().length > 0)
+    expect(nonEmptyLines.length).toBeLessThanOrEqual(7)
+    expect(resultsBody).not.toContain("lazycodex-worker-low")
+    expect(resultsBody).not.toContain("artistry-gen")
+    expect(resultsBody).not.toContain("unspecified-high")
+    expect(Object.keys(installed.agentOverrideMap as Record<string, unknown>).sort()).toEqual([
+      "explorer",
+      "git-master",
+      "sisyphus",
+      "watcher",
+    ])
+    expect(installed.agentOverrideMap).not.toHaveProperty("lazycodex")
+    expect(installed.agentOverrideMap).not.toHaveProperty("lazycodex-worker-low")
     for (const override of Object.values(installed.agentOverrideMap as Record<string, { model: string }>)) {
       expect(override.model).toMatch(/^grok[-_]/)
     }

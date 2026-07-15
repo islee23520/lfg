@@ -13,7 +13,7 @@ lfg on GrokBuild uses a **Grok-centric multi-provider harness**:
 | Orchestrator (default/sisyphus) | Grok | `grok-4.5` | low | grok-4.20-reasoning → gpt-5.5 |
 | Plan lead (prometheus/plan) | Grok | `grok-4.5` | xhigh | grok-4.20-reasoning → gpt-5.5 |
 | Deep / Oracle | GPT | `gpt-5.5` | high/xhigh | grok-4.5 → glm |
-| Vision specialist | Gemini | `gemini-3.1-pro-*` / pro-high class | medium/low | gpt vision-capable → later Z.AI |
+| Vision specialist | Codex/GPT implementer + optional Antigravity confirmation | GPT vision-capable + `agy --print` confirmation | medium/low | Codex result remains authoritative; agy degrades fail-open |
 | Fast explore/librarian | Grok mini/composer or GPT mini | composer/mini | low/medium | cross-family mini |
 | Coding executor | Grok composer/non-reasoning | composer / non-reasoning | medium | gpt-5.5 / glm |
 
@@ -35,6 +35,8 @@ lfg materializes discovery into that surface; it does **not** reimplement OpenCo
 | Gemini | Vision falls back to GPT vision-capable if present, else specialist spawn fails soft + degrade marker |
 | Grok | Invalid for this product topology; setup should fail closed or force host Grok availability |
 | All non-Grok | Grok-only mode allowed but G2 cannot claim full multi-model Done |
+
+The external topology keeps Codex app-server as the sole product implementer. `agy` is a bounded second-opinion gateway only when visual intent and image paths are both present. Its `pass`/`fail`/`uncertain` result is advisory and never blocks the main result.
 
 ## Machine SSOT
 `.omo/evidence/harness/role-model-topology.json`

@@ -38,9 +38,17 @@ export function upsertModelSections(
     if (metadata?.reasoningEffort !== undefined) {
       lines.push(`reasoning_effort = ${tomlString(metadata.reasoningEffort)}`)
     }
-    next = upsertSection(next, modelSectionName(alias), lines)
+    if (alias === upstreamModelId && lines.length === 1) {
+      next = removeSection(next, modelSectionName(alias))
+    } else {
+      next = upsertSection(next, modelSectionName(alias), lines)
+    }
   }
   return next
+}
+
+function removeSection(source: string, section: string): string {
+  return source.replace(makeSectionRegex(section, "g"), (match: string) => match.startsWith("\n") ? "\n" : "").replace(/\n{3,}/g, "\n\n")
 }
 
 function resolveContextWindowForModel(

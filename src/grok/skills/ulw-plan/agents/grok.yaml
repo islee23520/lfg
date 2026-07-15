@@ -1,7 +1,8 @@
 interface:
   display_name: "(lfg) ulw-plan"
-  short_description: "Explore-first planning consultant that waits for your okay"
+  short_description: "Launch Codex ulw-plan and monitor its plan artifact"
   search_terms:
     - "ulw-plan"
     - "plan"
-  default_prompt: "Use /ulw-plan to explore the codebase, surface the open questions, and wait for my okay before producing a decision-complete plan."
+    - "planning"
+  default_prompt: "Do not plan in Grok. Run lfg --json plan ulw-plan --focus <objective>, launch the returned Codex transport, then monitor and present the plan artifact for approval. The command registers its RESULT path in the durable orchestrator inbox; hook context reminds Grok to poll it but does not hard-block tools. Use gjc deep-interview only when the intent gateway reports high ambiguity or interview needed."

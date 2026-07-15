@@ -6,8 +6,19 @@ export interface ProviderDescriptor {
   readonly modelPrefixes: readonly string[]
 }
 
+/**
+ * Prefix → provider map used when a CLI proxy (9router, etc.) advertises bare
+ * model ids. Provider-qualified ids (`openai/gpt-5.5`) win as-is.
+ * Unknown bare ids still default to `xai` so pure Grok hosts stay safe.
+ */
 export const DEFAULT_PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   { providerId: "xai", modelPrefixes: ["grok-"] },
+  { providerId: "openai", modelPrefixes: ["gpt-", "o1", "o3", "o4", "chatgpt-"] },
+  { providerId: "anthropic", modelPrefixes: ["claude-"] },
+  { providerId: "google", modelPrefixes: ["gemini-"] },
+  { providerId: "opencode-go", modelPrefixes: ["kimi-k", "minimax-m", "glm-5", "glm-4", "qwen"] },
+  { providerId: "minimax-coding-plan", modelPrefixes: ["minimax-m", "MiniMax-"] },
+  { providerId: "kimi-for-coding", modelPrefixes: ["k2p", "kimi-"] },
 ]
 
 export interface GrokModelCatalogInput {
@@ -37,8 +48,9 @@ export interface GrokModelCatalog {
  *
  * Normalizes bare model ids (e.g. `grok-4`) into `provider/model-id` form
  * (e.g. `xai/grok-4`) using the provider descriptors. Model ids already in
- * `provider/model-id` form are preserved as-is. Unknown prefixes default to
- * `xai` (Grok's first-party provider) since Grok's proxy is the primary source.
+ * `provider/model-id` form are preserved as-is. Bare ids are classified via
+ * DEFAULT_PROVIDER_DESCRIPTORS (gpt→openai, claude→anthropic, …). Unknown bare
+ * ids default to `xai` so pure-Grok hosts stay safe.
  */
 export function buildGrokModelCatalog(input: GrokModelCatalogInput): GrokModelCatalog {
   const providers = input.providers ?? DEFAULT_PROVIDER_DESCRIPTORS
@@ -81,9 +93,9 @@ function inferProvider(modelId: string, descriptors: readonly ProviderDescriptor
  * Resolve a model for a Grok agent/category using the OMO model-core
  * `resolveModelPipeline`. This is the primary entrypoint for Grok agents.
  *
- * If the agent's requirement has no `xai`-provider fallback entries (the
- * upstream tables are OpenCode/Codex-shaped), a Grok fallback entry is appended
- * so Grok first-party models can still resolve via the fallback chain.
+ * Prefer the OMO-first chain from agent/category requirements (Grok xai tails
+ * already live at the bottom of those tables). If a caller still passes a
+ * chain with no `xai` entry, append one so pure-Grok hosts resolve.
  */
 export interface GrokModelResolutionInput {
   readonly catalog: GrokModelCatalog
@@ -131,13 +143,9 @@ export function resolveGrokModel(input: GrokModelResolutionInput): GrokModelReso
 }
 
 /**
- * Append a Grok (xai) fallback entry to a requirement's fallback chain when the
- * upstream chain has no xai provider entry. This lets Grok first-party models
- * resolve via the fallback chain instead of always falling through to
- * systemDefaultModel.
- *
- * The Grok entry uses the first available xai model (fuzzy-matched by prefix),
- * or `grok-4` as a generic default.
+ * Append a Grok (xai) fallback entry only when the chain has no xai entry yet.
+ * Preferred path: tables already end with OMO-first + Grok tails; this is a
+ * defensive backstop for custom/partial requirement maps.
  */
 function withGrokFallback(chain: readonly FallbackEntry[] | undefined, catalog: GrokModelCatalog): FallbackEntry[] {
   const base = chain ? [...chain] : []

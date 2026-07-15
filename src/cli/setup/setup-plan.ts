@@ -8,8 +8,9 @@ import { resolveGrokSetupHome } from "../../grok/install/grok-home"
 import { INTERNAL_GROK_INSTALL_COMMAND } from "../../grok/install/run-grok-install"
 import type { ResolveSetupDiscoveryResult } from "../../grok/install/resolve-setup-discovery"
 import { codingToolAdapterSelectionJson, type CodingToolAdapterId } from "./coding-tool-adapter"
+import { cliBackendSelectionJson, DEFAULT_CLI_BACKEND, type CliBackend } from "../../core/lfg/backend-routing"
 
-export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPreset, codingToolAdapter?: CodingToolAdapterId): JsonObject {
+export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPreset, codingToolAdapter?: CodingToolAdapterId, backendEngine: CliBackend = DEFAULT_CLI_BACKEND): JsonObject {
   const discovery = resolved.discovery
   const hostCapabilities = buildGrokHostAdapterCapabilities(resolveGrokSetupHome(process.env), discovery)
   const pluginPath = homeRelativePath(hostCapabilities.paths.pluginDirectory, hostCapabilities.paths.homeDirectory)
@@ -34,6 +35,7 @@ export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPr
     lfgIsPlugin: false,
     installPath: hostCapabilities.name,
     codingToolAdapter: codingToolAdapterSelectionJson(codingToolAdapter),
+    backendEngine: cliBackendSelectionJson(backendEngine),
     purpose: `Grok-first direct install of the OMO adapter into Grok Build. \`setup --run\` preserves a healthy stamped ${pluginPath} tree and syncs model config from discovered CLI proxy models. \`setup --run --force\` replaces the adapter tree as a real directory (including symlink/legacy cleanup). Supported hooks, Sisyphus, ultrawork context, ulw skills, agents, and manifest-only MCP entries are materialized under ${pluginPath}; deferred OMO components stay documented as deferred or unsupported.`,
     modelDiscovery: discovery ?? modelDiscoveryPlan(),
     ...(discovery === null ? {} : { agentReasoning: agentReasoningSummary(discovery) }),

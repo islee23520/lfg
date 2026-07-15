@@ -7,13 +7,13 @@ metadata:
 
 ## GrokBuild Tool Mapping
 
-On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to GrokBuild `spawn_subagent` calls. Prefer host built-ins when they fit: read-only search → `subagent_type: "explore"`; catch-all → `"general-purpose"`. Use lfg OMO personas (`explorer`, `librarian`, `coding`, …) only when OMO prompts/models matter. This contract is GrokBuild-only (`coding_tool_adapter` = `grok`).
+On Grok Build with lfg installed, use `spawn_subagent` only for Grok host monitoring and read-only discovery. Product implementation goes through the external Codex app-server handoff. This contract is GrokBuild-only (`coding_tool_adapter` = `grok`).
 
 | Intent | GrokBuild tool to use |
 | --- | --- |
 | Search/read-only worker | `spawn_subagent({ subagent_type: "explore", background: true, description: "...", prompt: "TASK: ..." })` (host built-in; use `"explorer"` only for OMO persona) |
 | Planning worker | `spawn_subagent({ subagent_type: "plan", background: true, description: "...", prompt: "TASK: ..." })` |
-| Implementation or QA worker | `spawn_subagent({ subagent_type: "hephaestus" or "coding", background: true, description: "...", prompt: "TASK: ..." })` |
+| Product implementation | `lfg --json handoff plan --role coding --engine gpt --focus "..."` → Codex app-server; `codex exec` fallback only when daemon unavailable. |
 
 
 # ulw-loop
@@ -21,6 +21,25 @@ On Grok Build with lfg installed, translate OpenCode/Codex subagent examples to 
 Use this skill when the user asks for `ulw-loop`, `ulw`, durable goal execution, evidence-led work, manual QA, or checkpointed long-running delivery.
 
 This skill is intentionally compact. The full workflow lives in `references/full-workflow.md`. Read only the sections needed for the current phase, then execute them exactly.
+
+### Product implementation handoff (GrokBuild)
+
+Grok is the Sisyphus watcher, not the product implementer. For LOW, MEDIUM, or HIGH implementation bodies, create the external Codex work package with `lfg --json handoff plan --role coding --engine gpt --focus "..."`. The handoff creates or attaches the project Codex app-server thread; `codex exec` is fallback only when the daemon is unavailable. Use `spawn_subagent` only for Grok host work by `watcher`, `explorer`, or `git-master`; never spawn `lazycodex-worker-*`, `hephaestus`, or `coding` for the product body.
+
+
+### External Codex implementation lane (GPT only)
+
+**Grok = Sisyphus watcher**; **Codex app-server = sole product implementer**. Skill `ulw-external-engine` + `docs/grok-external-engine-orchestration.md`.
+
+Product implementation has exactly one worker lane: external Codex app-server handoff through `lfg --json handoff plan --engine gpt`. Grok may use watcher/explorer/git-master for host monitoring and read-only discovery, but must not spawn an in-host implementer for the product body.
+
+1. Run `lfg --json handoff plan --role <role> --engine gpt --focus <focus>` and read `handoff.payloadMarkdown` plus the app-server transport receipt (`fullyTransferable`, `grokIsOrchestrator`).
+2. Prefer the created/attached Codex app-server thread. Only when the daemon is unavailable, execute the reported `codex-exec-fallback` launch using `handoff.launch.argv[0]` with `handoff.launch.argv.slice(1)`; `handoff.launch.binary` is identity/readiness metadata. Use **`timeout: 0`** and kill the process group on cancellation.
+3. **Do not** hand off sisyphus/prometheus; **do not** spawn Grok hephaestus/coding/lazycodex-worker for the product body.
+4. Read RESULT into Boulder/ledger.
+
+In-host `spawn_subagent` remains only for Grok host monitoring/read-only roles.
+
 
 ## Required First Steps
 
@@ -35,7 +54,7 @@ This skill is intentionally compact. The full workflow lives in `references/full
 - If `omo ulw-loop create-goals` says the existing aggregate is already complete, start unrelated new work with a fresh `--session-id <new-id>` instead of steering or forcing the completed default state. Use `--force` only to intentionally overwrite completed evidence.
 - Every success criterion needs observable evidence from a real surface: a channel (terminal/TUI via the xterm.js web terminal, HTTP, browser, computer-use) or, for CLI- or data-shaped criteria, an auxiliary surface (CLI stdout, DB diff, parsed config dump).
 - Record evidence through the CLI only after cleanup receipts are available.
-- Delegate code edits, test writes, fixes, and QA execution to right-sized Codex subagents when the workflow requires it.
+- Send every product edit, test, fix, and product QA body through `lfg --json handoff plan --engine gpt`; Grok keeps only watcher/explorer/git-master host work.
 - Every `multi_agent_v1.spawn_agent` message starts with `TASK:`, then names `DELIVERABLE`, `SCOPE`, and `VERIFY`; put role and specialty instructions inside `message`; use `fork_context: false` unless full history is truly required.
 - Plan and reviewer agents may run for a long time; spawn them in the background, keep doing independent root work, and poll with short `multi_agent_v1.wait_agent` cycles. Never use a single long blocking wait for them.
 - For work likely to exceed one wait cycle, require the child to send `WORKING: <task> - <current phase>` before long reading, testing, or review passes, and `BLOCKED: <reason>` only when it cannot progress.
@@ -52,7 +71,7 @@ The full workflow may mention OpenCode-style orchestration examples. In Codex, t
 | --- | --- |
 | Plan agent | `multi_agent_v1.spawn_agent({"message":"TASK: act as a planning agent. ...","fork_context":false})` |
 | Search/read-only worker | `multi_agent_v1.spawn_agent({"message":"TASK: act as an explorer. ...","fork_context":false})` |
-| Implementation or QA worker | `multi_agent_v1.spawn_agent({"message":"TASK: act as an implementation or QA worker. ...","fork_context":false})` |
+| Product implementation | `lfg --json handoff plan --role coding --engine gpt --focus "..."` → Codex app-server; `codex exec` fallback only when daemon unavailable. |
 | Final verification reviewer | `multi_agent_v1.spawn_agent({"message":"TASK: act as a rigorous reviewer. ...","fork_context":false})` |
 | Wait for background result | `multi_agent_v1.wait_agent(...)` |
 | Clean up finished worker | `multi_agent_v1.close_agent(...)` |

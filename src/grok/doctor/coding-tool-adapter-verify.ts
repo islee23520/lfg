@@ -1,14 +1,14 @@
-import { constants } from "node:fs"
 import { access } from "node:fs/promises"
-import { delimiter, isAbsolute, join } from "node:path"
+import { join } from "node:path"
 import {
   codingToolAdapterContractJson,
   codingToolAdapterSelectionJson,
   type CodingToolAdapterId,
   type CodingToolAdapterContractJson,
 } from "../../shared/coding-tool-adapter"
+import { findExecutableInPath } from "../../shared/executable-path"
 import type { JsonObject } from "../../shared/json"
-import { lfgRuntimeConfigPath } from "../models/lfg-runtime-config"
+
 
 type AdapterAvailabilityStatus = "available" | "missing_command" | "missing_required_files"
 
@@ -34,7 +34,7 @@ export async function codingToolAdapterVerifyJson(
 ): Promise<JsonObject> {
   return {
     ...codingToolAdapterSelectionJson(selectedAdapter),
-    configPath: lfgRuntimeConfigPath(home),
+    configPath: join(home, ".grok", "config.toml"),
     availability: await codingToolAdapterAvailabilityJson(home, selectedAdapter, pluginPresent),
   }
 }
@@ -45,7 +45,7 @@ async function codingToolAdapterAvailabilityJson(
   pluginPresent: boolean,
 ): Promise<JsonObject> {
   const contract = codingToolAdapterContractJson(selectedAdapter)
-  const commandPath = await findExecutableInPath(contract.command)
+  const commandPath = await findExecutableInPath(contract.command, process.env)
   const requiredFiles = await requiredFilesStatus(home, pluginPresent)
   const missingRequiredFiles = requiredFiles.filter((file) => file.exists === false).map((file) => file.path)
   const commandAvailable = commandPath !== null
@@ -114,29 +114,8 @@ async function requiredFilesStatus(
 ): Promise<readonly { readonly path: string; readonly exists: boolean }[]> {
   return [
     { path: "~/.grok/plugins/lfg", exists: pluginPresent },
-    { path: "~/.grok/lfg.json", exists: await fileExists(lfgRuntimeConfigPath(home)) },
+    { path: "~/.grok/config.toml", exists: await fileExists(join(home, ".grok", "config.toml")) },
   ]
-}
-
-async function findExecutableInPath(command: string): Promise<string | null> {
-  if (isAbsolute(command)) {
-    return (await fileExecutable(command)) ? command : null
-  }
-  for (const dir of (process.env.PATH ?? "").split(delimiter)) {
-    if (dir.length === 0) continue
-    const candidate = join(dir, command)
-    if (await fileExecutable(candidate)) return candidate
-  }
-  return null
-}
-
-async function fileExecutable(path: string): Promise<boolean> {
-  try {
-    await access(path, constants.X_OK)
-    return true
-  } catch {
-    return false
-  }
 }
 
 async function fileExists(path: string): Promise<boolean> {

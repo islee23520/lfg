@@ -1,4 +1,5 @@
-import { access, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { createHash } from "node:crypto"
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -9,6 +10,8 @@ import { runGrokInstall } from "./run-grok-install"
 import { verifyGrokInstallSurface } from "../doctor/post-install-verify"
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), "..", "fixture")
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..")
+const NATIVE_SKILL_FILES = ["SKILL.md", join("agents", "grok.yaml")] as const
 const T2_COMPONENT_IDS = [
   "rules",
   "lsp",
@@ -102,6 +105,40 @@ describe("plugin cache install acceptance (#27)", () => {
     expect(inventory.components.find((component) => component.id === "git-bash")?.evidence).toContain("Windows-unverified")
   })
 
+  test("installs byte-identical native external-engine skill files from the built payload", async () => {
+    // Given: the package skill source, generated payload, and an isolated Grok home.
+    const home = await mkdtemp(join(tmpdir(), "lfg-accept-native-skill-"))
+    const packageSkillRoot = join(REPO_ROOT, "skills", "ulw-external-engine")
+    const builtSkillRoot = join(REPO_ROOT, "dist", "grok-install", "skills", "ulw-external-engine")
+
+    try {
+      const expectedHashes = await Promise.all(
+        NATIVE_SKILL_FILES.map(async (relativePath) => hashFile(join(packageSkillRoot, relativePath))),
+      )
+      const builtHashes = await Promise.all(
+        NATIVE_SKILL_FILES.map(async (relativePath) => hashFile(join(builtSkillRoot, relativePath))),
+      )
+
+      // When: the real plugin-cache installer promotes the built payload into the temp home.
+      const install = await installGrokPluginFromSource({
+        home,
+        sourceRoot: join(REPO_ROOT, "dist", "grok-install"),
+        version: "8.0.0-test",
+      })
+      const installedHashes = await Promise.all(
+        NATIVE_SKILL_FILES.map(async (relativePath) =>
+          hashFile(join(install.pluginRoot, "skills", "ulw-external-engine", relativePath)),
+        ),
+      )
+
+      // Then: package, built, and installed files are all present and byte-identical.
+      expect(builtHashes).toEqual(expectedHashes)
+      expect(installedHashes).toEqual(expectedHashes)
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
+  })
+
   test("second runGrokInstall is idempotent for stamp and verify", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-accept-idem-"))
     const discovery = {
@@ -123,7 +160,7 @@ describe("plugin cache install acceptance (#27)", () => {
     expect(firstVerify.ok).toBe(true)
   })
 
-  test("repeated runGrokInstall preserves user config overrides and does not duplicate hooks", async () => {
+  test("repeated runGrokInstall preserves user config.toml marker and does not duplicate hooks", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-accept-overrides-idem-"))
     const discovery = {
       baseUrl: "http://127.0.0.1:11434/v1",
@@ -133,18 +170,24 @@ describe("plugin cache install acceptance (#27)", () => {
     }
     const env = { HOME: home, OPENAI_API_KEY: "sk-test" }
     await runGrokInstall(discovery, env)
-    const configPath = join(home, ".grok", "lfg-config.jsonc")
-    const customConfig = '{\n  "version": 1,\n  "agents": { "reviewer": { "model": "user-model", "enabled": true } }\n}\n'
-    await writeFile(configPath, customConfig, "utf8")
+    const configPath = join(home, ".grok", "config.toml")
+    const before = await readFile(configPath, "utf8")
+    // Non-lfg-owned subagents.models key is preserved across rewrites.
+    const withUserKey = before.includes("[subagents.models]")
+      ? before.replace("[subagents.models]\n", '[subagents.models]\nuser-owned-config-key = "keep-me"\n')
+      : `${before}\n[subagents.models]\nuser-owned-config-key = "keep-me"\n`
+    await writeFile(configPath, withUserKey, "utf8")
 
     await runGrokInstall(discovery, env)
     await runGrokInstall(discovery, env)
 
-    expect(await readFile(configPath, "utf8")).toBe(customConfig)
+    expect(await readFile(configPath, "utf8")).toContain('user-owned-config-key = "keep-me"')
     const hooksRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
     const hooks = parseHooksCommands(hooksRaw)
     expect(countCommand(hooks, "lfg-config-loader.mjs")).toBe(3)
-    expect(countCommand(hooks, "lfg-sisyphus-hooks.mjs")).toBe(9)
+    expect(countCommand(hooks, "lfg-native-sisyphus-no-edit.mjs")).toBe(1)
+    expect(countCommand(hooks, "lfg-native-orchestrator-inbox.mjs")).toBe(3)
+    expect(countCommand(hooks, "lfg-native-codex-assign.mjs")).toBe(2)
   })
 })
 
@@ -172,4 +215,8 @@ function parseHooksCommands(raw: string): readonly string[] {
 
 function countCommand(commands: readonly string[], needle: string): number {
   return commands.filter((command) => command.includes(needle)).length
+}
+
+async function hashFile(path: string): Promise<string> {
+  return createHash("sha256").update(await readFile(path)).digest("hex")
 }

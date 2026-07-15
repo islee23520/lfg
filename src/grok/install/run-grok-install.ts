@@ -1,14 +1,15 @@
 import type { JsonObject } from "../../shared/json"
-import { grokConfigJson, writeGrokModelConfig } from "../../cli/config/lfg-grok-config"
+import { grokConfigJson, readBackendRoutingConfig, writeBackendRoutingConfig, writeGrokModelConfig } from "../../cli/config/lfg-grok-config"
 import type { ModelDiscovery } from "../../cli/models/lfg-models"
 import { modelDiscoveryEnv } from "../../cli/models/lfg-models"
 import { grokRoutedOverrideMap } from "../../cli/models/resolve-tier-model"
-import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled, ensureLfgSubagentModels } from "./grok-plugins-enable"
+import { ensureLfgAgentsPreferred, ensureLfgPluginsEnabled } from "./grok-plugins-enable"
 import { ensureGrokBinLfgWrapper } from "./grok-bin-lfg-wrapper"
 import { ensureLfgConfigFiles } from "../config/lfg-config"
 import { DEFAULT_CODING_TOOL_ADAPTER, type CodingToolAdapterId } from "../../shared/coding-tool-adapter"
 import {
   resolveLazycodexAgentOverrides,
+  slimNativeAgentOverrides,
   writeOmoAgentOverridesFile,
   type LazycodexAgentModelOverride,
 } from "../agents/lazycodex-agent-overrides"
@@ -20,6 +21,7 @@ import { runInternalGrokInstall } from "./run-internal"
 import { syncLazycodexAgentsToGrokLedger, type SyncLazycodexAgentsResult } from "../agents/sync-lazycodex-agents-to-grok"
 import { componentInventoryPath } from "../payload/component-inventory"
 import { applyRecommendationsToOverrideMap } from "../models/model-recommendation-availability"
+import { readGrokModelCatalogFromHome } from "../models/catalog-from-config"
 import { purgeInvalidGrokModelSettings, type PurgeInvalidModelSettingsResult } from "../config/purge-invalid-model-settings"
 import { resolveGrokApiKey } from "./grok-api-key"
 import { resolveGrokSetupHome } from "./grok-home"
@@ -27,6 +29,7 @@ import { resolveExistingStampedLfgSetup } from "./run-grok-install-existing"
 import { syncPostInstallPluginPayload, type PostInstallPluginSyncResult } from "./run-grok-install-post-sync"
 import { ensureXaiGrokMcpConfig, type EnsureXaiGrokMcpConfigResult } from "../mcp/xai-mcp-config"
 import { ensureAgentsSkillsPath } from "./ensure-agents-skills-path"
+import { DEFAULT_CLI_BACKEND, type BackendRoutingConfig, type CliBackend } from "../../core/lfg/backend-routing"
 
 export const INTERNAL_GROK_INSTALL_PACKAGE = "lfg-grok-install" as const
 export const INTERNAL_GROK_INSTALL_COMMAND = "@islee23520/lfg internal grok-install" as const
@@ -39,7 +42,7 @@ export type GrokInstallRunResult = {
   readonly agentOverridesPath: string | null
   readonly lfgConfigPath: string | null
   readonly pluginsEnabled: Awaited<ReturnType<typeof ensureLfgPluginsEnabled>> | null
-  readonly subagentModels: Awaited<ReturnType<typeof ensureLfgSubagentModels>> | null
+  readonly subagentModels: null
   /** Hooks are always (re)normalized on every setup so the bridge, config loader, and ultrawork hooks are guaranteed loaded. */
   readonly hooks: PostInstallPluginSyncResult | null
   readonly invalidModelSettings: PurgeInvalidModelSettingsResult | null
@@ -52,9 +55,9 @@ export type GrokInstallRunOptions = {
   readonly fullAgentModels?: Readonly<Record<string, LazycodexAgentModelOverride>>
   readonly installOnly?: boolean
   readonly codingToolAdapter?: CodingToolAdapterId
+  readonly backendEngine?: CliBackend
+  readonly backendRouting?: BackendRoutingConfig
 }
-
-type SubagentModelMapping = NonNullable<Parameters<typeof ensureLfgSubagentModels>[1]>
 
 /** Single transaction: internal plugin sync then optional config.toml merge (lfg-owned sections). */
 export async function runGrokInstall(
@@ -64,6 +67,13 @@ export async function runGrokInstall(
 ): Promise<GrokInstallRunResult> {
   const home = resolveGrokSetupHome(env)
   const codingToolAdapter = options.codingToolAdapter ?? DEFAULT_CODING_TOOL_ADAPTER
+  const backendEngine = options.backendEngine ?? DEFAULT_CLI_BACKEND
+  const storedBackendRouting = await readBackendRoutingConfig(home)
+  const backendRouting = options.backendRouting ?? (
+    options.backendEngine === undefined
+      ? storedBackendRouting
+      : { ...storedBackendRouting, global: backendEngine }
+  )
   const homeEnv = { ...env, HOME: home }
   migrateLegacyUserOverrideConfig({ home })
   const apiKey = await resolveGrokApiKey(homeEnv)
@@ -88,11 +98,12 @@ export async function runGrokInstall(
         : applyRecommendationsToOverrideMap(
             await resolveLazycodexAgentOverrides(home, resolvedAgentsInstallOnly),
             discovery?.modelIds ?? [],
+            { hasCliProxy: await resolveHasCliProxy(home, discovery) },
           )
-    const fullAgentModelsInstallOnly = grokRoutedOverrideMap(
+    const fullAgentModelsInstallOnly = slimNativeAgentOverrides(grokRoutedOverrideMap(
       options.fullAgentModels ?? overrideMapInstallOnly,
       discovery,
-    )
+    ))
     const omoAgentsInstallOnly = await syncLazycodexAgentsToGrokLedger(home, fullAgentModelsInstallOnly)
     // Keep PATH wrapper current (e.g. new lfg-owned commands like `claude`).
     await ensureGrokBinLfgWrapper(home)
@@ -121,8 +132,9 @@ export async function runGrokInstall(
       : applyRecommendationsToOverrideMap(
           await resolveLazycodexAgentOverrides(home, resolvedAgents),
           discovery?.modelIds ?? [],
+          { hasCliProxy: await resolveHasCliProxy(home, discovery) },
         )
-    const fullAgentModels = grokRoutedOverrideMap(options.fullAgentModels ?? overrideMap, discovery)
+    const fullAgentModels = slimNativeAgentOverrides(grokRoutedOverrideMap(options.fullAgentModels ?? overrideMap, discovery))
     const hasRealProxyDiscovery = discovery !== null && typeof discovery.baseUrl === "string" && discovery.baseUrl.trim().length > 0
     const hasHostAuthOnlyDiscovery = discovery !== null && !hasRealProxyDiscovery && codingToolAdapter === "grok"
     const configUpdate =
@@ -130,21 +142,16 @@ export async function runGrokInstall(
         ? await writeGrokModelConfig(discovery, {
             apiKey,
             home,
-            agentConfig: resolvedAgents,
-            fullAgentModels,
             hostAuthOnly: hasHostAuthOnlyDiscovery,
           })
         : null
     const overridesPath = await writeOmoAgentOverridesFile(home, fullAgentModels)
     const configFiles = await ensureLfgConfigFiles(home, fullAgentModels, codingToolAdapter)
+    await writeBackendRoutingConfig(home, backendRouting)
     const omoAgents = await syncLazycodexAgentsToGrokLedger(home, fullAgentModels)
     const pluginsEnabled = await ensureLfgPluginsEnabled(home)
     await ensureLfgAgentsPreferred(home)
     await ensureAgentsSkillsPath(home)
-    const subagentModels = await ensureLfgSubagentModels(
-      home,
-      subagentModelMappingFromDiscovery(discovery, resolvedAgents),
-    )
 
     // Hooks must always be (re)normalized on every setup run so the Grok bridge,
     // lfg-config-loader, project omo ledger, and ultrawork component hooks are guaranteed loaded.
@@ -181,7 +188,7 @@ export async function runGrokInstall(
       agentOverridesPath: overridesPath,
       lfgConfigPath: configFiles.configPath,
       pluginsEnabled,
-      subagentModels,
+      subagentModels: null,
       hooks: hooksNormalized,
       invalidModelSettings,
       xaiMcp: xaiMcpPreserve,
@@ -201,8 +208,9 @@ export async function runGrokInstall(
     : applyRecommendationsToOverrideMap(
         await resolveLazycodexAgentOverrides(home, resolvedAgents),
         discovery?.modelIds ?? [],
+        { hasCliProxy: await resolveHasCliProxy(home, discovery) },
       )
-  const fullAgentModels = grokRoutedOverrideMap(options.fullAgentModels ?? overrideMap, discovery)
+  const fullAgentModels = slimNativeAgentOverrides(grokRoutedOverrideMap(options.fullAgentModels ?? overrideMap, discovery))
   const hasRealProxyDiscovery = discovery !== null && typeof discovery.baseUrl === "string" && discovery.baseUrl.trim().length > 0
   const hasHostAuthOnlyDiscovery = discovery !== null && !hasRealProxyDiscovery && codingToolAdapter === "grok"
   const configUpdate =
@@ -210,22 +218,17 @@ export async function runGrokInstall(
       ? await writeGrokModelConfig(discovery, {
           apiKey,
           home,
-          agentConfig: resolvedAgents,
-          fullAgentModels,
           hostAuthOnly: hasHostAuthOnlyDiscovery,
         })
       : null
   const overridesPath = await writeOmoAgentOverridesFile(home, fullAgentModels)
   const configFiles = await ensureLfgConfigFiles(home, fullAgentModels, codingToolAdapter)
+  await writeBackendRoutingConfig(home, backendRouting)
   // Use fullAgentModels (same as preserve path) so native OMO agents always get model routing.
   const omoAgents = await syncLazycodexAgentsToGrokLedger(home, fullAgentModels)
   const pluginsEnabled = await ensureLfgPluginsEnabled(home)
   await ensureLfgAgentsPreferred(home)
   await ensureAgentsSkillsPath(home)
-  const subagentModels = await ensureLfgSubagentModels(
-    home,
-    subagentModelMappingFromDiscovery(discovery, resolvedAgents),
-  )
 
   await ensureGrokBinLfgWrapper(home)
 
@@ -250,28 +253,29 @@ export async function runGrokInstall(
     agentOverridesPath: overridesPath,
     lfgConfigPath: configFiles.configPath,
     pluginsEnabled,
-    subagentModels,
+    subagentModels: null,
     hooks: hooksFresh,
     invalidModelSettings,
     xaiMcp: xaiMcpFresh,
   }
 }
 
-function subagentModelMappingFromDiscovery(
-  discovery: ModelDiscovery | null,
-  resolvedAgents: Awaited<ReturnType<typeof resolveGlobalLazycodexAgentConfig>>,
-): SubagentModelMapping {
-  const explorerModel = resolvedAgents.explorer?.model ?? discovery?.mapping.fast ?? "grok-3-mini-fast"
-  const fastRoute = explorerModel
-  return {
-    default: discovery?.mapping.default ?? explorerModel,
-    fast: fastRoute,
-    reasoning: resolvedAgents.reasoning?.model ?? discovery?.mapping.reasoning ?? "grok-4.5",
-    coding: resolvedAgents.coding?.model ?? discovery?.mapping.coding ?? "grok-composer-2.5-fast",
-    fastReasoning: resolvedAgents.explorer?.reasoningLevel ?? "low",
-    reasoningReasoning: resolvedAgents.reasoning?.reasoningLevel ?? "high",
-    codingReasoning: resolvedAgents.coding?.reasoningLevel ?? "medium",
-  }
+/**
+ * OMO multi-provider promotion is only safe when a real CLI proxy is reachable.
+ * Host-auth / vanilla Grok sessions must stay on Grok models or they 401 after
+ * "auth recovery succeeded" (no credentials for openai/anthropic/cx routes).
+ */
+async function resolveHasCliProxy(home: string, discovery: ModelDiscovery | null): Promise<boolean> {
+  const fromConfig = await readGrokModelCatalogFromHome(home)
+  if (fromConfig?.hasCliProxy === true) return true
+  // Live discovery from an explicit OpenAI-compatible base URL counts as proxy.
+  // hostAuthOnly discovery uses a placeholder base and must not promote foreign models.
+  if (discovery === null) return false
+  if (discovery.providerEndpoints !== undefined && discovery.providerEndpoints.length > 0) return true
+  const base = typeof discovery.baseUrl === "string" ? discovery.baseUrl.trim() : ""
+  if (base.length === 0) return false
+  // Heuristic: real local/remote proxies, not the empty host-auth-only path.
+  return /127\.0\.0\.1|localhost|:\d{2,5}|9router|openai|anthropic|z\.ai|api\./i.test(base)
 }
 
 export function grokInstallStepJson(internalStep: JsonObject): JsonObject {

@@ -9,6 +9,7 @@ import { readLfgPackageVersionFromBundle, readPublishRootVersionFromBundle } fro
 import { resolveGrokAdapterPluginRoot } from "../payload/grok-adapter-paths"
 import { purgeInvalidGrokModelSettings, purgeInvalidModelSettingsJson } from "../config/purge-invalid-model-settings"
 import { verifyGrokInstallSurface } from "./post-install-verify"
+import { probeCodexLazyCodexPrereqs, prereqReportJson } from "../../core/lfg/prereqs/codex-lazycodex"
 
 export type GrokDoctorOptions = {
   readonly home: string
@@ -46,6 +47,8 @@ export async function runGrokDoctor(options: GrokDoctorOptions): Promise<JsonObj
     localVersion = await readPublishRootVersionFromBundle(moduleUrl)
   }
   const publishGap = doctorPublishGapJson(localVersion, registryVersion, cli.ok)
+  const prereqs = await probeCodexLazyCodexPrereqs({ home: options.home })
+  // Doctor still passes on plugin surface alone; prereqs are reported for handoff readiness.
   const ok = pluginOk && cli.ok
   return {
     ok,
@@ -59,6 +62,8 @@ export async function runGrokDoctor(options: GrokDoctorOptions): Promise<JsonObj
     configExists,
     distribution: stamp === null ? null : { packageName: stamp.packageName, version: stamp.version },
     installSurface,
+    prereqs: prereqReportJson(prereqs),
+    handoffReady: prereqs.ok === true,
     ...(invalidModelSettings === null ? {} : { invalidModelSettings: purgeInvalidModelSettingsJson(invalidModelSettings) }),
     ...checkReport,
     ...(publishGap === null ? {} : { publishGap }),

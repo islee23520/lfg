@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 
-import { buildVanillaGrokConfig, formatVanillaSummary, isGrokModel, pickGrokModel } from "./lfg-setup-tui-data"
+import { buildVanillaGrokConfig, formatVanillaResults, formatVanillaSummary, isGrokModel, pickGrokModel } from "./lfg-setup-tui-data"
 import type { ModelDiscovery } from "../models/lfg-models"
 import { loadBundledDefaultOmoOverrides } from "../../grok/agents/lazycodex-agent-overrides"
 
@@ -18,7 +18,7 @@ describe("buildVanillaGrokConfig", () => {
     for (const [name, override] of Object.entries(cfg.agentOverrideMap)) {
       expect(isGrokModel(override.model)).toBe(true)
     }
-    expect(Object.keys(cfg.agentOverrideMap).sort()).toEqual(Object.keys(bundled).sort())
+    expect(Object.keys(cfg.agentOverrideMap).sort()).toEqual(["explorer", "git-master", "sisyphus", "watcher"])
 
     // Mapping slots are Grok.
     expect(isGrokModel(cfg.mapping.default)).toBe(true)
@@ -60,6 +60,28 @@ describe("buildVanillaGrokConfig", () => {
     expect(cfg.mapping.reasoning).toBe("grok-4.5")
     expect(cfg.mapping.fast).toBe("grok-composer-2.5-fast")
     expect(cfg.mapping.coding).toBe("grok-composer-2.5-fast")
+  })
+
+  test("vanilla results summarize global routes without enumerating bundled profiles", async () => {
+    // Given: the real bundled routing profiles resolved for vanilla Grok.
+    const bundled = await loadBundledDefaultOmoOverrides()
+    const cfg = buildVanillaGrokConfig(bundled, undefined)
+
+    // When: setup formats the ordinary vanilla preview.
+    const results = formatVanillaResults(cfg)
+    const nonEmptyLines = results.split("\n").filter((line) => line.trim().length > 0)
+
+    // Then: the preview is bounded but still describes the complete install payload.
+    expect(nonEmptyLines.length).toBeLessThanOrEqual(7)
+    expect(results).toContain(`default: ${cfg.mapping.default}`)
+    expect(results).toContain(`fast: ${cfg.mapping.fast}`)
+    expect(results).toContain(`reasoning: ${cfg.mapping.reasoning}`)
+    expect(results).toContain(`coding: ${cfg.mapping.coding}`)
+    expect(results).toContain(`${Object.keys(cfg.agentOverrideMap).length} bundled routing profiles will be installed`)
+    expect(results).toContain("~/.grok/omo-agent-overrides.json")
+    expect(results).not.toContain("lazycodex-worker-low")
+    expect(results).not.toContain("artistry-gen")
+    expect(results).not.toContain("unspecified-high")
   })
 
   test("pickGrokModel prefers usable grok primary, then usable grok fallback, then role default", () => {

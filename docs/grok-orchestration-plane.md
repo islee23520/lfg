@@ -68,7 +68,3 @@ This section satisfies the gateway acceptance criteria: gaps classified, substit
 - **teammode**: GrokBuild `spawn_subagent` + dual catalogs (host `general-purpose`/`explore`/`plan` + lfg OMO agents); durable `.omo/teams`; `team-ledger` + `teammode-spawn-subagent.test.ts`. No `codex_app` host surface is introduced.
 - **start-work-continuation**: Sisyphus `Stop`/`SubagentStop` hooks inject continuation guidance referencing `lfg ulw-loop` for durable checkpoint/resume and explicitly deny automatic reinjection; boulder-state `getStopHookContinuationContext` present path matches that honesty contract (ledgerPath + durable CLI pointer). See `src/grok/assets/hooks/lfg-sisyphus-hooks.mjs` and T5 evidence.
 - **lazycodex-executor-verify**: `verifySubagentEvidence()` (regex) plus T3 pure `verifySubagentStopEvidence` from `subagent-stop-evidence-verifier.ts` (`.omo/evidence` for coding|hephaestus|builder, fail-closed malformed JSON) both run in `lfg-sisyphus-hooks.mjs` SubagentStop. Unit + e2e tests green; remains Deferred without dedicated host-enforced CLI.
-
-### Z.AI vision MCP (#89)
-
-Z.AI vision MCP is **shipped** (not Deferred): `lfg zai mcp install vision` configures `[mcp_servers.zai-vision]` in `~/.grok/config.toml` via the built-in `lfg zai` subcommand. Full companion plugin (`@islee23520/lfg-mcp`) provides xAI Grok MCP runtime as a decoupled companion. No host-bound dependency blocks this surface.

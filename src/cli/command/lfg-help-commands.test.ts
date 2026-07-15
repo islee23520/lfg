@@ -14,5 +14,7 @@ describe("lfg help", () => {
     expect(result.stdout).not.toContain("project-local")
     expect(result.stdout).toContain("lfg ulw-loop")
     expect(result.stdout).toContain("lfg doctor")
+    expect(result.stdout).toContain("lfg --json uninstall")
+    expect(result.stdout).toContain("lfg --json accounts")
   })
 })

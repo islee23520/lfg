@@ -12,12 +12,11 @@ import {
 import { verifyGrokInstallSurface } from "../../grok/doctor/post-install-verify"
 import { resolveGrokSetupHome } from "../../grok/install/grok-home"
 import { purgeInvalidModelSettingsJson } from "../../grok/config/purge-invalid-model-settings"
-import { readLfgRuntimeConfigFile } from "../../grok/models/lfg-runtime-config"
 import { codingToolAdapterSelectionJson, DEFAULT_CODING_TOOL_ADAPTER, type CodingToolAdapterId } from "../../shared/coding-tool-adapter"
-
-/** Legacy Codex installer; not run on default Grok setup path. */
-export const LAZYCODEX_INSTALLER_ARGS = ["lazycodex-ai", "install"] as const
-export const LAZYCODEX_INSTALLER_COMMAND = "npx lazycodex-ai install"
+import { cliBackendSelectionJson, DEFAULT_CLI_BACKEND, type BackendRoutingConfig, type CliBackend } from "../../core/lfg/backend-routing"
+import { readBackendRoutingConfig } from "../config/lfg-grok-config"
+import { probeCodexLazyCodexPrereqs, prereqReportJson, type PrereqReport } from "../../core/lfg/prereqs/codex-lazycodex"
+import { slimNativeAgentOverrides, type LazycodexAgentOverrideMap } from "../../grok/agents/lazycodex-agent-overrides"
 
 export const LFP_INSTALLER_ARGS = [] as const
 export const LFP_INSTALLER_COMMAND = INTERNAL_GROK_INSTALL_COMMAND
@@ -35,6 +34,9 @@ export type LazycodexInstallerOptions = {
   readonly force?: boolean
   readonly installOnly?: boolean
   readonly codingToolAdapter?: CodingToolAdapterId
+  readonly backendEngine?: CliBackend
+  readonly backendRouting?: BackendRoutingConfig
+  readonly prereqProbe?: () => Promise<PrereqReport>
 }
 
 /** Grok-first setup: materialize lfg/OMO adapter under ~/.grok via internal grok-install (no Codex npx). */
@@ -45,12 +47,36 @@ export async function runLazycodexInstaller(
   const agentConfig = discovery?.agentConfig ?? null
   const env = mergeStringEnv(process.env, modelDiscoveryEnv(discovery, agentConfig))
   const home = resolveGrokSetupHome(env)
-  const priorRuntimeConfig = options.codingToolAdapter === undefined ? await readLfgRuntimeConfigFile(home) : null
-  const codingToolAdapter = options.codingToolAdapter ?? priorRuntimeConfig?.coding_tool_adapter ?? DEFAULT_CODING_TOOL_ADAPTER
+  const prereqs = options.prereqProbe === undefined
+    ? await probeCodexLazyCodexPrereqs({ env, home })
+    : await options.prereqProbe()
+  if (!prereqs.codex.ok) {
+    return {
+      ok: false,
+      status: "codex_required",
+      command: "setup",
+      executed: false,
+      exitCode: 2,
+      error: "Codex CLI is required before lfg setup can modify Grok.",
+      prereqs: prereqReportJson(prereqs),
+      lfgIsPlugin: false,
+    }
+  }
+  // coding_tool_adapter is always grok; settings live in ~/.grok/config.toml only.
+  const codingToolAdapter = options.codingToolAdapter ?? DEFAULT_CODING_TOOL_ADAPTER
+  const backendEngine = options.backendEngine ?? DEFAULT_CLI_BACKEND
+  const storedBackendRouting = await readBackendRoutingConfig(home)
+  const backendRouting = options.backendRouting ?? (
+    options.backendEngine === undefined
+      ? storedBackendRouting
+      : { ...storedBackendRouting, global: backendEngine }
+  )
   const grokOptions: GrokInstallRunOptions = {
     ...(options.force === undefined ? {} : { force: options.force }),
     ...(options.installOnly === undefined ? {} : { installOnly: options.installOnly }),
     codingToolAdapter,
+    backendEngine,
+    backendRouting,
     ...(discovery?.agentOverrideMap === undefined ? {} : { fullAgentModels: discovery.agentOverrideMap }),
   }
   const grokRun = await runGrokInstall(discovery, env, grokOptions)
@@ -74,6 +100,8 @@ export async function runLazycodexInstaller(
     internalStep: internalResult,
     postInstallVerify,
     codingToolAdapter: codingToolAdapterSelectionJson(codingToolAdapter),
+    backendEngine: cliBackendSelectionJson(backendEngine),
+    backendRouting,
     agentPaths,
     agentTomlPaths: agentPaths,
     agentOverridesPath,
@@ -123,14 +151,28 @@ function installJson(fields: {
     exitCode: failedExit,
     stdout: installers.map((installer) => installer.stdout).filter((value) => value.length > 0).join("\n"),
     stderr: installers.map((installer) => installer.stderr).filter((value) => value.length > 0).join("\n"),
-    ...(discovery === null ? {} : { modelDiscovery: discovery, agentReasoning: agentReasoningSummary(discovery) }),
+    ...(discovery === null ? {} : { modelDiscovery: slimModelDiscovery(discovery), agentReasoning: agentReasoningSummary(discovery) }),
     ...rest,
   }
 }
 
 function agentReasoningSummary(discovery: ModelDiscovery): JsonObject {
   const agents = discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
-  return Object.fromEntries(Object.entries(agents).map(([name, setting]) => [name, setting.reasoningLevel]))
+  const overrides = slimNativeAgentOverrides(discovery.agentOverrideMap ?? roleConfigAsOverrides(agents))
+  return Object.fromEntries(Object.entries(overrides).map(([name, setting]) => [name, setting.reasoningLevel]))
+}
+
+function slimModelDiscovery(discovery: ModelDiscovery): ModelDiscovery {
+  if (discovery.agentOverrideMap === undefined) return discovery
+  return { ...discovery, agentOverrideMap: slimNativeAgentOverrides(discovery.agentOverrideMap) }
+}
+
+function roleConfigAsOverrides(agents: NonNullable<ModelDiscovery["agentConfig"]>): LazycodexAgentOverrideMap {
+  return {
+    default: agents.reasoning,
+    coding: agents.coding,
+    explorer: agents.explorer,
+  }
 }
 
 function mergeStringEnv(base: NodeJS.ProcessEnv, extra: Readonly<Record<string, string>>): Record<string, string> {

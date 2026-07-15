@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, test } from "vitest"
-import { NATIVE_HEPHAESTUS_MARKER, NATIVE_OMO_AGENT_NAMES } from "./native-omo-agents"
+import { NATIVE_DEFAULT_AGENT_MARKER, NATIVE_OMO_AGENT_NAMES } from "./native-omo-agents"
 import { verifyNativeOmoAgents } from "./native-agent-verify"
 
 const tempHomes: string[] = []
@@ -17,14 +17,15 @@ describe("verifyNativeOmoAgents", () => {
     tempHomes.push(home)
     const pluginRoot = join(home, ".grok", "plugins", "lfg")
 
-    await seedNativeAgents(home, pluginRoot, { skipPrompt: "atlas" })
+    await seedNativeAgents(home, pluginRoot, { skipPrompt: "explorer" })
 
     const result = await verifyNativeOmoAgents(pluginRoot, home)
 
     expect(result.status).toBe("missing")
     expect(result.pluginAgents).toEqual([...NATIVE_OMO_AGENT_NAMES])
     expect(result.roles).toEqual([...NATIVE_OMO_AGENT_NAMES])
-    expect(result.prompts).not.toContain("atlas")
+    expect(result.prompts).not.toContain("explorer")
+    expect(result.retiredLazycodexAbsent).toBe(true)
   })
 })
 
@@ -38,7 +39,8 @@ async function seedNativeAgents(
   await mkdir(join(home, ".grok", "prompts", "omo"), { recursive: true })
 
   for (const name of NATIVE_OMO_AGENT_NAMES) {
-    const marker = name === "default" ? `${NATIVE_HEPHAESTUS_MARKER}\n` : ""
+    const marker =
+      name === "sisyphus" ? `${NATIVE_DEFAULT_AGENT_MARKER}\n` : ""
     await writeFile(join(pluginRoot, "agents", `${name}.md`), `${marker}${name} agent\n`, "utf8")
     await writeFile(join(home, ".grok", "roles", `${name}.toml`), `name = "${name}"\n`, "utf8")
     if (name !== options.skipPrompt) {
