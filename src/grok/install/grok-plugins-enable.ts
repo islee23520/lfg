@@ -1,12 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
-import { LFG_SUBAGENT_TOGGLES, lfgOwnedSubagentModels, lfgOwnedSubagentReasoningEffort, type SubagentModelMapping } from "./subagent-routing"
+import type { SubagentModelMapping } from "./subagent-routing"
 
 const PLUGIN_IDS = ["lfg"] as const
-/** Legacy plugin id — never re-enable; strip if present in enabled. */
-const RETIRED_PLUGIN_IDS = new Set(["lazycodex"])
-
 /** Ensure [plugins].enabled lists lfg so Grok loads adapter hooks. Drops retired lazycodex id. */
 export async function ensureLfgPluginsEnabled(home: string = homedir()): Promise<{ readonly path: string; readonly changed: boolean }> {
   const path = join(home, ".grok", "config.toml")
@@ -23,7 +20,7 @@ export async function ensureLfgPluginsEnabled(home: string = homedir()): Promise
 export async function ensureLfgAgentsPreferred(home: string = homedir()): Promise<{ readonly path: string; readonly changed: boolean }> {
   const path = join(home, ".grok", "config.toml")
   const current = await readTextIfExists(path)
-  const next = upsertAgentPreference(upsertSubagentToggles(current))
+  const next = upsertAgentPreference(removeRetiredAgentConfig(current))
   const changed = next !== current
   if (changed) {
     await mkdir(dirname(path), { recursive: true })
@@ -48,8 +45,7 @@ export async function ensureLfgSubagentModels(
 }
 
 function upsertPluginsEnabled(source: string): string {
-  const lines = parseEnabledArray(source).filter((id) => !RETIRED_PLUGIN_IDS.has(id))
-  const merged = mergeUnique(lines, [...PLUGIN_IDS])
+  const merged = [...PLUGIN_IDS]
   if (arraysEqual(parseEnabledArray(source), merged)) {
     return source
   }
@@ -94,23 +90,8 @@ function parseEnabledArray(source: string): string[] {
   return ids
 }
 
-function mergeUnique(existing: readonly string[], add: readonly string[]): string[] {
-  const out = [...existing]
-  for (const id of add) {
-    if (!out.includes(id)) {
-      out.push(id)
-    }
-  }
-  return out
-}
-
 function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((v, i) => v === b[i])
-}
-
-function upsertSubagentToggles(source: string): string {
-  const block = LFG_SUBAGENT_TOGGLES.map(([name, enabled]) => `${name} = ${enabled ? "true" : "false"}`).join("\n")
-  return upsertTomlSection(source, "subagents.toggle", block)
 }
 
 /** lfg-owned / known-stale sticky agent names we may replace with sisyphus. */
@@ -126,22 +107,19 @@ const LFG_OWNED_OR_STALE_STICKY_AGENTS = new Set([
 ])
 
 function upsertAgentPreference(source: string): string {
-  const disabled = ["default", "cursor", "browser-use"] as const
-  const block = `default = ${tomlString("sisyphus")}\ndisabled = [\n${disabled.map((id) => `    ${tomlString(id)},`).join("\n")}\n]`
-  const withAgents = upsertTomlSection(source, "agents", block)
-  return upsertStickyAgentName(withAgents, "sisyphus")
+  return upsertStickyAgentName(source, "sisyphus")
 }
 
 /**
  * Sticky [agent].name is what headless/main sessions resolve first.
  * Preserve user-chosen agents; only set/replace when missing, empty, or known lfg-owned/stale.
  */
-export function upsertStickyAgentName(source: string, preferred: string = "sisyphus"): string {
+export function upsertStickyAgentName(source: string, _preferred: string = "sisyphus"): string {
   const current = readStickyAgentName(source)
   if (current !== null && current.length > 0 && !LFG_OWNED_OR_STALE_STICKY_AGENTS.has(current)) {
     return source
   }
-  return upsertTomlSection(source, "agent", `name = ${tomlString(preferred)}`)
+  return current === null ? source : removeTomlSections(source, ["agent"])
 }
 
 export function readStickyAgentName(source: string): string | null {
@@ -153,42 +131,30 @@ export function readStickyAgentName(source: string): string | null {
 
 export function upsertSubagentModels(
   source: string,
-  mapping: SubagentModelMapping = {},
+  _mapping: SubagentModelMapping = {},
 ): string {
-  const modelKeys = new Set(Object.keys(lfgOwnedSubagentModels(mapping)))
-  const reasoningKeys = new Set(Object.keys(lfgOwnedSubagentReasoningEffort(mapping)))
-  return removeOwnedAssignments(removeOwnedAssignments(source, "subagents.models", modelKeys), "subagents.reasoning_effort", reasoningKeys)
+  return removeTomlSections(source, ["subagents.models", "subagents.reasoning_effort"])
 }
 
-function removeOwnedAssignments(source: string, section: string, ownedKeys: ReadonlySet<string>): string {
-  const pattern = new RegExp(`(^|\\n)(\\[${escapeRegExp(section)}\\]\\n)([\\s\\S]*?)(?=\\n\\[[^\\n]+\\]|$)`)
-  return source.replace(pattern, (_match, prefix: string, header: string, body: string) => {
-    const preserved = body.split("\n").filter((line) => {
-      const key = parseTomlAssignmentKey(line.trim())
-      return key === null || !ownedKeys.has(key)
-    }).filter((line) => line.trim().length > 0)
-    return preserved.length === 0 ? prefix : `${prefix}${header}${preserved.join("\n")}\n`
-  }).replace(/\n{3,}/g, "\n\n")
+function removeRetiredAgentConfig(source: string): string {
+  return removeTomlSections(source, [
+    "subagents.reasoning_effort",
+    "subagents.models",
+    "subagents.toggle",
+    "omo.backend_routing.agents",
+    "omo.backend_routing.categories",
+    "omo.backend_routing",
+    "model.grok-build",
+    'model."grok-build"',
+    "agents",
+  ])
 }
 
-function parseTomlAssignmentKey(line: string): string | null {
-  const index = line.indexOf("=")
-  if (index <= 0) return null
-  const raw = line.slice(0, index).trim()
-  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
-    return raw.slice(1, -1)
-  }
-  return raw
-}
-
-function upsertTomlSection(source: string, section: string, body: string): string {
-  const pattern = new RegExp(`(^|\\n)(\\[${escapeRegExp(section)}\\]\\n)([\\s\\S]*?)(?=\\n\\[[^\\n]+\\]|$)`)
-  if (pattern.test(source)) {
-    return source.replace(pattern, (_match, prefix: string, header: string) => `${prefix.startsWith("\n") ? "\n" : ""}${header}${body}\n`)
-  }
-  const trimmed = source.trimEnd()
-  const block = `[${section}]\n${body}\n`
-  return trimmed.length === 0 ? block : `${trimmed}\n\n${block}`
+function removeTomlSections(source: string, sections: readonly string[]): string {
+  return sections.reduce((next, section) => {
+    const pattern = new RegExp(`(^|\\n)\\[${escapeRegExp(section)}\\]\\n[\\s\\S]*?(?=\\n\\[[^\\n]+\\]|$)`, "g")
+    return next.replace(pattern, (match) => (match.startsWith("\n") ? "\n" : ""))
+  }, source).replace(/\n{3,}/g, "\n\n")
 }
 
 function escapeRegExp(value: string): string {

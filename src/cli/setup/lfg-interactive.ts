@@ -13,7 +13,7 @@ import {
   loadBundledDefaultOmoOverridesForInteractive,
   mergeLazycodexAgentOverrides,
 } from "./lfg-interactive-agent-config"
-import { buildVanillaGrokDiscovery, formatVanillaResults, formatVanillaSummary, type VanillaGrokConfig } from "./lfg-setup-tui-data"
+import { buildVanillaGrokDiscovery } from "./lfg-setup-tui-data"
 import { DEFAULT_CLI_BACKEND, type CliBackend } from "../../core/lfg/backend-routing"
 
 type LineReader = AsyncIterator<string> & { readonly close: () => void }
@@ -133,24 +133,12 @@ function modelConfigLabel(discovery: ModelDiscovery | null): string {
   return isHostAuthOnlyDiscovery(discovery) ? "vanilla Grok host auth" : "auto-mapped from /v1/models"
 }
 
-function printVanillaDiscovery(discovery: ModelDiscovery): void {
-  output.write(`${formatVanillaSummaryForLineSetup(discovery)}\n\n`)
-  output.write(`${formatVanillaResults(vanillaConfigFromDiscovery(discovery))}\n\n`)
+function printVanillaDiscovery(_discovery: ModelDiscovery): void {
+  // No vanilla/setup-results model dump — setup does not rewrite host model tables.
 }
 
-function formatVanillaSummaryForLineSetup(discovery: ModelDiscovery): string {
-  // Use updated vanilla summary for OAuth + dynamic grok-3/grok-4 optimization
-  return formatVanillaSummary(vanillaConfigFromDiscovery(discovery))
-}
 
-function vanillaConfigFromDiscovery(discovery: ModelDiscovery): VanillaGrokConfig {
-  const agentConfig = discovery.agentConfig ?? defaultLazycodexAgentConfig(discovery)
-  return {
-    agentConfig,
-    agentOverrideMap: discovery.agentOverrideMap ?? {},
-    mapping: discovery.mapping,
-  }
-}
+
 
 async function printAutoDiscovery(resolved: ResolveSetupDiscoveryResult): Promise<void> {
   const discovery = resolved.discovery
@@ -256,10 +244,9 @@ async function readReasoningEffort(reader: LineReader): Promise<ReasoningEffortC
   return "auto"
 }
 
-async function readBackendEngine(reader: LineReader): Promise<CliBackend> {
-  output.write("Default subagent CLI [grok/codex] (Enter = grok): ")
-  await reader.next()
-  return DEFAULT_CLI_BACKEND
+async function readBackendEngine(_reader: LineReader): Promise<CliBackend> {
+  // Fixed product: implementer is always Codex App / codex CLI.
+  return "codex"
 }
 
 async function confirm(reader: LineReader, prompt: string): Promise<boolean> {

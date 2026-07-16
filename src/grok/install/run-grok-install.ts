@@ -143,6 +143,7 @@ export async function runGrokInstall(
             apiKey,
             home,
             hostAuthOnly: hasHostAuthOnlyDiscovery,
+            reconcileModelAliases: false,
           })
         : null
     const overridesPath = await writeOmoAgentOverridesFile(home, fullAgentModels)
@@ -219,6 +220,7 @@ export async function runGrokInstall(
           apiKey,
           home,
           hostAuthOnly: hasHostAuthOnlyDiscovery,
+          reconcileModelAliases: false,
         })
       : null
   const overridesPath = await writeOmoAgentOverridesFile(home, fullAgentModels)

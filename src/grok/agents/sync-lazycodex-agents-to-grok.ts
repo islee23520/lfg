@@ -30,9 +30,6 @@ const RETIRED_SHADOW_AGENT_NAMES = ["general-purpose", "explore", "plan", "grok-
  */
 const GROK_AGENT_NAMES: Readonly<Record<string, string>> = {
   sisyphus: "sisyphus",
-  watcher: "watcher",
-  explorer: "explorer",
-  "git-master": "git-master",
 }
 
 const RETIRED_GROK_AGENT_NAMES = [
@@ -40,7 +37,7 @@ const RETIRED_GROK_AGENT_NAMES = [
   "multimodal-looker", "visual-looker", "sisyphus-junior", "reasoning", "coding", "plan", "reviewer",
   "ultrabrain", "deep", "quick", "unspecified-low", "unspecified-high", "writing", "visual-engineering",
   "artistry", "artistry-gen", "artistry-qa", "ulw", "lazycodex", "lazycodex-worker-low", "lazycodex-worker-medium",
-  "lazycodex-worker-high",
+  "lazycodex-worker-high", "watcher", "explorer", "git-master",
 ] as const
 
 export type SyncLazycodexAgentsResult = {
@@ -114,7 +111,7 @@ export async function syncLazycodexAgentsToGrokLedger(
   return { ok: true, agentsDir, rolesDir, personasDir, promptsDir, written, sourcePluginRoot: resolved.pluginRoot }
 }
 
-const PREFERRED_USER_SCOPED_AGENT_NAMES = ["sisyphus", "watcher", "explorer", "git-master"] as const
+const PREFERRED_USER_SCOPED_AGENT_NAMES = ["sisyphus"] as const
 
 async function installPreferredUserScopedAgents(home: string, pluginAgentsDir: string): Promise<string[]> {
   const userAgentsDir = join(home, ".grok", "agents")

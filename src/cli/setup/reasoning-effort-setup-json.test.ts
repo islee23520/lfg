@@ -42,7 +42,7 @@ describe("setup JSON reasoning effort contract", () => {
         lfgIsPlugin: false,
         companionPackage: "lfg-grok-install",
       })
-      const nativeKeys = ["explorer", "git-master", "sisyphus", "watcher"]
+      const nativeKeys = ["sisyphus"]
       const emittedDiscovery = result.modelDiscovery
       const agentReasoning = result.agentReasoning
       if (!isRecord(emittedDiscovery) || !isRecord(emittedDiscovery.agentOverrideMap) || !isRecord(agentReasoning)) {

@@ -24,6 +24,7 @@ import { dispatchUlwLoopArgv } from "../ulw-loop/lfg-ulw-loop.js"
 import { dispatchHandoffCommand } from "./handoff-command"
 import { dispatchStartWorkCommand } from "./start-work-command"
 import { dispatchUlwPlanCommand } from "./ulw-plan-command"
+import { dispatchGoalCommand } from "./goal-command"
 import { dispatchOrchestratorCommand } from "./orchestrator-command"
 import { dispatchUninstallCommand } from "./uninstall-command"
 import { dispatchAccountsCommand } from "./accounts-command"
@@ -101,6 +102,7 @@ async function main(argv: readonly string[]): Promise<number> {
     const handoffArgv = handoffCommandArgv(argv)
     const startWorkArgv = startWorkCommandArgv(argv)
     const ulwPlanArgv = ulwPlanCommandArgv(argv)
+    const goalArgv = goalCommandArgv(argv)
     const result = handoffArgv !== null
       ? await dispatchHandoffCommand(handoffArgv, {
           json: parsed.json,
@@ -113,6 +115,8 @@ async function main(argv: readonly string[]): Promise<number> {
             noProbe: parsed.noProbe,
             env: process.env,
           })
+        : goalArgv !== null
+          ? await dispatchGoalCommand(goalArgv, { json: parsed.json })
         : ulwPlanArgv !== null
           ? await dispatchUlwPlanCommand(ulwPlanArgv, {
               json: parsed.json,
@@ -131,7 +135,7 @@ async function main(argv: readonly string[]): Promise<number> {
       parsed.positional[0] === "setup" && parsed.positional.length === 1 &&
       !parsed.refresh
 
-    if (parsed.json || handoffArgv !== null || startWorkArgv !== null || ulwPlanArgv !== null) {
+    if (parsed.json || handoffArgv !== null || startWorkArgv !== null || ulwPlanArgv !== null || goalArgv !== null) {
       // --json is the machine/automation surface. Always emit the structured value.
       emit(result, true)
     } else if (parsed.run || isSetupForceShortcut(parsed)) {
@@ -424,6 +428,12 @@ function ulwPlanCommandArgv(argv: readonly string[]): readonly string[] | null {
   return null
 }
 
+function goalCommandArgv(argv: readonly string[]): readonly string[] | null {
+  const withoutGlobals = argv.filter((arg) => arg !== "--json")
+  if (withoutGlobals[0] === "goal") return withoutGlobals.slice(1)
+  return withoutGlobals[0] === "plan" && withoutGlobals[1] === "goal" ? withoutGlobals.slice(1) : null
+}
+
 function invalidCodingToolAdapterJson(error: string): JsonObject {
   return {
     ok: false,
@@ -689,6 +699,8 @@ function help(): string {
     "  lfg claude plugin <name>                     # Claude plugin metadata",
     "  lfg --json handoff plan [flags]               # plan Codex handoff (registers orchestrator thread)",
     "  lfg --json plan start-work [--plan PATH] [--focus TEXT]  # dry-run Codex $start-work launch",
+    "  lfg --json plan goal --focus TEXT [--cwd PATH]  # sync goal to Codex App thread (app-server)",
+    "  lfg --json goal board|drive|poll [flags]         # ulw-loop board + Codex App drive/passive RESULT poll",
     "  lfg --json plan ulw-plan --focus TEXT [--cwd PATH]  # dry-run Codex $ulw-plan launch",
     "  lfg --json orchestrator status|ask|thread|poll|answer  # multi-Codex CEO inbox under .omo/orchestrator",
     "  lfg ulw-loop <subcommand>                    # durable .omo/ulw-loop CLI",

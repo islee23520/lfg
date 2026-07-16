@@ -27,7 +27,7 @@ describe("orchestrator inbox", () => {
       binary: "codex",
       role: "coding",
       focus: "fix handoff",
-      resultPath: ".omo/external-engine/fix-result.md",
+      resultPath: ".omo/orchestrator/fix-result.md",
       askId: recorded.ask.id,
       status: "running",
     })
@@ -36,8 +36,8 @@ describe("orchestrator inbox", () => {
     expect(inbox.asks[0]?.status).toBe("in_progress")
     expect(inbox.asks[0]?.threadIds).toContain(reg.thread.id)
 
-    await mkdir(join(root, ".omo", "external-engine"), { recursive: true })
-    await writeFile(join(root, ".omo", "external-engine", "fix-result.md"), "STATUS: pass\nSUMMARY: fixed\n", "utf8")
+    await mkdir(join(root, ".omo", "orchestrator"), { recursive: true })
+    await writeFile(join(root, ".omo", "orchestrator", "fix-result.md"), "STATUS: pass\nSUMMARY: fixed\n", "utf8")
     inbox = await pollThreadResults(root, inbox)
     expect(inbox.threads[0]?.status).toBe("result_ready")
     expect(inbox.threads[0]?.resultStatus).toMatch(/pass/i)
@@ -65,7 +65,7 @@ describe("orchestrator inbox", () => {
       binary: "codex",
       role: "coding",
       focus: "A",
-      resultPath: ".omo/external-engine/a.md",
+      resultPath: ".omo/orchestrator/a.md",
       askId: ask.ask.id,
     }).inbox
     inbox = registerCodexThread(inbox, {
@@ -73,7 +73,7 @@ describe("orchestrator inbox", () => {
       binary: "codex",
       role: "coding",
       focus: "B",
-      resultPath: ".omo/external-engine/b.md",
+      resultPath: ".omo/orchestrator/b.md",
       askId: ask.ask.id,
     }).inbox
     expect(inbox.threads).toHaveLength(2)

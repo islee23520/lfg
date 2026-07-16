@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest"
 import { runLfg } from "../test/test-process"
 
 describe("lfg Grok model config", () => {
-  test("persists discovered models to grok config after setup run succeeds", async () => {
+  test("persists only endpoint discovery metadata to grok config", async () => {
     await withModelServer(["grok-3-mini", "grok-4.20-0309-reasoning", "codex-auto-review"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
       const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home, OPENAI_API_KEY: "sk-test" })
@@ -15,10 +15,8 @@ describe("lfg Grok model config", () => {
       expect(result.json).toMatchObject({ ok: true, status: "installed", configUpdated: true })
       expect(config).toContain("[endpoints]")
       expect(config).toContain(`models_base_url = "${baseUrl}/v1"`)
-      expect(config).toContain("[omo.models]")
-      expect(config).toContain('default = "grok-4.20-0309-reasoning"')
-      expect(config).toContain('reasoning = "grok-4.20-0309-reasoning"')
-      expect(config).toContain('coding = "grok-3-mini"')
+      expect(config).not.toContain("[omo.models]")
+      expect(config).not.toContain("[model.")
     })
   })
 
@@ -35,8 +33,8 @@ describe("lfg Grok model config", () => {
       expect(result.exitCode).toBe(0)
       expect(result.json).toMatchObject({ ok: true, status: "installed" })
       expect(config).toContain(`models_base_url = "${baseUrl}/v1"`)
-      expect(config).toContain('default = "grok-4.20-0309-reasoning"')
-      expect(config).toContain('reasoning = "grok-4.20-0309-reasoning"')
+      expect(config).not.toContain("[omo.models]")
+      expect(config).not.toContain("[model.")
     })
   })
 })

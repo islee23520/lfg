@@ -11,7 +11,7 @@ describe("orchestrator app-server commands", () => {
     await dispatchOrchestratorCommand([
       "thread", "register", "--cwd", cwd, "--result-path", ".omo/result.md", "--focus", "watch work", "--session-hint", "session-1",
     ], { json: true, env: {} })
-    const client: AppServerClient = { handoff: async () => ({ transport: "codex-exec-fallback", attached: false, thread: null, turnId: null, error: "unused" }), snapshot: async () => ({
+    const client: AppServerClient = { handoff: async () => ({ transport: "codex-exec-fallback", attached: false, thread: null, turnId: null, goalSynced: false, error: "unused" }), snapshot: async () => ({
       availability: "available", daemonStarted: true, error: null, recipes: [],
       threads: [{ id: "thread-1", sessionId: "session-1", cwd, name: "watch work", preview: null, status: "active", updatedAt: 1 }],
     }) }
@@ -23,10 +23,26 @@ describe("orchestrator app-server commands", () => {
 
   test("watch reports recipes and preserves RESULT polling fallback when missing", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "lfg-orchestrator-missing-"))
-    const client: AppServerClient = { handoff: async () => ({ transport: "codex-exec-fallback", attached: false, thread: null, turnId: null, error: "unused" }), snapshot: async () => ({
+    const client: AppServerClient = { handoff: async () => ({ transport: "codex-exec-fallback", attached: false, thread: null, turnId: null, goalSynced: false, error: "unused" }), snapshot: async () => ({
       availability: "missing", daemonStarted: false, error: "codex missing", recipes: ["install", "poll"], threads: [],
     }) }
     const result = await dispatchOrchestratorCommand(["sync-app-server", "--cwd", cwd], { json: true, env: {}, appServerClient: client })
     expect(result).toMatchObject({ ok: false, status: "orchestrator_app_server_missing", fallback: expect.stringContaining("RESULT") })
+  })
+
+  test("watch can attach without starting the daemon on non-SessionStart hook ticks", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "lfg-orchestrator-no-start-"))
+    let startDaemon: boolean | undefined
+    const client: AppServerClient = {
+      handoff: async () => ({ transport: "codex-exec-fallback", attached: false, thread: null, turnId: null, goalSynced: false, error: "unused" }),
+      snapshot: async (input) => {
+        startDaemon = input.startDaemon
+        return { availability: "available", daemonStarted: false, error: null, recipes: [], threads: [] }
+      },
+    }
+
+    await dispatchOrchestratorCommand(["watch", "--cwd", cwd, "--no-start-daemon"], { json: true, env: {}, appServerClient: client })
+
+    expect(startDaemon).toBe(false)
   })
 })

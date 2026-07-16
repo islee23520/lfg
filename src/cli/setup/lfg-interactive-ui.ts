@@ -6,7 +6,7 @@ const TOTAL_STEPS = 5
 
 export function printInstallIntro(): void {
   output.write("oMoMoMoMo... lfg setup\n\n")
-  output.write("Install the OMO adapter for Grok Build.\n")
+  output.write("Install lfg: Sisyphus CEO on Grok, implementer on Codex App.\n")
   output.write("Target: ~/.grok/plugins/lfg as a real directory.\n\n")
 }
 
@@ -22,7 +22,7 @@ export function printInstallPlan(plan: JsonObject, modelConfigLabel: string): vo
       `Install path: ${installPath}`,
       `Installer: ${command}`,
       `Model config: ${modelConfigLabel}`,
-      "Writes: hooks, agents, overrides, lfg config, Grok plugin enablement",
+      "Writes: hooks, Sisyphus-only agent, thin plugins, lfg-backend-routing.json",
     ].join("\n"),
     "Install Summary",
   )
@@ -31,8 +31,8 @@ export function printInstallPlan(plan: JsonObject, modelConfigLabel: string): vo
 export function printMagicWord(): void {
   printBox(
     "Include ultrawork (or ulw) in your prompt.\n" +
-      "That unlocks deep exploration, parallel agents, background work,\n" +
-      "and relentless execution until completion.",
+      "That drives deep Codex App execution until completion.\n" +
+      "Grok stays CEO; product work is not self-implemented in-host.",
     "The Magic Word",
   )
 }

@@ -57,7 +57,7 @@ Start-work has a dedicated non-mutating launch planner:
 lfg --json plan start-work --plan .omo/plans/release.md --focus "Ship the release"
 ```
 
-This returns `dryRun: true`, `executed: false`, and a Codex launch whose worker brief invokes `$start-work`. It never executes the plan inside Grok and never submits an app-server turn. Its machine contract reports `transport.primary: "app-server"` and `transport.fallback: "codex-exec"`: create or attach the app-server thread first, and execute `handoff.launch.argv` only when the daemon is unavailable. The Codex skill writes its completion receipt to `.omo/external-engine/start-work-codex-skill-result.md`; Grok reads that receipt before updating Boulder or reporting completion. `lfg --json start-work launch` is an equivalent command shape.
+This returns `dryRun: true`, `executed: false`, and a Codex launch whose worker brief invokes `$start-work`. It never executes the plan inside Grok and never submits an app-server turn. Its machine contract reports `transport.primary: "app-server"` and `transport.fallback: "codex-exec"`: create or attach the app-server thread first, and execute `handoff.launch.argv` only when the daemon is unavailable. The Codex skill writes its completion receipt to `the Codex App thread (optional receipt only if --result-path is set)`; Grok reads that receipt before updating Boulder or reporting completion. `lfg --json start-work launch` is an equivalent command shape.
 
 Planning has its own non-mutating Codex skill launch:
 
@@ -65,7 +65,7 @@ Planning has its own non-mutating Codex skill launch:
 lfg --json plan ulw-plan --focus "Design the release workflow" --cwd "$PWD"
 ```
 
-The response reports `skill: "$ulw-plan"`, `skillPath: "skills/ulw-plan/SKILL.md"`, `role: "plan_assist"`, engine `gpt`, app-server as the primary transport, `codex-exec` as the fallback, and `.omo/external-engine/plan-ulw-plan-codex-skill-result.md` as the monitoring receipt. Grok does not run Prometheus planning in-host; it launches Codex, monitors the RESULT/plan artifact, presents it for approval, and stops. Optional gjc deep-interview remains a pre-plan gateway only when ambiguity is high or an interview is needed.
+The response reports `skill: "$ulw-plan"`, `skillPath: "skills/ulw-plan/SKILL.md"`, `role: "plan_assist"`, engine `gpt`, app-server as the primary transport, `codex-exec` as the fallback, and `the Codex App thread (optional receipt only if --result-path is set)` as the monitoring receipt. Grok does not run Prometheus planning in-host; it launches Codex, monitors the RESULT/plan artifact, presents it for approval, and stops. Optional gjc deep-interview remains a pre-plan gateway only when ambiguity is high or an interview is needed.
 
 Machine transport fields are `transport.primary: "app-server"` and `transport.fallback: "codex-exec"`.
 
@@ -135,6 +135,6 @@ This is a local Codex CLI control plane, not a native Grok `codex_app` tool and 
 
 ## Skill and related docs
 
-- Skill: `skills/ulw-external-engine/SKILL.md`
+- Default: Codex App via `lfg --json handoff plan --engine gpt` (no separate skill required)
 - Core: `src/core/lfg/external-engine/` (`planOmoHandoff`)
 - In-host topology: `docs/grok-multimodel-topology.md`

@@ -2,9 +2,12 @@ export const NATIVE_SISYPHUS_NO_EDIT_FILE = "lfg-native-sisyphus-no-edit.mjs" as
 
 type JsonRecord = Record<string, unknown>
 
-/** Edit-class tools + shell that CEO agents must not use for product mutation. */
+/**
+ * Historical CEO lock registration — hook body is now allow-all (full Sisyphus perms).
+ * Matcher kept broad so any leftover deny behavior is replaced by the no-op script.
+ */
 const PRE_TOOL_MATCHER =
-  "^(search_replace|multi_edit|multiedit|MultiEdit|edit|Edit|write|Write|apply_patch|ApplyPatch|str_replace|StrReplace|create_file|CreateFile|delete_file|DeleteFile|bash|Bash|shell|Shell|run_terminal_command|run_command)$"
+  "^(search_replace|multi_edit|multiedit|MultiEdit|edit|Edit|write|Write|apply_patch|ApplyPatch|str_replace|StrReplace|create_file|CreateFile|delete_file|DeleteFile|notebook_edit|NotebookEdit|bash|Bash|shell|Shell|run_terminal_command|run_command)$"
 
 export function addNativeSisyphusNoEditHooks(hooksBlock: JsonRecord): JsonRecord {
   const current = Array.isArray(hooksBlock.PreToolUse) ? hooksBlock.PreToolUse : []
@@ -21,8 +24,8 @@ export function addNativeSisyphusNoEditHooks(hooksBlock: JsonRecord): JsonRecord
             type: "command",
             command,
             timeout: 5,
-            description: "lfg CEO lock: Sisyphus/Watcher/Explorer cannot edit — hand off to Codex",
-            statusMessage: "LFG: Block CEO product edits → Codex only",
+            description: "lfg Sisyphus full permissions (allow-all; CEO judges handoff vs act)",
+            statusMessage: "LFG: Sisyphus full tool access",
           },
         ],
       },

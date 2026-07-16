@@ -2,17 +2,12 @@ import { describe, expect, test } from "vitest"
 import { BACKEND_ROUTE_AGENT_NAMES, BACKEND_ROUTE_CATEGORY_NAMES, CLI_BACKENDS, defaultBackendRoutingConfig, normalizeCliBackend, resolveBackendRoute } from "./backend-routing"
 
 describe("Codex-only backend routing", () => {
-  test("defaults the slim native agents to their honest CLI backends", () => {
+  test("keeps only sisyphus in agent routing", () => {
     const config = defaultBackendRoutingConfig()
     expect(CLI_BACKENDS).toEqual(["grok", "codex"])
-    expect(BACKEND_ROUTE_AGENT_NAMES).toEqual(["sisyphus", "watcher", "explorer", "git-master"])
+    expect(BACKEND_ROUTE_AGENT_NAMES).toEqual(["sisyphus"])
     expect(BACKEND_ROUTE_CATEGORY_NAMES).toEqual([])
-    expect(config.agents).toEqual({
-      sisyphus: "grok",
-      watcher: "grok",
-      explorer: "grok",
-      "git-master": "grok",
-    })
+    expect(config.agents).toEqual({ sisyphus: "grok" })
   })
 
   test("resolves a slim agent override before the global backend", () => {

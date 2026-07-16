@@ -8,10 +8,7 @@ import type { JsonObject } from "../../shared/json"
 import { defaultLazycodexAgentConfig, type LazycodexAgentConfig, type ModelDiscovery } from "../models/lfg-models"
 import { normalizeEngine, type Engine } from "../../core/lfg/external-engine"
 import {
-  BACKEND_ROUTE_AGENT_NAMES,
-  BACKEND_ROUTE_CATEGORY_NAMES,
   defaultBackendRoutingConfig,
-  isBackendRouteAgentName,
   normalizeCliBackend,
   type BackendRoutingConfig,
 } from "../../core/lfg/backend-routing"
@@ -27,6 +24,7 @@ export type GrokConfigOptions = {
   readonly apiKey?: string
   readonly agentConfig?: LazycodexAgentConfig
   readonly hostAuthOnly?: boolean
+  readonly reconcileModelAliases?: boolean
   readonly fullAgentModels?: Readonly<
     Record<
       string,
@@ -43,51 +41,52 @@ export type GrokConfigOptions = {
 export const LFG_OWNED_GROK_CONFIG_SECTIONS = [
   "endpoints.models_base_url",
   "models.default",
-  "model.*",
   "omo.providers",
   "omo.external_engine",
-  "omo.backend_routing",
 ] as const
 
 export async function writeBackendRoutingConfig(home: string, config: BackendRoutingConfig): Promise<string> {
-  const path = join(home, ".grok", "config.toml")
-  const current = await readTextIfExists(path)
-  const withRoot = upsertSection(current, "omo.backend_routing", ["version = 1", `global = ${tomlString(config.global)}`])
-  const withCategories = upsertSection(
-    withRoot,
-    "omo.backend_routing.categories",
-    BACKEND_ROUTE_CATEGORY_NAMES.flatMap((name) => {
-      const backend = config.categories[name]
-      return backend === undefined ? [] : [`${name} = ${tomlString(backend)}`]
-    }),
-  )
-  const next = upsertSection(
-    withCategories,
-    "omo.backend_routing.agents",
-    BACKEND_ROUTE_AGENT_NAMES.map((name) => `${name} = ${tomlString(config.agents[name])}`),
-  )
+  const path = join(home, ".grok", "lfg-backend-routing.json")
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(path, next, "utf8")
+  await writeFile(path, `${JSON.stringify(config, null, 2)}\n`, "utf8")
   return path
 }
 
 export async function readBackendRoutingConfig(home: string): Promise<BackendRoutingConfig> {
   const source = await readTextIfExists(join(home, ".grok", "config.toml"))
-  const defaults = defaultBackendRoutingConfig()
+  const defaults = await readStoredBackendRoutingConfig(home)
   const globalValue = readTomlStringKey(source, "omo.backend_routing", "global")
   const legacyValue = readTomlStringKey(source, "omo.external_engine", "backend")
-  const categories = { ...defaults.categories }
-  const agents = { ...defaults.agents }
-  for (const [name, backend] of readTomlStringSection(source, "omo.backend_routing.agents")) {
-    const normalized = normalizeCliBackend(backend)
-    if (isBackendRouteAgentName(name) && normalized !== null) agents[name] = normalized
-  }
   const normalizedGlobal = normalizeCliBackend(globalValue) ?? normalizeCliBackend(legacyValue)
   return {
     version: 1,
     global: normalizedGlobal ?? defaults.global,
-    categories,
-    agents,
+    categories: defaults.categories,
+    agents: defaults.agents,
+  }
+}
+
+async function readStoredBackendRoutingConfig(home: string): Promise<BackendRoutingConfig> {
+  const defaults = defaultBackendRoutingConfig()
+  try {
+    const parsed: unknown = JSON.parse(await readFile(join(home, ".grok", "lfg-backend-routing.json"), "utf8"))
+    if (typeof parsed !== "object" || parsed === null) return defaults
+    const record = Object.fromEntries(Object.entries(parsed))
+    const global = normalizeCliBackend(record.global)
+    const agentsValue = record.agents
+    const sisyphus = typeof agentsValue === "object" && agentsValue !== null
+      ? normalizeCliBackend(Object.fromEntries(Object.entries(agentsValue)).sisyphus)
+      : null
+    return {
+      version: 1,
+      global: global ?? defaults.global,
+      categories: {},
+      agents: { sisyphus: sisyphus ?? defaults.agents.sisyphus },
+    }
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") return defaults
+    if (error instanceof SyntaxError) return defaults
+    throw error
   }
 }
 
@@ -135,9 +134,13 @@ export async function writeGrokModelConfig(discovery: ModelDiscovery, options: G
   const endpoints = options.hostAuthOnly === true ? removeEmptyTomlSection(endpointsRaw, "endpoints") : endpointsRaw
   // When discovery is live, drop only stale [model.*] aliases not in this discovery (keep section
   // order stable for aliases that remain — full strip+reappend reorders and breaks idempotency).
-  const modelSource =
-    options.hostAuthOnly === true ? endpoints : removeStaleModelSections(endpoints, discovery)
-  const modelConfig = upsertModelSections(modelSource, discovery, options.hostAuthOnly === true ? null : baseUrl, options.apiKey, current)
+  const reconcileModelAliases = options.reconcileModelAliases !== false
+  const modelSource = options.hostAuthOnly === true || !reconcileModelAliases
+    ? removeTomlSectionsByPrefix(endpoints, "model.")
+    : removeStaleModelSections(endpoints, discovery)
+  const modelConfig = reconcileModelAliases
+    ? upsertModelSections(modelSource, discovery, options.hostAuthOnly === true ? null : baseUrl, options.apiKey, current)
+    : modelSource
   const withoutOmoModels = removeTomlSectionsByPrefix(modelConfig, "omo.models")
   const withoutOmoAgents = removeTomlSectionsByPrefix(withoutOmoModels, "omo.agents")
   const next = removeTomlSectionsByPrefix(withoutOmoAgents, "lazycodex")

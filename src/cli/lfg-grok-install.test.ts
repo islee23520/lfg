@@ -135,7 +135,7 @@ describe("lfg internal grok install contract", () => {
       watcherDefaultAgent: true,
     })
     expect(p?.nativeAgents?.pluginAgents).toContain("sisyphus")
-    expect(p?.nativeAgents?.pluginAgents).toContain("watcher")
+    expect(p?.nativeAgents?.pluginAgents).toEqual(["sisyphus"])
   })
 
   test("setup --run with fixture fallback includes warning and payloadSource=fixture_fallback in internalStep (supports #38)", async () => {

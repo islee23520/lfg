@@ -6,13 +6,13 @@ import { getAgentRecommendation, type AgentRecommendationOverride } from "../../
 export type RecommendationOverrideMap = Readonly<Record<string, AgentRecommendationOverride>>
 
 export const WHY_TWO_MODEL_STEPS_BODY = [
-  "The first 3 prompts set the base role routes used by normal setup:",
-  "  explorer = fast search/read work",
-  "  reasoning = deep analysis/planning work",
-  "  coding = implementation work",
+  "These map discovery buckets only (not Grok host subagents):",
+  "  fast = quick inspect work",
+  "  reasoning = deep analysis",
+  "  coding = implementation (executed on Codex App)",
   "",
-  "Core + ULW overrides tune the named OMO/ultrawork agents individually, such as sisyphus, prometheus, plan, metis, momus, and codex-ultrawork-reviewer.",
-  "Skip this to keep the bundled recommendations for those agents.",
+  "Installed Grok agent surface is Sisyphus-only (CEO). Product work is handed to Codex App threads.",
+  "Skip advanced steps to keep Sisyphus-only defaults.",
 ].join("\n")
 
 export function readDiscoveryFromContext(context: unknown): ModelDiscovery | null {
@@ -230,8 +230,6 @@ export function formatVanillaSummary(config: VanillaGrokConfig): string {
     `fast: ${config.mapping.fast}`,
     `reasoning: ${config.mapping.reasoning}`,
     `coding: ${config.mapping.coding}`,
-    "",
-    "Per-agent models use bundled Grok-first defaults. Advanced: `lfg setup --base-url <proxy>` only when you need multi-provider discovery.",
   ].join("\n")
 }
 
@@ -241,7 +239,6 @@ export function formatVanillaResults(config: VanillaGrokConfig): string {
     `fast: ${config.mapping.fast}`,
     `reasoning: ${config.mapping.reasoning}`,
     `coding: ${config.mapping.coding}`,
-    `${Object.keys(config.agentOverrideMap).length} bundled routing profiles will be installed.`,
-    "Advanced details: ~/.grok/omo-agent-overrides.json",
+    "Sisyphus-only profile will be installed; product work runs in Codex App.",
   ].join("\n")
 }

@@ -48,7 +48,6 @@ const requiredSupplementalSkills = [
 /** lfg-owned skills (not OMO managed list) that must ship in all three skill roots. */
 const requiredLfgNativeSkills = [
   "claude-code-inventory",
-  "ulw-external-engine",
 ]
 const excludedSupplementalSkills = ["xai-grok", "xai-login-instructions", "xai-status"]
 const generatedSkillRoots = [
@@ -164,27 +163,6 @@ async function assertSkillRoot(root) {
     await assertExists(join(root, skillName, "agents", "grok.yaml"))
     if (skillName === "claude-code-inventory") {
       await assertTextContains(join(root, skillName, "SKILL.md"), ["lfg claude", "Claude Code"])
-    } else if (skillName === "ulw-external-engine") {
-      await assertTextContains(join(root, skillName, "SKILL.md"), [
-        "lfg --json handoff plan",
-        "OMO-like",
-        "Sisyphus",
-        "timeout: 0",
-        "claude",
-        "gpt",
-        "agy",
-        "codex",
-        "oracle",
-        "vision",
-        "hephaestus",
-        "fullyTransferable",
-        "grokIsOrchestrator",
-        "launch.stdinSource",
-        "no parallel Grok hephaestus for the same body",
-        "lfg-gjc-intent-gateway",
-        "gjc is an optional fail-open intent gateway",
-      ])
-      await assertTextExcludes(join(root, skillName, "SKILL.md"), ["$(cat", "gjc launch", "engine: gjc", "senpi -p"])
     }
   }
   for (const skillName of excludedSupplementalSkills) {
@@ -223,8 +201,7 @@ async function assertSkillRoot(root) {
     "GrokBuild sessions are `grok:<session_id>`",
     "Product implementation handoff (GrokBuild)",
     "External Codex implementation lane (GPT only)",
-    "ulw-external-engine",
-    "lfg --json handoff plan",
+      "lfg --json handoff plan",
     "handoff.launch.argv[0]",
     "handoff.launch.argv.slice(1)",
     "handoff.launch.binary` is identity/readiness metadata",
@@ -240,7 +217,6 @@ async function assertSkillRoot(root) {
     exclusiveWorkerLaneRule,
     "lfg --json plan start-work",
     "Codex `$start-work`",
-    ".omo/external-engine/start-work-codex-skill-result.md",
     "Prefer the Codex app-server",
     "Use codex-exec fallback only when the daemon is unavailable",
     "only then execute `handoff.launch.argv`",
@@ -258,8 +234,7 @@ async function assertSkillRoot(root) {
   await assertTextContains(join(root, "ulw-loop", "references", "full-workflow.md"), [
     "GPT-only external handoff",
     "codex-exec-fallback",
-    "ulw-external-engine",
-    "lfg --json handoff plan",
+      "lfg --json handoff plan",
     "handoff.launch.argv[0]",
     "handoff.launch.argv.slice(1)",
     "handoff.launch.binary` is identity/readiness metadata",

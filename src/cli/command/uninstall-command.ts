@@ -34,10 +34,13 @@ async function stripLfgConfig(path: string): Promise<boolean> {
     if (isNodeError(error) && error.code === "ENOENT") return false
     throw error
   }
-  const sectionPrefixes = LFG_OWNED_GROK_CONFIG_SECTIONS.flatMap((entry): readonly string[] => {
-    if (entry.endsWith(".*")) return [entry.slice(0, -1)]
-    return entry.startsWith("omo.") ? [entry] : []
-  })
+  const sectionPrefixes = [
+    ...LFG_OWNED_GROK_CONFIG_SECTIONS.filter((entry) => !entry.includes(".default") && !entry.includes(".models_base_url")),
+    "omo.models",
+    "omo.agents.",
+    "omo.backend_routing",
+    "model.",
+  ]
   const withoutSections = sectionPrefixes.reduce(
     (text, prefix) => removeTomlSectionsByPrefix(text, prefix),
     removeTomlSectionsByPrefix(source, "lazycodex."),

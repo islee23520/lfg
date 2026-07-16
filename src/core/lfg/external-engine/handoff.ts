@@ -12,6 +12,7 @@ import {
   type SafetyMode,
 } from "./omo-roles"
 import { buildHandoffPrompt, HANDOFF_HONESTY } from "./prompt"
+import { enrichFocusWithSkillRoute, routeOmoSkills } from "./skill-route"
 
 export type { LaunchPlan } from "./launch"
 
@@ -56,12 +57,13 @@ export type OmoHandoff = {
   readonly imagePaths: readonly string[]
   readonly acceptanceCriteria: readonly string[]
   readonly verifyCommands: readonly string[]
-  readonly resultPath: string
+  readonly resultPath: string | null
   readonly workerPrompt: string
   readonly payloadMarkdown: string
   readonly launch: LaunchPlan
   readonly honestyNote: string
   readonly guidance: string
+  readonly skillRoute: ReturnType<typeof routeOmoSkills>
 }
 
 export type HandoffErrorDetail =
@@ -114,14 +116,16 @@ export function planOmoHandoff(input: HandoffInput = {}): HandoffResult {
 
   const canWrite = spec.canWrite && !Boolean(input.readOnly)
   const safetyMode: SafetyMode = canWrite ? "write" : "read"
-  const focus = nonEmpty(input.focus) ?? spec.defaultFocus
+  const rawFocus = nonEmpty(input.focus) ?? spec.defaultFocus
+  const { focus, route: skillRoute } = enrichFocusWithSkillRoute(rawFocus)
   const deliverable = nonEmpty(input.deliverable) ?? spec.defaultDeliverable
   const scopePaths = list(input.scopePaths)
   const outOfScopePaths = list(input.outOfScopePaths)
   const imagePaths = list(input.imagePaths)
   const acceptanceCriteria = list(input.acceptanceCriteria)
   const verifyCommands = list(input.verifyCommands)
-  const resultPath = nonEmpty(input.resultPath) ?? `.omo/external-engine/${role}-${engine}-result.md`
+  // Natural Codex mode: no mandatory .omo/external-engine receipt unless --result-path is set.
+  const resultPath = nonEmpty(input.resultPath) ?? null
   const payloadFile = nonEmpty(input.payloadFile)
   const workerPrompt = buildHandoffPrompt({
     spec,
@@ -138,6 +142,7 @@ export function planOmoHandoff(input: HandoffInput = {}): HandoffResult {
     resultPath,
     agentsMdExcerpt: input.agentsMdExcerpt,
     skillExcerpts: input.skillExcerpts,
+    skillRoute,
   })
   if (!payloadFile && FORBIDDEN_LAUNCH_ARGV_TOKEN.test(workerPrompt)) {
     return {
@@ -156,7 +161,7 @@ export function planOmoHandoff(input: HandoffInput = {}): HandoffResult {
     `role: ${role}`,
     `engine: ${engine}`,
     `safety: ${safetyMode}`,
-    `result_path: ${resultPath}`,
+    resultPath === null ? "result_path: (none — natural Codex work)" : `result_path: ${resultPath}`,
     "---",
     "",
     workerPrompt,
@@ -204,6 +209,7 @@ export function planOmoHandoff(input: HandoffInput = {}): HandoffResult {
     workerPrompt,
     payloadMarkdown,
     launch,
+    skillRoute,
     honestyNote: HANDOFF_HONESTY,
     guidance:
       `OMO-like: Grok orchestrates; hand ${role} to ${engine} (${profile.binary}). ` +

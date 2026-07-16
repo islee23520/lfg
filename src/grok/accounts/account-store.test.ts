@@ -237,4 +237,88 @@ describe("AccountStore", () => {
     expect(removed).toMatchObject({ removed: true })
     expect(status.activeAccount).toBeNull()
   })
+
+  test("rotate never clobbers fresher host auth with an expired sqlite snapshot", async () => {
+    const root = await tempRoot()
+    const grok = join(root, ".grok")
+    const activeAuthPath = join(grok, "auth.json")
+    const expired = join(root, "expired.json")
+    await mkdir(grok, { recursive: true })
+    await writeFile(activeAuthPath, oidcAuth("fresh", Date.now() + 3_600_000, "fresh-refresh"))
+    await writeFile(expired, oidcAuth("stale", Date.now() - 3_600_000))
+    const store = new AccountStore(join(grok, "lfg-accounts.sqlite"))
+    store.importAuth("stale", expired)
+
+    const result = store.rotate(activeAuthPath)
+    store.close()
+
+    expect(result).toMatchObject({ ok: true, status: "host_auth_preserved" })
+    expect(await readFile(activeAuthPath, "utf8")).toContain("fresh-refresh")
+    expect(await readFile(activeAuthPath, "utf8")).not.toContain("stale")
+  })
+
+  test("rotate prefers a non-expired account over a less-used expired account", async () => {
+    const root = await tempRoot()
+    const grok = join(root, ".grok")
+    const expired = join(root, "expired.json")
+    const valid = join(root, "valid.json")
+    await mkdir(grok, { recursive: true })
+    await writeFile(expired, oidcAuth("expired", Date.now() - 60_000))
+    await writeFile(valid, oidcAuth("valid", Date.now() + 3_600_000, "valid-refresh"))
+    const store = new AccountStore(join(grok, "lfg-accounts.sqlite"))
+    store.importAuth("expired", expired)
+    store.importAuth("valid", valid)
+
+    const result = store.rotate(join(grok, "auth.json"))
+    store.close()
+
+    expect(result).toMatchObject({ ok: true, status: "account_selected", account: { name: "valid" } })
+  })
+
+  test("rotate keeps an expired OIDC account eligible when it has a refresh_token", async () => {
+    const root = await tempRoot()
+    const grok = join(root, ".grok")
+    const refreshable = join(root, "refreshable.json")
+    await mkdir(grok, { recursive: true })
+    await writeFile(refreshable, oidcAuth("refreshable", Date.now() - 60_000, "keep-refresh-token"))
+    const store = new AccountStore(join(grok, "lfg-accounts.sqlite"))
+    store.importAuth("refreshable", refreshable)
+
+    const result = store.rotate(join(grok, "auth.json"))
+    store.close()
+
+    expect(result).toMatchObject({ ok: true, status: "account_selected", account: { name: "refreshable" } })
+    expect(await readFile(join(grok, "auth.json"), "utf8")).toContain("keep-refresh-token")
+  })
+
+  test("rotate reports auth_expired_login_required when every account is irrecoverably expired", async () => {
+    const root = await tempRoot()
+    const grok = join(root, ".grok")
+    const activeAuthPath = join(grok, "auth.json")
+    const expired = join(root, "expired.json")
+    await mkdir(grok, { recursive: true })
+    await writeFile(activeAuthPath, oidcAuth("host-expired", Date.now() - 60_000))
+    await writeFile(expired, oidcAuth("expired", Date.now() - 60_000))
+    const store = new AccountStore(join(grok, "lfg-accounts.sqlite"))
+    store.importAuth("expired", expired)
+
+    const result = store.rotate(activeAuthPath)
+    store.close()
+
+    expect(result).toMatchObject({ ok: false, status: "auth_expired_login_required", account: null })
+    expect(await readFile(activeAuthPath, "utf8")).toContain("host-expired")
+  })
 })
+
+function oidcAuth(access: string, expires: number, refreshToken?: string): string {
+  return JSON.stringify({
+    "https://auth.x.ai::grok-cli": {
+      auth_mode: "oidc",
+      oidc_issuer: "https://auth.x.ai",
+      oidc_client_id: "grok-cli",
+      key: access,
+      ...(refreshToken === undefined ? {} : { refresh_token: refreshToken }),
+      expires_at: new Date(expires).toISOString(),
+    },
+  })
+}

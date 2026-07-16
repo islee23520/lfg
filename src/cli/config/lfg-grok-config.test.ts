@@ -6,7 +6,7 @@ import { withModelServer } from "../test/test-model-server"
 import { runLfg } from "../test/test-process"
 
 describe("lfg Grok config persistence", () => {
-  test("setup run persists discovered OpenAI-compatible models after installer success", async () => {
+  test("setup run persists endpoint discovery without model or subagent tables", async () => {
     const apiKey = "sk-lfg-test-key"
     await withModelServer(["gpt-4.1-mini", "o3-mini"], { requiredApiKey: apiKey }, async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
@@ -31,22 +31,18 @@ describe("lfg Grok config persistence", () => {
       expect(config).toContain(`models_base_url = "${baseUrl}/v1"`)
       expect(config).not.toContain(`[endpoints]\nmodels_base_url = "${baseUrl}/v1"\napi_key = "${apiKey}"`)
       expect(config).not.toContain("[models]")
-      expect(config).toContain('[model."grok-build"]')
-      expect(config).toContain('[model."gpt-4.1-mini"]')
-      expect(config).toContain('model = "gpt-4.1-mini"')
-      expect(config).toContain(`base_url = "${baseUrl}/v1"`)
-      expect(config).toContain(`api_key = "${apiKey}"`)
-      expect(config).toContain('[model."o3-mini"]')
+      expect(config).not.toContain("[model.")
+      expect(config).not.toContain(`api_key = "${apiKey}"`)
       expect(config).not.toContain("[omo.models]")
       expect(config).not.toContain("[omo.agents.")
       expect(json).not.toContain(apiKey)
-      const explorerRole = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
-      expect(explorerRole).toContain('model = "gpt-4.1-mini"')
+      await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+      await expect(readFile(join(home, ".grok", "roles", "sisyphus.toml"), "utf8")).resolves.toContain('model = "gpt-4.1-mini"')
       expect(result.json).toMatchObject({ postInstallVerify: { status: "verified" } })
     })
   })
 
-  test("setup run preserves existing endpoint keys while updating model config", async () => {
+  test("setup run preserves unrelated config while removing endpoint credentials", async () => {
     await withModelServer(["gpt-4.1-mini", "o3-mini"], async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
             const configPath = join(home, ".grok", "config.toml")
@@ -61,7 +57,7 @@ describe("lfg Grok config persistence", () => {
       const config = await readFile(configPath, "utf8")
       expect(result.exitCode).toBe(0)
       expect(config).not.toContain('api_key = "keep-me"')
-      expect(config).toContain('api_key = "sk-new-env-key"')
+      expect(config).not.toContain('api_key = "sk-new-env-key"')
       expect(config).toContain("[ui]\ntheme = \"auto\"")
       expect(config).toContain(`models_base_url = "${baseUrl}/v1"`)
       expect(config).not.toContain("[omo.models]")
@@ -69,7 +65,7 @@ describe("lfg Grok config persistence", () => {
     })
   })
 
-  test("setup run writes every cli proxy model alias and groups overlapping aliases", async () => {
+  test("setup run does not materialize cli proxy model aliases", async () => {
     const apiKey = "sk-alias-key"
     await withModelServer(["GPT-5.2", "gpt-5.2", "Claude Sonnet 4.6", "claude-sonnet-4-6", "codex-auto-review"], { requiredApiKey: apiKey }, async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
@@ -81,20 +77,12 @@ describe("lfg Grok config persistence", () => {
 
       expect(result.exitCode, JSON.stringify(result.json)).toBe(0)
       const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
-      expect(config).toContain('[model."GPT-5.2"]')
-      expect(config).toContain('[model."gpt-5.2"]')
-      expect(config).toContain('[model."Claude Sonnet 4.6"]')
-      expect(config).toContain('[model."claude-sonnet-4-6"]')
-      expect(section(config, 'model."GPT-5.2"')).toContain('model = "gpt-5.2"')
-      expect(section(config, 'model."gpt-5.2"')).toContain('model = "gpt-5.2"')
-      expect(section(config, 'model."Claude Sonnet 4.6"')).toContain('model = "claude-sonnet-4-6"')
-      expect(section(config, 'model."claude-sonnet-4-6"')).toContain('model = "claude-sonnet-4-6"')
-      expect(section(config, 'model."codex-auto-review"')).toContain('model = "codex-auto-review"')
+      expect(config).not.toContain("[model.")
       expect(config).not.toContain("[omo.agents.")
     })
   })
 
-  test("setup run keeps backend routing without writing obsolete agent model maps", async () => {
+  test("setup run keeps backend routing out of config.toml", async () => {
     const apiKey = "sk-agent-key"
     await withModelServer(["gpt-5.5", "gemini-3-flash", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "codex-auto-review"], { requiredApiKey: apiKey }, async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
@@ -106,13 +94,15 @@ describe("lfg Grok config persistence", () => {
 
       const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
       expect(result.exitCode).toBe(0)
-      expect(section(config, "omo.backend_routing")).toContain('global = "codex"')
+      expect(config).not.toContain("[omo.backend_routing")
+      const routing = JSON.parse(await readFile(join(home, ".grok", "lfg-backend-routing.json"), "utf8")) as { global: string }
+      expect(routing.global).toBe("codex")
       expect(config).not.toContain("[omo.models]")
       expect(config).not.toContain("[omo.agents.")
     })
   })
 
-  test("setup run writes context_window per model when upstream advertises it (context_window)", async () => {
+  test("setup run omits model context windows when upstream advertises them", async () => {
     const apiKey = "sk-cw-key"
     const descriptors = [
       { id: "gpt-4.1-mini", context_window: 128000 },
@@ -126,23 +116,23 @@ describe("lfg Grok config persistence", () => {
       })
       expect(result.exitCode).toBe(0)
       const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
-      expect(section(config, 'model."gpt-4.1-mini"')).toContain("context_window = 128000")
-      expect(section(config, 'model."o3-mini"')).toContain("context_window = 200000")
+      expect(config).not.toContain("context_window")
+      expect(config).not.toContain("[model.")
     })
   })
 
-  test("setup run writes context_window from max_model_len when context_window absent", async () => {
+  test("setup run omits max_model_len-derived model blocks", async () => {
     const descriptors = [{ id: "grok-3-mini", max_model_len: 131072 }]
     await withModelServer(descriptors, async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-home."))
       const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home })
       expect(result.exitCode).toBe(0)
       const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
-      expect(section(config, 'model."grok-3-mini"')).toContain("context_window = 131072")
+      expect(config).not.toContain("context_window")
     })
   })
 
-  test("setup preserves prior context_window when fresh discovery omits it for that model", async () => {
+  test("setup strips prior grok-build model blocks when discovery omits context", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const configPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok"), { recursive: true })
@@ -157,12 +147,12 @@ describe("lfg Grok config persistence", () => {
       const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home })
       expect(result.exitCode).toBe(0)
       const config = await readFile(configPath, "utf8")
-      // Must keep the prior value since discovery did not provide one
-      expect(section(config, 'model."grok-build"')).toContain("context_window = 99999")
+      expect(config).not.toContain('[model."grok-build"]')
+      expect(config).not.toContain("[model.grok-build]")
     })
   })
 
-  test("setup overrides prior context_window when fresh discovery provides a new value", async () => {
+  test("setup strips prior grok-build model blocks even when discovery provides context", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const configPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok"), { recursive: true })
@@ -177,15 +167,15 @@ describe("lfg Grok config persistence", () => {
       const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home })
       expect(result.exitCode).toBe(0)
       const config = await readFile(configPath, "utf8")
-      // Fresh discovery must win
-      expect(section(config, 'model."grok-build"')).toContain("context_window = 256000")
+      expect(config).not.toContain('[model."grok-build"]')
+      expect(config).not.toContain("[model.grok-build]")
     })
-  })
+  }, 10_000)
 
   // T1 baseline: pins CURRENT (buggy) behavior for GPT-5.5 display alias.
   // With discovery providing context under canonical "gpt-5.5", the display-alias
   // section currently receives no/fallback value (prior preserved).
-  test("baseline: GPT-5.5 display alias currently does not inherit canonical context_window from discovery", async () => {
+  test("setup strips prior GPT-5.5 display alias model blocks", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const configPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok"), { recursive: true })
@@ -201,13 +191,12 @@ describe("lfg Grok config persistence", () => {
       const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home })
       expect(result.exitCode).toBe(0)
       const config = await readFile(configPath, "utf8")
-      // CURRENT behavior (baseline): display alias section keeps prior/fallback (discovery not applied)
-      expect(section(config, 'model."GPT-5.5"')).toContain("context_window = 128000")
+      expect(config).not.toContain('[model."GPT-5.5"]')
     })
   })
 
   // T1 target: after fix, canonical metadata from discovery applies to display alias sections.
-  test("GPT-5.5 display alias receives canonical context_window from discovery", async () => {
+  test("setup does not create canonical or display alias model blocks", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-home."))
     const configPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok"), { recursive: true })
@@ -219,13 +208,8 @@ describe("lfg Grok config persistence", () => {
       const result = await runLfg(["--json", "setup", "--base-url", baseUrl, "--run"], { HOME: home })
       expect(result.exitCode).toBe(0)
       const config = await readFile(configPath, "utf8")
-      const canonicalSection = section(config, 'model."gpt-5.5"')
-      const displaySection = section(config, 'model."GPT-5.5"')
-      // Local discovery wins; value from canonical flows to both sections (T1 repair)
-      expect(canonicalSection).toMatch(/context_window = \d+/)
-      expect(displaySection).toMatch(/context_window = \d+/)
-      // Same effective value (no key leak, prior fallback only when discovery omits)
-      expect(displaySection).toContain('model = "gpt-5.5"')
+      expect(config).not.toContain('[model."gpt-5.5"]')
+      expect(config).not.toContain('[model."GPT-5.5"]')
     })
   })
 })

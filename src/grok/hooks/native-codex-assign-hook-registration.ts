@@ -20,7 +20,7 @@ function appendAssignHook(groups: unknown, command: string, label: string): read
   return [
     ...current.filter((group) => !groupHasCommand(group, command)),
     {
-      hooks: [{ type: "command", command, timeout: 5, description: `lfg ${label}`, statusMessage: `LFG: ${label}` }],
+      hooks: [{ type: "command", command, timeout: 120, description: `lfg ${label}`, statusMessage: `LFG: ${label}` }],
     },
   ]
 }

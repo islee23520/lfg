@@ -3,7 +3,7 @@ import { registerHandoffInOrchestrator } from "../../core/lfg/orchestrator/regis
 import { findExecutableInPath } from "../../shared/executable-path"
 import type { JsonObject } from "../../shared/json"
 
-const RESULT_PATH = ".omo/external-engine/start-work-codex-skill-result.md"
+const RESULT_PATH: string | null = null // natural Codex work — no receipt folder
 
 type StartWorkCommandOptions = {
   readonly json: boolean
@@ -31,8 +31,8 @@ export async function dispatchStartWorkCommand(
     role: "coding",
     engine: "gpt",
     focus: planInstruction,
-    deliverable: `Execute the selected plan through $start-work and write the final RESULT receipt to ${RESULT_PATH}.`,
-    resultPath: RESULT_PATH,
+    deliverable: `Execute the selected plan through $start-work in the project as normal Codex work.`,
+    ...(RESULT_PATH ? { resultPath: RESULT_PATH } : {}),
     ...(parsed.cwd === null ? {} : { cwd: parsed.cwd }),
   })
   if ("error" in handoff) return invalidStartWork(handoff.error)
@@ -40,12 +40,13 @@ export async function dispatchStartWorkCommand(
   const readiness = await checkReadiness(handoff.launch.binary, options)
   let orchestrator: JsonObject
   try {
+    const ledgerPath = RESULT_PATH ?? `codex-app:start-work:${Date.now()}`
     const registered = await registerHandoffInOrchestrator(handoff.launch.cwd ?? process.cwd(), {
       engine: handoff.engine,
       binary: handoff.launch.binary,
       role: "coding",
       focus: handoff.focus,
-      resultPath: RESULT_PATH,
+      resultPath: ledgerPath,
       status: "planned",
     })
     orchestrator = {
@@ -56,7 +57,7 @@ export async function dispatchStartWorkCommand(
       resultPath: registered.thread.resultPath,
     }
   } catch {
-    orchestrator = { registered: false, resultPath: RESULT_PATH }
+    orchestrator = { registered: false, ...(RESULT_PATH ? { resultPath: RESULT_PATH } : {}) }
   }
   return {
     ok: readiness.ok,
@@ -67,7 +68,7 @@ export async function dispatchStartWorkCommand(
     executed: false,
     skill: "$start-work",
     planPath: parsed.planPath,
-    resultPath: RESULT_PATH,
+    ...(RESULT_PATH ? { resultPath: RESULT_PATH } : {}),
     handoff,
     readiness,
     transport: {

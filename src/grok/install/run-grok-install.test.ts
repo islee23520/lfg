@@ -24,6 +24,15 @@ describe("runGrokInstall", () => {
       mapping: { default: "gpt-4.1-mini", fast: "gpt-4.1-mini", reasoning: "o3-mini", coding: "gpt-4.1-mini" },
     }
     const env = { HOME: home, OPENAI_API_KEY: "sk-test-key" }
+    await mkdir(join(home, ".grok"), { recursive: true })
+    await writeFile(join(home, ".grok", "config.toml"), [
+      "[subagents.models]", 'sisyphus = "legacy"', "",
+      "[subagents.reasoning_effort]", 'sisyphus = "high"', "",
+      "[subagents.toggle]", "sisyphus = true", "",
+      "[omo.backend_routing.agents]", 'sisyphus = "grok"', "",
+      "[model.grok-build]", 'model = "legacy"', "",
+      "[agents]", 'default = "sisyphus"', "",
+    ].join("\n"), "utf8")
     await runGrokInstall(discovery, env, { backendEngine: "codex" })
     const first = await readFile(join(home, ".grok", "config.toml"), "utf8")
     await runGrokInstall(discovery, env, { backendEngine: "codex" })
@@ -33,21 +42,23 @@ describe("runGrokInstall", () => {
     expect(first).not.toContain("[omo.models]")
     expect(first).not.toContain("[omo.agents.")
     expect(first).not.toContain("[subagents.models]")
-    expect(first).toContain("[omo.backend_routing]")
-    expect(first).toContain('global = "codex"')
+    expect(first).not.toContain("[subagents.reasoning_effort]")
+    expect(first).not.toContain("[subagents.toggle]")
+    expect(first).not.toContain("[omo.backend_routing]")
+    expect(first).not.toContain("[model.")
+    expect(first).not.toContain("[agents]")
+    await expect(readFile(join(home, ".grok", "lfg-backend-routing.json"), "utf8")).resolves.toContain('"global": "codex"')
   })
 
-  test("null discovery skips config merge but still installs plugin and global agents (#29)", async () => {
+  test("null discovery skips config merge but still installs plugin and sisyphus (#29)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-null-disc-"))
     const env = { HOME: home }
     const run = await runGrokInstall(null, env)
     expect(run.ok).toBe(true)
     expect(run.configUpdate).toBeNull()
     expect(run.omoAgents?.written.length).toBeGreaterThanOrEqual(1)
-    const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
-    expect(explorer).toContain('model = "grok-composer-2.5-fast"')
-    const explorerAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")
-    expect(explorerAgent).toContain("name: explorer")
+    await expect(readFile(join(home, ".grok", "roles", "sisyphus.toml"), "utf8")).resolves.toContain("model =")
+    await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expectUpstreamOmoWorkflowSkills(join(home, ".grok", "plugins", "lfg"))
     const stamp = await readFile(join(home, ".grok", "plugins", "lfg", "lfg-install.json"), "utf8")
     expect(stamp).toContain("@islee23520/lfg")
@@ -71,7 +82,7 @@ describe("runGrokInstall", () => {
     expect(first).toContain('"platform": "grok"')
   })
 
-  test("with discovery writes plugin-owned explorer agent and role (#30)", async () => {
+  test("with discovery writes only the plugin-owned sisyphus agent and role (#30)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-agents-"))
     const discovery: ModelDiscovery = {
       baseUrl: "http://127.0.0.1:11434/v1",
@@ -82,11 +93,11 @@ describe("runGrokInstall", () => {
     const run = await runGrokInstall(discovery, { HOME: home, OPENAI_API_KEY: "sk-test" })
     expect(run.ok).toBe(true)
     expect(run.omoAgents?.written.length).toBeGreaterThanOrEqual(1)
-    const explorer = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
-    expect(explorer).toContain('model = "gpt-4.1-mini"')
-    expect(explorer).toContain("reasoning_effort")
-    const agent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")
-    expect(agent).toContain("name: explorer")
+    const sisyphus = await readFile(join(home, ".grok", "roles", "sisyphus.toml"), "utf8")
+    expect(sisyphus).toContain('model = "gpt-4.1-mini"')
+    expect(sisyphus).toContain("reasoning_effort")
+    const agent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", "sisyphus.md"), "utf8")
+    expect(agent).toContain("name: sisyphus")
   })
 
   test("existing stamped setup preserves install assets while syncing discovered config unless force is explicit", async () => {
@@ -129,20 +140,19 @@ describe("runGrokInstall", () => {
     expect(config).not.toContain("[omo.models]")
     expect(config).not.toContain("[omo.agents.")
     expect(config).not.toContain("[subagents.models]")
-    expect(config).toContain("[agents]")
-    expect(config).toContain('default = "sisyphus"')
-    // LFG no longer forces Grok builtin shadows for general-purpose/explore/grok-build/builder.
-    // It still enables LFG/OMO-provided agents (explorer, sisyphus, prometheus, etc).
-    expect(config).toContain("explorer = true")
+    expect(config).not.toContain("[agents]")
+    expect(config).not.toContain("[subagents.toggle]")
+    expect(config).not.toContain("[agent]")
+    expect(config).not.toContain("[model.")
     await expect(readFile(userUlwPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expect(readFile(agentPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     await expect(readFile(join(home, ".grok", "agents-toml-backup-lfg", "explorer.toml"), "utf8")).resolves.toContain('model = "user-agent"')
     const ulwBackup = join(home, ".grok", "agents-user-backup-lfg", "ulw.md")
     await expect(readFile(ulwBackup, "utf8")).resolves.toBe(USER_GROK_AGENTS_ULW_SEED)
-    await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).resolves.toContain('model = "gpt-5.5"')
-    await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")).resolves.toContain("name: explorer")
+    await expect(readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "explorer.md"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     const overrides = JSON.parse(await readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")) as { overrides: Record<string, unknown> }
-    expect(overrides.overrides).toHaveProperty("explorer")
+    expect(overrides.overrides).toHaveProperty("sisyphus")
     expect(overrides.overrides).not.toHaveProperty("default")
     expect(overrides.overrides).not.toHaveProperty("prometheus")
     await expect(readFile(join(home, ".grok", "plugins", "lfg", "agents", "default.md"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
@@ -208,21 +218,25 @@ describe("runGrokInstall", () => {
     expect(config).not.toContain('model = "custom-plan"')
     const overridesRaw = await readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")
     const overrides = JSON.parse(overridesRaw) as { readonly overrides: Readonly<Record<string, unknown>> }
-    expect(Object.keys(overrides.overrides).sort()).toEqual(["explorer", "git-master"])
+    expect(Object.keys(overrides.overrides)).toEqual([])
     expect(overridesRaw).not.toContain("librarian")
     expect(overridesRaw).not.toContain("plan")
-    expect(overridesRaw).toContain('"service_tier": "fast"')
+    expect(overridesRaw).not.toContain('"service_tier": "fast"')
     await expect(readFile(join(home, ".grok", "roles", "librarian.toml"), "utf8")).rejects.toThrow()
   })
 
-  test("existing stamped setup with no discovery keeps user config unchanged", async () => {
+  test("existing stamped setup with no discovery preserves unrelated user config while removing retired model tables", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-existing-null-"))
     const pluginRoot = join(home, ".grok", "plugins", "lfg")
     const configPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok", "plugins"), { recursive: true })
     await cp(fixtureRoot, pluginRoot, { recursive: true })
     await writeFile(join(pluginRoot, "lfg-install.json"), '{"packageName":"@islee23520/lfg","version":"existing"}\n', "utf8")
-    await writeFile(configPath, '[omo.models]\ndefault = "user-model"\n', "utf8")
+    await writeFile(
+      configPath,
+      '[ui]\ntheme = "midnight"\n\n[omo.models]\ndefault = "user-model"\n\n[model.grok-build]\nmodel = "legacy"\n',
+      "utf8",
+    )
 
     const preserved = await runGrokInstall(null, { HOME: home })
 
@@ -230,7 +244,10 @@ describe("runGrokInstall", () => {
     expect(preserved.configUpdate).toBeNull()
     expect(preserved.omoAgents?.written.length).toBeGreaterThanOrEqual(1)
     expect(preserved.agentOverridesPath).toBe(join(home, ".grok", "omo-agent-overrides.json"))
-    await expect(readFile(configPath, "utf8")).resolves.toContain('default = "user-model"')
+    const config = await readFile(configPath, "utf8")
+    expect(config).toContain('[ui]\ntheme = "midnight"')
+    expect(config).not.toContain("[omo.models]")
+    expect(config).not.toContain("[model.grok-build]")
   })
 
   test("incomplete stamped setup is reinstalled instead of preserved", async () => {

@@ -1,5 +1,5 @@
 /**
- * Live-style check: install into temp HOME (mock /v1/models) then grok inspect sees explorer.
+ * Live-style check: install into temp HOME (mock /v1/models) then grok inspect sees Sisyphus.
  * Run: npx vitest run src/cli/fast-tier-grok-live.test.ts
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
@@ -26,8 +26,8 @@ function grokBinaryAvailable(bin: string): boolean {
   return true
 }
 
-describe.skipIf(!grokBinaryAvailable(GROK_BIN))("fast tier → Grok-visible explorer model (live harness)", () => {
-  test("install writes grok-3-mini-fast to roles/overrides; grok inspect lists lfg:explorer", async () => {
+describe.skipIf(!grokBinaryAvailable(GROK_BIN))("fast tier → Grok-visible Sisyphus model (live harness)", () => {
+  test("install writes grok-3-mini-fast to Sisyphus surfaces", async () => {
     const modelIds = ["grok-3-mini", "grok-3-mini-fast", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning"] as const
     await withModelServer(modelIds, async (baseUrl) => {
       const home = await mkdtemp(join(tmpdir(), "lfg-fast-tier-grok-"))
@@ -53,7 +53,7 @@ describe.skipIf(!grokBinaryAvailable(GROK_BIN))("fast tier → Grok-visible expl
             coding: { model: "grok-4.20-0309-non-reasoning", reasoningLevel: "medium" as const },
           },
           agentOverrideMap: {
-            explorer: {
+            sisyphus: {
               model: resolvedModel,
               reasoningLevel: "low" as const,
               serviceTier: serviceTierFromChoice(tier),
@@ -67,7 +67,7 @@ describe.skipIf(!grokBinaryAvailable(GROK_BIN))("fast tier → Grok-visible expl
           const result = await runLazycodexInstaller(discovery, { force: true })
           expect(result.ok).toBe(true)
 
-          const roleToml = await readFile(join(home, ".grok", "roles", "explorer.toml"), "utf8")
+          const roleToml = await readFile(join(home, ".grok", "roles", "sisyphus.toml"), "utf8")
           expect(roleToml).toContain('model = "grok-3-mini-fast"')
           expect(roleToml).not.toContain("service_tier")
 
@@ -90,7 +90,7 @@ describe.skipIf(!grokBinaryAvailable(GROK_BIN))("fast tier → Grok-visible expl
             }
           }
 
-          expect(inspectStdout).toMatch(/lfg:explorer|explorer\.md/i)
+          expect(inspectStdout).toMatch(/lfg:sisyphus|sisyphus\.md/i)
         } finally {
           process.env.HOME = prevHome
         }

@@ -5,10 +5,7 @@ import { applyModelPreset, defaultLazycodexAgentConfig, withReasoningEffort, typ
 import type { ModelSelector, ReasoningSelector, TierSelector } from "./lfg-setup-tui-selectors";
 import { loadBundledDefaultOmoOverrides } from "../../grok/agents/lazycodex-agent-overrides";
 import {
-  buildVanillaGrokConfig,
   buildVanillaGrokDiscovery,
-  formatVanillaResults,
-  formatVanillaSummary,
   readDiscoveryFromContext,
   toRecommendationOverrideMap,
 } from "./lfg-setup-tui-data";
@@ -16,11 +13,9 @@ import { createSetupSelectors, buildModelChoicesForTui, type ModelChoice } from 
 import { configureAgentOverrides, configureRoleAgents } from "./lfg-setup-tui-agents";
 import { DEFAULT_CODING_TOOL_ADAPTER, isCodingToolAdapterId, type CodingToolAdapterId } from "../../shared/coding-tool-adapter";
 import { executeTuiInstall, type TuiGlobalInstaller } from "./lfg-setup-tui-execute";
-import { formatCustomResults, formatInstallSummary, formatIntroNote, formatPresetResults, formatRecommendedResults } from "./lfg-setup-tui-results";
-import { DEFAULT_CLI_BACKEND, defaultBackendRoutingConfig, type CliBackend } from "../../core/lfg/backend-routing";
-import { configureBackendRouting } from "./lfg-setup-tui-backends";
-import { readBackendRoutingConfig } from "../config/lfg-grok-config";
-import { resolveGrokSetupHome } from "../../grok/install/grok-home";
+import { formatInstallSummary, formatIntroNote, formatPresetResults, formatRecommendedResults } from "./lfg-setup-tui-results";
+import type { CliBackend } from "../../core/lfg/backend-routing";
+import { fixedBackendRouting } from "./lfg-setup-tui-backends";
 import { ensureCodexLazyCodexPrereqsInTui } from "./lfg-setup-tui-prereqs";
 
 export function shouldUseSetupTui(args: { readonly noTui?: boolean }, options: { readonly check?: boolean; readonly input?: { readonly isTTY?: boolean }; readonly output?: { readonly isTTY?: boolean } }): boolean {
@@ -95,21 +90,10 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     throw new Error("lfg setup cancelled");
   }
 
-  const storedBackendRouting = configOnly
-    ? await readBackendRoutingConfig(resolveGrokSetupHome(process.env))
-    : defaultBackendRoutingConfig();
-  const requestedGlobal = args.backendEngineExplicit === true
-    ? args.backendEngine ?? DEFAULT_CLI_BACKEND
-    : storedBackendRouting.global;
-  const backendRouting = await configureBackendRouting({
-    select: (options) => prompts.select(options),
-    confirm: (options) => prompts.confirm(options),
-    isCancel: prompts.isCancel,
-    cancel: prompts.cancel,
-  }, {
-    ...storedBackendRouting,
-    global: requestedGlobal,
-  });
+  // Product is fixed: Sisyphus on Grok, implementer on Codex App — no setup quiz.
+  const backendRouting = fixedBackendRouting(
+    args.backendEngineExplicit === true ? args.backendEngine : undefined,
+  );
 
   // Vanilla Grok is the default. Proxy / multi-provider discovery is opt-in only via
   // explicit `--base-url` (or a resolved discovery with a non-empty base URL). No install-time proxy quiz.
@@ -128,12 +112,10 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
   let shouldUseManualFlow = hasProxyDiscovery;
 
   if (!hasProxyDiscovery) {
-    // Vanilla Grok Build auth + bundled agent defaults (no CLI proxy path).
-    const vanilla = buildVanillaGrokConfig(bundled, undefined);
+    // Vanilla Grok Build auth — no model-map dump in the wizard (setup does not rewrite fat [model.*]).
     configuredForInstall = buildVanillaGrokDiscovery(bundled, undefined);
-    resultsText = formatVanillaResults(vanilla);
-    modelConfigLine = "Model config: native Grok models (vanilla host auth)";
-    prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models");
+    resultsText = "Vanilla Grok host defaults will be preserved; no model tables will be written.";
+    modelConfigLine = "Model config: host Grok defaults (untouched; no model-table rewrite)";
   }
 
   if (baseDiscovery !== null && baseDiscovery.modelIds.length > 0) {
@@ -147,8 +129,7 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     }
     if (wantsRecommendations === true) {
       const recommendedDiscovery = withReasoningEffort(applyModelPreset(baseDiscovery, "auto"), "auto");
-      prompts.note(formatRecommendedResults(recommendedDiscovery, bundled), "LLM recommendations");
-      const wantsModify = await prompts.confirm({
+            const wantsModify = await prompts.confirm({
         message: "Modify recommended model settings?",
         initialValue: false,
       });
@@ -197,12 +178,9 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
     }
 
     if (modelMode === "vanilla") {
-      // Optimized vanilla: use discovery if available (OAuth provides real model list)
-      const vanilla = buildVanillaGrokConfig(bundled, baseDiscovery || undefined);
       configuredForInstall = buildVanillaGrokDiscovery(bundled, baseDiscovery || undefined, reasoningEffort as ReasoningEffortChoice);
-      resultsText = formatVanillaResults(vanilla);
-      modelConfigLine = "Model config: native Grok models via OAuth (dynamic selection)";
-      prompts.note(formatVanillaSummary(vanilla), "Vanilla Grok models (optimized)");
+      resultsText = "Vanilla Grok host defaults will be preserved; no model tables will be written.";
+      modelConfigLine = "Model config: host Grok defaults (untouched)";
     } else {
       const selectedPreset = modelMode as SetupPreset;
       const discovery = baseDiscovery === null ? null : withReasoningEffort(applyModelPreset(baseDiscovery, selectedPreset), reasoningEffort as ReasoningEffortChoice);
@@ -242,25 +220,21 @@ export async function runSetupTui(args: { readonly noTui?: boolean; readonly cod
           if (customMode === "all") {
             const overrideResult = await configureAgentOverrides(prompts, customDiscovery, choices, selectors, roleResults, agents, bundled, toRecommendationOverrideMap(bundled));
             configuredForInstall = { ...customDiscovery, agentConfig: agents, agentOverrideMap: overrideResult.agentOverrideMap };
-            resultsText = formatCustomResults(selectedPreset, configuredForInstall, roleResults, agents, overrideResult.extraResults);
+            resultsText = formatPresetResults(selectedPreset, customDiscovery);
             modelConfigLine = `Model config: ${selectedPreset} preset (customized all named agents)`;
           } else {
             configuredForInstall = { ...customDiscovery, agentConfig: agents };
-            resultsText = formatCustomResults(selectedPreset, configuredForInstall, roleResults, agents);
+            resultsText = formatPresetResults(selectedPreset, customDiscovery);
             modelConfigLine = `Model config: ${selectedPreset} preset (customized roles)`;
           }
         } else {
           configuredForInstall = discovery;
-          resultsText = discovery === null
-            ? "No model discovery was available. Installer will preserve existing model configuration."
-            : formatPresetResults(selectedPreset, discovery);
+          resultsText = formatPresetResults(selectedPreset, discovery);
           modelConfigLine = `Model config: ${selectedPreset} global preset`;
         }
       } else {
         configuredForInstall = discovery;
-        resultsText = discovery === null
-          ? "No model discovery was available. Installer will preserve existing model configuration."
-          : formatPresetResults(selectedPreset, discovery);
+        resultsText = discovery === null ? resultsText : formatPresetResults(selectedPreset, discovery);
         modelConfigLine = `Model config: ${selectedPreset} global preset`;
       }
     }

@@ -28,32 +28,20 @@ async function runHook(payload: Record<string, unknown>): Promise<{ exitCode: nu
   })
 }
 
-describe("sisyphus no-edit PreToolUse", () => {
+describe("sisyphus full-permissions PreToolUse (allow-all)", () => {
   test("registers PreToolUse matcher once", () => {
     const once = addNativeSisyphusNoEditHooks({})
     const twice = addNativeSisyphusNoEditHooks(once as Record<string, unknown>)
     const groups = twice.PreToolUse as unknown[]
     expect(groups).toHaveLength(1)
     expect(JSON.stringify(groups[0])).toContain(NATIVE_SISYPHUS_NO_EDIT_FILE)
-    expect(JSON.stringify(groups[0])).toContain("search_replace")
+    expect(JSON.stringify(groups[0])).toContain("full permissions")
   })
 
-  test("denies search_replace for sisyphus", async () => {
+  test("allows search_replace for sisyphus", async () => {
     const result = await runHook({
       hookEventName: "PreToolUse",
       agentName: "sisyphus",
-      toolName: "search_replace",
-      toolInput: { path: "src/x.ts" },
-    })
-    expect(result.exitCode).toBe(2)
-    expect(result.stdout).toContain('"decision":"deny"')
-    expect(result.stdout).toContain("handoff plan")
-  })
-
-  test("allows product edits for a non-native lazycodex label", async () => {
-    const result = await runHook({
-      hookEventName: "PreToolUse",
-      agentName: "lazycodex",
       toolName: "search_replace",
       toolInput: { path: "src/x.ts" },
     })
@@ -61,78 +49,30 @@ describe("sisyphus no-edit PreToolUse", () => {
     expect(result.stdout).toBe("")
   })
 
-  test("denies unlabeled main-session product edits (sticky sisyphus)", async () => {
+  test("allows unlabeled main-session product edits", async () => {
     const result = await runHook({
       hookEventName: "PreToolUse",
       toolName: "search_replace",
       toolInput: { path: "src/x.ts" },
     })
-    expect(result.exitCode).toBe(2)
-    expect(result.stdout).toContain("deny")
-    expect(result.stdout).toContain("handoff plan")
-  })
-
-  test("denies mutating shell for watcher", async () => {
-    const result = await runHook({
-      hookEventName: "PreToolUse",
-      agentName: "watcher",
-      toolName: "run_terminal_command",
-      toolInput: { command: "sed -i 's/a/b/' src/foo.ts" },
-    })
-    expect(result.exitCode).toBe(2)
-    expect(result.stdout).toContain("deny")
-  })
-
-  test("allows lfg orchestrator shell for sisyphus", async () => {
-    const result = await runHook({
-      hookEventName: "PreToolUse",
-      agentName: "sisyphus",
-      toolName: "run_terminal_command",
-      toolInput: { command: "lfg --json orchestrator status" },
-    })
     expect(result.exitCode).toBe(0)
+    expect(result.stdout).not.toContain("deny")
   })
 
   test.each([
-    "lfg --json handoff plan --role coding --engine gpt --focus x",
-    "npx @islee23520/lfg --json orchestrator status",
-    "codex exec --help",
-    "ls src/grok",
-    "pwd",
-    "cat package.json",
-    "head -n 2 package.json",
-    "tail -n 2 package.json",
-    "rg sisyphus src/grok",
-    "grep sisyphus AGENTS.md",
-    "git status --short",
-    "git log -1",
-    "git diff --stat",
-    "git show HEAD",
-    "which lfg",
-  ])("allows CEO shell allowlist command: %s", async (command) => {
-    const result = await runHook({ agentName: "sisyphus", toolName: "run_terminal_command", toolInput: { command } })
+    "search_replace",
+    "write",
+    "multi_edit",
+    "apply_patch",
+    "delete_file",
+    "notebook_edit",
+    "edit",
+    "str_replace",
+    "create_file",
+    "run_terminal_command",
+  ])("allows tool %s for sisyphus", async (toolName) => {
+    const result = await runHook({ agentName: "sisyphus", toolName, toolInput: { path: "src/x.ts" } })
     expect(result.exitCode).toBe(0)
-  })
-
-  test.each([
-    "npm test",
-    "npm run build",
-    "node scripts/build.mjs",
-    "npx vitest run src/grok",
-    "git add src/grok",
-    "git commit -m nope",
-    "echo changed > product.txt",
-    "cat package.json | tee copy.json",
-    "sed -i 's/a/b/' src/foo.ts",
-    "find src -type f",
-    "rm -f product.txt",
-    "ls $(rm -rf /tmp/lfg-ceo-hook-repro)",
-    "cat $(evil)",
-    "cat ${EVIL}",
-    "cat $EVIL",
-  ])("denies CEO shell outside allowlist: %s", async (command) => {
-    const result = await runHook({ agentName: "sisyphus", toolName: "run_terminal_command", toolInput: { command } })
-    expect(result.exitCode).toBe(2)
-    expect(result.stdout).toContain('"decision":"deny"')
+    expect(result.stdout).not.toContain('"decision":"deny"')
   })
 })

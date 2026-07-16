@@ -6,9 +6,6 @@ export const BACKEND_ROUTE_CATEGORY_NAMES = [] as const
 
 export const BACKEND_ROUTE_AGENT_NAMES = [
   "sisyphus",
-  "watcher",
-  "explorer",
-  "git-master",
 ] as const
 
 export type BackendRouteCategoryName = (typeof BACKEND_ROUTE_CATEGORY_NAMES)[number]
@@ -37,9 +34,6 @@ const DEFAULT_CATEGORY_BACKENDS: Readonly<Partial<Record<string, CliBackend>>> =
 
 const DEFAULT_AGENT_BACKENDS: Readonly<Record<BackendRouteAgentName, CliBackend>> = {
   sisyphus: "grok",
-  watcher: "grok",
-  explorer: "grok",
-  "git-master": "grok",
 }
 
 export function isCliBackend(value: unknown): value is CliBackend {

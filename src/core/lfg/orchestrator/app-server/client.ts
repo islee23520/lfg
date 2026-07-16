@@ -3,6 +3,7 @@ import { userInfo } from "node:os"
 import { join } from "node:path"
 import type { AppServerClient, AppServerSnapshot, AppServerThread, AppServerThreadStatus } from "./types"
 import { handoffWithAppServer } from "./handoff"
+import { WebSocketRpcClient } from "./websocket-rpc"
 
 type ClientOptions = {
   readonly binary?: string
@@ -17,10 +18,11 @@ const RECIPES = [
 ] as const
 
 export function createCodexAppServerClient(options: ClientOptions = {}): AppServerClient {
-  const binary = options.binary ?? "codex"
-  const timeoutMs = options.timeoutMs ?? 5_000
+  const envSource = options.env ?? process.env
+  const binary = resolveAppServerBinary(options.binary, envSource)
+  const timeoutMs = options.timeoutMs ?? resolveAppServerTimeoutMs(envSource)
   const spawnProcess = options.spawnProcess ?? spawn
-  const env = appServerEnv(options.env ?? process.env)
+  const env = appServerEnv(envSource)
 
   return {
     async snapshot(input): Promise<AppServerSnapshot> {
@@ -64,6 +66,29 @@ export function appServerEnv(source: Readonly<Record<string, string | undefined>
   return env
 }
 
+/** Prefer explicit option, then LFG_CODEX_BINARY env (dedicated shim), else stock `codex`. */
+export function resolveAppServerBinary(
+  explicit: string | undefined,
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const fromOption = explicit?.trim()
+  if (fromOption) return fromOption
+  const fromEnv = source.LFG_CODEX_BINARY?.trim()
+  if (fromEnv) return fromEnv
+  return "codex"
+}
+
+/** Default 10s; override with LFG_CODEX_APP_SERVER_TIMEOUT_MS for flaky stock daemons / dedicated servers. */
+export function resolveAppServerTimeoutMs(
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): number {
+  const raw = source.LFG_CODEX_APP_SERVER_TIMEOUT_MS?.trim()
+  if (!raw) return 10_000
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 100) return 10_000
+  return Math.floor(n)
+}
+
 async function bestEffortDaemonStart(
   spawnProcess: typeof spawn,
   binary: string,
@@ -85,10 +110,37 @@ async function queryThreadsWithFallback(
   cwd: string | undefined,
   timeoutMs: number,
 ): Promise<readonly AppServerThread[]> {
+  const deadline = Date.now() + timeoutMs
   try {
-    return await queryThreads(spawnProcess, binary, ["app-server", "proxy"], env, cwd, timeoutMs)
+    return await queryProxyThreads(spawnProcess, binary, env, cwd, remainingTimeout(deadline))
   } catch {
-    return queryThreads(spawnProcess, binary, ["app-server", "--stdio"], env, cwd, timeoutMs)
+    try {
+      return await queryProxyThreads(spawnProcess, binary, env, cwd, remainingTimeout(deadline))
+    } catch {
+      return queryThreads(spawnProcess, binary, ["app-server", "--stdio"], env, cwd, remainingTimeout(deadline))
+    }
+  }
+}
+
+function remainingTimeout(deadline: number): number {
+  return Math.max(1, deadline - Date.now())
+}
+
+async function queryProxyThreads(
+  spawnProcess: typeof spawn,
+  binary: string,
+  env: NodeJS.ProcessEnv,
+  cwd: string | undefined,
+  timeoutMs: number,
+): Promise<readonly AppServerThread[]> {
+  const child = spawnProcess(binary, ["app-server", "proxy"], { env, ...(cwd ? { cwd } : {}) })
+  const rpcClient = new WebSocketRpcClient(child, timeoutMs)
+  try {
+    await rpcClient.request(1, "initialize", { clientInfo: { name: "lfg-orchestrator-watch", version: "1" }, capabilities: { experimentalApi: false } })
+    await rpcClient.notify("initialized")
+    return parseThreadList(await rpcClient.request(2, "thread/list", { ...(cwd ? { cwd } : {}), limit: 200, sortKey: "updated_at", sortDirection: "desc" }))
+  } finally {
+    rpcClient.close()
   }
 }
 
@@ -100,7 +152,7 @@ async function queryThreads(
   cwd: string | undefined,
   timeoutMs: number,
 ): Promise<readonly AppServerThread[]> {
-  const child = spawnProcess(binary, [...args], { env })
+  const child = spawnProcess(binary, [...args], { env, ...(cwd ? { cwd } : {}) })
   const response = await rpc(child, cwd, timeoutMs)
   return parseThreadList(response)
 }
@@ -191,6 +243,16 @@ async function collectProcess(child: ChildProcessWithoutNullStreams, timeoutMs: 
 
 function cleanError(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).replace(/\/Users\/[^/]+/g, "~").slice(0, 500)
+}
+
+function parseRecord(line: string): Record<string, unknown> | null {
+  if (!line.trim()) return null
+  try {
+    const value: unknown = JSON.parse(line)
+    return isRecord(value) ? value : null
+  } catch {
+    return null
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -33,8 +33,8 @@ describe("setup backend engine CLI", () => {
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({ backendEngine: { selected: "codex" } })
-    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
-    expect(config).toMatch(/\[omo\.backend_routing\][\s\S]*global = "codex"/)
+    const config = JSON.parse(await readFile(join(home, ".grok", "lfg-backend-routing.json"), "utf8"))
+    expect(config).toMatchObject({ global: "codex" })
   })
 
   test("preserves and normalizes a legacy gemini backend on setup rerun without an explicit flag", async () => {
@@ -50,7 +50,7 @@ describe("setup backend engine CLI", () => {
 
     expect(result.exitCode).toBe(0)
     expect(result.json).toMatchObject({ backendRouting: { global: "codex" } })
-    const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
-    expect(config).toMatch(/\[omo\.backend_routing\][\s\S]*global = "codex"/)
+    const config = JSON.parse(await readFile(join(home, ".grok", "lfg-backend-routing.json"), "utf8"))
+    expect(config).toMatchObject({ global: "codex" })
   })
 })

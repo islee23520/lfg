@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
 import { resolve } from "node:path"
 import type { AppServerHandoff, AppServerThread, AppServerThreadStatus } from "./types"
+import { WebSocketRpcClient } from "./websocket-rpc"
 
 type HandoffOptions = {
   readonly binary: string
@@ -11,21 +12,198 @@ type HandoffOptions = {
   readonly prompt: string
   readonly model?: string
   readonly threadId?: string
+  readonly threadName?: string
+  readonly goal?: {
+    readonly objective: string
+    readonly status: "active"
+  }
+}
+
+type ThreadSyncRpc = {
+  request(id: number, method: string, params: Readonly<Record<string, unknown>>): Promise<unknown>
+}
+
+export async function syncThreadToApp(
+  rpc: ThreadSyncRpc,
+  threadId: string,
+  input: Pick<HandoffOptions, "prompt" | "threadName" | "goal">,
+  requestIds: readonly [number, number] = [4, 5],
+): Promise<{ readonly nameSynced: boolean; readonly goalSynced: boolean }> {
+  const name = input.threadName ?? `lfg/handoff: ${shortFocus(input.prompt)}`
+  const goal = input.goal ?? { objective: input.prompt, status: "active" as const }
+  // senpi and older Codex builds may omit name/goal methods (-32601). Treat as soft optional.
+  const nameSynced = await bestEffortRpc(rpc, requestIds[0], "thread/name/set", { threadId, name })
+  const goalSynced = await bestEffortRpc(rpc, requestIds[1], "thread/goal/set", {
+    threadId,
+    objective: goal.objective,
+    status: goal.status,
+  })
+  return { nameSynced, goalSynced }
+}
+
+async function bestEffortRpc(
+  rpc: ThreadSyncRpc,
+  id: number,
+  method: string,
+  params: Readonly<Record<string, unknown>>,
+): Promise<boolean> {
+  try {
+    await rpc.request(id, method, params)
+    return true
+  } catch (error) {
+    if (isMethodNotFound(error)) return false
+    throw error
+  }
+}
+
+function isMethodNotFound(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const msg = error.message
+  return /Method not found|code[\"']?\s*[:=]\s*-32601|-32601/i.test(msg)
 }
 
 export async function handoffWithAppServer(options: HandoffOptions): Promise<AppServerHandoff> {
-  const daemonReady = await startDaemon(options)
-  if (!daemonReady) return fallback("codex app-server daemon is unavailable")
-
-  try {
-    return await handoffWithTransport(options, ["app-server", "proxy"])
-  } catch (proxyError) {
+  const deadline = Date.now() + options.timeoutMs
+  const currentOptions = (): HandoffOptions => ({ ...options, timeoutMs: Math.max(1, deadline - Date.now()) })
+  const daemonReady = await startDaemon(currentOptions())
+  if (daemonReady) {
     try {
-      return await handoffWithTransport(options, ["app-server", "--stdio"])
-    } catch (stdioError) {
-      return fallback(cleanError(stdioError instanceof Error ? stdioError : proxyError))
+      return await handoffWithProxy(currentOptions())
+    } catch (error) {
+      if (!(error instanceof Error)) throw error
+      try {
+        return await handoffWithProxy(currentOptions())
+      } catch (retryError) {
+        if (!(retryError instanceof Error)) throw retryError
+      }
     }
   }
+  try {
+    return await handoffWithTransport(currentOptions(), ["app-server", "--stdio"])
+  } catch (error) {
+    return fallback(cleanError(error))
+  }
+}
+
+async function handoffWithProxy(options: HandoffOptions): Promise<AppServerHandoff> {
+  try {
+    return await handoffWithProxyConnection(options, false)
+  } catch (error) {
+    if (!isThreadNotFound(error)) throw error
+    return handoffWithProxyConnection(options, true)
+  }
+}
+
+async function handoffWithProxyConnection(options: HandoffOptions, startFresh: boolean): Promise<AppServerHandoff> {
+  const child = options.spawnProcess(options.binary, ["app-server", "proxy"], { env: options.env, cwd: options.cwd })
+  const rpc = new WebSocketRpcClient(child, options.timeoutMs)
+  try {
+    await rpc.request(1, "initialize", { clientInfo: { name: "lfg-handoff", version: "1" }, capabilities: { experimentalApi: false } })
+    await rpc.notify("initialized")
+    const listed = await rpc.request(2, "thread/list", { cwd: options.cwd, limit: 200, sortKey: "updated_at", sortDirection: "desc" })
+    const threads = parseThreadList(listed)
+    if (startFresh) {
+      const thread = await startProxyThread(rpc, options)
+      return await startProxyTurn(rpc, thread, false, options)
+    }
+    const existing = selectThread(threads, options.cwd, options.threadId)
+    if (existing === undefined) {
+      const thread = await openProxyThread(rpc, options, threads)
+      return await startProxyTurn(rpc, thread, false, options)
+    }
+    try {
+      const thread = await resumeProxyThread(rpc, existing, options)
+      return await startProxyTurn(rpc, thread, true, options)
+    } catch (error) {
+      if (!isThreadNotFound(error)) throw error
+      const thread = await startProxyThread(rpc, options)
+      return await startProxyTurn(rpc, thread, false, options)
+    }
+  } finally {
+    rpc.close()
+  }
+}
+
+async function startProxyTurn(
+  rpc: WebSocketRpcClient,
+  thread: AppServerThread,
+  attached: boolean,
+  options: HandoffOptions,
+  requestBase = 4,
+): Promise<AppServerHandoff> {
+  try {
+    const synced = await syncThreadToApp(rpc, thread.id, options, [requestBase, requestBase + 1])
+    const turnResult = await rpc.request(requestBase + 2, "turn/start", {
+      threadId: thread.id,
+      input: [{ type: "text", text: options.prompt }],
+      cwd: options.cwd,
+      ...(options.model ? { model: options.model } : {}),
+    })
+    return {
+      transport: "app-server",
+      attached,
+      thread,
+      turnId: parseTurnId(turnResult),
+      // True only when thread/goal/set succeeded. Soft-missing (-32601) leaves this false; turn still started.
+      goalSynced: synced.goalSynced,
+      error: null,
+    }
+  } catch (error) {
+    if (isThreadNotFound(error)) {
+      const fresh = await startProxyThread(rpc, options, requestBase + 10)
+      return startProxyTurn(rpc, fresh, false, options, requestBase + 20)
+    }
+    throw error
+  }
+}
+
+async function startProxyThread(rpc: WebSocketRpcClient, options: HandoffOptions, requestId = 7): Promise<AppServerThread> {
+  const started = await rpc.request(requestId, "thread/start", {
+    cwd: options.cwd,
+    sandbox: "workspace-write",
+    ...(options.model ? { model: options.model } : {}),
+  })
+  const thread = parseThreadResponse(started)
+  if (thread === null) throw new Error("thread/start returned no thread after stale-thread recovery")
+  return thread
+}
+
+async function resumeProxyThread(
+  rpc: WebSocketRpcClient,
+  existing: AppServerThread,
+  options: HandoffOptions,
+): Promise<AppServerThread> {
+  const resumed = await rpc.request(3, "thread/resume", {
+    threadId: existing.id,
+    cwd: options.cwd,
+    ...(options.model ? { model: options.model } : {}),
+  })
+  return parseThreadResponse(resumed) ?? existing
+}
+
+async function openProxyThread(rpc: WebSocketRpcClient, options: HandoffOptions, threads: readonly AppServerThread[]): Promise<AppServerThread> {
+  if (options.threadId) {
+    try {
+      const resumed = await rpc.request(3, "thread/resume", {
+        threadId: options.threadId,
+        cwd: options.cwd,
+        ...(options.model ? { model: options.model } : {}),
+      })
+      const parsedResume = parseThreadResponse(resumed)
+      if (parsedResume) return parsedResume
+    } catch (error) {
+      if (!isThreadNotFound(error)) throw error
+    }
+    return startProxyThread(rpc, options)
+  }
+  const result = await rpc.request(3, "thread/start", {
+    cwd: options.cwd,
+    sandbox: "workspace-write",
+    ...(options.model ? { model: options.model } : {}),
+  })
+  const parsed = parseThreadResponse(result)
+  if (parsed) return parsed
+  throw new Error(`thread/start returned no thread; ${threads.length} project threads were listed`)
 }
 
 async function startDaemon(options: HandoffOptions): Promise<boolean> {
@@ -42,7 +220,13 @@ async function startDaemon(options: HandoffOptions): Promise<boolean> {
 }
 
 async function handoffWithTransport(options: HandoffOptions, args: readonly string[]): Promise<AppServerHandoff> {
-  const child = options.spawnProcess(options.binary, [...args], { env: options.env })
+  const standalone = args.includes("--stdio")
+  const child = options.spawnProcess(options.binary, [...args], {
+    env: options.env,
+    cwd: options.cwd,
+    detached: standalone,
+  })
+  let handedOff = false
   try {
     await request(child, 1, "initialize", {
       clientInfo: { name: "lfg-handoff", version: "1" },
@@ -57,23 +241,60 @@ async function handoffWithTransport(options: HandoffOptions, args: readonly stri
     }, options.timeoutMs)
     const threads = parseThreadList(listed)
     const existing = selectThread(threads, options.cwd, options.threadId)
-    const thread = existing ?? await openThread(child, options, threads)
-    const turnResult = await request(child, 4, "turn/start", {
+    const thread = existing === undefined
+      ? await openThread(child, options, threads)
+      : await resumeThread(child, existing, options)
+    const synced = await syncThreadToApp({
+      request: (id, method, params) => request(child, id, method, params, options.timeoutMs),
+    }, thread.id, options)
+    const turnResult = await request(child, 6, "turn/start", {
       threadId: thread.id,
       input: [{ type: "text", text: options.prompt }],
       cwd: options.cwd,
       ...(options.model ? { model: options.model } : {}),
     }, options.timeoutMs)
-    return {
+    const result: AppServerHandoff = {
       transport: "app-server",
       attached: existing !== undefined,
       thread,
       turnId: parseTurnId(turnResult),
+      goalSynced: synced.goalSynced,
       error: null,
     }
+    handedOff = true
+    if (standalone) releaseStandaloneProcess(child)
+    return result
   } finally {
-    child.kill()
+    if (!handedOff || !standalone) child.kill()
   }
+}
+
+async function resumeThread(
+  child: ChildProcessWithoutNullStreams,
+  existing: AppServerThread,
+  options: HandoffOptions,
+): Promise<AppServerThread> {
+  const resumed = await request(child, 3, "thread/resume", {
+    threadId: existing.id,
+    cwd: options.cwd,
+    ...(options.model ? { model: options.model } : {}),
+  }, options.timeoutMs)
+  return parseThreadResponse(resumed) ?? existing
+}
+
+function releaseStandaloneProcess(child: ChildProcessWithoutNullStreams): void {
+  child.unref()
+  unrefStream(child.stdin)
+  unrefStream(child.stdout)
+  unrefStream(child.stderr)
+}
+
+function unrefStream(stream: unknown): void {
+  if (isRefable(stream)) stream.unref()
+}
+
+function isRefable(value: unknown): value is { readonly unref: () => void } {
+  return typeof value === "object" && value !== null && "unref" in value && typeof value.unref === "function"
 }
 
 async function openThread(
@@ -143,9 +364,10 @@ function selectThread(
   cwd: string,
   threadId: string | undefined,
 ): AppServerThread | undefined {
-  if (threadId) return threads.find((thread) => thread.id === threadId || thread.sessionId === threadId)
+  const liveThreads = threads.filter((thread) => thread.status === "active" || thread.status === "idle")
+  if (threadId) return liveThreads.find((thread) => thread.id === threadId || thread.sessionId === threadId)
   const projectRoot = resolve(cwd)
-  return threads.find((thread) => thread.cwd !== null && resolve(thread.cwd) === projectRoot)
+  return liveThreads.find((thread) => thread.cwd !== null && resolve(thread.cwd) === projectRoot)
 }
 
 function parseThreadList(value: unknown): readonly AppServerThread[] {
@@ -187,11 +409,19 @@ function normalizeStatus(value: string): AppServerThreadStatus {
 }
 
 function fallback(error: string): AppServerHandoff {
-  return { transport: "codex-exec-fallback", attached: false, thread: null, turnId: null, error }
+  return { transport: "codex-exec-fallback", attached: false, thread: null, turnId: null, goalSynced: false, error }
+}
+
+function shortFocus(value: string): string {
+  return value.replace(/\s+/g, " ").trim().slice(0, 72)
 }
 
 function cleanError(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).replace(/\/Users\/[^/]+/g, "~").slice(0, 500)
+}
+
+function isThreadNotFound(error: unknown): boolean {
+  return error instanceof Error && /thread not found/i.test(error.message)
 }
 
 function parseRecord(line: string): Record<string, unknown> | null {

@@ -23,12 +23,19 @@ describe("handoff plan command", () => {
   test("hands coding work to an attached project app-server thread", async () => {
     const root = await makeHandoffTempRoot("lfg-handoff-app-server-")
     const appServerClient: AppServerClient = {
-      snapshot: async () => ({ availability: "available", daemonStarted: true, threads: [], error: null, recipes: [] }),
+      snapshot: async () => ({
+        availability: "available",
+        daemonStarted: true,
+        threads: [{ id: "thread-1", sessionId: "session-1", cwd: root, name: "lfg/handoff", preview: null, status: "active", updatedAt: 1 }],
+        error: null,
+        recipes: [],
+      }),
       handoff: async () => ({
         transport: "app-server",
         attached: true,
         thread: { id: "thread-1", sessionId: "session-1", cwd: root, name: null, preview: null, status: "active", updatedAt: 1 },
         turnId: "turn-1",
+        goalSynced: false,
         error: null,
       }),
     }
@@ -42,7 +49,44 @@ describe("handoff plan command", () => {
       executed: true,
       transport: { transport: "app-server", attached: true, thread: { id: "thread-1" }, turnId: "turn-1" },
       orchestrator: { appServerThreadId: "thread-1" },
+      monitor: { attached: true },
     })
+  })
+
+
+  test("embeds payload-file into app-server turn prompt", async () => {
+    const root = await makeHandoffTempRoot("lfg-handoff-payload-")
+    const payloadPath = join(root, "R42.md")
+    await writeFile(payloadPath, "# R42 real work\nDo the board.", "utf8")
+    let seenPrompt = ""
+    let seenGoal = ""
+    const appServerClient: AppServerClient = {
+      snapshot: async () => ({ availability: "available", daemonStarted: true, threads: [], error: null, recipes: [] }),
+      handoff: async (input) => {
+        seenPrompt = input.prompt
+        seenGoal = input.goal?.objective ?? ""
+        return {
+          transport: "app-server",
+          attached: false,
+          thread: { id: "thread-p", sessionId: "s", cwd: root, name: null, preview: null, status: "active", updatedAt: 1 },
+          turnId: "turn-p",
+          goalSynced: true,
+          error: null,
+        }
+      },
+    }
+
+    const result = await dispatchHandoffCommand([
+      "plan", "--role", "coding", "--engine", "gpt", "--cwd", root,
+      "--focus", "G001 board",
+      "--payload-file", payloadPath,
+    ], { json: true, noProbe: true, env: {}, appServerClient })
+
+    expect(result).toMatchObject({ ok: true, executed: true, transport: { transport: "app-server" } })
+    expect(seenPrompt).toContain("FULL TASK PAYLOAD")
+    expect(seenPrompt).toContain("R42 real work")
+    expect(seenGoal).toContain("G001 board")
+    expect(seenGoal).not.toContain("R42 real work")
   })
 
   test("reports the honest codex exec fallback when app-server is unavailable", async () => {
@@ -53,6 +97,7 @@ describe("handoff plan command", () => {
         attached: false,
         thread: null,
         turnId: null,
+        goalSynced: false,
         error: "daemon unavailable",
       }),
     }
@@ -90,7 +135,7 @@ describe("handoff plan command", () => {
     ], { json: true, noProbe: true, env: {} })
 
     expect(Object.keys(result)).toEqual([
-      "ok", "status", "command", "subcommand", "dryRun", "executed", "handoff", "readiness", "visionConfirmation", "transport", "orchestrator", "lfgIsPlugin",
+      "ok", "status", "command", "subcommand", "dryRun", "executed", "handoff", "readiness", "visionConfirmation", "transport", "orchestrator", "monitor", "lfgIsPlugin",
     ])
     expect(result).toMatchObject({
       ok: true,
@@ -185,6 +230,10 @@ describe("handoff plan command", () => {
       json: true,
       noProbe: false,
       env: { PATH: bin },
+      appServerClient: {
+        snapshot: async () => ({ availability: "missing", daemonStarted: false, threads: [], error: "unused", recipes: [] }),
+        handoff: async () => ({ transport: "codex-exec-fallback", attached: false, thread: null, turnId: null, goalSynced: false, error: "not invoked" }),
+      },
     })
 
     expect(result).toMatchObject({

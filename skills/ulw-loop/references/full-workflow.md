@@ -51,7 +51,7 @@ Size each worker to the task. Put the intended role, rigor level, and specialty 
 | Product implementation (LOW / MEDIUM / HIGH) | **GPT-only external handoff:** `lfg --json handoff plan --role coding --engine gpt --focus <focus>`. Create or attach the project Codex app-server thread; use the reported `codex-exec-fallback` launch only when the daemon is unavailable. Never `spawn_subagent` hephaestus/coding/lazycodex-worker for the product body. See `docs/grok-external-engine-orchestration.md`. |
 | External library / docs research | `TASK: act as a librarian. ...` |
 
-For the fallback launch contract, follow `ulw-external-engine`: execute `handoff.launch.argv[0]` with `handoff.launch.argv.slice(1)`; `handoff.launch.binary` is identity/readiness metadata, not an argv prefix.
+For the fallback launch contract: execute `handoff.launch.argv[0]` with `handoff.launch.argv.slice(1)`; `handoff.launch.binary` is identity/readiness metadata, not an argv prefix.
 | Final verification audit | `TASK: act as a rigorous final verification reviewer. ...` |
 
 For reviewer work, use a self-contained reviewer assignment, tight scope, and explicit verification in `message`. Never spawn a context-only child for review.

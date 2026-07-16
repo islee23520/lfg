@@ -60,7 +60,7 @@ theme = "dark"
     }
   })
 
-  test("skips unsafe full agent override names when writing omo agent sections", async () => {
+  test("does not write any omo agent sections from full agent overrides", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-agent-section-test-"))
     const configPath = join(home, ".grok", "config.toml")
 
@@ -87,7 +87,7 @@ theme = "dark"
       })
 
       const content = await readFile(configPath, "utf8")
-      expect(content).toContain("[omo.agents.librarian]")
+      expect(content).not.toContain("[omo.agents.librarian]")
       expect(content).not.toContain("[omo.agents.bad.agent]")
       expect(content).not.toContain("bad-model")
       expect(content).not.toContain("newline-model")

@@ -8,12 +8,41 @@ import { addNativeAccountRotateHooks, NATIVE_ACCOUNT_ROTATE_FILE } from "./nativ
 const hookPath = join(dirname(fileURLToPath(import.meta.url)), "..", "assets", "hooks", NATIVE_ACCOUNT_ROTATE_FILE)
 
 describe("native account rotate hook", () => {
-  test.each(["UserPromptSubmit", "SessionStart"] as const)("registers %s once", (eventName) => {
+  test("registers only UserPromptSubmit once so SessionStart cannot clobber freshly refreshed host auth", () => {
     // Given / When
-    const twice = addNativeAccountRotateHooks(addNativeAccountRotateHooks({}))
+    const legacy = {
+      SessionStart: [{ hooks: [{ command: `node "\${GROK_PLUGIN_ROOT}/hooks/${NATIVE_ACCOUNT_ROTATE_FILE}"` }] }],
+    }
+    const twice = addNativeAccountRotateHooks(addNativeAccountRotateHooks(legacy))
 
     // Then
-    expect(JSON.stringify(twice[eventName]).match(new RegExp(NATIVE_ACCOUNT_ROTATE_FILE, "g"))).toHaveLength(1)
+    expect(JSON.stringify(twice.UserPromptSubmit).match(new RegExp(NATIVE_ACCOUNT_ROTATE_FILE, "g"))).toHaveLength(1)
+    expect(JSON.stringify(twice.SessionStart ?? [])).not.toContain(NATIVE_ACCOUNT_ROTATE_FILE)
+  })
+
+  test("surfaces auth_expired_login_required as hook guidance", async () => {
+    const output = await new Promise<string>((resolve, reject) => {
+      const child = spawn(process.execPath, [hookPath], {
+        env: {
+          ...process.env,
+          LFG_ACCOUNT_ROTATE_COMMAND: process.execPath,
+          LFG_ACCOUNT_ROTATE_ARGS: JSON.stringify(["-e", "process.stdout.write(JSON.stringify({status:'auth_expired_login_required'}))"]),
+        },
+        stdio: ["pipe", "pipe", "pipe"],
+      })
+      let stdout = ""
+      child.stdout.on("data", (chunk) => { stdout += String(chunk) })
+      child.on("error", reject)
+      child.on("close", () => resolve(stdout))
+      child.stdin.end(JSON.stringify({ hookEventName: "UserPromptSubmit" }))
+    })
+
+    expect(JSON.parse(output)).toMatchObject({
+      hookSpecificOutput: {
+        hookEventName: "UserPromptSubmit",
+        additionalContext: expect.stringContaining("auth_expired_login_required"),
+      },
+    })
   })
 
   test("invokes the account rotation command without exposing command output", async () => {

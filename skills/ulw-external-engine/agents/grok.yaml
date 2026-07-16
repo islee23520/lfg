@@ -1,4 +1,0 @@
-interface:
-  display_name: "OMO-like External Engine"
-  short_description: "Grok Sisyphus watcher + external Codex/GPT worker"
-  default_prompt: "Plan a GPT-only handoff with lfg --json handoff plan --engine gpt. Create or attach the Codex app-server thread; use codex exec only if the daemon is unavailable. Grok stays orchestrator."

@@ -18,7 +18,7 @@ describe("buildVanillaGrokConfig", () => {
     for (const [name, override] of Object.entries(cfg.agentOverrideMap)) {
       expect(isGrokModel(override.model)).toBe(true)
     }
-    expect(Object.keys(cfg.agentOverrideMap).sort()).toEqual(["explorer", "git-master", "sisyphus", "watcher"])
+    expect(Object.keys(cfg.agentOverrideMap).sort()).toEqual(["sisyphus"])
 
     // Mapping slots are Grok.
     expect(isGrokModel(cfg.mapping.default)).toBe(true)
@@ -63,7 +63,7 @@ describe("buildVanillaGrokConfig", () => {
   })
 
   test("vanilla results summarize global routes without enumerating bundled profiles", async () => {
-    // Given: the real bundled routing profiles resolved for vanilla Grok.
+    // Given: Sisyphus-only vanilla Grok config.
     const bundled = await loadBundledDefaultOmoOverrides()
     const cfg = buildVanillaGrokConfig(bundled, undefined)
 
@@ -77,8 +77,6 @@ describe("buildVanillaGrokConfig", () => {
     expect(results).toContain(`fast: ${cfg.mapping.fast}`)
     expect(results).toContain(`reasoning: ${cfg.mapping.reasoning}`)
     expect(results).toContain(`coding: ${cfg.mapping.coding}`)
-    expect(results).toContain(`${Object.keys(cfg.agentOverrideMap).length} bundled routing profiles will be installed`)
-    expect(results).toContain("~/.grok/omo-agent-overrides.json")
     expect(results).not.toContain("lazycodex-worker-low")
     expect(results).not.toContain("artistry-gen")
     expect(results).not.toContain("unspecified-high")

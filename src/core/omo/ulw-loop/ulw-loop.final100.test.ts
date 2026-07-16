@@ -27,6 +27,13 @@ import * as fs from "node:fs"
 import { recordFinalReviewBlockers } from "./review-blockers.js"
 
 const temps: string[] = []
+const SESSION_ENV = [
+  "OMO_ULW_LOOP_SESSION_ID",
+  "LFG_ULW_LOOP_SESSION_ID",
+  "GROK_SESSION_ID",
+  "CODEX_SESSION_ID",
+  "CODEX_THREAD_ID",
+] as const
 afterEach(async () => {
   await Promise.all(temps.splice(0).map((d) => rm(d, { recursive: true, force: true })))
   vi.restoreAllMocks()
@@ -61,11 +68,17 @@ async function capture(fn: () => Promise<number>): Promise<{ code: number; out: 
 
 async function withCwd<T>(dir: string, fn: () => Promise<T>): Promise<T> {
   const prev = process.cwd()
+  const saved = Object.fromEntries(SESSION_ENV.map((key) => [key, process.env[key]]))
+  for (const key of SESSION_ENV) delete process.env[key]
   process.chdir(dir)
   try {
     return await fn()
   } finally {
     process.chdir(prev)
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
   }
 }
 

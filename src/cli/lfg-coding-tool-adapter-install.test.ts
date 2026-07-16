@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
@@ -7,10 +7,11 @@ import { runLfg } from "./test/test-process"
 describe("lfg coding tool adapter install", () => {
   test("setup --run always records Grok adapter (pi-agent rejected)", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-adapter-run-"))
+    const path = await fakeCodexPath(home)
     const rejected = await runLfg(["--json", "setup", "--run", "--coding-tool-adapter", "pi-agent"], {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
-      PATH: "/usr/bin:/bin",
+      PATH: path,
     })
     expect(rejected.exitCode).toBe(1)
     expect(rejected.json).toMatchObject({
@@ -22,7 +23,7 @@ describe("lfg coding tool adapter install", () => {
     const result = await runLfg(["--json", "setup", "--run"], {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
-      PATH: "/usr/bin:/bin",
+      PATH: path,
     })
 
     expect(result.exitCode).toBe(0)
@@ -50,7 +51,7 @@ describe("lfg coding tool adapter install", () => {
 
     // Settings live only in config.toml; retired lfg.json / lfg-config.jsonc are not written.
     const configToml = await readFile(join(home, ".grok", "config.toml"), "utf8")
-    expect(configToml).toContain("[omo.models]")
+    expect(configToml).not.toContain("[omo.models]")
     expect(result.json).toMatchObject({
       lfgConfigPath: join(home, ".grok", "config.toml"),
     })
@@ -63,6 +64,7 @@ describe("lfg coding tool adapter install", () => {
 
   test("setup --run deletes pre-existing retired lfg.json / jsonc / schema", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-adapter-retire-"))
+    const path = await fakeCodexPath(home)
     await mkdir(join(home, ".grok"), { recursive: true })
     await writeFile(join(home, ".grok", "lfg.json"), '{"version":1}\n', "utf8")
     await writeFile(join(home, ".grok", "lfg-config.jsonc"), '{"version":1}\n', "utf8")
@@ -71,7 +73,7 @@ describe("lfg coding tool adapter install", () => {
     const result = await runLfg(["--json", "setup", "--run"], {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
-      PATH: "/usr/bin:/bin",
+      PATH: path,
     })
     expect(result.exitCode).toBe(0)
     await expect(readFile(join(home, ".grok", "lfg.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
@@ -83,17 +85,18 @@ describe("lfg coding tool adapter install", () => {
 
   test("setup --run keeps Grok adapter on re-run", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-adapter-preserve-"))
+    const path = await fakeCodexPath(home)
     const first = await runLfg(["--json", "setup", "--run"], {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
-      PATH: "/usr/bin:/bin",
+      PATH: path,
     })
     expect(first.exitCode).toBe(0)
 
     const second = await runLfg(["--json", "setup", "--run"], {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
-      PATH: "/usr/bin:/bin",
+      PATH: path,
     })
     expect(second.exitCode).toBe(0)
     expect(second.json).toMatchObject({
@@ -104,6 +107,7 @@ describe("lfg coding tool adapter install", () => {
 
   test("grok adapter setup removes stale proxy routing for vanilla host auth", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-adapter-vanilla-"))
+    const path = await fakeCodexPath(home)
     const configPath = join(home, ".grok", "config.toml")
     await mkdir(join(home, ".grok"), { recursive: true })
     await writeFile(
@@ -122,17 +126,25 @@ describe("lfg coding tool adapter install", () => {
     const result = await runLfg(["--json", "setup", "--run", "--coding-tool-adapter", "grok"], {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
-      PATH: "/usr/bin:/bin",
+      PATH: path,
     })
 
     expect(result.exitCode).toBe(0)
     const config = await readFile(configPath, "utf8")
     expect(config).not.toContain("models_base_url")
     expect(config).not.toContain('base_url = "http://127.0.0.1:8317/v1"')
-    expect(config).toContain('default = "')
-    expect(config).toContain("grok")
+    expect(config).not.toContain("[model.")
 
     // Retired lfg.json must not be required or recreated for adapter selection.
     await expect(readFile(join(home, ".grok", "lfg.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
   }, 15_000)
 })
+
+async function fakeCodexPath(home: string): Promise<string> {
+  const bin = join(home, "bin")
+  await mkdir(bin, { recursive: true })
+  const codex = join(bin, "codex")
+  await writeFile(codex, "#!/bin/sh\nexit 0\n", "utf8")
+  await chmod(codex, 0o755)
+  return `${bin}:/usr/bin:/bin`
+}

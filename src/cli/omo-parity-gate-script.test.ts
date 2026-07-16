@@ -50,26 +50,10 @@ describe("scripts/assert-omo-parity.mjs", { timeout: 15_000 }, () => {
 
   test.each([
     {
-      name: "ulw-external-engine is missing",
-      expectedFailure: "skills/ulw-external-engine/SKILL.md: missing",
+      name: "start-work loses the handoff planner command",
+      expectedFailure: 'skills/start-work/SKILL.md: missing "lfg --json handoff plan"',
       mutate: async (root: string) => {
-        await rm(join(root, "skills", "ulw-external-engine"), { recursive: true, force: true })
-      },
-    },
-    {
-      name: "ulw-external-engine contains payload command substitution",
-      expectedFailure: 'skills/ulw-external-engine/SKILL.md: contains stale metadata "$(cat"',
-      mutate: async (root: string) => {
-        const path = join(root, "skills", "ulw-external-engine", "SKILL.md")
-        const content = await readFile(path, "utf8")
-        await writeFile(path, `${content}\n$(cat /tmp/handoff.md)\n`, "utf8")
-      },
-    },
-    {
-      name: "ulw-external-engine loses the handoff planner command",
-      expectedFailure: 'skills/ulw-external-engine/SKILL.md: missing "lfg --json handoff plan"',
-      mutate: async (root: string) => {
-        const path = join(root, "skills", "ulw-external-engine", "SKILL.md")
+        const path = join(root, "skills", "start-work", "SKILL.md")
         const content = await readFile(path, "utf8")
         await writeFile(path, content.replaceAll("lfg --json handoff plan", "lfg --json handoff prepare"), "utf8")
       },

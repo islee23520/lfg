@@ -40,42 +40,19 @@ export function purgeInvalidModelSettingsToml(
   if (available.size === 0) {
     return { next: source, remappedRoutes: [], removedModelSections: [], removedPluginIds: [] }
   }
-  const fallbacks = pickRoleFallbacks([...available])
   const remappedRoutes: RemappedRoute[] = []
-  let next = source
+  let next = removeTomlSectionsByPrefix(source, "model.")
+  next = removeTomlSectionsByPrefix(next, "models")
+  next = removeTomlSectionsByPrefix(next, "subagents.models")
+  next = removeTomlSectionsByPrefix(next, "subagents.reasoning_effort")
+  next = removeTomlSectionsByPrefix(next, "subagents.toggle")
+  next = removeTomlSectionsByPrefix(next, "omo.agents")
+  next = removeTomlSectionsByPrefix(next, "omo.models")
+  next = removeTomlSectionsByPrefix(next, "omo.backend_routing.agents")
+  next = removeTomlSectionsByPrefix(next, "agents")
 
-  const removedModelSections: string[] = []
-  for (const alias of listModelSectionAliases(next)) {
-    if (shouldKeepModelSection(alias, next, available)) continue
-    next = removeTomlSection(next, modelSectionName(alias))
-    removedModelSections.push(alias)
-  }
-
-  const subagents = rewriteAssignmentSection(next, "subagents.models", (key, value) => {
-    if (!shouldRemapModel(value, available)) return value
-    const to = roleFallbackForAgent(key, fallbacks)
-    remappedRoutes.push({ location: `subagents.models.${key}`, from: value, to })
-    return to
-  })
-  next = subagents.next
-
-  // Active agent namespace only. Retired [lazycodex.*] is stripped, not remapped.
-  next = rewriteAgentModelSections(next, "omo.agents.", available, fallbacks, remappedRoutes)
+  const removedModelSections = [...listModelSectionAliases(source)]
   next = removeTomlSectionsByPrefix(next, "lazycodex")
-
-  for (const section of ["omo.models", "models"] as const) {
-    const roleKeys = new Set(["default", "fast", "reasoning", "coding"])
-    const rewritten = rewriteAssignmentSection(next, section, (key, value) => {
-      if (key === "available") return value
-      if (!roleKeys.has(key) && section !== "models") return value
-      if (key !== "default" && section === "models") return value
-      if (!shouldRemapModel(value, available)) return value
-      const to = roleFallbackForAgent(key, fallbacks)
-      remappedRoutes.push({ location: `${section}.${key}`, from: value, to })
-      return to
-    })
-    next = rewritten.next
-  }
 
   const plugins = stripMissingPlugins(next, installedPlugins)
   return {

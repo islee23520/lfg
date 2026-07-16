@@ -26,6 +26,7 @@ export type AppServerHandoff =
       readonly attached: boolean
       readonly thread: AppServerThread
       readonly turnId: string | null
+      readonly goalSynced: boolean
       readonly error: null
     }
   | {
@@ -33,6 +34,7 @@ export type AppServerHandoff =
       readonly attached: false
       readonly thread: null
       readonly turnId: null
+      readonly goalSynced: false
       readonly error: string
     }
 
@@ -43,5 +45,10 @@ export interface AppServerClient {
     readonly prompt: string
     readonly model?: string
     readonly threadId?: string
+    readonly threadName?: string
+    readonly goal?: {
+      readonly objective: string
+      readonly status: "active"
+    }
   }): Promise<AppServerHandoff>
 }

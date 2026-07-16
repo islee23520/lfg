@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest"
 import { purgeInvalidGrokModelSettings } from "./purge-invalid-model-settings"
 
 describe("purgeInvalidGrokModelSettings", () => {
-  test("Given invalid routes and a host models_cache, When doctor/setup purge runs, Then gpt routes are remapped and missing plugins removed", async () => {
+  test("Given invalid routes, When purge runs, Then routing tables and missing plugins are removed", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-purge-models-"))
     await mkdir(join(home, ".grok", "plugins", "lfg"), { recursive: true })
     await writeFile(
@@ -53,25 +53,22 @@ reasoning_level = "xhigh"
     expect(result.changed).toBe(true)
     expect(result.skipped).toBe(false)
     expect(result.removedPluginIds).toContain("ocx-models")
-    expect(result.remappedRoutes.some((route) => route.from === "gpt-5.5")).toBe(true)
+    expect(result.remappedRoutes).toEqual([])
 
     const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
     expect(config).not.toContain("gpt-5.5")
     expect(config).not.toContain("ocx-models")
-    expect(config).toContain('plan = "grok-4.5"')
-    expect(config).toContain('explore = "grok-composer-2.5-fast"')
-    // Unavailable Grok id remaps to coding role fallback (composer when present in catalog).
-    expect(config).toContain('coding = "grok-composer-2.5-fast"')
+    expect(config).not.toContain("[subagents.models]")
+    expect(config).not.toContain("[omo.agents")
     expect(config).not.toContain("grok-build-0.1")
 
     const overrides = JSON.parse(await readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")) as {
-      overrides: { plan: { model: string; model_fallback?: string } }
+      overrides: Readonly<Record<string, unknown>>
     }
-    expect(overrides.overrides.plan.model).toBe("grok-4.5")
-    expect(overrides.overrides.plan.model_fallback).toBeUndefined()
+    expect(overrides.overrides).not.toHaveProperty("plan")
   })
 
-  test("Given no models_cache but foreign models.default, When purge runs, Then default is remapped to Grok safety net (no 401)", async () => {
+  test("Given no models_cache but foreign models.default, When purge runs, Then the models table is removed", async () => {
     // Given: host-auth session with no discovery cache; user set an unauthenticated foreign default.
     const home = await mkdtemp(join(tmpdir(), "lfg-purge-no-cache-foreign-default-"))
     await mkdir(join(home, ".grok", "plugins", "lfg"), { recursive: true })
@@ -96,9 +93,9 @@ model = "grok-4.5"
 
     // Then: foreign default is remapped so host auth no longer 401s after recovery.
     expect(result.changed).toBe(true)
-    expect(result.remappedRoutes.some((r) => r.location === "models.default" && r.from === "cx/gpt-5.6-sol")).toBe(true)
+    expect(result.remappedRoutes).toEqual([])
     const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
-    expect(config).toContain('default = "grok-4.5"')
+    expect(config).not.toContain("[models]")
     expect(config).not.toContain("cx/gpt-5.6-sol")
   })
 
@@ -153,12 +150,11 @@ model = "grok-4.20-0309-reasoning"
     const config = await readFile(join(home, ".grok", "config.toml"), "utf8")
     expect(config).not.toContain("grok-4.20-0309-reasoning")
     expect(config).not.toContain("model_fallback")
-    expect(config).toContain('model = "grok-4.5"')
+    expect(config).not.toContain("[model.")
 
     const overrides = JSON.parse(await readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")) as {
-      overrides: { plan: { model: string; model_fallback?: string } }
+      overrides: Readonly<Record<string, unknown>>
     }
-    expect(overrides.overrides.plan.model).toBe("grok-4.5")
-    expect(overrides.overrides.plan.model_fallback).toBeUndefined()
+    expect(overrides.overrides).not.toHaveProperty("plan")
   })
 })

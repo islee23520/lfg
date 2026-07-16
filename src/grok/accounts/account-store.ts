@@ -32,7 +32,8 @@ export type AccountSummary = {
 
 export type RotationResult =
   | { readonly ok: true; readonly status: "account_selected"; readonly account: AccountSummary }
-  | { readonly ok: false; readonly status: "no_enabled_accounts"; readonly account: null }
+  | { readonly ok: true; readonly status: "host_auth_preserved"; readonly account: AccountSummary | null }
+  | { readonly ok: false; readonly status: "no_enabled_accounts" | "auth_expired_login_required"; readonly account: null }
 
 export class AccountStoreError extends Error {
   constructor(
@@ -142,8 +143,18 @@ export class AccountStore {
 
   rotate(activeAuthPath?: string): RotationResult {
     if (!this.#settingEnabled()) return { ok: false, status: "no_enabled_accounts", account: null }
+    if (!this.#hasEnabledAccounts()) return { ok: false, status: "no_enabled_accounts", account: null }
+    const hostAuth = activeAuthPath === undefined ? null : readAuthIfExists(activeAuthPath)
+    if (hostAuth !== null) this.#refreshStoredSnapshotFromHost(hostAuth)
     const candidate = this.#nextEnabledAccount()
-    if (candidate === null) return { ok: false, status: "no_enabled_accounts", account: null }
+    if (candidate === null) {
+      return hostAuth !== null && authUsability(hostAuth) === "valid"
+        ? { ok: true, status: "host_auth_preserved", account: this.list().find((account) => account.active) ?? null }
+        : { ok: false, status: "auth_expired_login_required", account: null }
+    }
+    if (hostAuth !== null && authUsability(hostAuth) === "valid" && authUsability(parseAuth(candidate.auth_json)) === "refreshable") {
+      return { ok: true, status: "host_auth_preserved", account: this.list().find((account) => account.active) ?? null }
+    }
     this.#activate(candidate, activeAuthPath)
     return { ok: true, status: "account_selected", account: this.#summary(this.#accountByName(candidate.name)) }
   }
@@ -169,14 +180,28 @@ export class AccountStore {
       SELECT id, name, email, enabled, auth_json, created_at, turns_used, last_selected_at
       FROM accounts
       WHERE enabled = 1
-      ORDER BY turns_used ASC, last_selected_at IS NOT NULL, last_selected_at ASC, id ASC
-      LIMIT 2
     `).all().map((row) => toStoredAccountRow(row))
+      .filter((row) => authUsability(parseAuth(row.auth_json)) !== "expired")
+      .sort((left, right) => {
+        const usability = authRank(parseAuth(left.auth_json)) - authRank(parseAuth(right.auth_json))
+        if (usability !== 0) return usability
+        if (left.turns_used !== right.turns_used) return left.turns_used - right.turns_used
+        if (left.last_selected_at === null && right.last_selected_at !== null) return -1
+        if (left.last_selected_at !== null && right.last_selected_at === null) return 1
+        return (left.last_selected_at ?? "").localeCompare(right.last_selected_at ?? "") || left.id - right.id
+      })
     const first = rows[0]
     if (first === undefined) return null
     const second = rows[1]
     const activeId = this.#activeId()
     return first.id === activeId && second?.turns_used === first.turns_used ? second : first
+  }
+
+  #refreshStoredSnapshotFromHost(auth: Readonly<Record<string, unknown>>): void {
+    if (authUsability(auth) !== "valid") return
+    const email = extractEmail(auth)
+    if (email === null) return
+    this.#db.prepare("UPDATE accounts SET auth_json = ? WHERE email = ?").run(JSON.stringify(auth), email)
   }
 
   #migrateAccountsSchema(): void {
@@ -193,6 +218,10 @@ export class AccountStore {
     this.#db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     const row = this.#db.prepare("SELECT value FROM settings WHERE key = 'rotation_enabled'").get()
     return row === undefined || row.value !== "0"
+  }
+
+  #hasEnabledAccounts(): boolean {
+    return Number(this.#db.prepare("SELECT COUNT(*) AS count FROM accounts WHERE enabled = 1").get()?.count ?? 0) > 0
   }
 
   #summary(row: AccountRow): AccountSummary {
@@ -245,6 +274,50 @@ function writeAuthAtomically(path: string, authJson: string): void {
   chmodSync(path, 0o600)
 }
 
+function readAuthIfExists(path: string): Record<string, unknown> | null {
+  try {
+    return parseAuth(readFileSync(path, "utf8"))
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") return null
+    return null
+  }
+}
+
+function authRank(auth: Readonly<Record<string, unknown>>): number {
+  return authUsability(auth) === "valid" ? 0 : 1
+}
+
+function authUsability(auth: Readonly<Record<string, unknown>>): "valid" | "refreshable" | "expired" {
+  const oidc = findOidcCredential(auth)
+  if (oidc === null || oidc.expiresAt === null) return "valid"
+  if (oidc.expiresAt > Date.now()) return "valid"
+  return oidc.hasRefreshToken ? "refreshable" : "expired"
+}
+
+function findOidcCredential(value: unknown): { readonly expiresAt: number | null; readonly hasRefreshToken: boolean } | null {
+  const parsed = authSchema.safeParse(value)
+  if (!parsed.success) return null
+  const record = parsed.data
+  const mode = record.auth_mode
+  const expiresValue = record.expires_at ?? record.expires
+  if (mode === "oidc" || expiresValue !== undefined) {
+    const expiresAt = typeof expiresValue === "number"
+      ? expiresValue
+      : typeof expiresValue === "string"
+        ? Date.parse(expiresValue)
+        : Number.NaN
+    return {
+      expiresAt: Number.isFinite(expiresAt) ? expiresAt : null,
+      hasRefreshToken: typeof record.refresh_token === "string" && record.refresh_token.trim().length > 0,
+    }
+  }
+  for (const child of Object.values(record)) {
+    const found = findOidcCredential(child)
+    if (found !== null) return found
+  }
+  return null
+}
+
 function summaryFromRow(row: AccountRow, activeId: number | null): AccountSummary {
   return { name: row.name, email: row.email, enabled: row.enabled === 1, active: row.id === activeId, createdAt: row.created_at, turnsUsed: row.turns_used, lastSelectedAt: row.last_selected_at }
 }
@@ -259,4 +332,8 @@ function toStoredAccountRow(row: Readonly<Record<string, unknown>>): StoredAccou
 
 function nullableId(row: Readonly<Record<string, unknown>> | undefined): number | null {
   return row === undefined || row.id === null ? null : Number(row.id)
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return typeof error === "object" && error !== null && "code" in error
 }

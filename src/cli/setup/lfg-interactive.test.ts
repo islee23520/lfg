@@ -10,7 +10,7 @@ describe("lfg interactive setup", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-ux-"))
 
     // When: the user declines the final install confirmation (vanilla path has no proxy quiz).
-    const result = await runLfgText(["setup", "--no-tui"], "1\nn\n", {
+    const result = await runLfgText(["setup", "--no-tui"], "n\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
     })
@@ -20,11 +20,12 @@ describe("lfg interactive setup", () => {
     expect(result.stdout).toContain("oMoMoMoMo... lfg setup")
     expect(result.stdout).toContain("[1/5] Discovering Grok model endpoint")
     expect(result.stdout).toContain("[2/5] Configuring LazyCodex agents")
-    expect(result.stdout).toContain("Default subagent CLI [grok/codex] (Enter = grok)")
+    expect(result.stdout).not.toContain("Default subagent CLI")
+    expect(result.stdout).not.toContain("Default implementer backend")
     expect(result.stdout).toContain("[3/5] Reviewing install plan")
     expect(result.stdout).toContain("Install Summary")
     expect(result.stdout).toContain("The Magic Word")
-    expect(result.stdout).toContain("Include ultrawork (or ulw) in your prompt")
+    expect(result.stdout).toMatch(/ultrawork|ulw|Codex/)
     expect(result.stdout).toContain("Install now? [y/N]")
     expect(result.stdout).toContain("Installation cancelled. Nothing was changed.")
     expect(result.stdout).toContain("oMoMoMoMo... Bye!")
@@ -36,7 +37,7 @@ describe("lfg interactive setup", () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-star-"))
 
     // When: the user installs, then declines the optional GitHub star action (no proxy quiz).
-    const result = await runLfgText(["setup", "--no-tui"], "1\ny\nn\n", {
+    const result = await runLfgText(["setup", "--no-tui"], "y\nn\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
     })
@@ -53,7 +54,7 @@ describe("lfg interactive setup", () => {
   test("no-tui install always persists Grok coding tool adapter", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-interactive-adapter-"))
 
-    const result = await runLfgText(["setup", "--no-tui"], "2\ny\nn\n", {
+    const result = await runLfgText(["setup", "--no-tui"], "y\nn\n", {
       HOME: home,
       LFG_DISABLE_DEFAULT_MODELS_PROXY: "1",
     })
@@ -61,8 +62,9 @@ describe("lfg interactive setup", () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain("Installation complete!")
     const configToml = await readFile(join(home, ".grok", "config.toml"), "utf8")
-    expect(configToml).toContain("[omo.models]")
-    expect(configToml).toContain('[omo.backend_routing]')
-    expect(configToml).toContain('global = "grok"')
+    expect(configToml).not.toContain("[omo.models]")
+    expect(configToml).not.toContain("[omo.backend_routing]")
+    expect(configToml).not.toContain("[model.")
+    await expect(readFile(join(home, ".grok", "lfg-backend-routing.json"), "utf8")).resolves.toContain('"global": "codex"')
   })
 })

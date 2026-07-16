@@ -7,7 +7,7 @@ import { runGrokInstall } from "../install/run-grok-install"
 
 /** #29 — config.toml merge only via runGrokInstall transaction. */
 describe("config single writer acceptance (#29)", () => {
-  test("runGrokInstall merges endpoints and model sections idempotently", async () => {
+  test("runGrokInstall merges the thin endpoint config idempotently", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-config-writer-"))
     const discovery = {
       baseUrl: "http://127.0.0.1:11434/v1",
@@ -22,7 +22,8 @@ describe("config single writer acceptance (#29)", () => {
     const second = await readFile(join(home, ".grok", "config.toml"), "utf8")
     expect(second).toBe(first)
     expect(first).toContain("[endpoints]")
-    expect(first).toContain('default = "gpt-4.1-mini"')
+    expect(first).not.toContain("[omo.models]")
+    expect(first).not.toContain("[model.")
     expect(first).toContain("models_base_url")
     const endpointsBlock = first.split(/\n\[/).find((chunk) => chunk.startsWith("endpoints]") || chunk.startsWith("[endpoints]"))
     expect(endpointsBlock ?? "").not.toMatch(/api_key/)

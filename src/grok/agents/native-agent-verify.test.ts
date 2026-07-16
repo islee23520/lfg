@@ -17,14 +17,14 @@ describe("verifyNativeOmoAgents", () => {
     tempHomes.push(home)
     const pluginRoot = join(home, ".grok", "plugins", "lfg")
 
-    await seedNativeAgents(home, pluginRoot, { skipPrompt: "explorer" })
+    await seedNativeAgents(home, pluginRoot, { skipPrompt: "sisyphus" })
 
     const result = await verifyNativeOmoAgents(pluginRoot, home)
 
     expect(result.status).toBe("missing")
     expect(result.pluginAgents).toEqual([...NATIVE_OMO_AGENT_NAMES])
     expect(result.roles).toEqual([...NATIVE_OMO_AGENT_NAMES])
-    expect(result.prompts).not.toContain("explorer")
+    expect(result.prompts).not.toContain("sisyphus")
     expect(result.retiredLazycodexAbsent).toBe(true)
   })
 })

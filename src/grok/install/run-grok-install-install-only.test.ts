@@ -43,7 +43,7 @@ describe("runGrokInstall install-only", () => {
     await expect(readFile(join(home, ".grok", "lfg.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
   })
 
-  test("install-only materializes difficulty-tier roles, plugin agents, and omo prompts from bundled defaults", async () => {
+  test("install-only materializes only sisyphus and no difficulty-tier workers", async () => {
     // Given: fresh temp Grok home on the shipped install-only path (no override/config writers).
     const home = await mkdtemp(join(tmpdir(), "lfg-grok-install-only-tier-"))
 
@@ -58,18 +58,9 @@ describe("runGrokInstall install-only", () => {
     expect(run.omoAgents).not.toBeNull()
     expect(run.omoAgents?.ok).toBe(true)
 
+    await expect(readFile(join(home, ".grok", "roles", "sisyphus.toml"), "utf8")).resolves.toContain("model =")
     for (const name of DIFFICULTY_TIER_WORKERS) {
-      const role = await readFile(join(home, ".grok", "roles", `${name}.toml`), "utf8")
-      expect(role).toContain("model =")
-      expect(role).toContain("reasoning_effort")
-      expect(role).toMatch(/prompt_file\s*=/)
-
-      const pluginAgent = await readFile(join(home, ".grok", "plugins", "lfg", "agents", `${name}.md`), "utf8")
-      expect(pluginAgent).toContain(`name: ${name}`)
-
-      const prompt = await readFile(join(home, ".grok", "prompts", "omo", `${name}.md`), "utf8")
-      expect(prompt.length).toBeGreaterThan(0)
-      expect(prompt).toMatch(/worker|difficulty|implementation/i)
+      await expect(readFile(join(home, ".grok", "roles", `${name}.toml`), "utf8")).rejects.toMatchObject({ code: "ENOENT" })
     }
 
     await expect(readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" })

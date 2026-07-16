@@ -33,7 +33,7 @@ Grok is the Sisyphus watcher, not the product implementer. For LOW, MEDIUM, or H
 
 ### External Codex implementation lane (GPT only)
 
-**Grok = Sisyphus watcher**; **Codex app-server = sole product implementer**. Skill `ulw-external-engine` + `docs/grok-external-engine-orchestration.md`.
+**Grok = Sisyphus watcher**; **Codex app-server = sole product implementer**. Default product work is `lfg --json handoff plan --engine gpt` to Codex App.
 
 Product implementation has exactly one worker lane: external Codex app-server handoff through `lfg --json handoff plan --engine gpt`. Grok may use watcher/explorer/git-master for host monitoring and read-only discovery, but must not spawn an in-host implementer for the product body.
 

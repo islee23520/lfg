@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Dedicated Codex-compatible app-server shim backed by senpi (local worktree).
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SENPI_CLI="${SENPI_CLI:-$HOME/workspace/ulw/senpi/packages/coding-agent/dist/cli.js}"
+DEDICATED_PORT="${DEDICATED_APP_SERVER_PORT:-19890}"
+DEDICATED_HOME="${DEDICATED_APP_SERVER_HOME:-$SCRIPT_DIR/home}"
+PID_FILE="${DEDICATED_HOME}/app-server.pid"
+LOG_FILE="${DEDICATED_HOME}/app-server.log"
+export SENPI_CODING_AGENT_DIR="${DEDICATED_HOME}"
+export CODEX_HOME="${DEDICATED_HOME}/codex-home"
+mkdir -p "$CODEX_HOME" "$SENPI_CODING_AGENT_DIR"
+
+if [[ "${1:-}" == "app-server" ]]; then
+  shift
+  if [[ "${1:-}" == "daemon" ]]; then
+    verb="${2:-status}"
+    case "$verb" in
+      start|restart)
+        if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+          if [[ "$verb" == "restart" ]]; then
+            kill "$(cat "$PID_FILE")" 2>/dev/null || true
+            sleep 0.5
+          else
+            echo "{\"status\":\"alreadyRunning\",\"listen\":\"ws://127.0.0.1:${DEDICATED_PORT}\"}"
+            exit 0
+          fi
+        fi
+        if [[ ! -f "$SENPI_CLI" ]]; then
+          echo "senpi CLI missing: $SENPI_CLI" >&2
+          exit 1
+        fi
+        nohup node "$SENPI_CLI" app-server --listen "ws://127.0.0.1:${DEDICATED_PORT}" --ws-auth off \
+          >"$LOG_FILE" 2>&1 &
+        echo $! >"$PID_FILE"
+        for i in $(seq 1 50); do
+          if curl -sf "http://127.0.0.1:${DEDICATED_PORT}/readyz" >/dev/null 2>&1; then
+            echo "{\"status\":\"started\",\"pid\":$(cat "$PID_FILE"),\"listen\":\"ws://127.0.0.1:${DEDICATED_PORT}\"}"
+            exit 0
+          fi
+          sleep 0.2
+        done
+        echo "{\"status\":\"started_unready\",\"pid\":$(cat "$PID_FILE"),\"listen\":\"ws://127.0.0.1:${DEDICATED_PORT}\",\"log\":\"$LOG_FILE\"}"
+        exit 0
+        ;;
+      stop)
+        if [[ -f "$PID_FILE" ]]; then
+          kill "$(cat "$PID_FILE")" 2>/dev/null || true
+          rm -f "$PID_FILE"
+        fi
+        echo "{\"status\":\"stopped\"}"
+        exit 0
+        ;;
+      status)
+        if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+          ready=false
+          curl -sf "http://127.0.0.1:${DEDICATED_PORT}/readyz" >/dev/null 2>&1 && ready=true
+          echo "{\"status\":\"running\",\"pid\":$(cat "$PID_FILE"),\"ready\":$ready,\"listen\":\"ws://127.0.0.1:${DEDICATED_PORT}\"}"
+          exit 0
+        fi
+        echo "{\"status\":\"stopped\"}"
+        exit 1
+        ;;
+      *) echo "unknown daemon verb: $verb" >&2; exit 2 ;;
+    esac
+  fi
+  if [[ "${1:-}" == "proxy" ]]; then
+    echo "dedicated-codex-app-server: proxy intentionally unavailable; stdio fallback" >&2
+    exit 1
+  fi
+  if [[ "${1:-}" == "--stdio" ]] || [[ "$#" -eq 0 ]]; then
+    exec node "$SENPI_CLI" app-server --listen stdio://
+  fi
+  exec node "$SENPI_CLI" app-server "$@"
+fi
+# pass-through to real codex for other subcommands
+REAL_CODEX="$(PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "$SCRIPT_DIR" | paste -sd: -) command -v codex || true)"
+if [[ -n "${REAL_CODEX:-}" ]]; then exec "$REAL_CODEX" "$@"; fi
+echo "only app-server fully supported by dedicated shim" >&2
+exit 2

@@ -71,18 +71,11 @@ describe("lazycodex-agent-overrides", () => {
     expect(role.coding.reasoningLevel).toBe("medium")
   })
 
-  test("slims bundled defaults to native agents including git-master", async () => {
+  test("slims bundled defaults to sisyphus only", async () => {
     const bundled = await loadBundledDefaultOmoOverrides()
     const slim = slimNativeAgentOverrides(bundled)
-    expect(Object.keys(slim).sort()).toEqual(["explorer", "git-master", "sisyphus", "watcher"])
-    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toEqual([
-      "sisyphus",
-      "watcher",
-      "explorer",
-      "git-master",
-    ])
-    expect(slim["git-master"]?.model).toBe("grok-3-mini-fast")
-    expect(slim["git-master"]?.reasoningLevel).toBe("low")
+    expect(Object.keys(slim)).toEqual(["sisyphus"])
+    expect(CONFIGURABLE_LAZYCODEX_AGENT_NAMES).toEqual(["sisyphus"])
   })
 
   test("resolves and persists only native agent override keys", async () => {
@@ -98,8 +91,8 @@ describe("lazycodex-agent-overrides", () => {
     const persisted = await readOmoAgentOverridesFile(home)
     const resolved = await resolveLazycodexAgentOverrides(home, role)
 
-    expect(Object.keys(persisted).sort()).toEqual(["explorer", "git-master", "sisyphus", "watcher"])
-    expect(Object.keys(resolved).sort()).toEqual(["explorer", "git-master", "sisyphus", "watcher"])
+    expect(Object.keys(persisted)).toEqual(["sisyphus"])
+    expect(Object.keys(resolved)).toEqual(["sisyphus"])
   })
 
 

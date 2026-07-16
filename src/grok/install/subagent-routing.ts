@@ -23,23 +23,14 @@ export type SubagentModelMapping = {
  * LazyCodex implementation route is installed.
  */
 export const LFG_SUBAGENT_TOGGLES: readonly (readonly [string, boolean])[] = [
-  ["cursor", false],
-  ["general-purpose", false],
-  ["explore", false],
-  ["browser-use", false],
-  ["grok-build", false],
-  ["builder", false],
   ["sisyphus", true],
-  ["watcher", true],
-  ["explorer", true],
-  ["git-master", true],
 ] as const
 
 /** OMO communicators, planners, deep specialists, visual categories. */
-const REASONING_SUBAGENTS = ["sisyphus", "watcher"] as const
+const REASONING_SUBAGENTS = ["sisyphus"] as const
 
 /** Utility runners — speed / low-token (explorer orientation + git-master). */
-const FAST_SUBAGENTS = ["explorer", "git-master"] as const
+const FAST_SUBAGENTS = [] as const
 
 export function lfgOwnedSubagentModels(mapping: SubagentModelMapping = {}): Record<string, string> {
   const fastRoute = mapping.fast || mapping.default || "grok-3-mini-fast"
@@ -59,7 +50,6 @@ export function lfgOwnedSubagentReasoningEffort(mapping: SubagentModelMapping = 
     ...subagentRouteEntries(REASONING_SUBAGENTS, reasoning),
     ...subagentRouteEntries(FAST_SUBAGENTS, fast),
     sisyphus: orchestrator,
-    watcher: orchestrator,
   }
 }
 

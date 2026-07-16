@@ -6,13 +6,17 @@
  * Keeps multi-Codex thread monitoring durable so Grok can aggregate before answering.
  */
 import { access, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises"
-import { createHash, randomUUID } from "node:crypto"
+import { constants as fsConstants } from "node:fs"
+import { createHash, randomBytes, randomUUID } from "node:crypto"
 import { spawn } from "node:child_process"
-import { dirname, join, resolve } from "node:path"
+import { delimiter, dirname, isAbsolute, join, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import { stdin as input, stdout as output, cwd } from "node:process"
 
 const VERSION = 1
 const INBOX_REL = join(".omo", "orchestrator", "inbox.json")
+const APP_SERVER_CHANNEL_TIMEOUT_MS = 3_000
+const APP_SERVER_CHANNEL_POLL_MS = 250
 
 async function main() {
   const raw = await readStdin()
@@ -44,10 +48,15 @@ async function main() {
     }
     inbox = await pollResults(projectRoot, inbox)
     await saveInbox(projectRoot, inbox)
+    const monitor = await refreshLiveMonitorBoard(projectRoot, isSessionStart)
+    inbox = monitor.inbox
     const recovery = isSessionStart ? await sessionAutoResumeBlock(projectRoot, inbox, sessionSource) : ""
-    const continuation = isSessionStart ? await continuePriorWork(projectRoot, inbox, sessionSource) : null
+    const mcpGate = isSessionStart ? await waitForAppServerChannelReady(projectRoot, sessionSource) : null
+    const continuation = isSessionStart && mcpGate?.ready
+      ? await continuePriorWork(projectRoot, inbox, sessionSource)
+      : null
     const baseContext = renderContext(inbox)
-    const context = [continuation?.context ?? "", recovery, baseContext, isStop ? stopCodexMonitorGate() : ""]
+    const context = [monitor.context, mcpGate?.context ?? "", continuation?.context ?? "", recovery, baseContext, isStop ? stopCodexMonitorGate() : ""]
       .filter(Boolean)
       .join("\n")
     if (context.length === 0) process.exit(0)
@@ -62,12 +71,346 @@ async function main() {
           hookEventName,
           additionalContext: context,
         },
-        statusMessage: isSessionStart ? sessionResumeStatusLine(inbox) : statusLine(inbox),
+        statusMessage: monitor.statusMessage,
       })}\n`,
     )
   } catch {
     process.exit(0)
   }
+}
+
+async function refreshLiveMonitorBoard(projectRoot, isSessionStart) {
+  const cli = process.env.LFG_MONITOR_BOARD_AUTO_EXECUTE === "0" ? null : await resolveLfgCli()
+  const poll = cli === null ? null : await runLfgJson(cli, ["--json", "orchestrator", "poll", "--cwd", projectRoot], projectRoot, 1_000)
+  const polledInbox = await loadInbox(projectRoot)
+  const autoGoal = cli === null ? null : await startUnassignedGoal(cli, projectRoot, polledInbox)
+  const watchArgs = ["--json", "orchestrator", "watch", "--cwd", projectRoot, ...(isSessionStart ? [] : ["--no-start-daemon"])]
+  const watch = cli === null ? null : await runLfgJson(cli, watchArgs, projectRoot, isSessionStart ? 1_500 : 750)
+  const inbox = await loadInbox(projectRoot)
+  const board = buildMonitorBoard(inbox, watch)
+  const boardPath = join(projectRoot, ".omo", "orchestrator", "monitor-board.json")
+  await mkdir(dirname(boardPath), { recursive: true })
+  await writeFile(boardPath, `${JSON.stringify(board, null, 2)}\n`, "utf8")
+  return { inbox, context: renderMonitorBoard(board), statusMessage: monitorStatusMessage(board), poll, autoGoal, watch }
+}
+
+async function startUnassignedGoal(cli, projectRoot, inbox) {
+  const hasRunningThread = (inbox.threads ?? []).some((thread) => thread && (thread.status === "planned" || thread.status === "running"))
+  if (hasRunningThread) return null
+  const ask = (inbox.asks ?? []).find((candidate) => candidate && candidate.status === "open" && (candidate.threadIds?.length ?? 0) === 0)
+  if (!ask) return null
+  return runLfgJson(cli, ["--json", "goal", "--focus", ask.userText, "--cwd", projectRoot, "--ask-id", ask.id], projectRoot, 2_000)
+}
+
+function buildMonitorBoard(inbox, watch) {
+  const unanswered = (inbox.asks ?? []).filter((ask) => ask && ask.status !== "answered")
+  const running = (inbox.threads ?? []).filter((thread) => thread && (thread.status === "planned" || thread.status === "running"))
+  const ready = (inbox.threads ?? []).filter((thread) => thread && thread.status === "result_ready")
+  const failed = (inbox.threads ?? []).filter((thread) => thread && thread.status === "failed")
+  return {
+    version: 1,
+    recordedAt: new Date().toISOString(),
+    source: "hook",
+    counts: { unanswered: unanswered.length, running: running.length, ready: ready.length, failed: failed.length },
+    appServer: watch?.appServer?.availability ?? (watch?.status === "orchestrator_app_server_synced" ? "available" : "missing"),
+    asks: unanswered.slice(0, 8),
+    threads: [...ready, ...failed, ...running].slice(0, 12),
+    duty: ready.length > 0 ? "answer" : running.length > 0 ? "wait_no_rehandoff" : unanswered.length > 0 ? "auto_goal_required" : "HEARTBEAT_OK",
+  }
+}
+
+function renderMonitorBoard(board) {
+  const lines = [
+    '<lfg-monitor-board source="hook" force="true">',
+    `unanswered=${board.counts.unanswered} running=${board.counts.running} ready=${board.counts.ready} failed=${board.counts.failed} app_server=${board.appServer}`,
+  ]
+  for (const ask of board.asks) lines.push(`ASK ${ask.id} status=${ask.status} text=${clip(ask.userText, 120)}`)
+  for (const thread of board.threads) lines.push(`THR ${thread.id} status=${thread.status} result=${thread.resultPath}`)
+  lines.push(`duty: ${board.duty === "answer" ? "if ready → answer" : board.duty === "wait_no_rehandoff" ? "if running → wait (no re-handoff)" : board.duty === "auto_goal_required" ? "if unanswered → auto goal" : "if none → HEARTBEAT_OK"}`)
+  lines.push("</lfg-monitor-board>")
+  return lines.join("\n")
+}
+
+function monitorStatusMessage(board) {
+  return board.counts.running > 0 || board.counts.ready > 0
+    ? `LFG monitor: running=${board.counts.running} ready=${board.counts.ready} failed=${board.counts.failed}`
+    : "LFG monitor: HEARTBEAT_OK"
+}
+
+async function runLfgJson(cli, argv, projectRoot, timeoutMs) {
+  return new Promise((resolveRun) => {
+    const child = spawn(cli.command, [...cli.prefix, ...argv], { cwd: projectRoot, env: process.env })
+    let stdout = ""
+    let settled = false
+    const finish = (value) => { if (settled) return; settled = true; clearTimeout(timer); if (child.exitCode === null) child.kill(); resolveRun(value) }
+    const timer = setTimeout(() => finish(null), timeoutMs)
+    child.stdout.on("data", (chunk) => { if (stdout.length < 1024 * 1024) stdout += String(chunk) })
+    child.once("error", () => finish(null))
+    child.once("close", () => { try { finish(JSON.parse(stdout)) } catch { finish(null) } })
+  })
+}
+
+async function resolveLfgCli() {
+  for (const configured of [process.env.LFG_BIN, process.env.LFG_CLI_BINARY]) {
+    const value = configured?.trim()
+    if (value && await isExecutable(value)) return { command: value, prefix: [] }
+  }
+  const homeWrapper = join(process.env.HOME ?? "", ".grok", "bin", process.platform === "win32" ? "lfg.cmd" : "lfg")
+  if (await isExecutable(homeWrapper)) return { command: homeWrapper, prefix: [] }
+  for (const directory of (process.env.PATH ?? "").split(delimiter).filter(Boolean)) {
+    const candidate = join(directory, process.platform === "win32" ? "lfg.cmd" : "lfg")
+    if (await isExecutable(candidate)) return { command: candidate, prefix: [] }
+  }
+  const repoDist = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "dist", "lfg.js")
+  try { await access(repoDist, fsConstants.R_OK); return { command: process.execPath, prefix: [repoDist] } } catch { return null }
+}
+
+async function waitForAppServerChannelReady(projectRoot, sessionSource) {
+  const timeoutMs = positiveInteger(process.env.LFG_MCP_READY_TIMEOUT_MS, APP_SERVER_CHANNEL_TIMEOUT_MS)
+  const startedAt = Date.now()
+  let readinessSource = await probeGrokCodexChannel(projectRoot, timeoutMs)
+  while (!readinessSource && Date.now() - startedAt < timeoutMs) {
+    await delay(Math.min(APP_SERVER_CHANNEL_POLL_MS, Math.max(0, timeoutMs - (Date.now() - startedAt))))
+    readinessSource = await probeGrokCodexChannel(projectRoot, timeoutMs)
+  }
+  const ready = readinessSource !== null
+  const action = ready ? "mcp_ready" : "mcp_timeout"
+  const receipt = {
+    version: 1,
+    recordedAt: new Date().toISOString(),
+    source: clip(sessionSource, 24),
+    action,
+    guidance: ready ? "continue_prior_work" : "soft_wait",
+    timeoutMs,
+    pollMs: APP_SERVER_CHANNEL_POLL_MS,
+    channel: "grok_codex",
+    readinessSource,
+  }
+  await writeReceipt(
+    join(projectRoot, ".omo", "orchestrator", "sessionstart-mcp-ready-receipt.json"),
+    receipt,
+  )
+  return { ready, context: renderMcpReadyContext(receipt) }
+}
+
+async function probeGrokCodexChannel(projectRoot, timeoutMs) {
+  if (hostMcpReadyEnvironment()) return "host_environment"
+  const probe = process.env.LFG_MCP_READY_PROBE?.trim()
+  if (probe && await launchMcpProbe(probe, projectRoot)) return "ready_probe"
+  const marker = process.env.LFG_MCP_READY_MARKER?.trim()
+  if (marker && (isReadyValue(marker) || await markerIsReady(marker))) {
+    return "ready_marker"
+  }
+  const binary = await resolveCodexBinary()
+  return binary && await probeCodexAppServer(binary, projectRoot, Math.min(timeoutMs, 1_000))
+    ? "codex_app_server"
+    : null
+}
+
+function hostMcpReadyEnvironment() {
+  return [process.env.LFG_MCP_READY, process.env.GROK_MCP_READY]
+    .some((value) => /^(1|true|ready)$/i.test(value?.trim() ?? ""))
+}
+
+async function launchMcpProbe(binary, projectRoot) {
+  return new Promise((resolveProbe) => {
+    const child = spawn(binary, [], { cwd: projectRoot, stdio: "ignore" })
+    child.once("close", (code) => resolveProbe(code === 0))
+    child.once("error", () => resolveProbe(false))
+  })
+}
+
+async function markerIsReady(markerPath) {
+  try {
+    const raw = (await readFile(markerPath, "utf8")).trim()
+    if (isReadyValue(raw)) return true
+    const marker = JSON.parse(raw)
+    return marker?.ready === true
+  } catch {
+    return false
+  }
+}
+
+async function resolveCodexBinary() {
+  const configuredBinary = process.env.LFG_CODEX_BINARY?.trim()
+  const binary = configuredBinary || "codex"
+  if (isAbsolute(binary) || binary.includes("/") || binary.includes("\\")) {
+    return await isExecutable(binary) ? binary : null
+  }
+  const extensions = process.platform === "win32"
+    ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")
+    : [""]
+  for (const directory of (process.env.PATH ?? "").split(delimiter).filter(Boolean)) {
+    for (const extension of extensions) {
+      const candidate = join(directory, `${binary}${extension}`)
+      if (await isExecutable(candidate)) return candidate
+    }
+  }
+  return null
+}
+
+async function probeCodexAppServer(binary, projectRoot, timeoutMs) {
+  await runBounded(binary, ["app-server", "daemon", "start"], projectRoot, timeoutMs)
+  if (await probeCodexProxy(binary, projectRoot, timeoutMs)) return true
+  if (await probeCodexProxy(binary, projectRoot, timeoutMs)) return true
+  return probeCodexStdio(binary, projectRoot, timeoutMs)
+}
+
+async function runBounded(binary, args, projectRoot, timeoutMs) {
+  return new Promise((resolveRun) => {
+    const child = spawn(binary, args, { cwd: projectRoot, stdio: "ignore" })
+    let settled = false
+    const finish = (ok) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (child.exitCode === null) child.kill()
+      resolveRun(ok)
+    }
+    const timer = setTimeout(() => finish(false), timeoutMs)
+    child.once("error", () => finish(false))
+    child.once("close", (code) => finish(code === 0))
+  })
+}
+
+async function probeCodexProxy(binary, projectRoot, timeoutMs) {
+  return new Promise((resolveProbe) => {
+    const child = spawn(binary, ["app-server", "proxy"], { cwd: projectRoot })
+    const key = randomBytes(16).toString("base64")
+    const expected = createHash("sha1").update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64")
+    let buffer = Buffer.alloc(0)
+    let upgraded = false
+    let settled = false
+    const finish = (ready) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      child.kill()
+      resolveProbe(ready)
+    }
+    const timer = setTimeout(() => finish(false), timeoutMs)
+    child.once("error", () => finish(false))
+    child.once("close", () => finish(false))
+    child.stdout.on("data", (chunk) => {
+      buffer = Buffer.concat([buffer, chunk])
+      if (!upgraded) {
+        const end = buffer.indexOf("\r\n\r\n")
+        if (end < 0) return
+        const headers = buffer.subarray(0, end + 4).toString("utf8")
+        buffer = buffer.subarray(end + 4)
+        if (!headers.startsWith("HTTP/1.1 101") || !headers.toLowerCase().includes(`sec-websocket-accept: ${expected.toLowerCase()}`)) return finish(false)
+        upgraded = true
+        child.stdin.write(maskedWebSocketFrame({ id: 1, method: "initialize", params: { clientInfo: { name: "lfg-sessionstart", version: "1" }, capabilities: { experimentalApi: false } } }))
+      }
+      for (;;) {
+        const frame = readWebSocketFrame(buffer)
+        if (!frame) return
+        buffer = buffer.subarray(frame.bytes)
+        let message
+        try { message = JSON.parse(frame.payload.toString("utf8")) } catch { continue }
+        if (message?.id === 1) {
+          child.stdin.write(maskedWebSocketFrame({ method: "initialized" }))
+          child.stdin.write(maskedWebSocketFrame({ id: 2, method: "thread/list", params: { cwd: projectRoot, limit: 1 } }))
+        }
+        if (message?.id === 2) finish(!message.error)
+      }
+    })
+    child.stdin.write(["GET / HTTP/1.1", "Host: localhost", "Upgrade: websocket", "Connection: Upgrade", `Sec-WebSocket-Key: ${key}`, "Sec-WebSocket-Version: 13", "", ""].join("\r\n"))
+  })
+}
+
+function maskedWebSocketFrame(message) {
+  const payload = Buffer.from(JSON.stringify(message))
+  const mask = randomBytes(4)
+  const header = payload.length < 126
+    ? Buffer.from([0x81, 0x80 | payload.length])
+    : Buffer.from([0x81, 0x80 | 126, payload.length >> 8, payload.length & 0xff])
+  const masked = Buffer.alloc(payload.length)
+  for (let index = 0; index < payload.length; index += 1) masked[index] = payload[index] ^ mask[index % 4]
+  return Buffer.concat([header, mask, masked])
+}
+
+function readWebSocketFrame(buffer) {
+  if (buffer.length < 2) return null
+  const code = buffer[1] & 0x7f
+  const offset = code < 126 ? 2 : code === 126 ? 4 : 10
+  if (buffer.length < offset) return null
+  const length = code < 126 ? code : code === 126 ? buffer.readUInt16BE(2) : Number(buffer.readBigUInt64BE(2))
+  if (!Number.isSafeInteger(length) || buffer.length < offset + length) return null
+  return { payload: buffer.subarray(offset, offset + length), bytes: offset + length }
+}
+
+async function probeCodexStdio(binary, projectRoot, timeoutMs) {
+  return new Promise((resolveProbe) => {
+    const child = spawn(binary, ["app-server", "--stdio"], { cwd: projectRoot })
+    let buffer = ""
+    let settled = false
+    const finish = (ready) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      child.kill()
+      resolveProbe(ready)
+    }
+    const timer = setTimeout(() => finish(false), timeoutMs)
+    child.once("error", () => finish(false))
+    child.once("close", () => finish(false))
+    child.stdout.on("data", (chunk) => {
+      buffer += chunk.toString("utf8")
+      const lines = buffer.split("\n")
+      buffer = lines.pop() ?? ""
+      for (const line of lines) {
+        let message
+        try { message = JSON.parse(line) } catch { continue }
+        if (message?.id === 1) {
+          child.stdin.write(`${JSON.stringify({ method: "initialized" })}\n`)
+          child.stdin.write(`${JSON.stringify({ id: 2, method: "thread/list", params: { cwd: projectRoot, limit: 1 } })}\n`)
+        }
+        if (message?.id === 2) finish(!message.error)
+      }
+    })
+    child.stdin.write(`${JSON.stringify({
+      id: 1,
+      method: "initialize",
+      params: { clientInfo: { name: "lfg-sessionstart", version: "1" }, capabilities: { experimentalApi: false } },
+    })}\n`)
+  })
+}
+
+async function isExecutable(path) {
+  try {
+    await access(path, fsConstants.X_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function isReadyValue(value) {
+  return /^(1|true|ready)$/i.test(value)
+}
+
+function renderMcpReadyContext(receipt) {
+  const lines = [
+    `<lfg-mcp-ready-gate status="${receipt.action}">`,
+    `receipt=.omo/orchestrator/sessionstart-mcp-ready-receipt.json channel=grok_codex source=${receipt.readinessSource ?? "none"} timeout_ms=${receipt.timeoutMs} poll_ms=${receipt.pollMs}`,
+  ]
+  if (receipt.action === "mcp_ready") {
+    lines.push("Grok-Codex thread channel readiness confirmed; prior-work continuation may proceed.")
+  } else {
+    lines.push("Grok-Codex channel readiness timed out. Soft-wait for the communication channel and do not force prior-work resume this SessionStart.")
+  }
+  lines.push("</lfg-mcp-ready-gate>")
+  return lines.join("\n")
+}
+
+function positiveInteger(raw, fallback) {
+  const parsed = Number.parseInt(raw ?? "", 10)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function delay(ms) {
+  return new Promise((resolveDelay) => setTimeout(resolveDelay, ms))
 }
 
 async function continuePriorWork(projectRoot, inbox, sessionSource) {
@@ -212,7 +555,7 @@ async function sessionAutoResumeBlock(projectRoot, inbox, sessionSource) {
 }
 
 async function discoverIncompleteExternalEngineWork(projectRoot) {
-  const relativeDir = join(".omo", "external-engine")
+  const relativeDir = join(".omo", "orchestrator")
   try {
     const entries = await readdir(join(projectRoot, relativeDir), { withFileTypes: true })
     const names = new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name))

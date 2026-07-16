@@ -10,6 +10,9 @@ import {
 } from "../../core/lfg/orchestrator/inbox"
 import type { JsonObject } from "../../shared/json"
 import { createCodexAppServerClient, syncAppServerSnapshot, type AppServerClient } from "../../core/lfg/orchestrator/app-server"
+import { buildMonitorBoard } from "../../core/lfg/orchestrator/attach-monitor"
+import { mkdir, writeFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
 
 type Options = {
   readonly json: boolean
@@ -43,26 +46,54 @@ async function watchCommand(
   subcommand: "watch" | "sync-app-server",
 ): Promise<JsonObject> {
   const projectRoot = cwdFrom(argv, options.env)
+  const follow = argv.includes("--follow")
   const client = options.appServerClient ?? createCodexAppServerClient({ env: options.env })
-  const snapshot = await client.snapshot({ cwd: projectRoot, startDaemon: true })
-  let inbox = await loadOrchestratorInbox(projectRoot)
-  const synced = syncAppServerSnapshot(projectRoot, inbox, snapshot)
-  inbox = await pollThreadResults(projectRoot, synced.inbox)
-  const path = await saveOrchestratorInbox(projectRoot, inbox)
-  return {
-    ok: snapshot.availability === "available",
-    status: snapshot.availability === "available" ? "orchestrator_app_server_synced" : "orchestrator_app_server_missing",
-    command: "orchestrator",
-    subcommand,
-    projectRoot,
-    path,
-    appServer: snapshot,
-    sync: synced.summary,
-    inbox,
-    summary: summaryJson(summarizeInbox(projectRoot, inbox)),
-    fallback: snapshot.availability === "missing" ? "RESULT file polling remains available via orchestrator poll" : null,
-    lfgIsPlugin: false,
+  const once = async () => {
+    const snapshot = await client.snapshot({ cwd: projectRoot, startDaemon: !argv.includes("--no-start-daemon") })
+    let inbox = await loadOrchestratorInbox(projectRoot)
+    const synced = syncAppServerSnapshot(projectRoot, inbox, snapshot)
+    inbox = await pollThreadResults(projectRoot, synced.inbox)
+    const path = await saveOrchestratorInbox(projectRoot, inbox)
+    try {
+      const board = buildMonitorBoard(projectRoot, inbox, snapshot.availability, { spawned: follow, pid: null })
+      const boardPath = join(projectRoot, ".omo", "orchestrator", "monitor-board.json")
+      await mkdir(dirname(boardPath), { recursive: true })
+      await writeFile(boardPath, `${JSON.stringify(board, null, 2)}\n`, "utf8")
+    } catch {
+      // board write is best-effort
+    }
+    return {
+      ok: snapshot.availability === "available",
+      status: snapshot.availability === "available" ? "orchestrator_app_server_synced" : "orchestrator_app_server_missing",
+      command: "orchestrator",
+      subcommand,
+      projectRoot,
+      path,
+      appServer: snapshot,
+      sync: synced.summary,
+      inbox,
+      summary: summaryJson(summarizeInbox(projectRoot, inbox)),
+      fallback: snapshot.availability === "missing" ? "RESULT file polling remains available via orchestrator poll" : null,
+      follow,
+      lfgIsPlugin: false,
+    } as const
   }
+
+  if (!follow) return { ...(await once()) }
+
+  // Follow until no planned/running threads (or max ticks).
+  const maxTicks = Number.parseInt(options.env.LFG_MONITOR_FOLLOW_TICKS ?? "120", 10) || 120
+  const intervalMs = Number.parseInt(options.env.LFG_MONITOR_FOLLOW_MS ?? "3000", 10) || 3000
+  let last = await once()
+  for (let tick = 1; tick < maxTicks; tick += 1) {
+    const running = (last.inbox as { threads?: readonly { status?: string }[] }).threads?.filter(
+      (t) => t.status === "planned" || t.status === "running",
+    ).length ?? 0
+    if (running === 0) break
+    await new Promise((r) => setTimeout(r, intervalMs))
+    last = await once()
+  }
+  return { ...last, followComplete: true }
 }
 
 async function threadsCommand(argv: readonly string[], options: Options): Promise<JsonObject> {

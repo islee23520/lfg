@@ -128,7 +128,7 @@ describe("lfg setup --refresh (model/auth re-sync)", () => {
       await withModelServer(["gpt-5.5"], async (baseUrl) => {
         const result = await runLfg(
           ["--json", "setup", "--refresh", "--run", "--base-url", baseUrl],
-          { HOME: home, OPENAI_API_KEY: "" },
+          { HOME: home, OPENAI_API_KEY: "", XAI_API_KEY: "" },
         )
         expect(result.exitCode).toBe(0)
         const config = await readFile(join(home, ".grok", "config.toml"), "utf8")

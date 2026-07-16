@@ -23,7 +23,7 @@ async function runHook(
 ): Promise<{ readonly exitCode: number; readonly stdout: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [hookPath], {
-      env: { ...process.env, ...env },
+      env: { ...process.env, LFG_MCP_READY_TIMEOUT_MS: "20", LFG_MONITOR_BOARD_AUTO_EXECUTE: "0", ...env },
       stdio: ["pipe", "pipe", "pipe"],
     })
     let stdout = ""
@@ -54,6 +54,15 @@ async function readEventually(path: string): Promise<string> {
       if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error
       await new Promise((resolve) => setTimeout(resolve, 5))
     }
+  }
+  return readFile(path, "utf8")
+}
+
+async function readEventuallyContaining(path: string, expected: string): Promise<string> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const value = await readEventually(path)
+    if (value.includes(expected)) return value
+    await new Promise((resolve) => setTimeout(resolve, 5))
   }
   return readFile(path, "utf8")
 }
@@ -121,7 +130,7 @@ describe("native orchestrator inbox hook", () => {
           {
             id: "thr-recover-1",
             role: "coding",
-            resultPath: ".omo/external-engine/prior-result.md",
+            resultPath: ".omo/orchestrator/prior-result.md",
             status: "planned",
           },
         ],
@@ -141,8 +150,8 @@ describe("native orchestrator inbox hook", () => {
     expect(context).toContain("orchestrator watch")
     expect(context).toContain("ask-recover-1")
     expect(context).toContain("thr-recover-1")
-    expect(context).toContain(".omo/external-engine/prior-result.md")
-    expect(response.statusMessage).toMatch(/^LFG session /)
+    expect(context).toContain(".omo/orchestrator/prior-result.md")
+    expect(response.statusMessage).toBe("LFG monitor: running=1 ready=0 failed=0")
   })
 
   test("rechecks orchestrator once on empty resume SessionStart", async () => {
@@ -198,7 +207,7 @@ describe("native orchestrator inbox hook", () => {
           id: "thr-prior",
           binary: "codex",
           focus: "finish the prior implementation",
-          resultPath: ".omo/external-engine/prior-result.md",
+          resultPath: ".omo/orchestrator/prior-result.md",
           status: "running",
           sessionHint: "019-session-prior",
           appServerThreadId: null,
@@ -210,7 +219,7 @@ describe("native orchestrator inbox hook", () => {
 
     const result = await runHook(
       { hookEventName: "SessionStart", source: "startup", cwd: projectRoot },
-      { LFG_CODEX_BINARY: join(binDir, "codex") },
+      { LFG_CODEX_BINARY: join(binDir, "codex"), LFG_MCP_READY: "1" },
     )
 
     const response = JSON.parse(result.stdout) as {
@@ -226,6 +235,130 @@ describe("native orchestrator inbox hook", () => {
       threadId: "thr-prior",
     })
     expect(receipt.argv?.slice(0, 4)).toEqual(["codex", "exec", "resume", "019-session-prior"])
+  })
+
+  test("resumes when the Codex app-server thread channel answers thread/list", async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-sessionstart-mcp-ready-"))
+    const pluginRoot = join(projectRoot, "plugin")
+    const binDir = join(projectRoot, "bin")
+    const codexArgvPath = join(projectRoot, "codex-argv.json")
+    const inboxPath = join(projectRoot, ".omo", "orchestrator", "inbox.json")
+    await mkdir(pluginRoot, { recursive: true })
+    await mkdir(binDir, { recursive: true })
+    await mkdir(dirname(inboxPath), { recursive: true })
+    await writeFile(
+      join(pluginRoot, ".mcp.json"),
+      JSON.stringify({ mcpServers: { ast_grep: {}, lsp: {} } }),
+      "utf8",
+    )
+    await writeFile(
+      join(binDir, "codex"),
+      `#!/bin/sh
+if [ "$1" = "app-server" ]; then
+  while IFS= read -r line; do
+    case "$line" in
+      *'"id":1'*) printf '%s\\n' '{"id":1,"result":{}}' ;;
+      *'"id":2'*) printf '%s\\n' '{"id":2,"result":{"data":[]}}'; exit 0 ;;
+    esac
+  done
+  exit 1
+fi
+printf '%s\\n' "$@" > "${codexArgvPath}"
+`,
+      "utf8",
+    )
+    await chmod(join(binDir, "codex"), 0o755)
+    await writeFile(
+      inboxPath,
+      JSON.stringify({
+        version: 1,
+        updatedAt: "2026-07-15T00:00:00.000Z",
+        asks: [],
+        threads: [{
+          id: "thr-mcp-ready",
+          focus: "resume after MCP load",
+          resultPath: ".omo/orchestrator/mcp-ready-result.md",
+          status: "running",
+          sessionHint: "019-session-mcp-ready",
+        }],
+      }),
+    )
+
+    const result = await runHook(
+      { hookEventName: "SessionStart", source: "startup", cwd: projectRoot },
+      {
+        GROK_PLUGIN_ROOT: pluginRoot,
+        LFG_CODEX_BINARY: join(binDir, "codex"),
+        LFG_MCP_READY_TIMEOUT_MS: "1000",
+      },
+    )
+
+    const response = JSON.parse(result.stdout) as {
+      readonly hookSpecificOutput?: { readonly additionalContext?: string }
+    }
+    expect(response.hookSpecificOutput?.additionalContext).toContain('<lfg-mcp-ready-gate status="mcp_ready">')
+    expect(response.hookSpecificOutput?.additionalContext).toContain("Grok-Codex thread channel readiness confirmed")
+    await expect(readEventually(codexArgvPath)).resolves.toMatch(/^exec\nresume\n019-session-mcp-ready\n/)
+    const receipt = JSON.parse(
+      await readFile(join(projectRoot, ".omo", "orchestrator", "sessionstart-mcp-ready-receipt.json"), "utf8"),
+    ) as { readonly action?: string; readonly channel?: string; readonly readinessSource?: string }
+    expect(receipt).toMatchObject({
+      action: "mcp_ready",
+      channel: "grok_codex",
+      readinessSource: "codex_app_server",
+    })
+  })
+
+  test("soft-waits without force-resuming when the Grok-Codex channel times out", async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-sessionstart-mcp-timeout-"))
+    const binDir = join(projectRoot, "bin")
+    const codexArgvPath = join(projectRoot, "codex-argv.json")
+    const inboxPath = join(projectRoot, ".omo", "orchestrator", "inbox.json")
+    await mkdir(binDir, { recursive: true })
+    await mkdir(dirname(inboxPath), { recursive: true })
+    await writeFile(join(binDir, "mcp-probe"), "#!/bin/sh\nexit 1\n", "utf8")
+    await chmod(join(binDir, "mcp-probe"), 0o755)
+    await writeFile(
+      inboxPath,
+      JSON.stringify({
+        version: 1,
+        updatedAt: "2026-07-15T00:00:00.000Z",
+        asks: [],
+        threads: [{
+          id: "thr-mcp-timeout",
+          focus: "do not resume before MCP load",
+          resultPath: ".omo/orchestrator/mcp-timeout-result.md",
+          status: "running",
+          sessionHint: "019-session-mcp-timeout",
+        }],
+      }),
+    )
+
+    const result = await runHook(
+      { hookEventName: "SessionStart", source: "startup", cwd: projectRoot },
+      {
+        LFG_MCP_READY_PROBE: join(binDir, "mcp-probe"),
+        LFG_MCP_READY_TIMEOUT_MS: "20",
+        LFG_CODEX_BINARY: join(binDir, "missing-codex"),
+        PATH: binDir,
+      },
+    )
+
+    const response = JSON.parse(result.stdout) as {
+      readonly hookSpecificOutput?: { readonly additionalContext?: string }
+    }
+    expect(response.hookSpecificOutput?.additionalContext).toContain('<lfg-mcp-ready-gate status="mcp_timeout">')
+    expect(response.hookSpecificOutput?.additionalContext).toContain("Grok-Codex channel readiness timed out")
+    expect(response.hookSpecificOutput?.additionalContext).toContain("do not force prior-work resume")
+    await expect(readFile(codexArgvPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+    const receipt = JSON.parse(
+      await readFile(join(projectRoot, ".omo", "orchestrator", "sessionstart-mcp-ready-receipt.json"), "utf8"),
+    ) as { readonly action?: string; readonly channel?: string; readonly guidance?: string }
+    expect(receipt).toMatchObject({
+      action: "mcp_timeout",
+      channel: "grok_codex",
+      guidance: "soft_wait",
+    })
   })
 
   test("marks stale live metadata as soft guidance without suppressing codex exec resume", async () => {
@@ -247,7 +380,7 @@ describe("native orchestrator inbox hook", () => {
           id: "thr-live",
           binary: "codex",
           focus: "live prior work",
-          resultPath: ".omo/external-engine/live-result.md",
+          resultPath: ".omo/orchestrator/live-result.md",
           status: "stale",
           sessionHint: "019-session-live",
           appServerThreadId: "thread-live",
@@ -259,7 +392,7 @@ describe("native orchestrator inbox hook", () => {
 
     const result = await runHook(
       { hookEventName: "SessionStart", source: "resume", cwd: projectRoot },
-      { LFG_CODEX_BINARY: join(binDir, "codex") },
+      { LFG_CODEX_BINARY: join(binDir, "codex"), LFG_MCP_READY: "1" },
     )
 
     const response = JSON.parse(result.stdout) as {
@@ -280,7 +413,10 @@ describe("native orchestrator inbox hook", () => {
   test("always injects SessionStart continuation state and writes a no-work receipt", async () => {
     const projectRoot = await mkdtemp(join(tmpdir(), "lfg-sessionstart-no-work-"))
 
-    const result = await runHook({ hookEventName: "SessionStart", source: "startup", cwd: projectRoot })
+    const result = await runHook(
+      { hookEventName: "SessionStart", source: "startup", cwd: projectRoot },
+      { LFG_MCP_READY: "1" },
+    )
 
     const response = JSON.parse(result.stdout) as {
       readonly hookSpecificOutput?: { readonly additionalContext?: string }
@@ -301,5 +437,65 @@ describe("native orchestrator inbox hook", () => {
       await readFile(join(projectRoot, ".omo", "orchestrator", "inbox.json"), "utf8"),
     ) as { readonly asks?: readonly { readonly userText?: string }[] }
     expect(inbox.asks?.[0]?.userText).toBe("continue this ask")
+  })
+
+  test.each(["SessionStart", "UserPromptSubmit", "Stop"] as const)("refreshes the live Codex app-server monitor on every %s tick", async (hookEventName) => {
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-orchestrator-live-watch-"))
+    const binDir = join(projectRoot, "bin")
+    const argvPath = join(projectRoot, "watch-argv.txt")
+    await mkdir(binDir, { recursive: true })
+    await writeFile(join(binDir, "lfg"), `#!/bin/sh\nprintf '%s\\n' "$@" >> "${argvPath}"\nprintf '%s\\n' -- >> "${argvPath}"\nprintf '%s\\n' '{"ok":true,"status":"orchestrator_app_server_synced","appServer":{"availability":"available"}}'\n`, "utf8")
+    await chmod(join(binDir, "lfg"), 0o755)
+
+    const result = await runHook(
+      { hookEventName, cwd: projectRoot, prompt: hookEventName === "UserPromptSubmit" ? "monitor this work" : "" },
+      { LFG_CLI_BINARY: join(binDir, "lfg"), LFG_MONITOR_BOARD_AUTO_EXECUTE: "1", LFG_MCP_READY: "1" },
+    )
+
+    const argv = await readEventuallyContaining(argvPath, "goal\n--focus\nrepair the broken hooks")
+    expect(argv).toContain("orchestrator\npoll")
+    expect(argv).toContain("orchestrator\nwatch")
+    if (hookEventName === "SessionStart") expect(argv).not.toContain("--no-start-daemon")
+    else expect(argv).toContain("--no-start-daemon")
+    const board = JSON.parse(await readFile(join(projectRoot, ".omo", "orchestrator", "monitor-board.json"), "utf8"))
+    expect(board).toMatchObject({
+      source: "hook",
+      appServer: "available",
+      counts: { unanswered: hookEventName === "UserPromptSubmit" ? 1 : 0 },
+      duty: hookEventName === "UserPromptSubmit" ? "auto_goal_required" : "HEARTBEAT_OK",
+    })
+    expect(JSON.parse(result.stdout).hookSpecificOutput.additionalContext).toContain('<lfg-monitor-board source="hook" force="true">')
+  })
+
+  test("automatically starts a goal for a newly recorded ask", async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-orchestrator-auto-goal-"))
+    const binDir = join(projectRoot, "bin")
+    const argvPath = join(projectRoot, "goal-argv.txt")
+    await mkdir(binDir, { recursive: true })
+    await writeFile(join(binDir, "lfg"), `#!/bin/sh\nprintf '%s\\n' "$@" >> "${argvPath}"\nprintf '%s\\n' -- >> "${argvPath}"\nprintf '%s\\n' '{"ok":true,"status":"goal_driven","transport":"app-server"}'\n`, "utf8")
+    await chmod(join(binDir, "lfg"), 0o755)
+
+    await runHook(
+      { hookEventName: "UserPromptSubmit", cwd: projectRoot, prompt: "repair the broken hooks" },
+      { LFG_CLI_BINARY: join(binDir, "lfg"), LFG_MONITOR_BOARD_AUTO_EXECUTE: "1" },
+    )
+
+    const argv = await readEventually(argvPath)
+    expect(argv).toContain("goal\n--focus\nrepair the broken hooks")
+    expect(argv).toContain("--ask-id\n")
+  })
+
+  test("does not stall SessionStart when the Codex channel is unavailable", async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), "lfg-sessionstart-fast-timeout-"))
+    const startedAt = Date.now()
+
+    const result = await runHook(
+      { hookEventName: "SessionStart", source: "startup", cwd: projectRoot },
+      { LFG_MCP_READY_TIMEOUT_MS: "", LFG_CODEX_BINARY: join(projectRoot, "missing-codex"), PATH: "/usr/bin:/bin" },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(Date.now() - startedAt).toBeLessThan(4_500)
+    expect(JSON.parse(result.stdout).hookSpecificOutput.additionalContext).toContain('status="mcp_timeout"')
   })
 })

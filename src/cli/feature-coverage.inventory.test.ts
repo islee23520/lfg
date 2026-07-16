@@ -26,8 +26,6 @@ const FEATURES: ReadonlyArray<{ id: string; mustMatch: RegExp }> = [
   { id: "publish-pack", mustMatch: /assert-pack|npm-pack|publish/i },
   { id: "rules-engine", mustMatch: /rules/i },
   { id: "sisyphus-hooks", mustMatch: /sisyphus/i },
-  { id: "comment-checker", mustMatch: /comment-checker/i },
-  { id: "workflow-selector", mustMatch: /workflow-selector/i },
   { id: "teammode", mustMatch: /teammode|team-ledger/i },
   { id: "model-config", mustMatch: /lfg-grok-config|model|refresh/i },
 ]

@@ -70,8 +70,7 @@ running threads, does not drop unanswered asks, and only answers after aggregati
 The injected `<lfg-always-on-monitors>` block is unconditional, including an empty inbox:
 M1 asks, M2 RESULT paths, M3 app-server live threads, M4 residual asks, and M5 answer receipts.
 
-GPT coding handoff uses app-server first and returns `handoff.launch` only as the honest `codex exec` fallback. See [skills/ulw-external-engine/SKILL.md](skills/ulw-external-engine/SKILL.md) and
-[docs/grok-external-engine-orchestration.md](docs/grok-external-engine-orchestration.md).
+GPT coding handoff uses app-server first and returns `handoff.launch` only as the honest `codex exec` fallback. See [docs/grok-external-engine-orchestration.md](docs/grok-external-engine-orchestration.md) (Codex is the default worker). Core planner: `src/core/lfg/external-engine`.
 
 Default external engine is **gpt → codex** only (retired multi-engine zoo is not the product path).
 

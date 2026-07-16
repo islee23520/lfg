@@ -242,7 +242,7 @@ describe("bundled MCP runtimes", () => {
         }),
         "",
       ].join("\n"),
-      { PATH: process.env.PATH ?? "", HOME: homeRoot },
+      { PATH: process.env.PATH ?? "", HOME: homeRoot, XAI_API_KEY: "" },
     )
     expect(probe.exitCode, probe.stderr).toBe(0)
     const messages = probe.stdout.trim().split(/\n+/).map((line) => JSON.parse(line) as { id: number; error?: { message: string } })
@@ -276,7 +276,7 @@ describe("bundled MCP runtimes", () => {
         JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "xai_generate_text", arguments: { prompt: "hello" } } }),
         "",
       ].join("\n"),
-      { PATH: process.env.PATH ?? "", HOME: homeRoot },
+      { PATH: process.env.PATH ?? "", HOME: homeRoot, XAI_API_KEY: "" },
     )
     expect(probe.exitCode, probe.stderr).toBe(0)
     const messages = probe.stdout.trim().split(/\n+/).map((line) => JSON.parse(line) as { id: number; error?: { message: string } })

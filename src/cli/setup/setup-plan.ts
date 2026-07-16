@@ -43,10 +43,10 @@ export function setupPlan(resolved: ResolveSetupDiscoveryResult, preset: SetupPr
     modelsBaseUrlUsed: resolved.baseUrlUsed,
     autoModelAliases: hostCapabilities.models.discoveredModels.length > 0,
     steps: [
-      { id: 1, status: discovery === null ? "pending" : "done", text: "Discover OpenAI-compatible models (CLI/env/config.toml/default proxy) for Grok [model.*] aliases, global preset routing, and proxy-advertised reasoning effort metadata." },
-      { id: 2, status: discovery === null ? "pending" : "done", text: "Build global default/fast/reasoning/coding routes and derive OMO agent settings from the selected preset; setup no longer asks for each agent model individually." },
+      { id: 1, status: discovery === null ? "pending" : "done", text: "Discover models for vanilla Grok host auth (or optional --base-url proxy). Setup does not rewrite fat [model.*] alias tables into config.toml." },
+      { id: 2, status: discovery === null ? "pending" : "done", text: "Map default/fast/reasoning/coding discovery buckets for Sisyphus-only CEO routing; product implementer remains Codex App (app-server threads)." },
       { id: 3, status: "pending", text: `Preserve or materialize via ${INTERNAL_GROK_INSTALL_COMMAND}: preserve healthy stamped ${pluginPath} unless --force is explicit; otherwise replace symlink/dirty/legacy entries with a real lfg directory from LFG_OMO_PLUGIN_SOURCE, the built-in native payload, or legacy fallback.` },
-      { id: 4, status: "pending", text: "Post-install on Grok surfaces: sync model config from discovered CLI proxy models; for new/forced installs also register Grok-compatible hooks, install plugin-owned LFG agents, sync roles/personas/prompts, write omo-agent-overrides.json, and ensure the adapter is enabled for Grok Build." },
+      { id: 4, status: "pending", text: "Post-install: enable plugins=lfg, normalize hooks, materialize Sisyphus-only agent/role, write lfg-backend-routing.json, strip fat subagents.* / multi-agent tables from config.toml. No Grok host subagent matrix." },
     ],
     note: `Grok-first. Default \`lfg setup\` (and --json setup) plans the supported lfg-owned OMO port under ${pluginPath}, including manifest-only MCP entries rather than behavior-adapted local MCP tools. Everything lives under ~/.grok as a real directory. Existing stamped lfg setups are preserved by setup --run unless --force is explicit.`,
   }

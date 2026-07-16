@@ -123,15 +123,12 @@ describe("install surface: valid-only config.toml (user path shape)", () => {
     expect(config).not.toContain("grok-4.20-0309-reasoning")
     expect(config).not.toContain("grok-4.20-0309-non-reasoning")
     expect(config).not.toContain("model_fallback")
-    expect(config).toContain('[model."grok-4.5"]')
-    expect(config).toContain('[model."grok-composer-2.5-fast"]')
-    expect(config).toContain('[model."grok-build"]')
+    expect(config).not.toContain("[model.")
     expect(purge.changed).toBe(true)
 
     const overrides = JSON.parse(await readFile(join(home, ".grok", "omo-agent-overrides.json"), "utf8")) as {
-      overrides: { plan: { model: string; model_fallback?: string } }
+      overrides: Readonly<Record<string, unknown>>
     }
-    expect(overrides.overrides.plan.model).toBe("grok-4.5")
-    expect(overrides.overrides.plan.model_fallback).toBeUndefined()
+    expect(overrides.overrides).not.toHaveProperty("plan")
   })
 })

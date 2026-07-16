@@ -24,7 +24,7 @@ Grok is the Sisyphus watcher, not the product implementer. For LOW, MEDIUM, or H
 Before that handoff, consume the `lfg-gjc-intent-gateway` context: clarify high ambiguity and use `refined_focus` to tighten the Codex brief. gjc remains intent-only and fail-open; it never implements product code.
 ### External Codex implementation lane (GPT only)
 
-**Grok = Sisyphus watcher**; **Codex app-server = sole product implementer**. Skill `ulw-external-engine` + `docs/grok-external-engine-orchestration.md`.
+**Grok = Sisyphus watcher**; **Codex app-server = sole product implementer**. Default product work is `lfg --json handoff plan --engine gpt` to Codex App.
 
 Product implementation has exactly one worker lane: external Codex app-server handoff through `lfg --json handoff plan --engine gpt`. Grok may use watcher/explorer/git-master for host monitoring and read-only discovery, but must not spawn an in-host implementer for the product body.
 
@@ -66,19 +66,19 @@ Plan and reviewer agents may run for a long time: spawn them in the background, 
 
 ## Grok execution boundary
 
-Planning is a separate Codex lane: before approval, run `lfg --json plan ulw-plan --focus <objective>` so Codex loads skill `ulw-plan`, writes the decision-complete `.omo/` plan, and returns `.omo/external-engine/plan-ulw-plan-codex-skill-result.md` for Grok to present.
+Planning is a separate Codex lane: before approval, run `lfg --json plan ulw-plan --focus <objective>` so Codex loads skill `ulw-plan`, writes the decision-complete `.omo/` plan, and returns `the Codex App thread (optional receipt only if --result-path is set)` for Grok to present.
 
-After approval, never execute implementation inside Grok. Build the implementation plan with `lfg --json plan start-work --plan <path> --focus <objective>` or use `lfg --json handoff plan --role coding --engine gpt --focus <objective>`. Prefer the Codex app-server transport. Use codex-exec fallback only when the daemon is unavailable; only then execute `handoff.launch.argv`. External Codex must invoke Codex `$start-work` and write `.omo/external-engine/start-work-codex-skill-result.md`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract.
-
-## Grok execution boundary
-
-Planning is a separate Codex lane: before approval, run `lfg --json plan ulw-plan --focus <objective>` so Codex loads skill `ulw-plan`, writes the decision-complete `.omo/` plan, and returns `.omo/external-engine/plan-ulw-plan-codex-skill-result.md` for Grok to present.
-
-After approval, never execute implementation inside Grok. Build the implementation plan with `lfg --json plan start-work --plan <path> --focus <objective>` or use `lfg --json handoff plan --role coding --engine gpt --focus <objective>`. Prefer the Codex app-server transport. Use the reported codex-exec fallback only when the daemon is unavailable; only then execute `handoff.launch.argv`. External Codex must invoke Codex `$start-work` and write `.omo/external-engine/start-work-codex-skill-result.md`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract.
+After approval, never execute implementation inside Grok. Build the implementation plan with `lfg --json plan start-work --plan <path> --focus <objective>` or use `lfg --json handoff plan --role coding --engine gpt --focus <objective>`. Prefer the Codex app-server transport. Use codex-exec fallback only when the daemon is unavailable; only then execute `handoff.launch.argv`. External Codex must invoke Codex `$start-work` and write `the Codex App thread (optional receipt only if --result-path is set)`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract.
 
 ## Grok execution boundary
 
-Never execute this workflow inside Grok. Build the dry-run launch with `lfg --json plan start-work --plan <path> --focus <objective>`, then launch the returned Codex argv. External Codex must invoke Codex `$start-work` and write `.omo/external-engine/start-work-codex-skill-result.md`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract.
+Planning is a separate Codex lane: before approval, run `lfg --json plan ulw-plan --focus <objective>` so Codex loads skill `ulw-plan`, writes the decision-complete `.omo/` plan, and returns `the Codex App thread (optional receipt only if --result-path is set)` for Grok to present.
+
+After approval, never execute implementation inside Grok. Build the implementation plan with `lfg --json plan start-work --plan <path> --focus <objective>` or use `lfg --json handoff plan --role coding --engine gpt --focus <objective>`. Prefer the Codex app-server transport. Use the reported codex-exec fallback only when the daemon is unavailable; only then execute `handoff.launch.argv`. External Codex must invoke Codex `$start-work` and write `the Codex App thread (optional receipt only if --result-path is set)`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract.
+
+## Grok execution boundary
+
+Never execute this workflow inside Grok. Build the dry-run launch with `lfg --json plan start-work --plan <path> --focus <objective>`, then launch the returned Codex argv. External Codex must invoke Codex `$start-work` and write `the Codex App thread (optional receipt only if --result-path is set)`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract.
 
 Execute a Prometheus work plan until every top-level checkbox is complete. Use GrokBuild's `/goal` command as the host goal-state surface for the aggregate objective. The upstream Codex `Stop` / `SubagentStop` continuation hook (`components/start-work-continuation`) is not a GrokBuild runtime contract, so do not depend on automatic hook reinjection; preserve state in `.omo/boulder.json` and continue explicitly from that durable state.
 

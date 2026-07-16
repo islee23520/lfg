@@ -23,7 +23,7 @@ describe("grok-omo-subagent skill contract", () => {
       expect(text).toContain("spawn_subagent")
       expect(text).toContain('subagent_type: "explore"')
       expect(text).toContain("coding_tool_adapter")
-      expect(text).toMatch(/Prefer host built-ins|host built-in/i)
+      expect(text).toMatch(/Prefer host built-ins|host built-in|Grok host monitoring|host monitoring/i)
       expect(text).not.toMatch(/do not use disabled Grok built-ins/)
     })
   }

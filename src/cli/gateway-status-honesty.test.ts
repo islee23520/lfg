@@ -27,6 +27,6 @@ describe("gateway status honesty", () => {
     const hooksRaw = await readFile(join(home, ".grok", "hooks", "lfg-hooks.json"), "utf8")
     expect(hooksRaw).toContain("lfg-native-rules.mjs")
     expect(hooksRaw).toContain("lfg-native-ultrawork.mjs")
-    expect(hooksRaw).toContain("lfg-sisyphus-hooks.mjs")
+    expect(hooksRaw).toContain("lfg-native-sisyphus-no-edit.mjs")
   })
 })

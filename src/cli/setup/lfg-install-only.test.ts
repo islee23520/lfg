@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { describe, expect, test } from "vitest"
 import { runLfg } from "../test/test-process"
 
-const NATIVE_AGENTS = ["sisyphus", "watcher", "explorer", "git-master"] as const
+const NATIVE_AGENTS = ["sisyphus"] as const
 
 describe("lfg setup --install-only", () => {
   test("updates plugin without writing agent override settings", async () => {

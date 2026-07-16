@@ -1,4 +1,5 @@
 import {
+  buildAppServerTurnPrompt,
   confirmVisionWithAgy,
   planOmoHandoff,
   planAgyVisionConfirmation,
@@ -8,6 +9,7 @@ import {
   type OmoHandoff,
 } from "../../core/lfg/external-engine"
 import { registerHandoffInOrchestrator } from "../../core/lfg/orchestrator/register-handoff"
+import { attachMonitorAfterHandoff } from "../../core/lfg/orchestrator/attach-monitor"
 import { findExecutableInPath } from "../../shared/executable-path"
 import type { JsonObject } from "../../shared/json"
 import { readBackendEnginePreference } from "../config/lfg-grok-config"
@@ -101,12 +103,13 @@ export async function dispatchHandoffCommand(
 
   let orchestrator: JsonObject
   try {
+    const ledgerPath = handoff.resultPath ?? `codex-app:${appServerThreadId ?? handoff.focus.slice(0, 40)}`
     const registered = await registerHandoffInOrchestrator(handoff.launch.cwd ?? process.cwd(), {
       engine: handoff.engine,
       binary: handoff.launch.binary,
       role: handoff.role,
       focus: handoff.focus,
-      resultPath: handoff.resultPath,
+      resultPath: ledgerPath,
       sessionHint: parsed.sessionHint ?? appServerSessionId ?? appServerThreadId,
       appServerThreadId,
       appServerSessionId,
@@ -124,6 +127,30 @@ export async function dispatchHandoffCommand(
     orchestrator = { registered: false, resultPath: handoff.resultPath }
   }
 
+  let monitor: JsonObject | null = null
+  if (transport?.transport === "app-server") {
+    try {
+      const attached = await attachMonitorAfterHandoff(handoff.launch.cwd ?? process.cwd(), {
+        env: options.env,
+        appServerClient: options.appServerClient,
+        follow: true,
+      })
+      monitor = {
+        attached: true,
+        boardPath: attached.boardPath,
+        follow: attached.follow,
+        summary: attached.board.summary,
+        appServer: attached.board.appServer,
+        threads: attached.board.threads.filter((t) => t.status === "running" || t.status === "planned"),
+      }
+    } catch (error) {
+      monitor = {
+        attached: false,
+        error: error instanceof Error ? error.message.slice(0, 300) : "monitor attach failed",
+      }
+    }
+  }
+
   return {
     ok: readiness.ok,
     status: readiness.ok ? transport?.transport === "app-server" ? "handed_off" : "planned" : "not_ready",
@@ -136,6 +163,7 @@ export async function dispatchHandoffCommand(
     visionConfirmation,
     transport,
     orchestrator,
+    monitor,
     lfgIsPlugin: false,
   }
 }
@@ -164,9 +192,19 @@ async function dispatchAppServerHandoff(
 ): Promise<AppServerHandoff | null> {
   if (handoff.engine !== "gpt" || handoff.role !== "coding") return null
   const client = options.appServerClient ?? createCodexAppServerClient({ env: options.env })
+  const cwd = handoff.launch.cwd ?? process.cwd()
+  const payloadFile = handoff.launch.stdinSource?.kind === "file" ? handoff.launch.stdinSource.path : null
+  const turn = await buildAppServerTurnPrompt({
+    workerPrompt: handoff.workerPrompt,
+    focus: handoff.focus,
+    payloadFile,
+    cwd,
+  })
   return client.handoff({
-    cwd: handoff.launch.cwd ?? process.cwd(),
-    prompt: handoff.workerPrompt,
+    cwd,
+    prompt: turn.prompt,
+    threadName: `lfg/handoff: ${handoff.focus.replace(/\s+/g, " ").trim().slice(0, 72)}`,
+    goal: { objective: turn.goalObjective, status: "active" },
     ...(handoff.launch.argv.includes("--model") ? { model: modelFromLaunch(handoff.launch.argv) } : {}),
     ...(threadId ? { threadId } : {}),
   })

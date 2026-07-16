@@ -334,7 +334,7 @@ const EXCLUSIVE_WORKER_LANE_RULE =
 
 const EXTERNAL_ENGINE_LANE_SECTION = `### External Codex implementation lane (GPT only)
 
-**Grok = Sisyphus watcher**; **Codex app-server = sole product implementer**. Skill \`ulw-external-engine\` + \`docs/grok-external-engine-orchestration.md\`.
+**Grok = Sisyphus watcher**; **Codex app-server = sole product implementer**. Default product work is \`lfg --json handoff plan --engine gpt\` to Codex App.
 
 ${EXCLUSIVE_WORKER_LANE_RULE}
 
@@ -347,7 +347,7 @@ In-host \`spawn_subagent\` remains only for Grok host monitoring/read-only roles
 
 `
 
-const EXTERNAL_ENGINE_ULW_LOOP_ROW = `| Product implementation (LOW / MEDIUM / HIGH) | **GPT-only external handoff:** use \`ulw-external-engine\` and run \`lfg --json handoff plan --role coding --engine gpt --focus <focus>\`. Create or attach the project Codex app-server thread. Only for \`codex-exec-fallback\`, execute \`handoff.launch.argv[0]\` with \`handoff.launch.argv.slice(1)\`; \`handoff.launch.binary\` is identity/readiness metadata and \`handoff.launch.stdinSource\` supplies optional stdin. Never \`spawn_subagent\` hephaestus/coding/lazycodex-worker for the product body. See \`docs/grok-external-engine-orchestration.md\`. |`
+const EXTERNAL_ENGINE_ULW_LOOP_ROW = `| Product implementation (LOW / MEDIUM / HIGH) | **GPT-only external handoff:** run \`lfg --json handoff plan --role coding --engine gpt --focus <focus>\`. Create or attach the project Codex app-server thread. Only for \`codex-exec-fallback\`, execute \`handoff.launch.argv[0]\` with \`handoff.launch.argv.slice(1)\`; \`handoff.launch.binary\` is identity/readiness metadata and \`handoff.launch.stdinSource\` supplies optional stdin. Never \`spawn_subagent\` hephaestus/coding/lazycodex-worker for the product body. See \`docs/grok-external-engine-orchestration.md\`. |`
 const DIFFICULTY_TIER_ULW_LOOP_ROW = EXTERNAL_ENGINE_ULW_LOOP_ROW
 const DIFFICULTY_TIER_ULW_LOOP_NOTE =
   "Difficulty still sizes the Codex work package, but it never selects an in-host Grok implementation worker."
@@ -759,7 +759,7 @@ export function adaptUlwLoopSkill(content) {
 }
 
 function adaptStartWorkSkill(content) {
-  const boundary = "## Grok execution boundary\n\nPlanning is a separate Codex lane: before approval, run `lfg --json plan ulw-plan --focus <objective>` so Codex loads skill `ulw-plan`, writes the decision-complete `.omo/` plan, and returns `.omo/external-engine/plan-ulw-plan-codex-skill-result.md` for Grok to present.\n\nAfter approval, never execute implementation inside Grok. Build the implementation plan with `lfg --json plan start-work --plan <path> --focus <objective>` or use `lfg --json handoff plan --role coding --engine gpt --focus <objective>`. Prefer the Codex app-server transport. Use codex-exec fallback only when the daemon is unavailable; only then execute `handoff.launch.argv`. External Codex must invoke Codex `$start-work` and write `.omo/external-engine/start-work-codex-skill-result.md`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract."
+  const boundary = "## Grok execution boundary\n\nPlanning is a separate Codex lane: before approval, run `lfg --json plan ulw-plan --focus <objective>` so Codex loads skill `ulw-plan`, writes the decision-complete `.omo/` plan, and returns `the Codex App thread (optional receipt only if --result-path is set)` for Grok to present.\n\nAfter approval, never execute implementation inside Grok. Build the implementation plan with `lfg --json plan start-work --plan <path> --focus <objective>` or use `lfg --json handoff plan --role coding --engine gpt --focus <objective>`. Prefer the Codex app-server transport. Use codex-exec fallback only when the daemon is unavailable; only then execute `handoff.launch.argv`. External Codex must invoke Codex `$start-work` and write `the Codex App thread (optional receipt only if --result-path is set)`. Grok only selects, monitors, and reads that receipt before changing Boulder state or reporting completion. The alias `lfg --json start-work launch` has the same planning contract."
   const adapted = content
     .replace(
       "# start-work",
@@ -903,7 +903,7 @@ export function adaptUlwLoopReference(content) {
     )
   }
   if (
-    next.includes("ulw-external-engine") &&
+    next.includes("lfg --json handoff plan") &&
     (!next.includes("handoff.launch.argv.slice(1)") || next.includes(DUPLICATED_LAUNCH_BINARY_WORDING))
   ) {
     next = next.replace(/^\| Product implementation \(LOW \/ MEDIUM \/ HIGH\) \|.*$/m, EXTERNAL_ENGINE_ULW_LOOP_ROW)
@@ -922,7 +922,7 @@ function adaptUlwPlanReference(content) {
 function adaptUlwPlanSkill(content) {
   const boundary = `## Grok external Codex plan boundary
 
-On GrokBuild, this skill is a routing contract, not an in-host Prometheus runtime. Grok MUST run \`lfg --json plan ulw-plan --focus "<objective>"\`, launch the returned Codex app-server transport (or the honest \`codex-exec\` fallback), and require that Codex load and follow skill \`ulw-plan\` from \`skills/ulw-plan/SKILL.md\`. Codex writes the decision-complete plan under \`.omo/\` and the monitoring receipt at \`.omo/external-engine/plan-ulw-plan-codex-skill-result.md\`; Grok only monitors, presents the plan, and waits for user approval.
+On GrokBuild, this skill is a routing contract, not an in-host Prometheus runtime. Grok MUST run \`lfg --json plan ulw-plan --focus "<objective>"\`, launch the returned Codex app-server transport (or the honest \`codex-exec\` fallback), and require that Codex load and follow skill \`ulw-plan\` from \`skills/ulw-plan/SKILL.md\`. Codex writes the decision-complete plan under \`.omo/\` and the monitoring receipt at \`the Codex App thread (optional receipt only if --result-path is set)\`; Grok only monitors, presents the plan, and waits for user approval.
 
 The existing gjc intent gateway may run a deep interview only when it reports high ambiguity or interview needed. gjc never owns the plan body. After approval, product implementation uses \`lfg --json handoff plan --role coding --engine gpt\` through the Codex app-server lane; do not reuse the plan skill as the implementation worker.
 `

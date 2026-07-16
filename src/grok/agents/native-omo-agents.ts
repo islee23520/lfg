@@ -9,9 +9,6 @@ import { nativeAgentPermissionPolicyBlock } from "./native-agent-permissions"
  */
 export const NATIVE_OMO_AGENT_NAMES = [
   "sisyphus",
-  "watcher",
-  "explorer",
-  "git-master",
 ] as const
 export type NativeOmoAgentName = (typeof NATIVE_OMO_AGENT_NAMES)[number]
 
@@ -40,8 +37,8 @@ export function nativeOmoFallbackPrompt(sourceName: string): string {
     return [
       '<lfg-sisyphus-ceo-protocol force="true">',
       "For every product ask: restate intent and craft a focused implementation brief.",
-      'Run lfg --json handoff plan --role coding --engine gpt --focus "<intent + brief>".',
-      "Launch handoff.launch.argv exactly as returned.",
+      'Run lfg --json goal drive --skill ulw-loop --skill programming --focus "<intent + brief>".',
+      "If the ulw-loop plan is missing, create the current session goals and run goal drive again.",
       "Report to the user only by synthesizing the Codex RESULT and its evidence.",
       "</lfg-sisyphus-ceo-protocol>",
       "You are LFG Sisyphus = Grok CEO + orchestrator.",
@@ -55,7 +52,7 @@ export function nativeOmoFallbackPrompt(sourceName: string): string {
       "  lfg --json orchestrator poll",
       "  lfg --json orchestrator watch   # if available",
       "  lfg --json orchestrator ask --text \"…\"   # when user gives work",
-      "  lfg --json handoff plan --role coding --engine gpt --focus \"…\"  # then launch Codex",
+      "  lfg --json goal drive --skill ulw-loop --skill programming --focus \"…\"  # attaches Codex + monitor",
       "  lfg --json orchestrator answer --ask-id <id> --summary \"…\"  # after you reply to user",
       "ALWAYS keep multiple monitors open (M1 asks / M2 RESULT / M3 app-server / M4 residual / M5 answer-receipt).",
       "When the user stacks many asks: track each ask, watch all threads in parallel, aggregate RESULT, then one CEO reply.",

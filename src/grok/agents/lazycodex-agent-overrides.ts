@@ -23,32 +23,13 @@ export const OMO_AGENT_OVERRIDES_FILENAME = "omo-agent-overrides.json"
 /** OMO / ultrawork agents users can tune per agent (LFP-style). */
 export const CONFIGURABLE_LAZYCODEX_AGENT_NAMES = [
   "sisyphus",
-  "watcher",
-  "explorer",
-  "git-master",
 ] as const
-
-/** Low-token default for the git-only specialist. */
-export const GIT_MASTER_DEFAULT_OVERRIDE: LazycodexAgentModelOverride = {
-  model: "grok-3-mini-fast",
-  reasoningLevel: "low",
-  serviceTier: "fast",
-  modelFallback: "grok-3-mini",
-  modelFallbackReasoningLevel: "low",
-  roleRationale: "Git-only specialist — prefer low-token mini models.",
-}
 
 export function slimNativeAgentOverrides(overrides: LazycodexAgentOverrideMap): LazycodexAgentOverrideMap {
   const sisyphus = overrides.sisyphus ?? overrides.default
-  const watcher = overrides.watcher ?? sisyphus
-  const explorer = overrides.explorer
-  const gitMaster = overrides["git-master"] ?? GIT_MASTER_DEFAULT_OVERRIDE
   return Object.fromEntries(
     Object.entries({
       sisyphus,
-      watcher,
-      explorer,
-      "git-master": gitMaster,
     }).filter((entry): entry is [string, LazycodexAgentModelOverride] => entry[1] !== undefined),
   )
 }

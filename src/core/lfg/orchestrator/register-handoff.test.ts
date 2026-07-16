@@ -18,7 +18,7 @@ describe("registerHandoffInOrchestrator", () => {
       binary: "codex",
       role: "coding",
       focus: "Implement durable monitoring",
-      resultPath: ".omo/external-engine/monitor-result.md",
+      resultPath: ".omo/orchestrator/monitor-result.md",
       status: "planned",
       askId: recorded.ask.id,
     })
@@ -26,7 +26,7 @@ describe("registerHandoffInOrchestrator", () => {
     // Then
     expect(result.thread).toMatchObject({
       role: "coding",
-      resultPath: ".omo/external-engine/monitor-result.md",
+      resultPath: ".omo/orchestrator/monitor-result.md",
       askIds: [recorded.ask.id],
     })
     expect(result.inbox.asks[0]).toMatchObject({
@@ -37,6 +37,6 @@ describe("registerHandoffInOrchestrator", () => {
     const persisted = JSON.parse(await readFile(result.path, "utf8")) as {
       readonly threads: readonly { readonly resultPath: string }[]
     }
-    expect(persisted.threads[0]?.resultPath).toBe(".omo/external-engine/monitor-result.md")
+    expect(persisted.threads[0]?.resultPath).toBe(".omo/orchestrator/monitor-result.md")
   })
 })

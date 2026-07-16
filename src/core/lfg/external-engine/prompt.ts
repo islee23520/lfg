@@ -1,8 +1,9 @@
 import type { Engine } from "./engines"
 import type { RoleSpec, SafetyMode } from "./omo-roles"
+import { buildSkillRoutePromptSection, routeOmoSkills, type SkillRoute } from "./skill-route"
 
 export const HANDOFF_HONESTY =
-  "OMO-like full handoff: Grok is Sisyphus (orchestrator only). Codex app-server is the sole GPT worker; codex exec is fallback only when the daemon is unavailable. Grok hooks and custom subagents do NOT run inside Codex. Embed AGENTS/skills as text."
+  "Work as the sole Codex implementer in this project. Prefer the app-server thread; codex exec is fallback only when the daemon is unavailable. Grok may orchestrate but does not implement."
 
 type PromptInput = {
   readonly spec: RoleSpec
@@ -16,9 +17,10 @@ type PromptInput = {
   readonly imagePaths: readonly string[]
   readonly acceptanceCriteria: readonly string[]
   readonly verifyCommands: readonly string[]
-  readonly resultPath: string
+  readonly resultPath?: string | null
   readonly agentsMdExcerpt?: string
   readonly skillExcerpts?: Readonly<Record<string, string>>
+  readonly skillRoute?: SkillRoute
 }
 
 export function buildHandoffPrompt(input: PromptInput): string {
@@ -41,12 +43,12 @@ export function buildHandoffPrompt(input: PromptInput): string {
   const skills = skillParts.length > 0 ? `\n## Embedded skill text\n\n${skillParts.join("\n")}` : ""
 
   return [
-    `# OMO-LIKE FULL HANDOFF — ${input.engine} as ${input.spec.role}`,
+    `# Codex work — ${input.spec.role}`,
     "",
     input.spec.persona,
     "",
-    "You are the **sole executor**. Do not wait for Grok subagents or host hooks.",
-    "Grok (Sisyphus) only orchestrates; you finish this job and return RESULT.",
+    "You are the **implementer**. Work in this repository the way you would in a normal Codex session.",
+    "Edit real project files, run tests, and leave the tree clean. No special folder ceremony is required unless a receipt path is named below.",
     "",
     "## TASK",
     input.focus,
@@ -80,23 +82,42 @@ export function buildHandoffPrompt(input: PromptInput): string {
     "",
     agents,
     skills,
+    buildSkillRoutePromptSection(input.skillRoute ?? routeOmoSkills(input.focus)),
     "## VERIFY",
     verify,
     "",
-    "## RETURN CONTRACT",
-    `Write or print RESULT at \`${input.resultPath}\`:`,
-    "- STATUS: pass, fail, or blocked",
-    "- SUMMARY: one paragraph",
-    "- EVIDENCE: commands/images/observables",
-    input.canWrite ? "- CHANGED_FILES: list" : "- CHANGED_FILES: none",
-    "- RISKS: residual or none",
-    "",
+    ...returnContractSection(input.resultPath, input.canWrite),
     "## HONESTY",
     HANDOFF_HONESTY,
     "",
     "Begin now.",
   ].join("\n")
 }
+
+function returnContractSection(resultPath: string | null | undefined, canWrite: boolean): string[] {
+  const path = typeof resultPath === "string" ? resultPath.trim() : ""
+  if (path.length === 0) {
+    return [
+      "## DONE WHEN",
+      "- The task is implemented in the real project tree (not a sandbox-only dump).",
+      "- Tests/verification you ran are summarized in the thread reply.",
+      "- No special receipt folder is required — work as in a normal Codex session.",
+      canWrite ? "- Prefer minimal, reviewable diffs." : "- Stay read-only.",
+      "",
+    ]
+  }
+  return [
+    "## OPTIONAL RECEIPT (orchestrator ledger)",
+    `If convenient, also leave a short receipt at \`${path}\`:`,
+    "- STATUS: pass, fail, or blocked",
+    "- SUMMARY: one paragraph",
+    "- EVIDENCE: commands/observables",
+    canWrite ? "- CHANGED_FILES: list" : "- CHANGED_FILES: none",
+    "- Primary work remains real project files; the receipt is secondary.",
+    "",
+  ]
+}
+
 
 function bullets(values: readonly string[], fallback: string): string {
   return values.length > 0 ? values.map((value) => `- ${value}`).join("\n") : `- ${fallback}`

@@ -105,39 +105,6 @@ describe("plugin cache install acceptance (#27)", () => {
     expect(inventory.components.find((component) => component.id === "git-bash")?.evidence).toContain("Windows-unverified")
   })
 
-  test("installs byte-identical native external-engine skill files from the built payload", async () => {
-    // Given: the package skill source, generated payload, and an isolated Grok home.
-    const home = await mkdtemp(join(tmpdir(), "lfg-accept-native-skill-"))
-    const packageSkillRoot = join(REPO_ROOT, "skills", "ulw-external-engine")
-    const builtSkillRoot = join(REPO_ROOT, "dist", "grok-install", "skills", "ulw-external-engine")
-
-    try {
-      const expectedHashes = await Promise.all(
-        NATIVE_SKILL_FILES.map(async (relativePath) => hashFile(join(packageSkillRoot, relativePath))),
-      )
-      const builtHashes = await Promise.all(
-        NATIVE_SKILL_FILES.map(async (relativePath) => hashFile(join(builtSkillRoot, relativePath))),
-      )
-
-      // When: the real plugin-cache installer promotes the built payload into the temp home.
-      const install = await installGrokPluginFromSource({
-        home,
-        sourceRoot: join(REPO_ROOT, "dist", "grok-install"),
-        version: "8.0.0-test",
-      })
-      const installedHashes = await Promise.all(
-        NATIVE_SKILL_FILES.map(async (relativePath) =>
-          hashFile(join(install.pluginRoot, "skills", "ulw-external-engine", relativePath)),
-        ),
-      )
-
-      // Then: package, built, and installed files are all present and byte-identical.
-      expect(builtHashes).toEqual(expectedHashes)
-      expect(installedHashes).toEqual(expectedHashes)
-    } finally {
-      await rm(home, { recursive: true, force: true })
-    }
-  })
 
   test("second runGrokInstall is idempotent for stamp and verify", async () => {
     const home = await mkdtemp(join(tmpdir(), "lfg-accept-idem-"))
@@ -172,10 +139,7 @@ describe("plugin cache install acceptance (#27)", () => {
     await runGrokInstall(discovery, env)
     const configPath = join(home, ".grok", "config.toml")
     const before = await readFile(configPath, "utf8")
-    // Non-lfg-owned subagents.models key is preserved across rewrites.
-    const withUserKey = before.includes("[subagents.models]")
-      ? before.replace("[subagents.models]\n", '[subagents.models]\nuser-owned-config-key = "keep-me"\n')
-      : `${before}\n[subagents.models]\nuser-owned-config-key = "keep-me"\n`
+    const withUserKey = `${before}\n[ui]\nuser-owned-config-key = "keep-me"\n`
     await writeFile(configPath, withUserKey, "utf8")
 
     await runGrokInstall(discovery, env)

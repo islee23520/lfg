@@ -3,7 +3,7 @@ import { registerHandoffInOrchestrator } from "../../core/lfg/orchestrator/regis
 import { findExecutableInPath } from "../../shared/executable-path"
 import type { JsonObject } from "../../shared/json"
 
-const RESULT_PATH = ".omo/external-engine/plan-ulw-plan-codex-skill-result.md"
+const RESULT_PATH: string | null = null
 const SKILL_PATH = "skills/ulw-plan/SKILL.md"
 
 type UlwPlanCommandOptions = {
@@ -29,8 +29,8 @@ export async function dispatchUlwPlanCommand(
     role: "plan_assist",
     engine: "gpt",
     focus: `Load and follow $ulw-plan from ${SKILL_PATH}. Planning objective: ${parsed.focus}`,
-    deliverable: `Produce a decision-complete plan under .omo/ and write the monitoring RESULT receipt to ${RESULT_PATH}.`,
-    resultPath: RESULT_PATH,
+    deliverable: `Produce a decision-complete plan under .omo/ (normal Codex work; no special receipt folder).`,
+    ...(RESULT_PATH ? { resultPath: RESULT_PATH } : {}),
     ...(parsed.cwd === null ? {} : { cwd: parsed.cwd }),
   })
   if ("error" in handoff) return invalidUlwPlan(handoff.error)
@@ -38,12 +38,13 @@ export async function dispatchUlwPlanCommand(
   const readiness = await checkReadiness(handoff.launch.binary, options)
   let orchestrator: JsonObject
   try {
+    const ledgerPath = RESULT_PATH ?? `codex-app:ulw-plan:${Date.now()}`
     const registered = await registerHandoffInOrchestrator(handoff.launch.cwd ?? process.cwd(), {
       engine: handoff.engine,
       binary: handoff.launch.binary,
       role: "plan_assist",
       focus: handoff.focus,
-      resultPath: RESULT_PATH,
+      resultPath: ledgerPath,
       status: "planned",
     })
     orchestrator = {
@@ -54,7 +55,7 @@ export async function dispatchUlwPlanCommand(
       resultPath: registered.thread.resultPath,
     }
   } catch {
-    orchestrator = { registered: false, resultPath: RESULT_PATH }
+    orchestrator = { registered: false, ...(RESULT_PATH ? { resultPath: RESULT_PATH } : {}) }
   }
   return {
     ok: readiness.ok,
@@ -65,7 +66,7 @@ export async function dispatchUlwPlanCommand(
     executed: false,
     skill: "$ulw-plan",
     skillPath: SKILL_PATH,
-    resultPath: RESULT_PATH,
+    ...(RESULT_PATH ? { resultPath: RESULT_PATH } : {}),
     handoff,
     readiness,
     transport: {

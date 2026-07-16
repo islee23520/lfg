@@ -34,7 +34,6 @@ const reports = []
 /** Skills only in package tarball skills/, not mirrored into grok roots. */
 const packageOnlySkills = new Set(["lfg"])
 const nativeSkillFiles = new Map([
-  ["ulw-external-engine", ["SKILL.md", join("agents", "grok.yaml")]],
 ])
 
 /** Skills with executable probes beyond syntax. */

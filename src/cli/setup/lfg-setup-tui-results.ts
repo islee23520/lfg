@@ -4,21 +4,20 @@ import type { AgentTuiResult } from "./lfg-setup-tui-agents"
 import { formatCodingToolAdapterSummary } from "./lfg-setup-tui-adapter"
 import type { CodingToolAdapterId } from "../../shared/coding-tool-adapter"
 import type { BackendRoutingConfig } from "../../core/lfg/backend-routing"
-import { BACKEND_ROUTE_AGENT_NAMES } from "../../core/lfg/backend-routing"
 
 export function formatIntroNote(configOnly: boolean): string {
   return configOnly
     ? [
-        "Edit LFG model routing from discovered proxy models.",
-        "Automatic routing uses the discovered model catalog.",
-        "Saving re-runs the idempotent Grok adapter sync so settings land in ~/.grok.",
+        "Refresh thin LFG install settings under ~/.grok (plugin enablement + hooks).",
+        "Does not reintroduce multi-agent or fat model tables into config.toml.",
+        "Saving re-runs the idempotent Grok adapter sync.",
       ].join("\n")
     : [
-        "Install the lfg Grok adapter (watcher) that hands work directly to Codex.",
+        "Install the lfg Grok adapter: Sisyphus CEO on Grok, implementer on Codex App.",
         "Requires Codex CLI — setup checks it first and aborts without modifying Grok when it is absent.",
-        "Sisyphus creates a handoff plan and launches the returned Codex argv directly.",
+        "Sisyphus hands work to Codex App threads (app-server); Grok does not self-implement.",
         "Target: ~/.grok/plugins/lfg as a real directory.",
-        "Apply Grok adapter, hooks, agents, and model overrides.",
+        "Writes: hooks, Sisyphus agent surface, thin plugin enablement — not fat subagent maps.",
       ].join("\n")
 }
 
@@ -29,17 +28,19 @@ export function formatInstallSummary(input: {
   readonly modelConfigLine: string
   readonly backendRouting: BackendRoutingConfig
 }): string {
+  const implementer = input.backendRouting.global === "codex" ? "Codex App (app-server threads)" : "external CLI backend"
   return [
     input.configOnly ? "Config path: ~/.grok" : "Install path: grok",
     input.configOnly ? "Updater: idempotent lfg Grok config sync" : "Installer: @islee23520/lfg internal grok-install",
     formatCodingToolAdapterSummary(input.adapterChoice),
-    `CLI backend routing: default ${input.backendRouting.global}; ${BACKEND_ROUTE_AGENT_NAMES.map((name) => `${name}=${input.backendRouting.agents[name]}`).join(", ")}`,
+    `CEO: Sisyphus on Grok; implementer: ${implementer}`,
     input.configOnly ? "Global CLI: unchanged" : `Global CLI: ${input.installGlobalCli ? "install/update with npm -g" : "skip"}`,
     input.modelConfigLine,
-    "Writes: hooks, agents, overrides, lfg config, Grok plugin enablement",
+    "Writes: hooks, Sisyphus-only agent, thin plugins enablement, lfg-backend-routing.json",
+    "Does not write fat subagents.* / multi-agent tables / model.grok-build into config.toml",
     "",
-    "Include ultrawork (or ulw) in your prompt to unlock deep exploration, parallel agents,",
-    "background work, and relentless execution until completion.",
+    "Include ultrawork (or ulw) in prompts for deep Codex execution until completion.",
+    "Product work uses lfg handoff / plan goal → Codex App threads, not Grok subagents.",
   ].join("\n")
 }
 
@@ -50,19 +51,18 @@ export function formatPresetResults(preset: SetupPreset, discovery: ModelDiscove
     `  fast: ${discovery.mapping.fast}`,
     `  reasoning: ${discovery.mapping.reasoning}`,
     `  coding: ${discovery.mapping.coding}`,
-    "Bundled routing profiles remain enabled. Advanced details: ~/.grok/omo-agent-overrides.json",
+    "Sisyphus-only profile will be installed; product work runs in Codex App.",
   ].join("\n")
 }
 
-export function formatRecommendedResults(discovery: ModelDiscovery, bundled: LazycodexAgentOverrideMap): string {
+export function formatRecommendedResults(discovery: ModelDiscovery, _bundled: LazycodexAgentOverrideMap): string {
   return [
     "LLM recommendation: auto",
     `  default: ${discovery.mapping.default}`,
     `  fast: ${discovery.mapping.fast}`,
     `  reasoning: ${discovery.mapping.reasoning}`,
     `  coding: ${discovery.mapping.coding}`,
-    `${Object.keys(bundled).length} bundled routing profiles will be installed.`,
-    "Advanced details: ~/.grok/omo-agent-overrides.json",
+    "Sisyphus-only profile will be installed; product work runs in Codex App.",
   ].join("\n")
 }
 
@@ -83,7 +83,7 @@ export function formatCustomResults(
     `  reasoning: ${discovery.mapping.reasoning}`,
     `  coding: ${discovery.mapping.coding}`,
     "",
-    "Agent routing (customized):",
+    "Legacy role labels (discovery mapping only — not Grok subagents):",
     `  explorer: ${agents.explorer.model} / ${agents.explorer.reasoningLevel}`,
     `  reasoning: ${agents.reasoning.model} / ${agents.reasoning.reasoningLevel}`,
     `  coding: ${agents.coding.model} / ${agents.coding.reasoningLevel}`,
