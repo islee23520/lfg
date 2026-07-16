@@ -105,7 +105,7 @@ A 2026-07 deep gap analysis of `oh-my-openagent` (omo) and `oh-my-pi` (omp) agai
 
 | # | Core | lfg shape | Status | Tracking |
 |---|------|-----------|--------|----------|
-| 1 | `hashline-core` (hash-anchored edits) | `src/core/omo/hashline-core/` + Grok edit tool/hook | Wave 1 shipped (pure-JS xxhash32, byte-identical to omo anchors) | #107 |
+| 1 | `hashline-core` (hash-anchored edits) | `src/core/omo/hashline-core/` + Grok edit tool/hook | Waves 1+2 shipped (host-neutral core complete: hash + validation + edit-apply; Wave 3 Grok glue remains) | #107 |
 | 2 | `mnemopi` (SQLite memory) | MCP runtime + recall/retain hooks | not started | #108 |
 | 3 | `mcp-client-core` + `mcp-stdio-core` | reusable MCP client core | not started | #109 |
 | 4 | `agents-md-core` (AGENTS.md inject) | merge with rules-engine / SessionStart hook | not started | #110 |

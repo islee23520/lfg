@@ -69,7 +69,7 @@ describe("docs/grok-adapter-core-port-strategy.md", () => {
     expect(text).toContain("TypeScript")
     // The prioritized gap-core queue (hashline shipped Wave 1)
     expect(text).toContain("hashline-core")
-    expect(text).toContain("Wave 1 shipped")
+    expect(text).toContain("Waves 1+2 shipped")
     expect(text).toContain("mnemopi")
     expect(text).toContain("mcp-client-core")
     expect(text).toContain("agents-md-core")
