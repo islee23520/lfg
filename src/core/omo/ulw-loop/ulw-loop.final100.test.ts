@@ -367,6 +367,23 @@ describe("ulw-loop final 100% line hits", () => {
     ).rejects.toThrow(/mismatch/i)
   })
 
+  test("review-blockers ulwLoopError path goal not final story", async () => {
+    const r = await root()
+    await createUlwLoopPlan(r, { brief: "- first story\n- second story\n", codexGoalMode: "aggregate" })
+    const started = await startNextUlwLoop(r)
+    if (!("goal" in started)) throw new Error("expected goal")
+    expect(isFinalRunCompletionCandidate(started.plan, started.goal)).toBe(false)
+    await expect(
+      recordFinalReviewBlockers(r, {
+        goalId: started.goal.id,
+        title: "t",
+        objective: "o",
+        evidence: "e",
+        codexGoalJson: "{}",
+      }),
+    ).rejects.toThrow(/not final/i)
+  })
+
   test("evidence ledgerKind default via invalid status cast", async () => {
     // default branch only via force - recordEvidence types prevent invalid status
     // criteriaSummary default is also hard - force invalid criterion status on plan
