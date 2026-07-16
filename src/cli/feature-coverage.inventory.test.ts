@@ -25,7 +25,8 @@ const FEATURES: ReadonlyArray<{ id: string; mustMatch: RegExp }> = [
   { id: "omo-parity", mustMatch: /assert-omo-parity|omo-parity|omo-skill/i },
   { id: "publish-pack", mustMatch: /assert-pack|npm-pack|publish/i },
   { id: "rules-engine", mustMatch: /rules/i },
-  { id: "sisyphus-hooks", mustMatch: /sisyphus/i },
+  // v0.1.30 renamed the sisyphus hooks to codex-assign/orchestrator assets; the behavior is now covered by native-codex-assign-hook.test.ts.
+  { id: "sisyphus-hooks", mustMatch: /sisyphus|codex-assign/i },
   { id: "teammode", mustMatch: /teammode|team-ledger/i },
   { id: "model-config", mustMatch: /lfg-grok-config|model|refresh/i },
 ]
