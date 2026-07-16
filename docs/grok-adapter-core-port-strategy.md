@@ -93,6 +93,36 @@ Upstream codegraph layers: `packages/utils/src/codegraph/{env,resolve,provision,
 
 Bundled markdown prompts live in `packages/prompts-core/prompts/` (atlas, prometheus, ultrawork, mode). But Sisyphus / Hephaestus / Sisyphus-junior prompt content is built by TS builders under `omo-opencode/src/agents/*` — vendoring only `prompts-core/prompts` is insufficient for those agents; their prompt builders (or generated output) must also be ported.
 
+## OMO gap-core TS port program (post gap-analysis, 2026-07)
+
+A 2026-07 deep gap analysis of `oh-my-openagent` (omo) and `oh-my-pi` (omp) against lfg (`.omo/ulw-research/.../SYNTHESIS.md`) refined the port program into a prioritized queue and locked one architecture decision.
+
+### Language decision: TypeScript, not Rust
+
+**Grok's Rust core stays untouched** — lfg does not own the runtime loop. lfg's OMO-derived layer is **TypeScript** (matching the existing `src/core/omo/*` cores and the `"TypeScript only"` toolchain contract). omp's Rust-core perf wins come from owning the in-process loop, which lfg structurally cannot; a Rust layer in lfg would add a cargo build matrix + cross-compile + binary provisioning for ~no payoff. If a native binary is ever genuinely needed, the established pattern is the codegraph sha256-verified provisioning path, not in-repo cargo.
+
+### Gap-core port queue (priority order)
+
+| # | Core | lfg shape | Status | Tracking |
+|---|------|-----------|--------|----------|
+| 1 | `hashline-core` (hash-anchored edits) | `src/core/omo/hashline-core/` + Grok edit tool/hook | Wave 1 shipped (pure-JS xxhash32, byte-identical to omo anchors) | #107 |
+| 2 | `mnemopi` (SQLite memory) | MCP runtime + recall/retain hooks | not started | #108 |
+| 3 | `mcp-client-core` + `mcp-stdio-core` | reusable MCP client core | not started | #109 |
+| 4 | `agents-md-core` (AGENTS.md inject) | merge with rules-engine / SessionStart hook | not started | #110 |
+
+Epic tracker: #106.
+
+### Runtime-bound wall (NOT portable — honest non-ports)
+
+These omp capabilities cannot port because Grok owns the loop (lfg's only surfaces: hooks, config, skills, MCP runtimes):
+- **DAP debugger** (lldb/dlv/debugpy) — omp owns a process-resident session manager.
+- **Rust natives** (pi-natives/pi-ast/pi-shell) — N-API + Tokio/Rayon, in-process.
+- **snapcompact** (vision compaction) — needs to atomically rewrite host context (lfg compaction gap).
+- **time-traveling stream rules** — needs Grok's stream-transform surface (lfg lacks it).
+- **swarm / collab-web / code-exec bridge / typed-yield subagents** — runtime-bound.
+
+These remain documented host-surface gaps, not failures to copy.
+
 ## What lfg must not do
 
 - Treat `omo-codex` as the behavioral source of truth; it is packaging/install reference only.

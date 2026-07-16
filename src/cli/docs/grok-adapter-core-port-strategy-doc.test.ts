@@ -58,4 +58,25 @@ describe("docs/grok-adapter-core-port-strategy.md", () => {
     expect(text).toContain("## What lfg must not do")
     expect(text).toContain("manifest-only MCP stubs")
   })
+
+  test("records the 2026-07 OMO gap-core TS port program and the language decision", async () => {
+    const text = await readFile(join(ROOT, "docs/grok-adapter-core-port-strategy.md"), "utf8")
+    // The post-gap-analysis port program section
+    expect(text).toContain("## OMO gap-core TS port program (post gap-analysis, 2026-07)")
+    // Language decision: Grok Rust untouched, lfg layer is TypeScript
+    expect(text).toContain("### Language decision: TypeScript, not Rust")
+    expect(text).toContain("Grok's Rust core stays untouched")
+    expect(text).toContain("TypeScript")
+    // The prioritized gap-core queue (hashline shipped Wave 1)
+    expect(text).toContain("hashline-core")
+    expect(text).toContain("Wave 1 shipped")
+    expect(text).toContain("mnemopi")
+    expect(text).toContain("mcp-client-core")
+    expect(text).toContain("agents-md-core")
+    // The runtime-bound wall (honest non-ports)
+    expect(text).toContain("### Runtime-bound wall")
+    expect(text).toContain("DAP debugger")
+    expect(text).toContain("snapcompact")
+    expect(text).toContain("runtime-bound")
+  })
 })
