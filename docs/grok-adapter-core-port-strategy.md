@@ -137,3 +137,29 @@ These remain documented host-surface gaps, not failures to copy.
 - Adapter seam, rules-engine consumption, and model/prompts-core wiring analyzed from source.
 - Install parity and component status: [`docs/grok-adapter-parity.md`](grok-adapter-parity.md).
 - Product framing and ownership: [`docs/grok-adapter-ownership.md`](grok-adapter-ownership.md).
+
+## ADR Revision 2026-07-17 — Rust-sidecar exception for lina-build fork
+
+### Scope of the revision
+
+The original "Language decision: TypeScript, not Rust" above applies to the **lfg adapter** (`lfg-dev/src/`): the TS adapter does not own the GrokBuild runtime loop and remains TypeScript. That decision is **unchanged**.
+
+This revision opens a **separate, fork-extension contract** for `lina-build/` (the user-owned fork of GrokBuild at `github.com/islee23520/lina-build`). The fork MAY accept Rust code that ports omo-senpi functionality into a GrokBuild-native plane. This is not an exemption from the lfg adapter's TypeScript contract; it is a different plane tracked under a different score (see Score C in `docs/grok-adapter-parity.md`).
+
+### pi-rust vendor policy
+
+`metaphorics/pi-rust` (greenfield Rust rewrite of the pi agent harness, drop-in replacement for `~/.pi`) may be vendored into `lina-build/third_party/pi-rust/`. Preferred form: git submodule pinned at a recorded commit, NOT a cargo workspace member. Vendoring pi-rust does NOT make it a runtime dependency of the lfg TypeScript adapter.
+
+### New crate: xai-grok-omo-senpi
+
+Scaffold crate lives at `lina-build/crates/codegen/xai-grok-omo-senpi/`. T0 = type stubs + spawn-branches port mirror only. Behavioral ports land in subsequent waves tracked under the existing `## OMO gap-core TS port program` epic (#106), extended to cover Rust-side ports.
+
+The crate's `src/spawn.rs` mirrors the TS-side `src/core/omo/ulw-loop/spawn-branches.ts` so a spawn plan produced on either side dispatches to the same `spawn_subagent` route (same category enum, same DEFAULT_SPAWN_ROUTES table, same keyword heuristics). Cross-language parity is asserted by both sides' unit tests.
+
+### What this revision does NOT change
+
+- Score A GrokBuild adapter scope stays 100/100 and still excludes senpi/app-server/codex_app.
+- Score B Full OMO host surface stays 89/100 (last audited T0–T11 snapshot).
+- Manifest-only MCP stubs are still NOT behavioral ports.
+- The "Runtime-bound wall" still names the components that cannot be ported into the lfg adapter (TS plane). Rust-sidecar ports into lina-build are a separate path that does not retroactively flip TS-side statuses.
+- `assert-omo-parity` still gates the TS adapter plane. Score C is gated separately by `cargo check` + `cargo test` on the new crate (and downstream integration tests as they land).

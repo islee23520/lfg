@@ -68,3 +68,24 @@ This section satisfies the gateway acceptance criteria: gaps classified, substit
 - **teammode**: GrokBuild `spawn_subagent` + dual catalogs (host `general-purpose`/`explore`/`plan` + lfg OMO agents); durable `.omo/teams`; `team-ledger` + `teammode-spawn-subagent.test.ts`. No `codex_app` host surface is introduced.
 - **start-work-continuation**: Sisyphus `Stop`/`SubagentStop` hooks inject continuation guidance referencing `lfg ulw-loop` for durable checkpoint/resume and explicitly deny automatic reinjection; boulder-state `getStopHookContinuationContext` present path matches that honesty contract (ledgerPath + durable CLI pointer). See `src/grok/assets/hooks/lfg-sisyphus-hooks.mjs` and T5 evidence.
 - **lazycodex-executor-verify**: `verifySubagentEvidence()` (regex) plus T3 pure `verifySubagentStopEvidence` from `subagent-stop-evidence-verifier.ts` (`.omo/evidence` for coding|hephaestus|builder, fail-closed malformed JSON) both run in `lfg-sisyphus-hooks.mjs` SubagentStop. Unit + e2e tests green; remains Deferred without dedicated host-enforced CLI.
+
+## ADR Revision 2026-07-17 — omo-senpi as Rust-sidecar plane
+
+Original framing stands: "senpi / omo-senpi is a separate control plane; lfg does not claim parity" remains true for the **lfg adapter** (TypeScript, installed under `~/.grok/plugins/lfg`).
+
+### New plane: Rust-sidecar (lina-build fork)
+
+The user-owned `lina-build/` fork extends GrokBuild itself. omo-senpi functionality MAY be ported into `lina-build/crates/codegen/xai-grok-omo-senpi/` as a process-resident Rust crate. This brings omo-senpi into a NEW plane (Score C — Rust-sidecar scope; see `docs/grok-adapter-parity.md`), distinct from:
+
+- **Plane A** — lfg adapter (TypeScript, `~/.grok/plugins/lfg`) — unchanged.
+- **Plane B** — separate `~/.senpi` control plane — still out-of-contract for Score A.
+
+### spawn_subagent mapping
+
+The TS-side spawn module (`lfg-dev/src/core/omo/ulw-loop/spawn-branches.ts`) and the Rust-side spawn module (`lina-build/crates/codegen/xai-grok-omo-senpi/src/spawn.rs`) keep their `category → subagent_type` routing tables in lockstep. Either side can produce a spawn plan that the other dispatches through GrokBuild's `spawn_subagent`. This is the first concrete bridge between Plane A and Plane C.
+
+### What this revision does NOT claim
+
+- The Rust-sidecar plane does NOT own the Codex app-server (`codex_app.create_thread` still has no GrokBuild equivalent).
+- The Rust-sidecar plane does NOT claim teammode full-team RPC parity on day one. Spawn-plan production is the T0 beachhead; team/task RPC ports are later waves.
+- Plane B (`~/.senpi`) is unchanged. The fork simply adds Plane C; it does not migrate Plane B users.

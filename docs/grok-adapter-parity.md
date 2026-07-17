@@ -181,3 +181,15 @@ Upstream baseline: `lazycodex-ai@4.16.3` split hook JSON files under `packages/o
 
 **Normative port map:** `docs/lfp-capability-port.md`
 **Ownership:** `docs/grok-adapter-ownership.md` (ADR; tested in `grok-adapter-ownership-doc.test.ts`)
+
+### Score C — Rust-sidecar scope (ADR revision 2026-07-17)
+
+Added by ADR revision `docs/grok-adapter-core-port-strategy.md` § "Rust-sidecar exception for lina-build fork". Tracks the lina-build-side Rust port of omo-senpi functionality.
+
+- **Score A** — GrokBuild adapter scope = 100/100 (unchanged; lfg TS adapter contract).
+- **Score B** — Full OMO host surface = 89/100 (unchanged; T0–T11 snapshot).
+- **Score C** — Rust-sidecar scope = **2/100 at T1** (T0 scaffold + T1 pi-vt behavioral port: `xai-grok-omo-senpi` depends on vendored `pi-vt` via path dep; 3 cargo tests prove VT screen rendering, cursor advance, SGR bold; workspace check green; no host integration yet).
+
+Score C is intentionally reported separately so its incomplete state cannot inflate Score A or Score B, and conversely Score A/B promotion cannot be claimed from Score C progress. Score C baseline grows as Rust behavioral ports land in `lina-build/crates/codegen/xai-grok-omo-senpi/` and downstream GrokBuild integration crates. The scoring formula mirrors Score B (one formula across all ported rows; no ad hoc arithmetic).
+
+Score C gating: `cargo check -p xai-grok-omo-senpi` and `cargo test -p xai-grok-omo-senpi` green. Future behavioral ports add integration tests on the lina-build side; those tests do NOT replace the lfg adapter's `assert-omo-parity` gate, which still owns Plane A.

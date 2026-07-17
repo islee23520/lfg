@@ -251,4 +251,17 @@ describe("docs/grok-adapter-parity.md (plan task 1 + T5 contract)", () => {
     expect(text).not.toMatch(/\| `lazycodex-executor-verify` \|.*\| (Implemented|Grok-adapted) \|/)
     expect(text).not.toMatch(/\| `start-work-continuation` \|.*\| (Implemented|Grok-adapted) \|/)
   })
+
+  test("ADR revision 2026-07-17 adds Score C — Rust-sidecar scope", async () => {
+    const text = await readFile(join(ROOT, "docs/grok-adapter-parity.md"), "utf8")
+    expect(text).toContain("### Score C — Rust-sidecar scope (ADR revision 2026-07-17)")
+    expect(text).toContain("**Score C** — Rust-sidecar scope = **2/100 at T1**")
+    expect(text).toContain("T1 pi-vt behavioral port")
+    expect(text).toContain("3 cargo tests prove VT screen rendering")
+    expect(text).toContain("**Score A** — GrokBuild adapter scope = 100/100")
+    expect(text).toContain("**Score B** — Full OMO host surface = 89/100")
+    expect(text).toContain("cargo check -p xai-grok-omo-senpi")
+    expect(text).toContain("cargo test -p xai-grok-omo-senpi")
+    expect(text).toContain("do NOT replace the lfg adapter's `assert-omo-parity` gate")
+  })
 })
